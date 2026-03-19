@@ -1,0 +1,42 @@
+version: "2"
+
+language: "ja"
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+      - develop
+
+  path_filters:
+    - "!**/__pycache__/**"
+    - "!**/*.pyc"
+    - "!.venv/**"
+    - "!dist/**"
+    - "!build/**"
+
+  path_instructions:
+    - path: "**/*.py"
+      instructions: |
+        - PEP 8 スタイルガイドに準拠しているか確認してください
+        - 型ヒント（Type Hints）が適切に使用されているか確認してください
+        - docstringが主要な関数・クラスに記載されているか確認してください
+        - テストのカバレッジが十分か確認してください
+        - セキュリティ上の問題（SQLインジェクション、パストラバーサル等）がないか確認してください
+
+    - path: "tests/**/*.py"
+      instructions: |
+        - テストが適切にアサーションを行っているか確認してください
+        - エッジケースがカバーされているか確認してください
+        - フィクスチャの使い方が適切か確認してください
+
+chat:
+  auto_reply: true
