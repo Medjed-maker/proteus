@@ -1,0 +1,26 @@
+{
+  "_meta": {
+    "description": "Phonological distance matrix between Attic and Doric Greek",
+    "method": "weighted edit distance based on sound classes (Dolgopolsky/ASJP)",
+    "range": "0.0 (identical) to 1.0 (maximally distant)",
+    "note": "Placeholder — compute from full phoneme inventory"
+  },
+  "sound_classes": {
+    "vowels": {
+      "a":  {"a": 0.0, "aː": 0.1, "e": 0.4, "eː": 0.5, "ɛː": 0.3, "i": 0.7, "o": 0.5, "oː": 0.6, "u": 0.8},
+      "aː": {"a": 0.1, "aː": 0.0, "e": 0.5, "eː": 0.4, "ɛː": 0.4, "i": 0.8, "o": 0.6, "oː": 0.5, "u": 0.9},
+      "ɛː": {"a": 0.3, "aː": 0.4, "e": 0.2, "eː": 0.1, "ɛː": 0.0, "i": 0.5, "o": 0.6, "oː": 0.7, "u": 0.8}
+    },
+    "stops": {
+      "p":  {"p": 0.0, "b": 0.2, "pʰ": 0.1, "t": 0.5, "d": 0.6, "tʰ": 0.5, "k": 0.6, "g": 0.7, "kʰ": 0.6},
+      "pʰ": {"p": 0.1, "b": 0.3, "pʰ": 0.0, "t": 0.5, "d": 0.6, "tʰ": 0.4, "k": 0.6, "g": 0.7, "kʰ": 0.5}
+    },
+    "dialect_pairs": {
+      "attic_doric": {
+        "ɛː_aː": 0.3,
+        "tt_ss": 0.4,
+        "oː_aː": 0.5
+      }
+    }
+  }
+}

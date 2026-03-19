@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proteus — Ancient Greek Phonological Search</title>
+  <style>
+    /* ------------------------------------------------------------------ */
+    /* Minimal base styles — placeholder until real UI is built            */
+    /* ------------------------------------------------------------------ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Palatino Linotype", Palatino, "Book Antiqua", serif;
+      background: #faf8f3;
+      color: #2c2a24;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1rem;
+    }
+
+    header { text-align: center; margin-bottom: 2.5rem; }
+    header h1 { font-size: 2.5rem; letter-spacing: 0.04em; }
+    header p  { color: #6b6557; font-size: 1rem; margin-top: 0.4rem; }
+
+    .search-box {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      max-width: 560px;
+    }
+
+    #query {
+      flex: 1;
+      font-size: 1.4rem;
+      font-family: "GFS Didot", "Palatino Linotype", serif;
+      padding: 0.5rem 0.8rem;
+      border: 1px solid #c4b99a;
+      border-radius: 4px;
+      background: #fff;
+    }
+
+    button {
+      padding: 0.5rem 1.2rem;
+      font-size: 1rem;
+      background: #5a4e38;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background: #3d3424; }
+
+    #results {
+      margin-top: 2rem;
+      width: 100%;
+      max-width: 720px;
+    }
+
+    .hit {
+      background: #fff;
+      border: 1px solid #ddd6c1;
+      border-radius: 6px;
+      padding: 1rem 1.2rem;
+      margin-bottom: 1rem;
+    }
+
+    .hit-headword  { font-size: 1.5rem; }
+    .hit-ipa       { color: #6b6557; font-size: 0.9rem; margin-top: 0.2rem; }
+    .hit-distance  { float: right; font-size: 0.85rem; color: #8c7d62; }
+    .hit-explain   { margin-top: 0.8rem; font-size: 0.9rem; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Πρωτεύς · Proteus</h1>
+    <p>Ancient Greek phonological search engine</p>
+  </header>
+
+  <div class="search-box">
+    <input id="query" type="text" placeholder="ἄνθρωπος" autocomplete="off" />
+    <button onclick="runSearch()">Search</button>
+  </div>
+
+  <div id="results"></div>
+
+  <script>
+    async function runSearch() {
+      const query = document.getElementById("query").value.trim();
+      if (!query) return;
+
+      const res = await fetch("/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, dialect: "attic", max_results: 20 }),
+      });
+
+      if (!res.ok) {
+        document.getElementById("results").innerHTML =
+          `<p style="color:red">Error: ${res.statusText}</p>`;
+        return;
+      }
+
+      const data = await res.json();
+      renderResults(data);
+    }
+
+    function renderResults(data) {
+      const container = document.getElementById("results");
+      if (!data.hits.length) {
+        container.innerHTML = "<p>No results found.</p>";
+        return;
+      }
+
+      container.innerHTML = data.hits.map(hit => `
+        <div class="hit">
+          <span class="hit-distance">Δ ${hit.distance.toFixed(3)}</span>
+          <div class="hit-headword">${hit.headword}</div>
+          <div class="hit-ipa">/${hit.ipa}/</div>
+          <div class="hit-explain">${hit.explanation}</div>
+        </div>
+      `).join("");
+    }
+
+    // Allow Enter key to trigger search
+    document.getElementById("query").addEventListener("keydown", e => {
+      if (e.key === "Enter") runSearch();
+    });
+  </script>
+</body>
+</html>

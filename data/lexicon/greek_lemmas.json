@@ -1,0 +1,61 @@
+{
+  "_meta": {
+    "source": "LSJ (Liddell-Scott-Jones, A Greek-English Lexicon, 9th ed.)",
+    "encoding": "Unicode NFC",
+    "ipa_system": "scholarly Ancient Greek IPA",
+    "dialect": "Attic (default)",
+    "note": "Placeholder — populate with full LSJ extraction"
+  },
+  "lemmas": [
+    {
+      "id": "LSJ-00001",
+      "headword": "ἄνθρωπος",
+      "transliteration": "anthrōpos",
+      "ipa": "ántʰrɔːpos",
+      "pos": "noun",
+      "gender": "masculine",
+      "gloss": "human being, person",
+      "dialect": "attic"
+    },
+    {
+      "id": "LSJ-00002",
+      "headword": "λόγος",
+      "transliteration": "logos",
+      "ipa": "lóɡos",
+      "pos": "noun",
+      "gender": "masculine",
+      "gloss": "word, reason, account",
+      "dialect": "attic"
+    },
+    {
+      "id": "LSJ-00003",
+      "headword": "ψυχή",
+      "transliteration": "psykhē",
+      "ipa": "psyːkʰɛː",
+      "pos": "noun",
+      "gender": "feminine",
+      "gloss": "soul, life, spirit",
+      "dialect": "attic"
+    },
+    {
+      "id": "LSJ-00004",
+      "headword": "πόλις",
+      "transliteration": "polis",
+      "ipa": "pólis",
+      "pos": "noun",
+      "gender": "feminine",
+      "gloss": "city-state, city",
+      "dialect": "attic"
+    },
+    {
+      "id": "LSJ-00005",
+      "headword": "θεός",
+      "transliteration": "theos",
+      "ipa": "tʰeós",
+      "pos": "noun",
+      "gender": "masculine",
+      "gloss": "god, deity",
+      "dialect": "attic"
+    }
+  ]
+}
