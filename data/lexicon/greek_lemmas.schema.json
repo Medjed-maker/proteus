@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proteus.local/data/lexicon/greek_lemmas.schema.json",
+  "title": "Ancient Greek lemma lexicon",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "_meta",
+    "lemmas"
+  ],
+  "additionalProperties": true,
+  "$comment": "Top-level additional properties remain allowed so the lexicon can grow forward-compatible root metadata without breaking existing consumers.",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0.0"
+    },
+    "_meta": {
+      "type": "object",
+      "required": [
+        "source",
+        "encoding",
+        "ipa_system",
+        "dialect",
+        "version",
+        "last_updated"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "encoding": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ipa_system": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dialect": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "last_updated": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contributors": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "required": [
+                  "name",
+                  "email"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "role": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "affiliation": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "orcid": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^(\\d{4}-){3}\\d{4}$"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "data_schema_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "lemmas": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/lemma"
+      }
+    }
+  },
+  "$defs": {
+    "lemma": {
+      "type": "object",
+      "required": [
+        "id",
+        "headword",
+        "transliteration",
+        "ipa",
+        "pos",
+        "gloss",
+        "dialect"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^LSJ-[0-9]{5,}$"
+        },
+        "headword": {
+          "type": "string",
+          "minLength": 1
+        },
+        "transliteration": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ipa": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pos": {
+          "type": "string",
+          "enum": [
+            "noun",
+            "verb",
+            "adjective",
+            "adverb",
+            "pronoun",
+            "article",
+            "preposition",
+            "conjunction",
+            "particle",
+            "interjection",
+            "numeral",
+            "participle"
+          ]
+        },
+        "gender": {
+          "type": "string",
+          "enum": [
+            "masculine",
+            "feminine",
+            "neuter",
+            "common"
+          ]
+        },
+        "gloss": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dialect": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "pos": {
+                "enum": [
+                  "noun",
+                  "adjective",
+                  "pronoun",
+                  "article",
+                  "numeral",
+                  "participle"
+                ]
+              }
+            },
+            "required": [
+              "pos"
+            ]
+          },
+          "then": {
+            "required": [
+              "gender"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

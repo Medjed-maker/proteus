@@ -32,6 +32,18 @@
       max-width: 560px;
     }
 
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
     #query {
       flex: 1;
       font-size: 1.4rem;
@@ -52,6 +64,12 @@
       cursor: pointer;
     }
     button:hover { background: #3d3424; }
+    button:disabled,
+    button[disabled] {
+      opacity: 0.55;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
 
     #results {
       margin-top: 2rem;
@@ -79,55 +97,145 @@
     <p>Ancient Greek phonological search engine</p>
   </header>
 
-  <div class="search-box">
+  <form id="searchForm" class="search-box">
+    <label for="query" class="visually-hidden">Search query</label>
     <input id="query" type="text" placeholder="ἄνθρωπος" autocomplete="off" />
-    <button onclick="runSearch()">Search</button>
-  </div>
+    <button id="searchBtn" type="submit">Search</button>
+  </form>
 
-  <div id="results"></div>
+  <div id="results" aria-live="polite" role="region" aria-label="Search results"></div>
 
   <script>
-    async function runSearch() {
-      const query = document.getElementById("query").value.trim();
-      if (!query) return;
+    function renderStatusMessage(message, color = "") {
+      const container = document.getElementById("results");
+      container.replaceChildren();
 
-      const res = await fetch("/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, dialect: "attic", max_results: 20 }),
-      });
+      const paragraph = document.createElement("p");
+      paragraph.textContent = message;
+      if (color) {
+        paragraph.style.color = color;
+      }
+      container.appendChild(paragraph);
+    }
 
-      if (!res.ok) {
-        document.getElementById("results").innerHTML =
-          `<p style="color:red">Error: ${res.statusText}</p>`;
+    function setLoadingState(isLoading) {
+      const queryInput = document.getElementById("query");
+      const searchButton = document.getElementById("searchBtn");
+
+      queryInput.disabled = isLoading;
+      searchButton.disabled = isLoading;
+    }
+
+    async function runSearch(event) {
+      if (event) {
+        event.preventDefault();
+      }
+
+      const queryInput = document.getElementById("query");
+      const query = queryInput.value.trim();
+      if (!query) {
+        renderStatusMessage("Please enter a search term.");
         return;
       }
 
-      const data = await res.json();
-      renderResults(data);
+      setLoadingState(true);
+      renderStatusMessage("Loading...", "blue");
+
+      try {
+        const res = await fetch("/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query, dialect: "attic", max_results: 20 }),
+        });
+
+        if (!res.ok) {
+          let body = "";
+          try {
+            body = (await res.text()).trim();
+          } catch (readError) {
+            console.error("Failed to read error response body:", readError);
+          }
+
+          const errorMessage = `Error: ${res.status} ${res.statusText}${
+            body ? `: ${body}` : ""
+          }`;
+          renderStatusMessage(errorMessage, "red");
+          return;
+        }
+
+        const data = await res.json();
+        renderResults(data);
+      } catch (error) {
+        console.error(error);
+        const message = error instanceof Error ? error.message : String(error);
+        renderStatusMessage(`Error: ${message}`, "red");
+      } finally {
+        setLoadingState(false);
+      }
     }
 
     function renderResults(data) {
       const container = document.getElementById("results");
-      if (!data.hits.length) {
-        container.innerHTML = "<p>No results found.</p>";
+      container.replaceChildren();
+
+      if (
+        typeof data !== "object" ||
+        data === null ||
+        !Array.isArray(data.hits)
+      ) {
+        console.error("Unexpected search payload:", data);
+        renderStatusMessage("No results found.");
         return;
       }
 
-      container.innerHTML = data.hits.map(hit => `
-        <div class="hit">
-          <span class="hit-distance">Δ ${hit.distance.toFixed(3)}</span>
-          <div class="hit-headword">${hit.headword}</div>
-          <div class="hit-ipa">/${hit.ipa}/</div>
-          <div class="hit-explain">${hit.explanation}</div>
-        </div>
-      `).join("");
+      if (!data.hits.length) {
+        renderStatusMessage("No results found.");
+        return;
+      }
+
+      data.hits.forEach(hit => {
+        const safeHit = typeof hit === "object" && hit !== null ? hit : {};
+        const safeDistance = Number.isFinite(safeHit.distance)
+          ? `Δ ${safeHit.distance.toFixed(3)}`
+          : "Δ —";
+        const safeHeadword = typeof safeHit.headword === "string"
+          ? safeHit.headword
+          : "N/A";
+        const safeIpa = typeof safeHit.ipa === "string" && safeHit.ipa
+          ? safeHit.ipa
+          : "N/A";
+        const safeExplanation = typeof safeHit.explanation === "string"
+          ? safeHit.explanation
+          : "";
+
+        const card = document.createElement("div");
+        card.className = "hit";
+
+        const distance = document.createElement("span");
+        distance.className = "hit-distance";
+        distance.textContent = safeDistance;
+
+        const headword = document.createElement("div");
+        headword.className = "hit-headword";
+        headword.textContent = safeHeadword;
+
+        const ipa = document.createElement("div");
+        ipa.className = "hit-ipa";
+        ipa.textContent = safeIpa === "N/A" ? safeIpa : `/${safeIpa}/`;
+
+        const explanation = document.createElement("div");
+        explanation.className = "hit-explain";
+        explanation.textContent = safeExplanation;
+
+        card.appendChild(distance);
+        card.appendChild(headword);
+        card.appendChild(ipa);
+        card.appendChild(explanation);
+        container.appendChild(card);
+      });
     }
 
-    // Allow Enter key to trigger search
-    document.getElementById("query").addEventListener("keydown", e => {
-      if (e.key === "Enter") runSearch();
-    });
+    document.getElementById("searchForm").addEventListener("submit", runSearch);
   </script>
 </body>
 </html>

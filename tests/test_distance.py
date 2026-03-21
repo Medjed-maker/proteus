@@ -1,0 +1,524 @@
+"""Tests for proteus.phonology.distance."""
+
+import json
+import shutil
+from pathlib import Path
+
+import pytest
+
+from proteus.phonology import distance as distance_module
+from proteus.phonology.distance import (
+    DEFAULT_COST,
+    UNKNOWN_SUBSTITUTION_COST,
+    load_matrix,
+    normalized_phonological_distance,
+    normalized_sequence_distance,
+    normalized_word_distance,
+    phone_distance,
+    phonological_distance,
+    sequence_distance,
+    word_distance,
+)
+from proteus.phonology.ipa_converter import to_ipa
+
+
+@pytest.fixture
+def committed_matrix_copy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    monkeypatch.delenv("PROTEUS_TRUSTED_MATRICES_DIR", raising=False)
+    source_matrix = distance_module._get_trusted_matrices_dir() / "attic_doric.json"
+    assert source_matrix.is_file(), f"Expected committed matrix at {source_matrix}"
+
+    trusted_dir = tmp_path / "matrices"
+    trusted_dir.mkdir()
+    copied_matrix = trusted_dir / source_matrix.name
+    shutil.copy2(source_matrix, copied_matrix)
+    monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+    return copied_matrix
+
+
+class TestLoadMatrix:
+    def test_loads_valid_json_with_nested_rows(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        matrix_file = trusted_dir / "sample.json"
+        matrix_file.write_text(
+            json.dumps(
+                {
+                    "_meta": {"version": 1},
+                    "nested": {
+                        "a": {"ɛː": 0.3},
+                        "pʰ": {"tʰ": 0.4},
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        matrix = load_matrix(matrix_file)
+
+        assert matrix["a"]["ɛː"] == pytest.approx(0.3)
+        assert matrix["pʰ"]["tʰ"] == pytest.approx(0.4)
+        assert "_meta" not in matrix
+
+    def test_raises_for_malformed_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        matrix_file = trusted_dir / "broken.json"
+        matrix_file.write_text("{not-json", encoding="utf-8")
+
+        with pytest.raises(json.JSONDecodeError):
+            load_matrix(matrix_file)
+
+    def test_raises_for_nonexistent_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        with pytest.raises(FileNotFoundError):
+            load_matrix(trusted_dir / "missing.json")
+
+    def test_rejects_path_outside_trusted_directory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        outside_file = tmp_path / "outside.json"
+        outside_file.write_text(json.dumps({"a": {"b": 1.0}}), encoding="utf-8")
+
+        with pytest.raises(ValueError, match="Matrix path must stay within"):
+            load_matrix(outside_file)
+
+    def test_accepts_bare_string_relative_to_trusted_directory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+        monkeypatch.chdir(tmp_path)
+
+        matrix_file = trusted_dir / "sample.json"
+        matrix_file.write_text(json.dumps({"a": {"ɛː": 0.3}}), encoding="utf-8")
+
+        matrix = load_matrix("sample.json")
+
+        assert matrix["a"]["ɛː"] == pytest.approx(0.3)
+
+    def test_accepts_bare_path_relative_to_trusted_directory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+        monkeypatch.chdir(tmp_path)
+
+        matrix_file = trusted_dir / "sample.json"
+        matrix_file.write_text(json.dumps({"a": {"ɛː": 0.3}}), encoding="utf-8")
+
+        matrix = load_matrix(Path("sample.json"))
+
+        assert matrix["a"]["ɛː"] == pytest.approx(0.3)
+
+    def test_accepts_legacy_repo_style_relative_path(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+        monkeypatch.chdir(tmp_path)
+
+        matrix_file = trusted_dir / "sample.json"
+        matrix_file.write_text(json.dumps({"a": {"ɛː": 0.3}}), encoding="utf-8")
+
+        matrix = load_matrix("data/matrices/sample.json")
+
+        assert matrix["a"]["ɛː"] == pytest.approx(0.3)
+
+    def test_rejects_symlink_within_trusted_directory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        real_dir = trusted_dir / "real"
+        real_dir.mkdir()
+        matrix_file = real_dir / "sample.json"
+        matrix_file.write_text(json.dumps({"a": {"b": 1.0}}), encoding="utf-8")
+
+        symlink_path = trusted_dir / "linked.json"
+        try:
+            symlink_path.symlink_to(matrix_file)
+        except OSError as exc:  # pragma: no cover - platform-dependent
+            pytest.skip(f"symlink creation not supported: {exc}")
+
+        with pytest.raises(ValueError, match="must not traverse symlinks"):
+            load_matrix(symlink_path)
+
+    def test_rejects_symlink_outside_trusted_directory_even_if_it_points_inside(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        matrix_file = trusted_dir / "sample.json"
+        matrix_file.write_text(json.dumps({"a": {"b": 1.0}}), encoding="utf-8")
+
+        symlink_path = tmp_path / "outside-link.json"
+        try:
+            symlink_path.symlink_to(matrix_file)
+        except OSError as exc:  # pragma: no cover - platform-dependent
+            pytest.skip(f"symlink creation not supported: {exc}")
+
+        with pytest.raises(ValueError, match="Matrix path must stay within"):
+            load_matrix(symlink_path)
+
+    def test_prefers_environment_override_for_trusted_matrices_dir(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "custom-matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        assert distance_module._get_trusted_matrices_dir() == trusted_dir
+
+    def test_falls_back_to_repo_data_directory_when_env_is_unset(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("PROTEUS_TRUSTED_MATRICES_DIR", raising=False)
+
+        resolved_dir = distance_module._get_trusted_matrices_dir()
+
+        assert resolved_dir.name == "matrices"
+        assert resolved_dir.is_dir()
+
+
+class TestPublicApi:
+    def test_declares_explicit_public_api(self) -> None:
+        assert distance_module.__all__ == [
+            "MatrixData",
+            "DEFAULT_COST",
+            "load_matrix",
+            "phone_distance",
+            "phonological_distance",
+            "normalized_phonological_distance",
+            "sequence_distance",
+            "normalized_sequence_distance",
+            "word_distance",
+            "normalized_word_distance",
+            "UNKNOWN_SUBSTITUTION_COST",
+        ]
+
+
+class TestPhoneDistance:
+    def test_identity_is_zero(self) -> None:
+        assert phone_distance("a", "a", {}) == 0.0
+
+    def test_direct_matrix_entry_is_used(self) -> None:
+        matrix = {"a": {"ɛː": 0.5}}
+
+        assert phone_distance("a", "ɛː", matrix) == pytest.approx(0.5)
+
+    def test_symmetric_fallback_uses_reverse_entry(self) -> None:
+        matrix = {"a": {"ɛː": 0.5}}
+
+        assert phone_distance("ɛː", "a", matrix) == pytest.approx(0.5)
+
+    def test_unknown_pair_uses_default_cost(self) -> None:
+        assert phone_distance("x", "y", {}) == DEFAULT_COST
+
+    def test_known_unmapped_pair_uses_unknown_substitution_cost(self) -> None:
+        assert phone_distance("s", "n", {}) == UNKNOWN_SUBSTITUTION_COST
+
+
+class TestPhonologicalDistance:
+    def test_both_empty_sequences_have_zero_cost(self) -> None:
+        assert phonological_distance([], [], {}) == 0.0
+
+    def test_identical_sequences_have_zero_cost(self) -> None:
+        seq = ["d", "a", "m", "o", "s"]
+
+        assert phonological_distance(seq, seq, {}) == 0.0
+
+    def test_completely_different_sequences_use_full_default_cost(self) -> None:
+        assert phonological_distance(["x", "q"], ["!", "?"], {}) == pytest.approx(
+            DEFAULT_COST * 2
+        )
+
+    def test_internal_substitution_accumulates_cost(self) -> None:
+        matrix = {"b": {"x": 2.0}, "x": {"b": 2.0}}
+
+        assert phonological_distance(
+            ["a", "b", "d"],
+            ["a", "x", "d"],
+            matrix,
+        ) == pytest.approx(2.0)
+
+    def test_internal_mismatch_uses_default_cost(self) -> None:
+        assert phonological_distance(
+            ["a", "b", "d"],
+            ["a", "x", "d"],
+            {},
+        ) == pytest.approx(DEFAULT_COST)
+
+    def test_suffix_overhang_is_penalized(self) -> None:
+        assert phonological_distance(["a"], ["a", "b"], {}) == pytest.approx(DEFAULT_COST)
+
+    def test_prefix_overhang_is_penalized(self) -> None:
+        assert phonological_distance(["b", "a"], ["a"], {}) == pytest.approx(DEFAULT_COST)
+
+
+class TestSequenceDistance:
+    def test_empty_sequences_return_zero(self) -> None:
+        assert sequence_distance([], [], {}) == 0.0
+
+    def test_single_phone_sequence_uses_matrix_distance(self) -> None:
+        matrix = {"a": {"ɛː": 0.5}, "ɛː": {"a": 0.5}}
+
+        assert sequence_distance(["a"], ["ɛː"], matrix) == pytest.approx(0.5)
+
+    def test_overhang_is_penalized_by_full_word_alignment(self) -> None:
+        assert sequence_distance(["a"], ["a", "b"], {}) == pytest.approx(DEFAULT_COST)
+
+    def test_normalized_sequence_distance_is_zero_for_identical_sequences(self) -> None:
+        assert normalized_sequence_distance(["a", "b"], ["a", "b"], {}) == pytest.approx(
+            0.0
+        )
+
+    def test_normalized_sequence_distance_counts_single_insertion(self) -> None:
+        assert normalized_sequence_distance(["a"], ["a", "b"], {}) == pytest.approx(0.5)
+
+    def test_sequence_distance_converts_generic_sequences_to_lists(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_phonological_distance(
+            seq1: list[str], seq2: list[str], matrix: distance_module.MatrixData
+        ) -> float:
+            captured["seq1"] = seq1
+            captured["seq2"] = seq2
+            captured["matrix"] = matrix
+            return 1.25
+
+        monkeypatch.setattr(distance_module, "phonological_distance", fake_phonological_distance)
+
+        result = sequence_distance(("a", "b"), ("a", "c"), {"a": {"c": 0.5}})
+
+        assert result == pytest.approx(1.25)
+        assert captured["seq1"] == ["a", "b"]
+        assert captured["seq2"] == ["a", "c"]
+        assert captured["matrix"] == {"a": {"c": 0.5}}
+
+    def test_normalized_sequence_distance_converts_generic_sequences_to_lists(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_normalized_distance(
+            seq1: list[str], seq2: list[str], matrix: distance_module.MatrixData
+        ) -> float:
+            captured["seq1"] = seq1
+            captured["seq2"] = seq2
+            captured["matrix"] = matrix
+            return 0.25
+
+        monkeypatch.setattr(
+            distance_module,
+            "normalized_phonological_distance",
+            fake_normalized_distance,
+        )
+
+        result = normalized_sequence_distance(("a",), ("b",), {"a": {"b": 0.5}})
+
+        assert result == pytest.approx(0.25)
+        assert captured["seq1"] == ["a"]
+        assert captured["seq2"] == ["b"]
+        assert captured["matrix"] == {"a": {"b": 0.5}}
+
+
+class TestWordDistance:
+    def test_empty_words_return_zero(self) -> None:
+        assert word_distance("", "", {}) == 0.0
+
+    def test_single_phone_words_use_matrix_distance(self) -> None:
+        matrix = {"a": {"ɛː": 0.5}, "ɛː": {"a": 0.5}}
+
+        assert word_distance("a", "ɛː", matrix) == pytest.approx(0.5)
+
+    def test_space_separated_ipa_is_tokenized_before_alignment(self) -> None:
+        matrix = {"b": {"x": 2.0}, "x": {"b": 2.0}}
+
+        assert word_distance("a b d", "a x d", matrix) == pytest.approx(2.0)
+
+    def test_word_overhang_is_penalized(self) -> None:
+        assert word_distance("a", "a b", {}) == pytest.approx(DEFAULT_COST)
+
+    def test_compact_ipa_is_tokenized_before_alignment(self) -> None:
+        assert word_distance("dɛːmos", "dɛːmon", {}) == pytest.approx(
+            UNKNOWN_SUBSTITUTION_COST
+        )
+
+    def test_converter_output_matches_stressed_lexicon_ipa(self) -> None:
+        assert word_distance(to_ipa("λόγος"), "lóɡos", {}) == pytest.approx(0.0)
+
+    def test_normalized_word_distance_is_clamped_to_one(self) -> None:
+        assert normalized_word_distance("x q", "! ?", {}) == pytest.approx(1.0)
+
+    def test_word_distance_tokenizes_inputs_before_delegating(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        tokenize_calls: list[str] = []
+        captured: dict[str, object] = {}
+
+        def fake_tokenize_ipa(text: str) -> list[str]:
+            tokenize_calls.append(text)
+            return [f"<{text}>"]
+
+        def fake_phonological_distance(
+            seq1: list[str], seq2: list[str], matrix: distance_module.MatrixData
+        ) -> float:
+            captured["seq1"] = seq1
+            captured["seq2"] = seq2
+            captured["matrix"] = matrix
+            return 2.5
+
+        monkeypatch.setattr(distance_module, "tokenize_ipa", fake_tokenize_ipa)
+        monkeypatch.setattr(distance_module, "phonological_distance", fake_phonological_distance)
+
+        result = word_distance("λόγος", "λογος", {"a": {"b": 0.5}})
+
+        assert result == pytest.approx(2.5)
+        assert tokenize_calls == ["λόγος", "λογος"]
+        assert captured["seq1"] == ["<λόγος>"]
+        assert captured["seq2"] == ["<λογος>"]
+        assert captured["matrix"] == {"a": {"b": 0.5}}
+
+    def test_normalized_word_distance_tokenizes_inputs_before_delegating(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        tokenize_calls: list[str] = []
+        captured: dict[str, object] = {}
+
+        def fake_tokenize_ipa(text: str) -> list[str]:
+            tokenize_calls.append(text)
+            return [f"<{text}>"]
+
+        def fake_normalized_distance(
+            seq1: list[str], seq2: list[str], matrix: distance_module.MatrixData
+        ) -> float:
+            captured["seq1"] = seq1
+            captured["seq2"] = seq2
+            captured["matrix"] = matrix
+            return 0.4
+
+        monkeypatch.setattr(distance_module, "tokenize_ipa", fake_tokenize_ipa)
+        monkeypatch.setattr(
+            distance_module,
+            "normalized_phonological_distance",
+            fake_normalized_distance,
+        )
+
+        result = normalized_word_distance("λόγος", "λογος", {"a": {"b": 0.5}})
+
+        assert result == pytest.approx(0.4)
+        assert tokenize_calls == ["λόγος", "λογος"]
+        assert captured["seq1"] == ["<λόγος>"]
+        assert captured["seq2"] == ["<λογος>"]
+        assert captured["matrix"] == {"a": {"b": 0.5}}
+
+
+class TestNormalizedPhonologicalDistance:
+    def test_identical_sequences_have_zero_normalized_cost(self) -> None:
+        assert normalized_phonological_distance(["a"], ["a"], {}) == pytest.approx(0.0)
+
+    def test_matrix_backed_substitution_keeps_unit_scale_matrix_value(self) -> None:
+        matrix = {"a": {"b": 0.5}, "b": {"a": 0.5}}
+
+        assert normalized_phonological_distance(["a"], ["b"], matrix) == pytest.approx(0.5)
+
+    def test_known_unmapped_substitution_uses_full_unit_cost(self) -> None:
+        assert normalized_phonological_distance(["s"], ["n"], {}) == pytest.approx(1.0)
+
+    def test_unknown_substitution_uses_full_unit_cost(self) -> None:
+        assert normalized_phonological_distance(["x"], ["?"], {}) == pytest.approx(1.0)
+
+    def test_completely_different_sequences_normalize_to_one(self) -> None:
+        assert normalized_phonological_distance(
+            ["x", "q"], ["!", "?"], {}
+        ) == pytest.approx(
+            1.0
+        )
+
+    @pytest.mark.parametrize(
+        ("seq1", "seq2", "matrix"),
+        [
+            ([], [], {}),
+            (["a"], ["a"], {}),
+            (["x", "y"], ["a", "b"], {}),
+            (["a"], ["b"], {"a": {"b": 0.5}, "b": {"a": 0.5}}),
+        ],
+    )
+    def test_normalized_distance_stays_within_closed_interval(
+        self,
+        seq1: list[str],
+        seq2: list[str],
+        matrix: distance_module.MatrixData,
+    ) -> None:
+        result = normalized_phonological_distance(seq1, seq2, matrix)
+
+        assert 0.0 <= result <= 1.0
+
+
+class TestRealMatrix:
+    def test_committed_attic_doric_matrix_contains_direct_rows_for_completed_inventory(
+        self,
+        committed_matrix_copy: Path,
+    ) -> None:
+        matrix = load_matrix(committed_matrix_copy)
+
+        assert matrix["e"]["o"] == pytest.approx(0.4)
+        assert matrix["ɡ"]["k"] == pytest.approx(0.2)
+        assert matrix["y"]["i"] == pytest.approx(0.3)
+        assert matrix["oi"]["i"] == pytest.approx(0.15)
+        assert phone_distance("ɡ", "k", matrix) == pytest.approx(0.2)
+        assert phone_distance("y", "i", matrix) == pytest.approx(0.3)
+        assert phone_distance("oi", "i", matrix) == pytest.approx(0.15)
+
+    def test_committed_attic_doric_matrix_keeps_normalized_word_distance_reasonable(
+        self,
+        committed_matrix_copy: Path,
+    ) -> None:
+        matrix = load_matrix(committed_matrix_copy)
+
+        logos_distance = normalized_word_distance("loɡos", "lokos", matrix)
+        diphthong_distance = normalized_word_distance("oi", "i", matrix)
+        far_known_distance = normalized_word_distance("loɡos", "tʰyːmos", matrix)
+
+        assert 0.03 <= logos_distance <= 0.05
+        assert 0.14 <= diphthong_distance <= 0.16
+        assert 0.55 <= far_known_distance <= 0.65
+
+    def test_known_consonant_substitution_no_longer_uses_default_gap_cost(
+        self,
+        committed_matrix_copy: Path,
+    ) -> None:
+        matrix = load_matrix(committed_matrix_copy)
+
+        result = normalized_word_distance("logos", "logon", matrix)
+
+        assert 0.15 <= result <= 0.25

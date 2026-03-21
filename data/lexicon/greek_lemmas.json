@@ -1,10 +1,19 @@
 {
+  "schema_version": "2.0.0",
   "_meta": {
     "source": "LSJ (Liddell-Scott-Jones, A Greek-English Lexicon, 9th ed.)",
     "encoding": "Unicode NFC",
     "ipa_system": "scholarly Ancient Greek IPA",
-    "dialect": "Attic (default)",
-    "note": "Placeholder — populate with full LSJ extraction"
+    "dialect": "attic",
+    "version": "1.0.0",
+    "last_updated": "2026-03-19T00:00:00Z",
+    "license": "MIT",
+    "contributors": [
+      "Proteus maintainers"
+    ],
+    "data_schema_ref": "data/lexicon/greek_lemmas.schema.json",
+    "description": "Starter Ancient Greek lemma dataset for phonological search experiments, with Attic-oriented IPA and compact gloss metadata.",
+    "note": "Placeholder — populate with full LSJ extraction; default dialect is attic"
   },
   "lemmas": [
     {
@@ -31,7 +40,7 @@
       "id": "LSJ-00003",
       "headword": "ψυχή",
       "transliteration": "psykhē",
-      "ipa": "psyːkʰɛː",
+      "ipa": "psyːkʰɛ́ː",
       "pos": "noun",
       "gender": "feminine",
       "gloss": "soul, life, spirit",

@@ -71,3 +71,6 @@ Thumbs.db
 .env.*.local
 secrets.yaml
 secrets.json
+
+# MCP
+.serena/

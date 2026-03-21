@@ -1,0 +1,187 @@
+"""Tests for proteus.phonology.matrix_generator."""
+
+import json
+from pathlib import Path
+
+import pytest
+
+from proteus.phonology import matrix_generator
+
+
+class TestOverlaySeedRows:
+    def test_logs_unknown_seed_rows_and_columns(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level("WARNING", logger="proteus.phonology.matrix_generator")
+        base_rows = {
+            "a": {"a": 0.0, "b": 0.1},
+            "b": {"a": 0.1, "b": 0.0},
+        }
+
+        matrix_generator._overlay_seed_rows(
+            base_rows,
+            {"x": {"a": 0.2}, "a": {"y": 0.3}},
+            ["a", "b"],
+            seed_source="seed.json",
+        )
+
+        assert "Skipping unknown row 'x' from seed.json" in caplog.text
+        assert "Skipping unknown column 'y' for row 'a' from seed.json" in caplog.text
+
+    def test_raises_clear_error_when_reverse_distance_is_missing(self) -> None:
+        base_rows = {
+            "a": {"a": 0.0},
+            "b": {"b": 0.0},
+        }
+
+        with pytest.raises(ValueError, match="Missing symmetric distance"):
+            matrix_generator._overlay_seed_rows(base_rows, {}, ["a", "b"], seed_source="seed.json")
+
+
+class TestLoadBaseSoundClassRows:
+    def test_reads_base_rows_from_committed_seed(self) -> None:
+        vowels, stops = matrix_generator._load_base_sound_class_rows()
+
+        assert vowels["a"]["aː"] == pytest.approx(0.1)
+        assert vowels["oi"]["i"] == pytest.approx(0.15)
+        assert vowels["ɔː"]["o"] == pytest.approx(0.1)
+        assert stops["ɡ"]["k"] == pytest.approx(0.2)
+
+    def test_raises_clear_error_when_required_keys_are_missing(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        bad_seed = tmp_path / "missing.json"
+        bad_seed.write_text(json.dumps({"_meta": {}}), encoding="utf-8")
+        monkeypatch.setattr(matrix_generator, "MATRIX_PATH", bad_seed)
+
+        with pytest.raises(RuntimeError, match="missing required key"):
+            matrix_generator._load_base_sound_class_rows()
+
+    def test_raises_clear_error_when_seed_rows_are_malformed(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        bad_seed = tmp_path / "malformed.json"
+        bad_seed.write_text(
+            json.dumps({"sound_classes": {"vowels": [], "stops": {}}}),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(matrix_generator, "MATRIX_PATH", bad_seed)
+
+        with pytest.raises(ValueError, match="is malformed"):
+            matrix_generator._load_base_sound_class_rows()
+
+
+class TestValidateCompleteMatrix:
+    def test_accepts_nearly_equal_symmetric_floats(self) -> None:
+        rows = {
+            "a": {"a": 0.0, "b": 0.3},
+            "b": {"a": 0.3000000000001, "b": 0.0},
+        }
+
+        matrix_generator._validate_complete_matrix(rows, ["a", "b"])
+
+    def test_rejects_symmetric_values_outside_tolerance(self) -> None:
+        rows = {
+            "a": {"a": 0.0, "b": 0.3},
+            "b": {"a": 0.3001, "b": 0.0},
+        }
+
+        with pytest.raises(ValueError, match="Matrix must be symmetric"):
+            matrix_generator._validate_complete_matrix(rows, ["a", "b"])
+
+
+class TestGetBaseRows:
+    def test_loads_rows_lazily_and_returns_independent_copies(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        matrix_generator._get_base_rows.cache_clear()
+        calls = 0
+        vowels = {"a": {"a": 0.0}}
+        stops = {"p": {"p": 0.0}}
+
+        def fake_load() -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]]]:
+            nonlocal calls
+            calls += 1
+            return vowels, stops
+
+        monkeypatch.setattr(matrix_generator, "_load_base_sound_class_rows", fake_load)
+
+        try:
+            first = matrix_generator._get_base_rows()
+            first[0]["a"]["a"] = 9.9
+            second = matrix_generator._get_base_rows()
+
+            assert calls == 1
+            assert first[0]["a"]["a"] == 9.9
+            assert second == (vowels, stops)
+            assert second[0] is not vowels
+            assert second[0]["a"] is not vowels["a"]
+            assert second[0] is not first[0]
+            assert second[0]["a"] is not first[0]["a"]
+        finally:
+            matrix_generator._get_base_rows.cache_clear()
+
+
+class TestValidateDialectPairs:
+    def test_rejects_non_numeric_distance(self) -> None:
+        with pytest.raises(ValueError, match="must be numeric"):
+            matrix_generator._validate_dialect_pairs(
+                {"attic_doric": {"ɛː_aː": "0.3"}}
+            )
+
+    def test_rejects_negative_distance(self) -> None:
+        with pytest.raises(ValueError, match=r"within \[0.0, 1.0\]"):
+            matrix_generator._validate_dialect_pairs(
+                {"attic_doric": {"ɛː_aː": -0.1}}
+            )
+
+    def test_rejects_distance_outside_unit_interval(self) -> None:
+        with pytest.raises(ValueError, match=r"within \[0.0, 1.0\]"):
+            matrix_generator._validate_dialect_pairs(
+                {"attic_doric": {"ɛː_aː": 1.5}}
+            )
+
+    @pytest.mark.parametrize("distance", [0.0, 1.0])
+    def test_accepts_boundary_distances(self, distance: float) -> None:
+        validated = matrix_generator._validate_dialect_pairs(
+            {"attic_doric": {"ɛː_aː": distance}}
+        )
+
+        assert validated == {"attic_doric": {"ɛː_aː": distance}}
+
+
+class TestRunCli:
+    def test_main_prints_success_message(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        monkeypatch.setattr(matrix_generator, "write_attic_doric_matrix", lambda: matrix_generator.MATRIX_PATH)
+
+        assert matrix_generator.main() == 0
+        captured = capsys.readouterr()
+        assert "Attic-Doric matrix regenerated successfully." in captured.out
+
+    def test_returns_main_exit_code_on_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(matrix_generator, "main", lambda: 7)
+
+        assert matrix_generator.run_cli() == 7
+
+    def test_prints_concise_error_and_returns_one_on_failure(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        def fail() -> int:
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(matrix_generator, "main", fail)
+
+        assert matrix_generator.run_cli() == 1
+        captured = capsys.readouterr()
+        assert "Error: boom" in captured.err

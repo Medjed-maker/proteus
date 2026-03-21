@@ -6,14 +6,16 @@
 #   name:     human-readable name
 #   from:     source phone(s) in IPA
 #   to:       target phone(s) in IPA
-#   context:  phonological environment (null = unconditioned)
+#   context:  phonological environment (_ = target position, _NC = before nasal + consonant,
+#              null = unconditioned/no environment; e.g. VSH-003 uses _NC,
+#              while a bare _ would mark the target slot itself)
 #   dialect:  applicable dialect(s)
 #   period:   chronological period
 #   weight:   distance penalty (0.0 = free alternation, 1.0 = major change)
 
 rules:
   - id: VSH-001
-    name: "Attic eta < Ionic eta"
+    name: "Attic-Ionic long alpha to eta shift"
     from: "aː"
     to: "ɛː"
     context: null
@@ -51,6 +53,33 @@ rules:
   - id: VSH-005
     name: "Koine iotacism: eta -> i"
     from: "ɛː"
+    to: "i"
+    context: null
+    dialect: [koine]
+    period: hellenistic
+    weight: 0.6
+
+  - id: VSH-006
+    name: "Koine iotacism: upsilon -> i"
+    from: "y"
+    to: "i"
+    context: null
+    dialect: [koine]
+    period: hellenistic
+    weight: 0.6
+
+  - id: VSH-007
+    name: "Koine iotacism: oi -> i"
+    from: "oi"
+    to: "i"
+    context: null
+    dialect: [koine]
+    period: hellenistic
+    weight: 0.6
+
+  - id: VSH-008
+    name: "Koine iotacism: ei -> i"
+    from: "eː"
     to: "i"
     context: null
     dialect: [koine]

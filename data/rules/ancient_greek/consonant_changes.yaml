@@ -6,10 +6,14 @@
 #   name:     human-readable name
 #   from:     source phone(s) in IPA
 #   to:       target phone(s) in IPA
-#   context:  phonological environment (_ = position, # = word boundary)
+#   context:  phonological environment (_ = position, # = word boundary,
+#              ... = any same-word span, V = any vowel,
+#              {a,o} = choice/set of alternatives)
 #   dialect:  applicable dialect(s)
 #   period:   chronological period
 #   weight:   distance penalty (0.0 = free alternation, 1.0 = major change)
+#   priority: optional deterministic precedence (higher wins)
+#   note:     optional clarification for overlapping environments
 
 rules:
   - id: CCH-001
@@ -20,6 +24,7 @@ rules:
     dialect: [attic, ionic, doric]
     period: archaic
     weight: 0.3
+    note: "Applies when another aspirate follows later in the same word; `...` uses the standard same-word span described in docs/phonology_rules.md."
 
   - id: CCH-002
     name: "Grassmann's Law: theta dissimilation"
@@ -29,6 +34,7 @@ rules:
     dialect: [attic, ionic, doric]
     period: archaic
     weight: 0.3
+    note: "Applies when another aspirate follows later in the same word; `...` uses the standard same-word span described in docs/phonology_rules.md."
 
   - id: CCH-003
     name: "Intervocalic sigma deletion (Ionic)"
@@ -43,7 +49,7 @@ rules:
     name: "Labiovelars -> labials (Attic-Ionic)"
     from: "kʷ"
     to: "p"
-    context: "_{a,e,o}"
+    context: "_{a,o}"
     dialect: [attic, ionic]
     period: archaic
     weight: 0.6
@@ -52,13 +58,14 @@ rules:
     name: "Labiovelars -> dentals before front vowels (Attic)"
     from: "kʷ"
     to: "t"
-    context: "_{i,e}"
+    context: "_{e,i}"
     dialect: [attic]
     period: archaic
     weight: 0.6
+    note: "Front-vowel environment only: this Attic rule applies before /e, i/, while CCH-004 covers the distinct back-vowel environments _{a,o}."
 
   - id: CCH-006
-    name: "Doric psi < Attic sigma+sigma"
+    name: "Attic sigma+sigma -> tt"
     from: "ss"
     to: "tt"
     context: null
