@@ -7,7 +7,7 @@ suitable for display in the API response or UI.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -62,15 +62,27 @@ def _resolve_rules_dir(rules_dir: Path | str, rules_base_dir: Path) -> Path:
 
 @dataclass
 class RuleApplication:
-    """Record of a single rule applied during phonological alignment."""
+    """Record of a single rule applied during phonological alignment.
+
+    Field mapping and derivation:
+        rule_id    <- id
+        rule_name  <- name_en (or name_ja for Japanese output)
+        from_phone <- input
+        to_phone   <- output
+        position   <- derived from alignment step order/position, not stored in YAML
+        dialects   <- dialects
+        weight     <- numeric influence/priority for this recorded rule application;
+                      downstream consumers can use higher values to score or order
+                      stronger rule applications, while the default 1.0 is neutral
+    """
 
     rule_id: str
     rule_name: str
     from_phone: str
     to_phone: str
     position: int
-    dialect: str
-    weight: float
+    dialects: list[str] = field(default_factory=list)
+    weight: float = 1.0
 
 
 @dataclass
@@ -180,11 +192,12 @@ def to_prose(explanation: Explanation) -> str:
     Args:
         explanation: Structured explanation object to render.
     """
+    # Dialect labels are omitted from prose, but step weights are retained.
     if explanation.steps:
         step_summary = "; ".join(
             (
                 f"{step.rule_name} ({step.from_phone} -> {step.to_phone} "
-                f"at position {step.position})"
+                f"at position {step.position}, weight {step.weight:g})"
             )
             for step in explanation.steps
         )

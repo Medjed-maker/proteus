@@ -19,7 +19,11 @@ from pathlib import Path
 from typing import Any, Callable, Sequence
 
 from ._paths import resolve_repo_data_dir
-from .ipa_converter import get_known_phones, tokenize_ipa
+from .ipa_converter import (
+    get_known_phones,
+    strip_ignored_ipa_combining_marks,
+    tokenize_ipa,
+)
 
 __all__ = [
     "MatrixData",
@@ -43,6 +47,16 @@ _KNOWN_IPA_PHONES_CACHE: frozenset[str] | None = None
 _KNOWN_IPA_PHONES_LOCK = threading.Lock()
 
 
+def _normalize_ipa_phone(phone: str) -> str:
+    """Normalize an IPA phone by removing accent/stress marks only."""
+    return strip_ignored_ipa_combining_marks(phone)
+
+
+def _normalize_ipa_sequence(seq: Sequence[str]) -> list[str]:
+    """Normalize each IPA phone so pre-tokenized inputs match word-level APIs."""
+    return [_normalize_ipa_phone(phone) for phone in seq]
+
+
 def _get_known_ipa_phones() -> frozenset[str]:
     """Return the cached set of known IPA phones, loading on first use."""
     global _KNOWN_IPA_PHONES_CACHE
@@ -57,7 +71,14 @@ def _get_trusted_matrices_dir() -> Path:
     """Resolve the trusted matrices directory from env, package data, or repo layout."""
     override = os.environ.get(_TRUSTED_MATRICES_DIR_ENV_VAR)
     if override:
-        return Path(override)
+        override_path = Path(override).expanduser()
+        if override_path.is_symlink():
+            raise ValueError(
+                f"{_TRUSTED_MATRICES_DIR_ENV_VAR} must not be a symlink, got {override}"
+            )
+        if not override_path.exists() or not override_path.is_dir():
+            raise FileNotFoundError(override_path)
+        return override_path
 
     try:
         resource_dir = resources.files("proteus.phonology").joinpath("data", "matrices")
@@ -148,6 +169,10 @@ def load_matrix(path: Path | str) -> MatrixData:
             f"Matrix path must stay within {trusted_dir}, got {path}"
         )
     candidate_path = requested_path.resolve(strict=True)
+    if not candidate_path.is_relative_to(trusted_dir):
+        raise ValueError(
+            f"Matrix path must stay within {trusted_dir}, got {path}"
+        )
 
     relative_parts = requested_path.relative_to(trusted_dir).parts
 
@@ -211,6 +236,13 @@ def phone_distance(p1: str, p2: str, matrix: MatrixData) -> float:
         (4) If at least one phone is unknown to the inventory, return
             DEFAULT_COST (5.0).
     """
+    p1 = _normalize_ipa_phone(p1)
+    p2 = _normalize_ipa_phone(p2)
+    return _phone_distance_raw(p1, p2, matrix)
+
+
+def _phone_distance_raw(p1: str, p2: str, matrix: MatrixData) -> float:
+    """Return phone distance for IPA phones that are already normalized."""
     if p1 == p2:
         return 0.0
     if p1 in matrix and p2 in matrix[p1]:
@@ -277,7 +309,15 @@ def phonological_distance(seq1: list[str], seq2: list[str], matrix: MatrixData) 
     Returns:
         Raw total cost accumulated across the full-sequence alignment.
     """
-    return _edit_distance(seq1, seq2, matrix, DEFAULT_COST, phone_distance)
+    normalized_seq1 = _normalize_ipa_sequence(seq1)
+    normalized_seq2 = _normalize_ipa_sequence(seq2)
+    return _edit_distance(
+        normalized_seq1,
+        normalized_seq2,
+        matrix,
+        DEFAULT_COST,
+        _phone_distance_raw,
+    )
 
 
 def _normalization_denominator(seq1: Sequence[str], seq2: Sequence[str]) -> float:
@@ -291,6 +331,11 @@ def _normalized_substitution_cost(p1: str, p2: str, matrix: MatrixData) -> float
     Unlike ``phone_distance()``, normalized scoring treats any non-identical
     substitution as at most ``1.0`` so the resulting edit distance remains on
     a meaningful 0.0-1.0 scale after division by the longer sequence length.
+
+    Inputs are expected to already be normalized by ``_normalize_ipa_sequence``.
+    Matrix-backed substitutions are clamped to at most ``1.0``; substitutions
+    missing from the matrix return ``UNKNOWN_SUBSTITUTION_COST`` (not
+    ``DEFAULT_COST``).
     """
     if p1 == p2:
         return 0.0
@@ -330,8 +375,10 @@ def normalized_phonological_distance(
     the longer sequence length so 0.0 means identical and 1.0 means maximally
     dissimilar under this normalized scoring model.
     """
-    normalized_distance = _normalized_edit_distance(seq1, seq2, matrix)
-    return _normalize_raw_distance(normalized_distance, seq1, seq2)
+    normalized_seq1 = _normalize_ipa_sequence(seq1)
+    normalized_seq2 = _normalize_ipa_sequence(seq2)
+    normalized_distance = _normalized_edit_distance(normalized_seq1, normalized_seq2, matrix)
+    return _normalize_raw_distance(normalized_distance, normalized_seq1, normalized_seq2)
 
 
 def sequence_distance(seq1: Sequence[str], seq2: Sequence[str], matrix: MatrixData) -> float:

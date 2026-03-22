@@ -23,7 +23,7 @@ def test_to_prose_returns_canonical_prose_without_mutating_explanation() -> None
                 from_phone="o",
                 to_phone="o",
                 position=1,
-                dialect="attic",
+                dialects=["attic"],
                 weight=0.5,
             )
         ],
@@ -33,6 +33,7 @@ def test_to_prose_returns_canonical_prose_without_mutating_explanation() -> None
 
     assert "Accent Loss" in result
     assert "λόγος /loɡos/ aligns to λογος /loɡos/" in result
+    assert "weight 0.5" in result
     assert explanation.prose == ""
 
 

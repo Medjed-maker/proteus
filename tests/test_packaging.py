@@ -20,6 +20,7 @@ EXPECTED_WHEEL_ASSETS = {
 def test_wheel_force_include_config_and_packaged_layout_support_runtime_loaders(
     tmp_path: Path,
 ) -> None:
+    """Verify wheel force-include assets and packaged layout both satisfy runtime loaders."""
     pyproject = tomllib.loads((ROOT_DIR / "pyproject.toml").read_text(encoding="utf-8"))
     force_include = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
     assert force_include == {

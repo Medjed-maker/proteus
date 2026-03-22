@@ -1,87 +1,310 @@
 # Ancient Greek Vowel Shift Rules
-# Format: each rule defines a phonological change with context and weight
+# Format: each rule records a historically significant vowel development.
 #
 # Fields:
-#   id:       unique rule identifier
-#   name:     human-readable name
-#   from:     source phone(s) in IPA
-#   to:       target phone(s) in IPA
-#   context:  phonological environment (_ = target position, _NC = before nasal + consonant,
-#              null = unconditioned/no environment; e.g. VSH-003 uses _NC,
-#              while a bare _ would mark the target slot itself)
-#   dialect:  applicable dialect(s)
-#   period:   chronological period
-#   weight:   distance penalty (0.0 = free alternation, 1.0 = major change)
+#   id:         unique rule identifier
+#   name_en:    English rule name
+#   name_ja:    Japanese rule name
+#   input:      source vowel or vowel sequence in IPA
+#   output:     resulting vowel or vowel sequence in IPA
+#   context:    descriptive phonological environment in plain English
+#   dialects:   applicable dialect(s) or chronological varieties
+#   period:     chronological range
+#   references: short-form scholarly references
+#   examples:   attested contrastive examples with glosses
+# Optional fields:
+#   change_type: "retention" marks entries that model historical retention as a
+#                reverse mapping for cross-dialect comparison (not a true sound change)
+#   note:        clarification for overlapping environments or example orientation
+#
+# Schema history:
+#   v0.1 fields `name`, `from`, `to`, `dialect`, `weight` were renamed/removed.
+#   `weight` (0.0-1.0 rule penalty) was removed because phonological distance
+#   is computed entirely from the substitution matrix in distance.py, making
+#   per-rule weights redundant and a potential source of double-counting.
+#
+# Notes on examples:
+#   standard       = reference form used for comparison (often the Attic or otherwise familiar form)
+#   dialect        = contrasting dialectal or chronological form that illustrates the rule
+#   reconstruction = reconstructed (unattested) form, prefixed with * per convention;
+#                    used for pre-literary changes where no written dialectal contrast exists
+#   phonetic       = IPA transcription showing the sound-level change, e.g. "[upo]"
+#   meaning        = English gloss
+#
+#   For Koine rules where orthography did not change (standard == dialect),
+#   the dialect field is omitted and the phonetic field carries the contrast.
 
 rules:
   - id: VSH-001
-    name: "Attic-Ionic long alpha to eta shift"
-    from: "aː"
-    to: "ɛː"
-    context: null
-    dialect: [ionic, attic]
-    period: classical
-    weight: 0.3
+    name_en: "Ionic long alpha to eta shift"
+    name_ja: "イオニア方言の長母音 ā > ē 推移"
+    input: "aː"
+    output: "ɛː"
+    context: "all environments"
+    dialects: [ionic]
+    period: "classical period"
+    references: ["Buck §9", "Smyth §31"]
+    note: "For Attic, use VSH-009 and VSH-010 to capture the conditioned split after e, i, or r."
+    examples:
+      - { standard: "γῆ", dialect: "γᾱ", meaning: "earth" }
 
   - id: VSH-002
-    name: "Doric alpha retention"
-    from: "ɛː"
-    to: "aː"
-    context: null
-    dialect: [doric]
-    period: classical
-    weight: 0.3
+    name_en: "Doric retention of long alpha"
+    name_ja: "ドーリア方言の長母音 ā 保持"
+    # This entry is intentionally modeled as a reverse mapping for cross-dialect comparison:
+    # historically Doric retains inherited aː rather than changing ɛː to aː.
+    input: "ɛː"
+    output: "aː"
+    change_type: "retention"
+    context: "all environments"
+    dialects: [doric]
+    period: "archaic and classical periods"
+    references: ["Buck §11", "Smyth §34"]
+    examples:
+      - { standard: "Ἀθήνη", dialect: "Ἀθάνα", meaning: "Athena" }
 
   - id: VSH-003
-    name: "Vowel lengthening before nasal + consonant"
-    from: "a"
-    to: "aː"
+    name_en: "Vowel lengthening before nasal + consonant"
+    name_ja: "鼻音+子音前における母音長化"
+    input: "a"
+    output: "aː"
     context: "_NC"
-    dialect: [attic]
-    period: classical
-    weight: 0.4
+    dialects: [attic]
+    period: "classical period"
+    references: ["Buck §23", "Smyth §44"]
+    examples:
+      - { standard: "πᾶς", reconstruction: "*πανς", meaning: "all" }
 
   - id: VSH-004
-    name: "Quantitative metathesis (Ionic)"
-    from: "eːo"
-    to: "eoː"
-    context: null
-    dialect: [ionic]
-    period: archaic
-    weight: 0.5
+    name_en: "Ionic quantitative metathesis"
+    name_ja: "イオニア方言の量的転位"
+    input: "eːo"
+    output: "eoː"
+    context: "quantitative metathesis environments"
+    dialects: [ionic]
+    period: "archaic period onwards"
+    references: ["Buck §24", "Smyth §70"]
+    note: "Examples keep the familiar Attic form as standard, so standard shows the eoː outcome while dialect preserves the Ionic-source eːo sequence referenced by input/output."
+    examples:
+      - { standard: "πόλεως", dialect: "πόληος", meaning: "of the city" }
 
   - id: VSH-005
-    name: "Koine iotacism: eta -> i"
-    from: "ɛː"
-    to: "i"
-    context: null
-    dialect: [koine]
-    period: hellenistic
-    weight: 0.6
+    name_en: "Koine iotacism of eta"
+    name_ja: "コイネー期の η のイオタキスム"
+    input: "ɛː"
+    output: "i"
+    context: "all environments"
+    dialects: [koine]
+    period: "2nd century BCE onwards"
+    references: ["Allen Vox Graeca 3.5", "Horrocks 2010: 174-176"]
+    examples:
+      - { standard: "μήτηρ", dialect: "μίτιρ", meaning: "mother" }
 
   - id: VSH-006
-    name: "Koine iotacism: upsilon -> i"
-    from: "y"
-    to: "i"
-    context: null
-    dialect: [koine]
-    period: hellenistic
-    weight: 0.6
+    name_en: "Later Koine unrounding of upsilon"
+    name_ja: "後期コイネーの y > i 非円唇化"
+    input: "y"
+    output: "i"
+    context: "all environments"
+    dialects: [koine]
+    period: "1st century CE onwards"
+    references: ["Allen Vox Graeca 3.7", "Horrocks 2010: 177-179"]
+    examples:
+      - { standard: "ὑμεῖς", phonetic: "[hymeːs] → [himeːs]", meaning: "you (plural)" }
 
   - id: VSH-007
-    name: "Koine iotacism: oi -> i"
-    from: "oi"
-    to: "i"
-    context: null
-    dialect: [koine]
-    period: hellenistic
-    weight: 0.6
+    name_en: "Later Koine merger of oi with iota"
+    name_ja: "後期コイネーの oi > i 合流"
+    input: "oi"
+    output: "i"
+    context: "all environments"
+    dialects: [koine]
+    period: "later Koine period"
+    references: ["Allen Vox Graeca 3.6", "Horrocks 2010: 176-179"]
+    note: "This is the later stage of the VSH-021 > VSH-007 sequence, where oi first fronted to y and then merged with i."
+    examples:
+      - { standard: "λοιπόν", phonetic: "[loipon] → [lipon]", meaning: "remaining" }
 
   - id: VSH-008
-    name: "Koine iotacism: ei -> i"
-    from: "eː"
-    to: "i"
-    context: null
-    dialect: [koine]
-    period: hellenistic
-    weight: 0.6
+    name_en: "Koine merger of ei with iota"
+    name_ja: "コイネー期の ei > i 合流"
+    input: "eː"
+    output: "i"
+    context: "all environments"
+    dialects: [koine]
+    period: "3rd century BCE onwards"
+    references: ["Allen Vox Graeca 3.4", "Horrocks 2010: 172-174"]
+    note: "By the classical period the digraph εἰ was already pronounced [eː], so this rule targets that phonetic realization."
+    examples:
+      - { standard: "εἰς", dialect: "ἰς", meaning: "into" }
+
+  - id: VSH-009
+    name_en: "Attic long alpha to eta shift except after e, i, or r"
+    name_ja: "アッティカ方言の e・i・r 後以外における長母音 ā > ē 推移"
+    input: "aː"
+    output: "ɛː"
+    context: "all environments except after e, i, or r"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Buck §10", "Smyth §32"]
+    examples:
+      - { standard: "τιμή", dialect: "τιμά", meaning: "honor" }
+
+  - id: VSH-010
+    name_en: "Attic retention of long alpha after e, i, or r"
+    name_ja: "アッティカ方言の e・i・r 後における長母音 ā 保持"
+    # This entry is intentionally modeled as a reverse mapping for cross-dialect comparison:
+    # historically Attic retains inherited aː here rather than innovating from ɛː to aː.
+    input: "ɛː"
+    output: "aː"
+    change_type: "retention"
+    context: "after e, i, or r"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Buck §10", "Smyth §33"]
+    examples:
+      - { standard: "χώρα", dialect: "χώρη", meaning: "place, land" }
+
+  - id: VSH-011
+    name_en: "Attic-Ionic fronting of inherited u"
+    name_ja: "アッティカ・イオニア方言における u > y 前舌化"
+    input: "u"
+    output: "y"
+    context: "all environments"
+    dialects: [attic, ionic]
+    period: "pre-literary period"
+    references: ["Buck §14", "Allen Vox Graeca 2.6"]
+    examples:
+      - { standard: "ὑπό", reconstruction: "*ὑπό", phonetic: "[upo] → [ypo]", meaning: "under" }
+
+  - id: VSH-012
+    name_en: "Attic contraction of alpha plus epsilon"
+    name_ja: "アッティカ方言の α + ε 収縮"
+    input: "ae"
+    output: "aː"
+    context: "vowel contraction across hiatus"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§59-60", "Buck §27"]
+    examples:
+      - { standard: "τιμᾶτε", dialect: "τιμάετε", meaning: "you honor" }
+
+  - id: VSH-013
+    name_en: "Attic contraction of alpha plus omicron"
+    name_ja: "アッティカ方言の α + ο 収縮"
+    input: "ao"
+    output: "ɔː"
+    context: "vowel contraction across hiatus"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§59-60", "Buck §27"]
+    examples:
+      - { standard: "ὁρῶμεν", dialect: "ὁράομεν", meaning: "we see" }
+
+  - id: VSH-014
+    name_en: "Attic contraction of epsilon plus epsilon"
+    name_ja: "アッティカ方言の ε + ε 収縮"
+    input: "ee"
+    output: "eː"
+    context: "vowel contraction across hiatus"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§61-62", "Buck §27"]
+    examples:
+      - { standard: "ποιεῖτε", dialect: "ποιέετε", meaning: "you do" }
+
+  - id: VSH-015
+    name_en: "Attic contraction of epsilon plus alpha"
+    name_ja: "アッティカ方言の ε + α 収縮"
+    input: "ea"
+    output: "ɛː"
+    context: "vowel contraction across hiatus"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§61-62", "Buck §27"]
+    examples:
+      - { standard: "ποιῆτε", dialect: "ποιέατε", meaning: "that you may do" }
+
+  - id: VSH-016
+    name_en: "Attic contraction of epsilon plus omicron"
+    name_ja: "アッティカ方言の ε + ο 収縮"
+    input: "eo"
+    output: "oː"
+    context: "vowel contraction across hiatus"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§61-62", "Buck §27"]
+    examples:
+      - { standard: "ποιοῦν", dialect: "ποιέον", meaning: "doing" }
+
+  - id: VSH-017
+    name_en: "Attic contraction of omicron plus alpha"
+    name_ja: "アッティカ方言の ο + α 収縮"
+    input: "oa"
+    output: "ɔː"
+    context: "vowel contraction across hiatus"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§63-65", "Buck §27"]
+    examples:
+      - { standard: "αἰδῶ", dialect: "αἰδόα", meaning: "shame, respect" }
+
+  - id: VSH-018
+    name_en: "Attic contraction of omicron plus epsilon"
+    name_ja: "アッティカ方言の ο + ε 収縮"
+    input: "oe"
+    output: "oː"
+    context: "vowel contraction across hiatus"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§63-65", "Buck §27"]
+    examples:
+      - { standard: "δηλοῦτε", dialect: "δηλόετε", meaning: "you make clear" }
+
+  - id: VSH-019
+    name_en: "Attic contraction of omicron plus omicron"
+    name_ja: "アッティカ方言の ο + ο 収縮"
+    input: "oo"
+    output: "oː"
+    context: "vowel contraction across hiatus"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§63-65", "Buck §27"]
+    examples:
+      - { standard: "δηλοῦμεν", dialect: "δηλόομεν", meaning: "we make clear" }
+
+  - id: VSH-020
+    name_en: "Koine monophthongization of ai"
+    name_ja: "コイネー期の ai 単母音化"
+    input: "ai"
+    output: "e"
+    context: "all environments"
+    dialects: [koine]
+    period: "4th century BCE onwards"
+    references: ["Allen Vox Graeca 3.3", "Horrocks 2010: 170-172"]
+    examples:
+      - { standard: "αἰών", dialect: "ἐών", meaning: "age, lifetime" }
+
+  - id: VSH-021
+    name_en: "Early Koine fronting of oi"
+    name_ja: "初期コイネーの oi > y 前舌化"
+    input: "oi"
+    output: "y"
+    context: "all environments"
+    dialects: [koine]
+    period: "early Koine period"
+    references: ["Allen Vox Graeca 3.6", "Horrocks 2010: 176-177"]
+    examples:
+      - { standard: "λοιπόν", dialect: "λυπόν", meaning: "remaining" }
+
+  - id: VSH-022
+    name_en: "Koine raising of long o (oː -> u)"
+    name_ja: "コイネー期の oː→u 上昇"
+    input: "oː"
+    output: "u"
+    context: "all environments"
+    dialects: [koine]
+    period: "Hellenistic period onwards"
+    references: ["Allen Vox Graeca 3.2", "Horrocks 2010: 169-170"]
+    examples:
+      - { standard: "οὐρανός", phonetic: "[oːranos] → [uranos]", meaning: "sky" }

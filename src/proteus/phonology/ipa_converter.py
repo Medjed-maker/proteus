@@ -52,6 +52,8 @@ _DIPHTHONG_MAP: dict[str, str] = {
 _DIAERESIS = "\u0308"
 _ROUGH_BREATHING = "\u0314"
 _YPOGEGRAMMENI = "\u0345"
+_ACCENT_MARKS = frozenset({"\u0301", "\u0300", "\u0342"})  # acute, grave, circumflex
+_COMBINING_ACUTE = "\u0301"
 _DIPHTHONG_BOUNDARY = "|"
 _EXTRA_IPA_PHONES: frozenset[str] = frozenset(
     {
@@ -76,8 +78,28 @@ _IPA_PHONE_INVENTORY = tuple(
 logger = logging.getLogger(__name__)
 
 
+def _strip_ignored_ipa_combining_marks(
+    ipa_text: str, *, recompose: bool = True
+) -> str:
+    """Remove accent/stress combining marks while preserving other IPA diacritics."""
+    nfd = unicodedata.normalize("NFD", ipa_text)
+    stripped = "".join(char for char in nfd if char not in _ACCENT_MARKS)
+    if recompose:
+        return unicodedata.normalize("NFC", stripped)
+    return stripped
+
+
+def strip_ignored_ipa_combining_marks(ipa_text: str) -> str:
+    """Remove accent/stress combining marks while preserving other IPA diacritics.
+
+    Public wrapper around the internal ``_strip_ignored_ipa_combining_marks``
+    helper so that sibling modules can import a stable, public symbol.
+    """
+    return _strip_ignored_ipa_combining_marks(ipa_text)
+
+
 def _should_keep_rough_breathed_diphthong(
-    normalized: list[str], base: str, marks: list[str]
+    normalized: list[str], base: str, marks: set[str]
 ) -> bool:
     """Return True when rough breathing belongs to a surviving diphthong.
 
@@ -95,10 +117,19 @@ def _should_keep_rough_breathed_diphthong(
     )
 
 
-def _normalize_greek_for_ipa(greek_text: str) -> str:
-    """Normalize Greek text for phone conversion without losing boundaries."""
+def _normalize_greek_for_ipa(greek_text: str) -> tuple[str, set[int]]:
+    """Normalize Greek text for phone conversion without losing boundaries.
+
+    Args:
+        greek_text: NFC-encoded Greek text to normalize before IPA conversion.
+
+    Returns:
+        A tuple of (normalized_text, accent_positions) where accent_positions
+        contains the indices of accented characters in the normalized text.
+    """
     nfd = unicodedata.normalize("NFD", greek_text)
     normalized: list[str] = []
+    accent_positions: set[int] = set()
     index = 0
 
     while index < len(nfd):
@@ -112,29 +143,56 @@ def _normalize_greek_for_ipa(greek_text: str) -> str:
         while index < len(nfd) and unicodedata.category(nfd[index]) == "Mn":
             marks.append(nfd[index])
             index += 1
+        marks_set = set(marks)
 
-        if _DIAERESIS in marks:
+        has_accent = bool(_ACCENT_MARKS & marks_set)
+
+        if _DIAERESIS in marks_set:
             normalized.append(_DIPHTHONG_BOUNDARY)
 
-        if _ROUGH_BREATHING in marks and not _should_keep_rough_breathed_diphthong(
+        if _ROUGH_BREATHING in marks_set and not _should_keep_rough_breathed_diphthong(
             normalized,
             base.lower(),
-            marks,
+            marks_set,
         ):
             normalized.append("h")
 
+        accent_pos = len(normalized)
         normalized.append(base.lower())
+        if has_accent:
+            accent_positions.add(accent_pos)
 
-        if _YPOGEGRAMMENI in marks:
+        if _YPOGEGRAMMENI in marks_set:
             normalized.append("ι")
 
-    return "".join(normalized)
+    return "".join(normalized), accent_positions
+
+
+def _apply_accent(phone: str) -> str:
+    """Insert combining acute after the first character of an IPA phone.
+
+    The result is NFC-normalized so that characters with precomposed
+    accented forms (e.g. ``o`` + acute → ``ó`` U+00F3) are composed,
+    while characters without precomposed forms (e.g. ``ɛ`` + acute)
+    remain as decomposed sequences.
+    """
+    if not phone:
+        return phone
+    accented = phone[0] + _COMBINING_ACUTE + phone[1:]
+    return unicodedata.normalize("NFC", accented)
 
 
 def _normalize_ipa_for_tokenization(ipa_text: str) -> str:
     """Remove stress marks so compact and lexicon IPA compare consistently."""
-    nfd = unicodedata.normalize("NFD", ipa_text)
-    return "".join(char for char in nfd if unicodedata.category(char) != "Mn")
+    return _strip_ignored_ipa_combining_marks(ipa_text, recompose=False)
+
+
+def _consume_trailing_combining_marks(text: str, start: int) -> tuple[str, int]:
+    """Return any combining marks immediately following ``start`` in ``text``."""
+    end = start
+    while end < len(text) and unicodedata.category(text[end]) == "Mn":
+        end += 1
+    return text[start:end], end
 
 
 def strip_diacritics(greek_text: str) -> str:
@@ -164,29 +222,38 @@ def greek_to_ipa(text: str) -> list[str]:
     Returns:
         List of IPA phone strings.
     """
-    text = _normalize_greek_for_ipa(text)
+    normalized, accent_positions = _normalize_greek_for_ipa(text)
     result: list[str] = []
     i = 0
-    while i < len(text):
-        if text[i] == _DIPHTHONG_BOUNDARY:
+    while i < len(normalized):
+        if normalized[i] == _DIPHTHONG_BOUNDARY:
             i += 1
             continue
-        if text[i] == "h":
-            result.append("h")
+        if normalized[i] == "h":
+            phone = "h"
+            if i in accent_positions:
+                phone = _apply_accent(phone)
+            result.append(phone)
             i += 1
             continue
-        pair = text[i : i + 2]
+        pair = normalized[i : i + 2]
         if len(pair) == 2 and pair in _DIPHTHONG_MAP:
-            result.append(_DIPHTHONG_MAP[pair])
+            phone = _DIPHTHONG_MAP[pair]
+            if i in accent_positions or (i + 1) in accent_positions:
+                phone = _apply_accent(phone)
+            result.append(phone)
             i += 2
-        elif text[i] in _LETTER_MAP:
-            result.append(_LETTER_MAP[text[i]])
+        elif normalized[i] in _LETTER_MAP:
+            phone = _LETTER_MAP[normalized[i]]
+            if i in accent_positions:
+                phone = _apply_accent(phone)
+            result.append(phone)
             i += 1
         else:
             logger.debug(
                 "Skipping unknown Greek character %r (ord=%s) at index %s",
-                text[i],
-                ord(text[i]),
+                normalized[i],
+                ord(normalized[i]),
                 i,
             )
             i += 1
@@ -195,6 +262,7 @@ def greek_to_ipa(text: str) -> list[str]:
 
 def tokenize_ipa(ipa_text: str) -> list[str]:
     """Tokenize compact or space-separated IPA into comparable phone units."""
+    # _normalize_ipa_for_tokenization() already returns NFD text for token scanning.
     text = _normalize_ipa_for_tokenization(ipa_text)
     tokens: list[str] = []
     index = 0
@@ -206,17 +274,26 @@ def tokenize_ipa(ipa_text: str) -> list[str]:
 
         for phone in _IPA_PHONE_INVENTORY:
             if text.startswith(phone, index):
-                tokens.append(phone)
-                index += len(phone)
+                token_end = index + len(phone)
+                trailing_marks, token_end = _consume_trailing_combining_marks(
+                    text, token_end
+                )
+                tokens.append(phone + trailing_marks)
+                index = token_end
                 break
         else:
+            literal_end = index + 1
+            trailing_marks, literal_end = _consume_trailing_combining_marks(
+                text, literal_end
+            )
+            literal = text[index] + trailing_marks
             logger.debug(
                 "Treating unknown IPA token %r at index %s as a literal",
-                text[index],
+                literal,
                 index,
             )
-            tokens.append(text[index])
-            index += 1
+            tokens.append(literal)
+            index = literal_end
 
     return tokens
 

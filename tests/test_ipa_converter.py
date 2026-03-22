@@ -6,6 +6,7 @@ import pytest
 
 from proteus.phonology.distance import word_distance
 from proteus.phonology.ipa_converter import (
+    _strip_ignored_ipa_combining_marks,
     greek_to_ipa,
     strip_diacritics,
     to_ipa,
@@ -33,8 +34,8 @@ class TestGreekToIpa:
         [
             ("βγδ", "bɡd"),
             ("ΑΙ", "ai"),
-            ("οὐρανός", "oːranos"),
-            ("εὖ", "eu"),
+            ("οὐρανός", "oːranós"),
+            ("εὖ", "éu"),
             ("ηυ", "ɛːy"),
         ],
     )
@@ -49,13 +50,13 @@ class TestGreekToIpa:
     def test_handles_nfd_input(self) -> None:
         text = unicodedata.normalize("NFD", "Αἰών")
 
-        assert "".join(greek_to_ipa(text)) == "aiɔːn"
+        assert "".join(greek_to_ipa(text)) == "aiɔ́ːn"
 
     def test_empty_string_returns_empty_list(self) -> None:
         assert greek_to_ipa("") == []
 
     def test_unknown_and_non_greek_characters_are_skipped(self) -> None:
-        assert "".join(greek_to_ipa("λόγος,!?")) == "loɡos"
+        assert "".join(greek_to_ipa("λόγος,!?")) == "lóɡos"
 
     def test_mixed_alphanumeric_input_keeps_only_known_greek_letters(self) -> None:
         assert "".join(greek_to_ipa("α1β?")) == "ab"
@@ -69,15 +70,30 @@ class TestGreekToIpa:
         assert "Skipping unknown Greek character '?'" in caplog.text
 
     def test_diaeresis_prevents_false_diphthong(self) -> None:
-        assert "".join(greek_to_ipa("ἀϋτή")) == "aytɛː"
+        assert "".join(greek_to_ipa("ἀϋτή")) == "aytɛ́ː"
 
     def test_rough_breathing_on_second_diphthong_element_keeps_diphthong(self) -> None:
-        assert "".join(greek_to_ipa("αὑτός")) == "autos"
-        assert "".join(greek_to_ipa("εὑρίσκω")) == "euriskɔː"
-        assert "".join(greek_to_ipa("ηὑρίσκω")) == "ɛːyriskɔː"
+        assert "".join(greek_to_ipa("αὑτός")) == "autós"
+        assert "".join(greek_to_ipa("εὑρίσκω")) == "eurískɔː"
+        assert "".join(greek_to_ipa("ηὑρίσκω")) == "ɛːyrískɔː"
 
     def test_iota_subscript_is_expanded_instead_of_dropped(self) -> None:
-        assert "".join(greek_to_ipa("τῇ")) == "tɛːi"
+        assert "".join(greek_to_ipa("τῇ")) == "tɛ́ːi"
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("ἅγιος", "háɡios"),
+            ("ἄγω", "áɡɔː"),
+            ("αΐ", "aí"),
+            ("τοῦτό", "tóːtó"),
+            ("ᾧ", "hɔ́ːi"),
+            ("ᾅ", "hái"),
+        ],
+    )
+    def test_accent_edge_cases(self, text: str, expected: str) -> None:
+        """Accent marks are correctly placed across edge cases."""
+        assert "".join(greek_to_ipa(text)) == expected
 
     def test_diphthong_boundary_is_silently_consumed(
         self, caplog: pytest.LogCaptureFixture
@@ -87,13 +103,13 @@ class TestGreekToIpa:
 
         result = greek_to_ipa("ἀϋτή")
 
-        assert result == ["a", "y", "t", "ɛː"]
+        assert result == ["a", "y", "t", "ɛ́ː"]
         assert "|" not in caplog.text
 
 
 class TestToIpa:
     def test_attic_conversion_succeeds(self) -> None:
-        assert to_ipa("Δημοσθένης", dialect="attic") == "dɛːmostʰenɛːs"
+        assert to_ipa("Δημοσθένης", dialect="attic") == "dɛːmostʰénɛːs"
 
     def test_rough_breathing_is_preserved_as_h(self) -> None:
         assert to_ipa("ἁλος", dialect="attic") == "halos"
@@ -103,9 +119,9 @@ class TestToIpa:
         assert to_ipa("ἀλος", dialect="attic") == "alos"
 
     def test_rough_breathed_diphthongs_do_not_gain_extra_h_phone(self) -> None:
-        assert to_ipa("αὑτός", dialect="attic") == "autos"
-        assert to_ipa("εὑρίσκω", dialect="attic") == "euriskɔː"
-        assert to_ipa("ηὑρίσκω", dialect="attic") == "ɛːyriskɔː"
+        assert to_ipa("αὑτός", dialect="attic") == "autós"
+        assert to_ipa("εὑρίσκω", dialect="attic") == "eurískɔː"
+        assert to_ipa("ηὑρίσκω", dialect="attic") == "ɛːyrískɔː"
 
     def test_compact_output_can_be_compared_against_stressed_ipa(self) -> None:
         assert word_distance(to_ipa("λόγος"), "lóɡos", {}) == pytest.approx(0.0)
@@ -128,6 +144,15 @@ class TestToIpa:
 
 
 class TestTokenizeIpa:
+    def test_ignored_accent_marks_are_removed_and_recomposed_to_nfc(self) -> None:
+        normalized = _strip_ignored_ipa_combining_marks("éu")
+
+        assert normalized == "eu"
+        assert unicodedata.is_normalized("NFC", normalized)
+
+    def test_accented_input_is_normalized_once_before_tokenization(self) -> None:
+        assert tokenize_ipa("éu") == tokenize_ipa("eu")
+
     def test_known_h_phone_is_not_treated_as_unknown_literal(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
@@ -144,6 +169,16 @@ class TestTokenizeIpa:
 
     def test_tokenizes_psykhe_without_stray_length_marker(self) -> None:
         assert tokenize_ipa("psyːkʰɛ́ː") == ["ps", "yː", "kʰ", "ɛː"]
+
+    def test_preserves_non_accent_combining_marks_during_tokenization(self) -> None:
+        assert tokenize_ipa("n̩") == ["n̩"]
+        assert tokenize_ipa("ã") == ["ã"]
+
+    def test_attaches_combining_marks_to_preceding_known_phone(self) -> None:
+        assert tokenize_ipa("ɛː̃") == ["ɛː̃"]
+
+    def test_attaches_combining_marks_to_preceding_literal_token(self) -> None:
+        assert tokenize_ipa("!̃") == ["!̃"]
 
     def test_unknown_tokens_emit_debug_logs(self, caplog: pytest.LogCaptureFixture) -> None:
         caplog.set_level("DEBUG", logger="proteus.phonology.ipa_converter")

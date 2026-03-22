@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import json
 import math
+import unicodedata
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 
+from proteus.phonology.ipa_converter import to_ipa
 from proteus.phonology.matrix_generator import build_attic_doric_matrix
 
 
@@ -38,6 +41,16 @@ def base_meta() -> dict[str, object]:
     }
 
 
+@pytest.fixture
+def vowel_rules() -> list[dict[str, object]]:
+    return _load_yaml(VOWEL_RULES_PATH)["rules"]
+
+
+@pytest.fixture
+def consonant_rules() -> list[dict[str, object]]:
+    return _load_yaml(CONSONANT_RULES_PATH)["rules"]
+
+
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -51,6 +64,74 @@ def _find_rule(rules: list[dict], rule_id: str) -> dict:
     if rule is None:
         raise LookupError(f"Rule {rule_id!r} not found in rule list of length {len(rules)}")
     return rule
+
+
+def assert_nonempty_str(value: Any, name: str, rule_id: Any) -> None:
+    """Assert *value* is a non-empty string; raises AssertionError mentioning *name* and *rule_id*."""
+    assert isinstance(value, str) and value, f"rule {rule_id}: '{name}' must be a non-empty string"
+
+
+def assert_nonempty_list_of_str(value: Any, name: str, rule_id: Any) -> None:
+    """Assert *value* is a non-empty list of non-empty strings."""
+    assert isinstance(value, list) and value, f"rule {rule_id}: '{name}' must be a non-empty list"
+    assert all(isinstance(item, str) and item for item in value), (
+        f"rule {rule_id}: all {name} must be non-empty strings"
+    )
+
+
+def _validate_rule_examples(
+    examples: list[dict[str, Any]],
+    rule_id: str,
+    valid_example_keys: set[str],
+    required_example_keys: set[str],
+    is_koine_rule: bool,
+) -> None:
+    """Validate rule examples against expected keys and required conditions.
+
+    Args:
+        examples: An iterable of example mappings (e.g. list[dict[str, Any]]).
+        rule_id: The identifier of the rule being validated.
+        valid_example_keys: A set of allowed keys for each example.
+        required_example_keys: A set of keys that must be present in each example.
+        is_koine_rule: Boolean indicating if the rule applies to Koine Greek.
+
+    Raises:
+        AssertionError: If examples is empty, not a list of dicts, contains unknown keys,
+            missing required keys, lacks form contrast, or has values that fail assert_nonempty_str.
+    """
+    assert isinstance(examples, list) and examples, (
+        f"rule {rule_id}: 'examples' must be a non-empty list"
+    )
+
+    for example in examples:
+        assert isinstance(example, dict), (
+            f"rule {rule_id}: example must be a dict, got {type(example)}"
+        )
+        unknown_example_keys = set(example) - valid_example_keys
+        assert not unknown_example_keys, (
+            f"rule {rule_id}: example contains unknown keys"
+            f" {unknown_example_keys}"
+        )
+        missing_example_keys = required_example_keys - set(example)
+        assert not missing_example_keys, (
+            f"rule {rule_id}: example missing required keys"
+            f" {missing_example_keys}"
+        )
+        has_form_contrast = (
+            "dialect" in example
+            or "reconstruction" in example
+            or is_koine_rule
+        )
+        assert has_form_contrast, (
+            f"rule {rule_id}: example must have"
+            f" 'dialect' or 'reconstruction'"
+        )
+        assert all(
+            isinstance(v, str) and v for v in example.values()
+        ), (
+            f"rule {rule_id}: all example values"
+            f" must be non-empty strings"
+        )
 
 
 def assert_dicts_close(
@@ -415,6 +496,8 @@ def test_grassmann_rule_notes_define_same_word_span() -> None:
 def test_phonology_rules_doc_defines_context_notation_examples() -> None:
     document = PHONOLOGY_RULES_DOC_PATH.read_text(encoding="utf-8")
 
+    assert "Consonant rules generally use a compact notation in the `context` field:" in document
+    assert "Vowel rules may instead use short descriptive English phrases" in document
     assert "`#_V`" in document
     assert "`{p,t,k}_`" in document
     assert "`V...V`" in document
@@ -424,53 +507,270 @@ def test_phonology_rules_doc_defines_context_notation_examples() -> None:
     assert "not a special exception" in document
 
 
-def test_renamed_rules_match_expected_fields() -> None:
-    consonant_rules = _load_yaml(CONSONANT_RULES_PATH)["rules"]
-    vowel_rules = _load_yaml(VOWEL_RULES_PATH)["rules"]
+def test_renamed_rules_match_expected_fields(
+    vowel_rules: list[dict[str, object]],
+    consonant_rules: list[dict[str, object]],
+) -> None:
 
     cch_006 = _find_rule(consonant_rules, "CCH-006")
-    vsh_001 = _find_rule(vowel_rules, "VSH-001")
+    vowel_shift = _find_rule(vowel_rules, "VSH-001")
 
-    assert cch_006["name"] == "Attic sigma+sigma -> tt"
-    assert cch_006["to"] == "tt"
-    assert cch_006["dialect"] == ["attic"]
+    assert cch_006["name_en"] == "Attic sigma+sigma -> tt"
+    assert cch_006["output"] == "tt"
+    assert cch_006["dialects"] == ["attic"]
 
-    assert vsh_001["name"] == "Attic-Ionic long alpha to eta shift"
-    assert vsh_001["from"] == "aː"
-    assert vsh_001["to"] == "ɛː"
+    assert vowel_shift["name_en"] == "Ionic long alpha to eta shift"
+    assert vowel_shift["name_ja"] == "イオニア方言の長母音 ā > ē 推移"
+    assert vowel_shift["input"] == "aː"
+    assert vowel_shift["output"] == "ɛː"
+    assert vowel_shift["dialects"] == ["ionic"]
 
 
-def test_koine_iotacism_rules_cover_eta_upsilon_oi_and_ei() -> None:
-    vowel_rules = _load_yaml(VOWEL_RULES_PATH)["rules"]
-
-    expected_rules = {
-        "VSH-005": ("ɛː", "i"),
-        "VSH-006": ("y", "i"),
-        "VSH-007": ("oi", "i"),
-        "VSH-008": ("eː", "i"),
+def test_vowel_shift_rules_use_new_schema_and_define_minimum_expected_rules(
+    vowel_rules: list[dict[str, object]],
+) -> None:
+    required_keys = {
+        "id",
+        "name_en",
+        "name_ja",
+        "input",
+        "output",
+        "context",
+        "dialects",
+        "period",
+        "references",
+        "examples",
     }
+    legacy_keys = {"name", "from", "to", "dialect", "weight", "priority"}
 
-    for rule_id, (from_phone, to_phone) in expected_rules.items():
-        rule = _find_rule(vowel_rules, rule_id)
-
-        assert rule["from"] == from_phone
-        assert rule["to"] == to_phone
-        assert rule["context"] is None
-        assert rule["dialect"] == ["koine"]
-        assert rule["period"] == "hellenistic"
-        assert rule["weight"] == 0.6
-
-
-def test_vowel_shift_rule_endpoints_match_canonical_vowel_inventory() -> None:
-    matrix = _load_json(MATRIX_PATH)
-    vowel_rules = _load_yaml(VOWEL_RULES_PATH)["rules"]
-
-    canonical_vowels = set(matrix["sound_classes"]["vowels"])
-    allowed_sequences = {"eːo", "eoː"}
+    expected_ids = {f"VSH-{n:03d}" for n in range(1, 23)}
+    actual_ids = {rule["id"] for rule in vowel_rules}
+    assert actual_ids == expected_ids, (
+        f"Expected vowel rule IDs {sorted(expected_ids)}, got {sorted(actual_ids)}"
+    )
 
     for rule in vowel_rules:
-        for endpoint_name in ("from", "to"):
-            endpoint = rule[endpoint_name]
-            assert endpoint in canonical_vowels or endpoint in allowed_sequences, (
-                f"{rule['id']} has non-canonical vowel {endpoint_name}={endpoint!r}"
+        rule_id = rule.get("id", "unknown")
+        missing_keys = required_keys - set(rule)
+        assert required_keys <= set(rule), f"rule {rule_id}: missing required keys {missing_keys}"
+        forbidden_keys = legacy_keys & set(rule)
+        assert not forbidden_keys, f"rule {rule_id}: contains legacy keys {forbidden_keys}"
+        assert_nonempty_str(rule["id"], "id", rule_id)
+        assert_nonempty_str(rule["name_en"], "name_en", rule_id)
+        assert_nonempty_str(rule["name_ja"], "name_ja", rule_id)
+        assert_nonempty_str(rule["input"], "input", rule_id)
+        assert_nonempty_str(rule["output"], "output", rule_id)
+        assert_nonempty_str(rule["context"], "context", rule_id)
+        assert_nonempty_str(rule["period"], "period", rule_id)
+        assert_nonempty_list_of_str(rule["dialects"], "dialects", rule_id)
+        assert_nonempty_list_of_str(rule["references"], "references", rule_id)
+        if "change_type" in rule:
+            assert rule["change_type"] in {"retention"}, (
+                f"rule {rule_id}: unknown change_type {rule['change_type']!r}"
             )
+        # Koine examples may illustrate a chronological sound value
+        # or identical spelling, so they do not always supply a
+        # contrasting dialect/reconstruction form.
+        _validate_rule_examples(
+            rule["examples"],
+            rule_id,
+            {"standard", "dialect", "meaning", "phonetic", "reconstruction"},
+            {"standard", "meaning"},
+            is_koine_rule="koine" in rule.get("dialects", []),
+        )
+
+
+def test_representative_vowel_shift_rules_match_expected_content(
+    vowel_rules: list[dict[str, object]],
+) -> None:
+    vowel_shift = _find_rule(vowel_rules, "VSH-001")
+    doric_alpha_retention = _find_rule(vowel_rules, "VSH-002")
+    nasal_lengthening = _find_rule(vowel_rules, "VSH-003")
+    attic_alpha_retention = _find_rule(vowel_rules, "VSH-010")
+    attic_omicron_alpha_contraction = _find_rule(vowel_rules, "VSH-017")
+    koine_ei_merger = _find_rule(vowel_rules, "VSH-008")
+    koine_eta_iotacism = _find_rule(vowel_rules, "VSH-005")
+    koine_oi_merger = _find_rule(vowel_rules, "VSH-007")
+    koine_long_o_raising = _find_rule(vowel_rules, "VSH-022")
+
+    assert vowel_shift["input"] == "aː"
+    assert vowel_shift["output"] == "ɛː"
+    assert vowel_shift["context"] == "all environments"
+    assert vowel_shift["references"] == ["Buck §9", "Smyth §31"]
+    assert vowel_shift["dialects"] == ["ionic"]
+    assert "VSH-009" in vowel_shift["note"]
+    assert "VSH-010" in vowel_shift["note"]
+
+    assert attic_alpha_retention["input"] == "ɛː"
+    assert attic_alpha_retention["output"] == "aː"
+    assert attic_alpha_retention["change_type"] == "retention"
+    assert attic_alpha_retention["context"] == "after e, i, or r"
+    assert attic_alpha_retention["dialects"] == ["attic"]
+
+    assert doric_alpha_retention["change_type"] == "retention"
+
+    assert nasal_lengthening["input"] == "a"
+    assert nasal_lengthening["output"] == "aː"
+    assert nasal_lengthening["context"] == "_NC"
+
+    assert attic_omicron_alpha_contraction["input"] == "oa"
+    assert attic_omicron_alpha_contraction["output"] == "ɔː"
+
+    assert koine_ei_merger["input"] == "eː"
+    assert koine_ei_merger["output"] == "i"
+    assert koine_ei_merger["dialects"] == ["koine"]
+    assert koine_ei_merger["period"] == "3rd century BCE onwards"
+    assert "εἰ" in koine_ei_merger["note"]
+    assert "[eː]" in koine_ei_merger["note"]
+
+    assert koine_eta_iotacism["input"] == "ɛː"
+    assert koine_eta_iotacism["output"] == "i"
+    assert koine_eta_iotacism["dialects"] == ["koine"]
+    assert koine_eta_iotacism["period"] == "2nd century BCE onwards"
+    assert koine_eta_iotacism["examples"][0]["dialect"] == "μίτιρ"
+
+    assert koine_oi_merger["input"] == "oi"
+    assert koine_oi_merger["output"] == "i"
+    assert koine_oi_merger["dialects"] == ["koine"]
+    assert "VSH-021" in koine_oi_merger["note"]
+    assert "VSH-007" in koine_oi_merger["note"]
+    assert koine_oi_merger["examples"][0]["phonetic"] == "[loipon] → [lipon]"
+
+    assert koine_long_o_raising["input"] == "oː"
+    assert koine_long_o_raising["output"] == "u"
+    assert koine_long_o_raising["dialects"] == ["koine"]
+    assert koine_long_o_raising["references"] == [
+        "Allen Vox Graeca 3.2",
+        "Horrocks 2010: 169-170",
+    ]
+
+
+def _initial_vowel_with_modifiers(ipa: str) -> str:
+    """Extract the initial base character and its trailing modifiers from an IPA string.
+
+    Skips any leading combining characters, then returns the first base character
+    along with any immediately following length marks (ː) or combining characters.
+
+    Args:
+        ipa: A non-empty IPA transcription string.
+
+    Returns:
+        The initial base character concatenated with its trailing modifiers.
+
+    Raises:
+        AssertionError: If ipa is empty or contains only combining characters.
+    """
+    assert ipa, "Expected non-empty IPA string"
+    base_index = 0
+    while base_index < len(ipa) and unicodedata.combining(ipa[base_index]):
+        base_index += 1
+    assert base_index < len(ipa), "Expected IPA string containing a base character"
+
+    base = ipa[base_index]
+    tail = ""
+    for ch in ipa[base_index + 1 :]:
+        if ch == "ː" or unicodedata.combining(ch):
+            tail += ch
+        else:
+            break
+    return base + tail
+
+
+def test_koine_vowel_shift_rule_inputs_match_current_ipa_conversion(
+    vowel_rules: list[dict[str, object]],
+) -> None:
+    koine_ei_merger = _find_rule(vowel_rules, "VSH-008")
+    koine_long_o_raising = _find_rule(vowel_rules, "VSH-022")
+
+    assert to_ipa("εἰς") == "eːs"
+    assert koine_ei_merger["input"] == "eː"
+
+    ouranos_ipa = to_ipa("οὐρανός")
+
+    ouranos_initial_vowel = _initial_vowel_with_modifiers(ouranos_ipa)
+    assert ouranos_ipa == "oːranós"
+    assert koine_long_o_raising["input"] == ouranos_initial_vowel
+    assert _initial_vowel_with_modifiers("\u0301oːranós") == "oː"
+
+
+def test_attic_omicron_alpha_contraction_example_uses_oa_pair(
+    vowel_rules: list[dict[str, object]],
+) -> None:
+    attic_omicron_alpha_contraction = _find_rule(vowel_rules, "VSH-017")
+    example = attic_omicron_alpha_contraction["examples"][0]
+
+    assert example["standard"] == "αἰδῶ"
+    assert example["dialect"] == "αἰδόα"
+
+
+def test_ionic_quantitative_metathesis_note_clarifies_attic_reference_example(
+    vowel_rules: list[dict[str, object]],
+) -> None:
+    ionic_metathesis = _find_rule(vowel_rules, "VSH-004")
+
+    assert "Attic form" in ionic_metathesis["note"]
+    assert "Ionic-source" in ionic_metathesis["note"]
+
+
+def test_consonant_rules_use_new_schema_and_define_expected_rules(
+    consonant_rules: list[dict[str, object]],
+) -> None:
+    required_keys = {
+        "id",
+        "name_en",
+        "name_ja",
+        "input",
+        "output",
+        "context",
+        "dialects",
+        "period",
+        "references",
+        "examples",
+    }
+    legacy_keys = {"name", "from", "to", "dialect", "weight", "priority"}
+
+    expected_ids = {
+        "CCH-001",
+        "CCH-002",
+        "CCH-003",
+        "CCH-004",
+        "CCH-005",
+        "CCH-006",
+        "CCH-007",
+    }
+    actual_ids = {rule["id"] for rule in consonant_rules}
+    assert actual_ids == expected_ids, (
+        f"Expected consonant rule IDs {sorted(expected_ids)}, got {sorted(actual_ids)}"
+    )
+
+    valid_example_keys = {
+        "standard", "dialect", "meaning", "phonetic", "reconstruction",
+    }
+    required_example_keys = {"standard", "meaning"}
+
+    for rule in consonant_rules:
+        rule_id = rule.get("id", "unknown")
+        missing_keys = required_keys - set(rule)
+        assert required_keys <= set(rule), f"rule {rule_id}: missing required keys {missing_keys}"
+        forbidden_keys = legacy_keys & set(rule)
+        assert not forbidden_keys, f"rule {rule_id}: contains legacy keys {forbidden_keys}"
+        assert_nonempty_str(rule["id"], "id", rule_id)
+        assert_nonempty_str(rule["name_en"], "name_en", rule_id)
+        assert_nonempty_str(rule["name_ja"], "name_ja", rule_id)
+        assert_nonempty_str(rule["input"], "input", rule_id)
+        # output can be empty string (e.g. CCH-003 sigma deletion)
+        assert isinstance(rule["output"], str), f"rule {rule_id}: 'output' must be a string"
+        # context can be null for unconditioned rules (e.g. CCH-006)
+        assert rule["context"] is None or (isinstance(rule["context"], str) and rule["context"]), (
+            f"rule {rule_id}: 'context' must be a non-empty string or null"
+        )
+        assert_nonempty_str(rule["period"], "period", rule_id)
+        assert_nonempty_list_of_str(rule["dialects"], "dialects", rule_id)
+        assert_nonempty_list_of_str(rule["references"], "references", rule_id)
+        _validate_rule_examples(
+            rule["examples"],
+            rule_id,
+            valid_example_keys,
+            required_example_keys,
+            is_koine_rule="koine" in rule.get("dialects", []),
+        )

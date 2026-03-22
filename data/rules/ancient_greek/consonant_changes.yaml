@@ -1,83 +1,124 @@
 # Ancient Greek Consonant Change Rules
-# Format: each rule defines a phonological change with context and weight
+# Format: each rule records a historically significant consonant development.
 #
 # Fields:
-#   id:       unique rule identifier
-#   name:     human-readable name
-#   from:     source phone(s) in IPA
-#   to:       target phone(s) in IPA
-#   context:  phonological environment (_ = position, # = word boundary,
-#              ... = any same-word span, V = any vowel,
-#              {a,o} = choice/set of alternatives)
-#   dialect:  applicable dialect(s)
-#   period:   chronological period
-#   weight:   distance penalty (0.0 = free alternation, 1.0 = major change)
-#   priority: optional deterministic precedence (higher wins)
-#   note:     optional clarification for overlapping environments
+#   id:         unique rule identifier
+#   name_en:    English rule name
+#   name_ja:    Japanese rule name
+#   input:      source phone(s) in IPA
+#   output:     resulting phone(s) in IPA
+#   context:    phonological environment (_ = position, # = word boundary,
+#                ... = any same-word span, V = any vowel,
+#                {a,o} = choice/set of alternatives; null = unconditioned)
+#   dialects:   applicable dialect(s) or chronological varieties
+#   period:     chronological range
+#   references: short-form scholarly references
+#   examples:   attested contrastive examples with glosses
+# Optional fields:
+#   note:       clarification for overlapping environments or special constraints
+#
+# Schema history:
+#   v0.1 fields `name`, `from`, `to`, `dialect`, `weight` were renamed/removed.
+#   `weight` (0.0-1.0 rule penalty) was removed because phonological distance
+#   is computed entirely from the substitution matrix in distance.py, making
+#   per-rule weights redundant and a potential source of double-counting.
+#
+# Notes on examples:
+#   standard       = reference form used for comparison
+#   dialect        = contrasting dialectal or chronological form that illustrates the rule
+#   reconstruction = reconstructed (unattested) form, prefixed with * per convention;
+#                    used for pre-literary changes where no written dialectal contrast exists
+#   phonetic       = IPA transcription showing the sound-level change, e.g. "[bíos] → [víos]"
+#   meaning        = English gloss
+#
+#   Required example keys are `standard` and `meaning`.
+#   Depending on the rule, examples may additionally supply `dialect`,
+#   `reconstruction`, or `phonetic`.
 
 rules:
   - id: CCH-001
-    name: "Grassmann's Law: aspiration dissimilation"
-    from: "pʰ"
-    to: "p"
+    name_en: "Grassmann's Law: aspiration dissimilation"
+    name_ja: "グラスマンの法則：帯気音の異化（唇音）"
+    input: "pʰ"
+    output: "p"
     context: "_...pʰ"
-    dialect: [attic, ionic, doric]
-    period: archaic
-    weight: 0.3
+    dialects: [attic, ionic, doric]
+    period: "archaic"
+    references: ["Buck §68", "Smyth §125"]
+    examples:
+      - { standard: "πέφυκα", reconstruction: "*φέφυκα", meaning: "have grown (perfect of φύω)" }
     note: "Applies when another aspirate follows later in the same word; `...` uses the standard same-word span described in docs/phonology_rules.md."
 
   - id: CCH-002
-    name: "Grassmann's Law: theta dissimilation"
-    from: "tʰ"
-    to: "t"
+    name_en: "Grassmann's Law: theta dissimilation"
+    name_ja: "グラスマンの法則：帯気音の異化（歯音）"
+    input: "tʰ"
+    output: "t"
     context: "_...tʰ"
-    dialect: [attic, ionic, doric]
-    period: archaic
-    weight: 0.3
+    dialects: [attic, ionic, doric]
+    period: "archaic"
+    references: ["Buck §68", "Smyth §125"]
+    examples:
+      - { standard: "τίθημι", reconstruction: "*θίθημι", meaning: "I place, put" }
     note: "Applies when another aspirate follows later in the same word; `...` uses the standard same-word span described in docs/phonology_rules.md."
 
   - id: CCH-003
-    name: "Intervocalic sigma deletion (Ionic)"
-    from: "s"
-    to: ""
+    name_en: "Intervocalic sigma deletion (Ionic)"
+    name_ja: "イオニア方言の母音間 s 脱落"
+    input: "s"
+    output: ""
     context: "V_V"
-    dialect: [ionic]
-    period: archaic
-    weight: 0.5
+    dialects: [ionic]
+    period: "archaic"
+    references: ["Buck §52", "Smyth §114"]
+    examples:
+      - { standard: "γένεος", reconstruction: "*γένεσος", meaning: "of a kind (genitive)" }
 
   - id: CCH-004
-    name: "Labiovelars -> labials (Attic-Ionic)"
-    from: "kʷ"
-    to: "p"
+    name_en: "Labiovelars -> labials (Attic-Ionic)"
+    name_ja: "唇軟口蓋音の唇音化（アッティカ・イオニア方言）"
+    input: "kʷ"
+    output: "p"
     context: "_{a,o}"
-    dialect: [attic, ionic]
-    period: archaic
-    weight: 0.6
+    dialects: [attic, ionic]
+    period: "archaic"
+    references: ["Buck §122", "Smyth §15"]
+    examples:
+      - { standard: "ἕπομαι", reconstruction: "*σέκʷομαι", meaning: "follow" }
 
   - id: CCH-005
-    name: "Labiovelars -> dentals before front vowels (Attic)"
-    from: "kʷ"
-    to: "t"
+    name_en: "Labiovelars -> dentals before front vowels (Attic)"
+    name_ja: "前舌母音前における唇軟口蓋音の歯音化（アッティカ方言）"
+    input: "kʷ"
+    output: "t"
     context: "_{e,i}"
-    dialect: [attic]
-    period: archaic
-    weight: 0.6
+    dialects: [attic]
+    period: "archaic"
+    references: ["Buck §122", "Smyth §15"]
+    examples:
+      - { standard: "τίς", reconstruction: "*κʷίς", meaning: "who?" }
     note: "Front-vowel environment only: this Attic rule applies before /e, i/, while CCH-004 covers the distinct back-vowel environments _{a,o}."
 
   - id: CCH-006
-    name: "Attic sigma+sigma -> tt"
-    from: "ss"
-    to: "tt"
+    name_en: "Attic sigma+sigma -> tt"
+    name_ja: "アッティカ方言の ss > tt 変化"
+    input: "ss"
+    output: "tt"
     context: null
-    dialect: [attic]
-    period: classical
-    weight: 0.4
+    dialects: [attic]
+    period: "classical"
+    references: ["Buck §81", "Smyth §78"]
+    examples:
+      - { standard: "θάλασσα", dialect: "θάλαττα", meaning: "sea" }
 
   - id: CCH-007
-    name: "Koine spirantization: beta"
-    from: "b"
-    to: "v"
+    name_en: "Koine spirantization: beta"
+    name_ja: "コイネー期の β 摩擦音化"
+    input: "b"
+    output: "v"
     context: "V_V"
-    dialect: [koine]
-    period: hellenistic
-    weight: 0.5
+    dialects: [koine]
+    period: "hellenistic"
+    references: ["Allen Vox Graeca 2.4", "Horrocks 2010: 160-162"]
+    examples:
+      - { standard: "βίος", phonetic: "[bíos] → [víos]", meaning: "life" }

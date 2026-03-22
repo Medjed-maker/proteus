@@ -88,13 +88,13 @@ uv run pytest
       "rules_applied": [
         {
           "rule_id": "VSH-001",
-          "rule_name": "Attic-Ionic long alpha to eta shift",
+          "rule_name": "Ionic long alpha to eta shift",
           "from_phone": "aː",
           "to_phone": "ɛː",
           "position": 1
         }
       ],
-      "explanation": "The match reflects the same lexical root with an Attic-Ionic vowel correspondence. The rules_applied entry records the segment-level eta shift behind that summary."
+      "explanation": "The match reflects the same lexical root with an Ionic vowel correspondence. The rules_applied entry records the segment-level eta shift behind that summary."
     }
   ]
 }

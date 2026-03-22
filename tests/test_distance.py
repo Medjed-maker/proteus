@@ -19,7 +19,9 @@ from proteus.phonology.distance import (
     sequence_distance,
     word_distance,
 )
-from proteus.phonology.ipa_converter import to_ipa
+from proteus.phonology._paths import resolve_repo_data_dir
+from proteus.phonology import ipa_converter as ipa_converter_module
+from proteus.phonology.ipa_converter import greek_to_ipa, to_ipa
 
 
 @pytest.fixture
@@ -190,11 +192,19 @@ class TestLoadMatrix:
     def test_prefers_environment_override_for_trusted_matrices_dir(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        trusted_dir = tmp_path / "custom-matrices"
-        trusted_dir.mkdir()
-        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+        custom_dir = tmp_path / "custom-matrices"
+        custom_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(custom_dir))
 
-        assert distance_module._get_trusted_matrices_dir() == trusted_dir
+        assert distance_module._get_trusted_matrices_dir() == custom_dir.resolve()
+
+    def test_environment_override_raises_for_nonexistent_directory(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(tmp_path / "missing"))
+
+        with pytest.raises(FileNotFoundError):
+            distance_module._get_trusted_matrices_dir()
 
     def test_falls_back_to_repo_data_directory_when_env_is_unset(
         self, monkeypatch: pytest.MonkeyPatch
@@ -202,9 +212,11 @@ class TestLoadMatrix:
         monkeypatch.delenv("PROTEUS_TRUSTED_MATRICES_DIR", raising=False)
 
         resolved_dir = distance_module._get_trusted_matrices_dir()
+        expected_dir = resolve_repo_data_dir("matrices")
 
         assert resolved_dir.name == "matrices"
         assert resolved_dir.is_dir()
+        assert resolved_dir.resolve() == expected_dir.resolve()
 
 
 class TestPublicApi:
@@ -228,6 +240,13 @@ class TestPhoneDistance:
     def test_identity_is_zero(self) -> None:
         assert phone_distance("a", "a", {}) == 0.0
 
+    def test_accented_known_phone_matches_unaccented_equivalent(self) -> None:
+        assert phone_distance("ó", "o", {}) == 0.0
+
+    def test_non_accent_combining_marks_remain_distinct(self) -> None:
+        assert phone_distance("n̩", "n", {}) == DEFAULT_COST
+        assert phone_distance("ã", "a", {}) == DEFAULT_COST
+
     def test_direct_matrix_entry_is_used(self) -> None:
         matrix = {"a": {"ɛː": 0.5}}
 
@@ -244,6 +263,9 @@ class TestPhoneDistance:
     def test_known_unmapped_pair_uses_unknown_substitution_cost(self) -> None:
         assert phone_distance("s", "n", {}) == UNKNOWN_SUBSTITUTION_COST
 
+    def test_accented_known_unmapped_pair_still_uses_unknown_substitution_cost(self) -> None:
+        assert phone_distance("ó", "ɛ́ː", {}) == UNKNOWN_SUBSTITUTION_COST
+
 
 class TestPhonologicalDistance:
     def test_both_empty_sequences_have_zero_cost(self) -> None:
@@ -253,6 +275,27 @@ class TestPhonologicalDistance:
         seq = ["d", "a", "m", "o", "s"]
 
         assert phonological_distance(seq, seq, {}) == 0.0
+
+    def test_accented_pre_tokenized_converter_output_matches_unaccented_sequence(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fake_greek_to_ipa(text: str) -> list[str]:
+            if text == "λόγος":
+                return ["l", "ó", "ɡ", "o", "s"]
+            if text == "λογος":
+                return ["l", "o", "ɡ", "o", "s"]
+            pytest.fail(f"Unexpected input to greek_to_ipa stub: {text}")
+
+        monkeypatch.setattr(ipa_converter_module, "greek_to_ipa", fake_greek_to_ipa)
+
+        assert (
+            phonological_distance(
+                ipa_converter_module.greek_to_ipa("λόγος"),
+                ipa_converter_module.greek_to_ipa("λογος"),
+                {},
+            )
+            == 0.0
+        )
 
     def test_completely_different_sequences_use_full_default_cost(self) -> None:
         assert phonological_distance(["x", "q"], ["!", "?"], {}) == pytest.approx(
@@ -267,6 +310,15 @@ class TestPhonologicalDistance:
             ["a", "x", "d"],
             matrix,
         ) == pytest.approx(2.0)
+
+    def test_accented_matrix_backed_substitution_uses_sequence_normalization(self) -> None:
+        matrix = {"o": {"ɛː": 0.5}, "ɛː": {"o": 0.5}}
+
+        assert phonological_distance(["ó"], ["ɛ́ː"], matrix) == pytest.approx(0.5)
+
+    def test_non_accent_combining_marks_are_not_normalized_away(self) -> None:
+        assert phonological_distance(["n̩"], ["n"], {}) == pytest.approx(DEFAULT_COST)
+        assert phonological_distance(["ã"], ["a"], {}) == pytest.approx(DEFAULT_COST)
 
     def test_internal_mismatch_uses_default_cost(self) -> None:
         assert phonological_distance(
@@ -376,8 +428,22 @@ class TestWordDistance:
     def test_converter_output_matches_stressed_lexicon_ipa(self) -> None:
         assert word_distance(to_ipa("λόγος"), "lóɡos", {}) == pytest.approx(0.0)
 
+    def test_word_distance_keeps_non_accent_combining_marks_attached_to_phone(self) -> None:
+        assert word_distance("n̩", "n", {}) == pytest.approx(sequence_distance(["n̩"], ["n"], {}))
+        assert word_distance("ã", "a", {}) == pytest.approx(sequence_distance(["ã"], ["a"], {}))
+
     def test_normalized_word_distance_is_clamped_to_one(self) -> None:
         assert normalized_word_distance("x q", "! ?", {}) == pytest.approx(1.0)
+
+    def test_normalized_word_distance_matches_sequence_api_for_combining_mark_phones(
+        self,
+    ) -> None:
+        assert normalized_word_distance("n̩", "n", {}) == pytest.approx(
+            normalized_sequence_distance(["n̩"], ["n"], {})
+        )
+        assert normalized_word_distance("ã", "a", {}) == pytest.approx(
+            normalized_sequence_distance(["ã"], ["a"], {})
+        )
 
     def test_word_distance_tokenizes_inputs_before_delegating(
         self, monkeypatch: pytest.MonkeyPatch
@@ -446,6 +512,13 @@ class TestNormalizedPhonologicalDistance:
     def test_identical_sequences_have_zero_normalized_cost(self) -> None:
         assert normalized_phonological_distance(["a"], ["a"], {}) == pytest.approx(0.0)
 
+    def test_accented_pre_tokenized_converter_output_normalizes_to_zero(self) -> None:
+        assert normalized_phonological_distance(
+            greek_to_ipa("λόγος"),
+            greek_to_ipa("λογος"),
+            {},
+        ) == pytest.approx(0.0)
+
     def test_matrix_backed_substitution_keeps_unit_scale_matrix_value(self) -> None:
         matrix = {"a": {"b": 0.5}, "b": {"a": 0.5}}
 
@@ -511,7 +584,7 @@ class TestRealMatrix:
 
         assert 0.03 <= logos_distance <= 0.05
         assert 0.14 <= diphthong_distance <= 0.16
-        assert 0.55 <= far_known_distance <= 0.65
+        assert far_known_distance == pytest.approx(0.6, rel=0.1)
 
     def test_known_consonant_substitution_no_longer_uses_default_gap_cost(
         self,
