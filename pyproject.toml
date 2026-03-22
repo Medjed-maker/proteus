@@ -28,6 +28,7 @@ packages = ["src/proteus"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "data/matrices" = "proteus/phonology/data/matrices"
+"data/lexicon" = "proteus/phonology/data/lexicon"
 "data/rules" = "proteus/phonology/data/rules"
 
 [tool.pytest.ini_options]
