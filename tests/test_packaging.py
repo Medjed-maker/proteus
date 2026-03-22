@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 EXPECTED_WHEEL_ASSETS = {
+    "proteus/phonology/data/lexicon/greek_lemmas.json",
     "proteus/phonology/data/matrices/attic_doric.json",
     "proteus/phonology/data/rules/ancient_greek/consonant_changes.yaml",
     "proteus/phonology/data/rules/ancient_greek/vowel_shifts.yaml",
@@ -24,6 +25,7 @@ def test_wheel_force_include_config_and_packaged_layout_support_runtime_loaders(
     pyproject = tomllib.loads((ROOT_DIR / "pyproject.toml").read_text(encoding="utf-8"))
     force_include = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
     assert force_include == {
+        "data/lexicon": "proteus/phonology/data/lexicon",
         "data/matrices": "proteus/phonology/data/matrices",
         "data/rules": "proteus/phonology/data/rules",
     }
@@ -47,21 +49,22 @@ import sys
 packaged_root = Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(packaged_root))
 
+import proteus.api.main as api_module
 import proteus.phonology.distance as distance_module
 import proteus.phonology.explainer as explainer_module
 
+assert Path(api_module.__file__).resolve().is_relative_to(packaged_root)
 assert Path(distance_module.__file__).resolve().is_relative_to(packaged_root)
 assert Path(explainer_module.__file__).resolve().is_relative_to(packaged_root)
 
-matrix = distance_module.load_matrix(
-    "attic_doric.json"
-)
-rules = explainer_module.load_rules(
-    "ancient_greek"
-)
+lexicon_entries = api_module.load_lexicon_entries()
+matrix = distance_module.load_matrix("attic_doric.json")
+rules = explainer_module.load_rules("ancient_greek")
 legacy_matrix = distance_module.load_matrix("data/matrices/attic_doric.json")
 legacy_rules = explainer_module.load_rules("data/rules/ancient_greek")
 
+assert lexicon_entries
+assert any(entry.get("headword") == "ἄνθρωπος" for entry in lexicon_entries)
 assert matrix["a"]["a"] == 0.0
 assert legacy_matrix["a"]["a"] == 0.0
 assert "CCH-001" in rules
