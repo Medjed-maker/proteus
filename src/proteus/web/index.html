@@ -4,236 +4,296 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Proteus — Ancient Greek Phonological Search</title>
-  <style>
-    /* ------------------------------------------------------------------ */
-    /* Minimal base styles — placeholder until real UI is built            */
-    /* ------------------------------------------------------------------ */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: "Palatino Linotype", Palatino, "Book Antiqua", serif;
-      background: #faf8f3;
-      color: #2c2a24;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 3rem 1rem;
-    }
-
-    header { text-align: center; margin-bottom: 2.5rem; }
-    header h1 { font-size: 2.5rem; letter-spacing: 0.04em; }
-    header p  { color: #6b6557; font-size: 1rem; margin-top: 0.4rem; }
-
-    .search-box {
-      display: flex;
-      gap: 0.5rem;
-      width: 100%;
-      max-width: 560px;
-    }
-
-    .visually-hidden {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
-    }
-
-    #query {
-      flex: 1;
-      font-size: 1.4rem;
-      font-family: "GFS Didot", "Palatino Linotype", serif;
-      padding: 0.5rem 0.8rem;
-      border: 1px solid #c4b99a;
-      border-radius: 4px;
-      background: #fff;
-    }
-
-    button {
-      padding: 0.5rem 1.2rem;
-      font-size: 1rem;
-      background: #5a4e38;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    button:hover { background: #3d3424; }
-    button:disabled,
-    button[disabled] {
-      opacity: 0.55;
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-
-    #results {
-      margin-top: 2rem;
-      width: 100%;
-      max-width: 720px;
-    }
-
-    .hit {
-      background: #fff;
-      border: 1px solid #ddd6c1;
-      border-radius: 6px;
-      padding: 1rem 1.2rem;
-      margin-bottom: 1rem;
-    }
-
-    .hit-headword  { font-size: 1.5rem; }
-    .hit-ipa       { color: #6b6557; font-size: 0.9rem; margin-top: 0.2rem; }
-    .hit-distance  { float: right; font-size: 0.85rem; color: #8c7d62; }
-    .hit-explain   { margin-top: 0.8rem; font-size: 0.9rem; line-height: 1.5; }
-  </style>
+  <link rel="stylesheet" href="/static/styles.css" />
 </head>
-<body>
-  <header>
-    <h1>Πρωτεύς · Proteus</h1>
-    <p>Ancient Greek phonological search engine</p>
+<body class="font-serif bg-parchment-50 text-ink min-h-screen flex flex-col items-center py-12 px-4">
+
+  <header class="text-center mb-10">
+    <h1 class="text-4xl tracking-wide font-bold">Πρωτεύς · Proteus</h1>
+    <p class="text-ink-light text-base mt-1">Ancient Greek phonological search engine</p>
   </header>
 
-  <form id="searchForm" class="search-box">
-    <label for="query" class="visually-hidden">Search query</label>
-    <input id="query" type="text" placeholder="ἄνθρωπος" autocomplete="off" />
-    <button id="searchBtn" type="submit">Search</button>
-  </form>
+  <main class="w-full max-w-3xl">
+    <form id="searchForm" class="flex gap-3 max-w-xl mx-auto">
+      <label for="query" class="sr-only">Search query</label>
+      <input id="query" type="text"
+        placeholder="ἄνθρωπος"
+        autocomplete="off"
+        class="flex-1 text-2xl font-serif py-3 px-4 border border-parchment-200 rounded-lg bg-white
+               focus:outline-none focus:ring-2 focus:ring-accent/30" />
+      <button id="searchBtn" type="submit"
+        class="py-3 px-6 text-base font-medium bg-accent text-white border-none rounded-lg cursor-pointer
+               transition-colors duration-150 hover:bg-accent-hover
+               disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none">
+        Search
+      </button>
+    </form>
 
-  <div id="results" aria-live="polite" role="region" aria-label="Search results"></div>
+    <div id="results" class="mt-8" aria-live="polite" role="region" aria-label="Search results"></div>
+  </main>
 
   <script>
-    function renderStatusMessage(message, color = "") {
-      const container = document.getElementById("results");
-      container.replaceChildren();
+    /* ------------------------------------------------------------------ */
+    /* Status & loading helpers                                            */
+    /* ------------------------------------------------------------------ */
 
-      const paragraph = document.createElement("p");
-      paragraph.textContent = message;
-      if (color) {
-        paragraph.style.color = color;
-      }
-      container.appendChild(paragraph);
+    const STATUS_MESSAGE_COLORS = {
+      red: "text-red-700",
+      accent: "text-accent",
+      "ink-light": "text-ink-light"
+    };
+
+    function renderStatusMessage(message, color = "ink-light") {
+      const el = document.getElementById("results");
+      el.replaceChildren();
+      const p = document.createElement("p");
+      p.textContent = message;
+      p.className = "text-center " + (STATUS_MESSAGE_COLORS[color] || STATUS_MESSAGE_COLORS["ink-light"]);
+      el.appendChild(p);
     }
 
     function setLoadingState(isLoading) {
-      const queryInput = document.getElementById("query");
-      const searchButton = document.getElementById("searchBtn");
-
-      queryInput.disabled = isLoading;
-      searchButton.disabled = isLoading;
+      document.getElementById("query").disabled = isLoading;
+      document.getElementById("searchBtn").disabled = isLoading;
     }
 
-    async function runSearch(event) {
-      if (event) {
-        event.preventDefault();
-      }
+    /* ------------------------------------------------------------------ */
+    /* Search                                                              */
+    /* ------------------------------------------------------------------ */
 
-      const queryInput = document.getElementById("query");
-      const query = queryInput.value.trim();
+    async function runSearch(event) {
+      if (event) event.preventDefault();
+
+      const query = document.getElementById("query").value.trim();
       if (!query) {
         renderStatusMessage("Please enter a search term.");
         return;
       }
 
       setLoadingState(true);
-      renderStatusMessage("Loading...", "blue");
+      renderStatusMessage("Searching\u2026", "accent");
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       try {
         const res = await fetch("/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ query, dialect: "attic", max_results: 20 }),
+          signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
 
         if (!res.ok) {
           let body = "";
-          try {
-            body = (await res.text()).trim();
-          } catch (readError) {
-            console.error("Failed to read error response body:", readError);
-          }
-
-          const errorMessage = `Error: ${res.status} ${res.statusText}${
-            body ? `: ${body}` : ""
-          }`;
-          renderStatusMessage(errorMessage, "red");
+          try { body = (await res.text()).trim(); } catch (_) {}
+          renderStatusMessage("Error: " + res.status + " " + res.statusText + (body ? ": " + body : ""), "red");
           return;
         }
 
-        const data = await res.json();
-        renderResults(data);
-      } catch (error) {
-        console.error(error);
-        const message = error instanceof Error ? error.message : String(error);
-        renderStatusMessage(`Error: ${message}`, "red");
+        renderResults(await res.json());
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === "AbortError") {
+          renderStatusMessage("Request timed out.", "red");
+        } else {
+          renderStatusMessage("Error: " + (err instanceof Error ? err.message : String(err)), "red");
+        }
       } finally {
         setLoadingState(false);
       }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Result rendering                                                    */
+    /* ------------------------------------------------------------------ */
+
+    function confidenceColor(c) {
+      if (c >= 0.9) return ["bg-emerald-100 text-emerald-800", "bg-emerald-500"];
+      if (c >= 0.7) return ["bg-amber-100 text-amber-800",     "bg-amber-500"];
+      if (c >= 0.5) return ["bg-orange-100 text-orange-800",   "bg-orange-500"];
+      return                ["bg-red-100 text-red-800",         "bg-red-500"];
+    }
+
+    function renderConfidenceBadge(confidence) {
+      confidence = Math.max(0, Math.min(1, confidence));
+      const pct = (confidence * 100).toFixed(1);
+      const [badgeCls, barCls] = confidenceColor(confidence);
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "flex items-center gap-2 shrink-0";
+
+      const badge = document.createElement("span");
+      badge.className = "text-xs font-medium px-2 py-0.5 rounded-full " + badgeCls;
+      badge.textContent = pct + "%";
+
+      const barOuter = document.createElement("div");
+      barOuter.className = "w-16 h-1.5 rounded-full bg-parchment-200 overflow-hidden";
+      const barInner = document.createElement("div");
+      barInner.className = "h-full rounded-full " + barCls;
+      barInner.style.width = pct + "%";
+      barOuter.appendChild(barInner);
+
+      wrapper.appendChild(badge);
+      wrapper.appendChild(barOuter);
+      return wrapper;
+    }
+
+    function renderDialectBadges(attribution) {
+      const container = document.createElement("div");
+      container.className = "flex flex-wrap gap-1.5 mt-2";
+
+      if (!attribution) return container;
+
+      attribution.split(";").forEach((segment) => {
+        segment = segment.trim();
+        if (!segment) return;
+        const pill = document.createElement("span");
+        pill.className = "text-xs px-2 py-0.5 rounded-full bg-parchment-200 text-ink-light";
+        pill.textContent = segment;
+        container.appendChild(pill);
+      });
+      return container;
+    }
+
+    function renderAlignmentBlock(text) {
+      if (!text) return null;
+      const pre = document.createElement("pre");
+      pre.className = "mt-3 p-3 rounded-lg bg-parchment-100 text-sm font-mono overflow-x-auto leading-relaxed";
+      pre.textContent = text;
+      return pre;
+    }
+
+    function renderRulesList(rules) {
+      if (!rules || !rules.length) return null;
+
+      const details = document.createElement("details");
+      details.className = "mt-3";
+
+      const summary = document.createElement("summary");
+      summary.className = "cursor-pointer text-sm font-medium text-accent select-none list-item hover:text-accent-hover";
+      summary.textContent = rules.length + " rule" + (rules.length > 1 ? "s" : "") + " applied";
+      details.appendChild(summary);
+
+      const list = document.createElement("div");
+      list.className = "mt-2 pl-4 space-y-1.5";
+
+      rules.forEach((rule) => {
+        const row = document.createElement("div");
+        row.className = "flex flex-wrap items-center gap-x-2 text-sm";
+
+        const id = document.createElement("span");
+        id.className = "font-mono text-xs text-ink-muted";
+        id.textContent = "[" + rule.rule_id + "]";
+
+        const name = document.createElement("span");
+        name.className = "font-serif";
+        name.textContent = rule.rule_name;
+
+        const phones = document.createElement("span");
+        phones.className = "font-mono text-ink-light";
+        phones.textContent = "/" + rule.from_phone + "/ \u2192 /" + rule.to_phone + "/";
+
+        const pos = document.createElement("span");
+        pos.className = "text-xs text-ink-muted";
+        pos.textContent = "pos " + rule.position;
+
+        row.appendChild(id);
+        row.appendChild(name);
+        row.appendChild(phones);
+        row.appendChild(pos);
+        list.appendChild(row);
+      });
+
+      details.appendChild(list);
+      return details;
     }
 
     function renderResults(data) {
       const container = document.getElementById("results");
       container.replaceChildren();
 
-      if (
-        typeof data !== "object" ||
-        data === null ||
-        !Array.isArray(data.hits)
-      ) {
-        console.error("Unexpected search payload:", data);
+      if (!data || !Array.isArray(data.hits)) {
         renderStatusMessage("No results found.");
         return;
       }
-
       if (!data.hits.length) {
         renderStatusMessage("No results found.");
         return;
       }
 
-      data.hits.forEach(hit => {
-        const safeHit = typeof hit === "object" && hit !== null ? hit : {};
-        const safeDistance = Number.isFinite(safeHit.distance)
-          ? `Δ ${safeHit.distance.toFixed(3)}`
-          : "Δ —";
-        const safeHeadword = typeof safeHit.headword === "string"
-          ? safeHit.headword
-          : "N/A";
-        const safeIpa = typeof safeHit.ipa === "string" && safeHit.ipa
-          ? safeHit.ipa
-          : "N/A";
-        const safeExplanation = typeof safeHit.explanation === "string"
-          ? safeHit.explanation
-          : "";
+      /* Query info bar */
+      if (data.query || data.query_ipa) {
+        const info = document.createElement("div");
+        info.className = "text-sm text-ink-muted mb-4 text-center";
+        const infoParts = [];
+        if (data.query) infoParts.push("Query: " + data.query);
+        if (data.query_ipa) infoParts.push("/" + data.query_ipa + "/");
+        info.textContent = infoParts.join(" ");
+        container.appendChild(info);
+      }
+
+      data.hits.forEach((hit) => {
+        if (!hit || typeof hit !== "object") return;
 
         const card = document.createElement("div");
-        card.className = "hit";
+        card.className = "bg-white border border-parchment-200 rounded-xl p-5 mb-4 shadow-sm";
 
-        const distance = document.createElement("span");
-        distance.className = "hit-distance";
-        distance.textContent = safeDistance;
+        /* Top row: headword + confidence */
+        const topRow = document.createElement("div");
+        topRow.className = "flex items-start justify-between gap-4";
 
+        const leftCol = document.createElement("div");
         const headword = document.createElement("div");
-        headword.className = "hit-headword";
-        headword.textContent = safeHeadword;
+        headword.className = "text-2xl font-serif font-bold";
+        headword.textContent = hit.headword || "N/A";
 
         const ipa = document.createElement("div");
-        ipa.className = "hit-ipa";
-        ipa.textContent = safeIpa === "N/A" ? safeIpa : `/${safeIpa}/`;
+        ipa.className = "text-ink-light text-sm italic mt-0.5";
+        ipa.textContent = hit.ipa ? "/" + hit.ipa + "/" : "";
 
-        const explanation = document.createElement("div");
-        explanation.className = "hit-explain";
-        explanation.textContent = safeExplanation;
+        leftCol.appendChild(headword);
+        leftCol.appendChild(ipa);
+        topRow.appendChild(leftCol);
 
-        card.appendChild(distance);
-        card.appendChild(headword);
-        card.appendChild(ipa);
-        card.appendChild(explanation);
+        if (typeof hit.confidence === "number") {
+          topRow.appendChild(renderConfidenceBadge(hit.confidence));
+        } else if (typeof hit.distance === "number") {
+          topRow.appendChild(renderConfidenceBadge(1 - hit.distance));
+        }
+
+        card.appendChild(topRow);
+
+        /* Dialect attribution */
+        if (hit.dialect_attribution) {
+          card.appendChild(renderDialectBadges(hit.dialect_attribution));
+        }
+
+        /* Alignment visualization */
+        const alignEl = renderAlignmentBlock(hit.alignment_visualization);
+        if (alignEl) card.appendChild(alignEl);
+
+        /* Rules */
+        const rulesEl = renderRulesList(hit.rules_applied);
+        if (rulesEl) card.appendChild(rulesEl);
+
+        /* Explanation */
+        if (hit.explanation) {
+          const explain = document.createElement("p");
+          explain.className = "mt-3 text-sm text-ink-light leading-relaxed";
+          explain.textContent = hit.explanation;
+          card.appendChild(explain);
+        }
+
         container.appendChild(card);
       });
     }
+
+    /* ------------------------------------------------------------------ */
+    /* Init                                                                */
+    /* ------------------------------------------------------------------ */
 
     document.getElementById("searchForm").addEventListener("submit", runSearch);
   </script>

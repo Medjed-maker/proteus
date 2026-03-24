@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Proteus is an Ancient Greek phonological search engine that finds lexically related word forms across dialects (Attic, Ionic, Doric, Koine) using BLAST-like phonological alignment. It implements a three-stage search pipeline (Seed → Extend → Filter) operating over IPA phonological space rather than text.
 
-**Current status**: Early development (v0.1.0). The core phonology modules (IPA conversion, distance calculation, matrix generation, rule loading) are implemented. The search pipeline stages (`search.py`) and the `POST /search` API endpoint are stubbed with `NotImplementedError`/501.
+**Current status**: Early development (v0.1.0). The core phonology modules (IPA conversion, distance calculation, matrix generation, rule loading) and the three-stage search pipeline (`search.py`: seed, extend, filter) are implemented. The `POST /search` API endpoint is functional.
 
 ## Build & Development Commands
 
@@ -25,6 +25,9 @@ uv run pytest tests/test_distance.py::test_function_name -v
 
 # Run tests with coverage
 uv run pytest --cov=src
+
+# Build Tailwind CSS (run at least once before starting the dev server; re-run after HTML class changes)
+bash scripts/build-css.sh
 
 # Start dev server (localhost:8000, auto-reload)
 uv run uvicorn proteus.api.main:app --reload
@@ -45,13 +48,13 @@ The package uses `src/` layout with hatchling as the build backend.
 **`phonology/`** — Core computation layer:
 - **`ipa_converter.py`** — Greek script → IPA conversion. Greedy left-to-right tokenizer handles diphthongs, rough breathing, diaeresis, iota subscript. `greek_to_ipa()` returns phone list; `tokenize_ipa()` parses compact/space-separated IPA strings back into phone tokens using a priority-ordered inventory.
 - **`distance.py`** — Weighted edit distance (Needleman-Wunsch) over IPA sequences. Two scoring modes: raw (using `phone_distance()` with DEFAULT_COST=5.0) and normalized 0.0-1.0 (capping substitutions at 1.0). Matrix loading includes TOCTOU-safe symlink/path traversal checks.
-- **`search.py`** — Three-stage pipeline dataclasses (`SearchResult`, `SearchConfig`) and stubs. Only `filter_stage()` is implemented.
+- **`search.py`** — Three-stage search pipeline (`seed_stage`, `extend_stage`, `filter_stage`) with `SearchResult` and `SearchConfig` dataclasses.
 - **`explainer.py`** — Loads YAML phonological rules from `data/rules/`, validates structure and unique IDs. `explain_alignment()` is stubbed.
 - **`matrix_generator.py`** — Reads/validates/regenerates `data/matrices/attic_doric.json`. Enforces symmetry, completeness, and [0.0, 1.0] bounds on sound-class sub-matrices (vowels, stops, dialect_pairs).
 - **`_paths.py`** — Shared utility to locate `data/` directories by walking up from the module to find `pyproject.toml`.
 
 **`api/`** — FastAPI REST layer:
-- **`main.py`** — Endpoints: `GET /` (frontend HTML), `POST /search` (501 stub), `GET /health`. Pydantic models define the full request/response schema including `RuleStep` and `SearchHit`.
+- **`main.py`** — Endpoints: `GET /` (frontend HTML), `POST /search`, `GET /health`. Serves static assets from `web/static/`. Pydantic models define the full request/response schema including `RuleStep` and `SearchHit`.
 
 ### Data Files (`data/`)
 

@@ -48,6 +48,7 @@ class TestSearchHit:
                 headword="λόγος",
                 ipa="loɡos",
                 distance=distance,
+                confidence=0.5,
                 rules_applied=[],
                 explanation="example",
             )
@@ -58,11 +59,37 @@ class TestSearchHit:
             headword="λόγος",
             ipa="loɡos",
             distance=distance,
+            confidence=0.5,
             rules_applied=[],
             explanation="example",
         )
 
         assert hit.distance == distance
+
+    @pytest.mark.parametrize("confidence", [-0.1, 1.1])
+    def test_confidence_must_stay_within_unit_interval(self, confidence: float) -> None:
+        with pytest.raises(ValidationError):
+            SearchHit(
+                headword="λόγος",
+                ipa="loɡos",
+                distance=0.5,
+                confidence=confidence,
+                rules_applied=[],
+                explanation="example",
+            )
+
+    @pytest.mark.parametrize("confidence", [0.0, 1.0])
+    def test_confidence_accepts_unit_interval_boundaries(self, confidence: float) -> None:
+        hit = SearchHit(
+            headword="λόγος",
+            ipa="loɡos",
+            distance=0.5,
+            confidence=confidence,
+            rules_applied=[],
+            explanation="example",
+        )
+
+        assert hit.confidence == confidence
 
     def test_ipa_rejects_none(self) -> None:
         with pytest.raises(ValidationError) as exc_info:
@@ -70,6 +97,7 @@ class TestSearchHit:
                 headword="λόγος",
                 ipa=None,
                 distance=0.1,
+                confidence=0.5,
                 rules_applied=[],
                 explanation="example",
             )
@@ -84,6 +112,7 @@ class TestSearchHit:
                     "headword": None,
                     "ipa": "loɡos",
                     "distance": 0.1,
+                    "confidence": 0.5,
                     "rules_applied": [],
                     "explanation": "example",
                 },
@@ -94,6 +123,7 @@ class TestSearchHit:
                     "headword": "λόγος",
                     "ipa": "loɡos",
                     "distance": 0.1,
+                    "confidence": 0.5,
                     "rules_applied": "not-a-list",
                     "explanation": "example",
                 },
@@ -104,10 +134,22 @@ class TestSearchHit:
                     "headword": "λόγος",
                     "ipa": "loɡos",
                     "distance": 0.1,
+                    "confidence": 0.5,
                     "rules_applied": [],
                     "explanation": None,
                 },
                 "explanation",
+            ),
+            (
+                {
+                    "headword": "λόγος",
+                    "ipa": "loɡos",
+                    "distance": 0.1,
+                    "confidence": None,
+                    "rules_applied": [],
+                    "explanation": "example",
+                },
+                "confidence",
             ),
         ],
     )
@@ -193,6 +235,29 @@ class TestSearchHit:
         assert "distance 0.275" in hit.explanation
         assert "position 1" in hit.explanation
 
+    def test_build_search_hit_coalesces_missing_dialect_attribution_to_empty_string(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class FakeExplanation:
+            steps: list[object] = []
+
+        monkeypatch.setattr(api_main, "explain_alignment", lambda **kwargs: FakeExplanation())
+        monkeypatch.setattr(api_main, "to_prose", lambda explanation: "example")
+
+        hit = api_main._build_search_hit(
+            SearchResult(
+                lemma="λόγος",
+                confidence=0.75,
+                dialect_attribution=None,
+                applied_rules=[],
+                ipa="loɡos",
+            ),
+            query_ipa="loɡos",
+            rules_registry={},
+        )
+
+        assert hit.dialect_attribution == ""
+
 
 class TestLoadFrontendHtml:
     def test_returns_none_when_frontend_read_fails(
@@ -240,11 +305,27 @@ class TestFrontendHtml:
         assert 'addEventListener("submit", runSearch)' in response.text
         assert "onclick=" not in response.text
 
+    def test_html_references_local_css_not_cdn(self, client: TestClient) -> None:
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert "/static/styles.css" in response.text
+        assert "cdn.tailwindcss.com" not in response.text
+        assert "fonts.googleapis.com" not in response.text
+
     def test_missing_route_returns_not_found_json(self, client: TestClient) -> None:
         response = client.get("/missing-route")
 
         assert response.status_code == 404
         assert response.json() == {"detail": "Not Found"}
+
+
+class TestStaticAssets:
+    def test_css_is_served(self, client: TestClient) -> None:
+        response = client.get("/static/styles.css")
+
+        assert response.status_code == 200
+        assert "text/css" in response.headers["content-type"]
 
 
 class TestHealthEndpoint:
@@ -399,6 +480,9 @@ class TestSearchEndpoint:
         assert payload["hits"][0]["headword"] == "λόγος"
         assert payload["hits"][0]["ipa"] == "lóɡos"
         assert payload["hits"][0]["distance"] == pytest.approx(0.25)
+        assert payload["hits"][0]["confidence"] == pytest.approx(0.75)
+        assert payload["hits"][0]["dialect_attribution"] == "lemma dialect: attic"
+        assert payload["hits"][0]["alignment_visualization"] == ""
         assert payload["hits"][0]["rules_applied"] == [
             {
                 "rule_id": "CCH-001",

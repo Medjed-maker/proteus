@@ -40,11 +40,17 @@ _MATCH_SCORE = 2.0
 
 @dataclass
 class SearchResult:
-    """Single ranked hit returned by phonological search."""
+    """Single ranked hit returned by phonological search.
+
+    ``dialect_attribution`` is always set to a descriptive string by
+    ``extend_stage``, but defaults to ``None`` so that callers constructing
+    instances outside the pipeline (e.g. tests, future stages) are not
+    forced to supply a value.  Consumers should handle ``None`` gracefully.
+    """
 
     lemma: str
     confidence: float
-    dialect_attribution: str
+    dialect_attribution: str | None = None
     applied_rules: list[str] = field(default_factory=list)
     rule_applications: list[RuleApplication] = field(default_factory=list)
     alignment_visualization: str = ""
