@@ -17,6 +17,7 @@ import yaml
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import AliasChoices, BaseModel, Field, StringConstraints, field_validator
 
 from proteus.phonology import search as phonology_search
@@ -60,6 +61,7 @@ app.add_middleware(
 )
 
 _FRONTEND_PATH = Path(__file__).resolve().parents[1] / "web" / "index.html"
+_STATIC_DIR = Path(__file__).resolve().parents[1] / "web" / "static"
 QueryForm = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
@@ -132,6 +134,10 @@ def _build_search_hit(
 ) -> SearchHit:
     """Convert a core search result into the public API response shape."""
     source_ipa = result.ipa or ""
+    # Both `distance` and `confidence` are included in the API response so
+    # that consumers can choose whichever convention they prefer (lower-is-
+    # better or higher-is-better).  They are strict inverses:
+    # confidence = 1.0 - distance.
     distance = _distance_from_confidence(result.confidence)
     if result.rule_applications:
         explanation = Explanation(
@@ -154,6 +160,9 @@ def _build_search_hit(
         headword=result.lemma,
         ipa=source_ipa,
         distance=distance,
+        confidence=result.confidence,
+        dialect_attribution=result.dialect_attribution or "",
+        alignment_visualization=result.alignment_visualization or "",
         rules_applied=[
             RuleStep(
                 rule_id=step.rule_id,
@@ -227,6 +236,23 @@ class SearchHit(BaseModel):
             "Normalized phonological distance from the query in the 0.0-1.0 range "
             "(0.0 = identical, lower is more similar)."
         ),
+    )
+    confidence: float = Field(
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Normalized confidence score (0.0-1.0, higher is more similar). "
+            "Inverse of ``distance``: ``confidence = 1.0 - distance``. Both "
+            "fields are provided to support different consumer preferences."
+        ),
+    )
+    dialect_attribution: str = Field(
+        default="",
+        description="Dialect attribution for the match.",
+    )
+    alignment_visualization: str = Field(
+        default="",
+        description="Three-line ASCII alignment visualization.",
     )
     rules_applied: list[RuleStep] = Field(
         description="Ordered rule steps explaining the match."
@@ -311,6 +337,15 @@ async def search(request: SearchRequest) -> SearchResponse:
 async def health() -> dict[str, str]:
     """Liveness probe."""
     return {"status": "ok"}
+
+
+# Mount static files after all route definitions. A StaticFiles mount at "/"
+# would shadow every route registered after it; placing all mounts last is a
+# safe convention even for prefix-scoped paths like "/static".
+if _STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+else:
+    logger.warning("Static assets directory not found at %s", _STATIC_DIR)
 
 
 def main() -> None:

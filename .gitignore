@@ -72,5 +72,8 @@ Thumbs.db
 secrets.yaml
 secrets.json
 
+# Tailwind CLI binary (downloaded on demand)
+.tailwind/
+
 # MCP
 .serena/
