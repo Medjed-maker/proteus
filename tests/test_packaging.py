@@ -13,12 +13,12 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 EXPECTED_WHEEL_ASSETS = {
-    "proteus/phonology/data/lexicon/greek_lemmas.json",
-    "proteus/phonology/data/matrices/attic_doric.json",
-    "proteus/phonology/data/rules/ancient_greek/consonant_changes.yaml",
-    "proteus/phonology/data/rules/ancient_greek/vowel_shifts.yaml",
-    "proteus/web/index.html",
-    "proteus/web/static/styles.css",
+    "phonology/data/lexicon/greek_lemmas.json",
+    "phonology/data/matrices/attic_doric.json",
+    "phonology/data/rules/ancient_greek/consonant_changes.yaml",
+    "phonology/data/rules/ancient_greek/vowel_shifts.yaml",
+    "web/index.html",
+    "web/static/styles.css",
 }
 
 
@@ -29,19 +29,25 @@ def test_wheel_force_include_config_and_packaged_layout_support_runtime_loaders(
     pyproject = tomllib.loads((ROOT_DIR / "pyproject.toml").read_text(encoding="utf-8"))
     force_include = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
     assert force_include == {
-        "data/lexicon": "proteus/phonology/data/lexicon",
-        "data/matrices": "proteus/phonology/data/matrices",
-        "data/rules": "proteus/phonology/data/rules",
+        "data/lexicon": "phonology/data/lexicon",
+        "data/matrices": "phonology/data/matrices",
+        "data/rules": "phonology/data/rules",
+        "src/web/index.html": "web/index.html",
+        "src/web/static": "web/static",
     }
 
     packaged_root = tmp_path / "packaged-root"
-    shutil.copytree(ROOT_DIR / "src" / "proteus", packaged_root / "proteus")
+    shutil.copytree(ROOT_DIR / "src" / "api", packaged_root / "api")
+    shutil.copytree(ROOT_DIR / "src" / "phonology", packaged_root / "phonology")
 
     for source, destination in force_include.items():
-        shutil.copytree(
-            ROOT_DIR / source,
-            packaged_root / destination,
-        )
+        source_path = ROOT_DIR / source
+        destination_path = packaged_root / destination
+        if source_path.is_dir():
+            shutil.copytree(source_path, destination_path)
+        else:
+            destination_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_path, destination_path)
 
     for asset_path in EXPECTED_WHEEL_ASSETS:
         assert (packaged_root / asset_path).is_file()
@@ -53,9 +59,9 @@ import sys
 packaged_root = Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(packaged_root))
 
-import proteus.api.main as api_module
-import proteus.phonology.distance as distance_module
-import proteus.phonology.explainer as explainer_module
+import api.main as api_module
+import phonology.distance as distance_module
+import phonology.explainer as explainer_module
 
 assert Path(api_module.__file__).resolve().is_relative_to(packaged_root)
 assert Path(distance_module.__file__).resolve().is_relative_to(packaged_root)
@@ -102,7 +108,7 @@ def _setup_css_build_project(tmp_path: Path) -> tuple[Path, Path, Path]:
     """
     project_dir = tmp_path / "project"
     scripts_dir = project_dir / "scripts"
-    web_dir = project_dir / "src" / "proteus" / "web"
+    web_dir = project_dir / "src" / "web"
     bin_dir = project_dir / ".tailwind"
 
     scripts_dir.mkdir(parents=True)

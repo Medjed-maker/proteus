@@ -1,13 +1,14 @@
-"""Tests for proteus.phonology.explainer."""
+"""Tests for phonology.explainer."""
 
 from pathlib import Path
 
 import pytest
 
-from proteus.phonology import explainer as explainer_module
-from proteus.phonology.explainer import (
+from phonology import explainer as explainer_module
+from phonology.explainer import (
     Alignment,
     Explanation,
+    POSITION_UNKNOWN,
     RuleApplication,
     explain,
     explain_alignment,
@@ -64,7 +65,14 @@ def test_to_prose_returns_canonical_prose_without_mutating_explanation() -> None
     assert explanation.prose == ""
 
 
+def test_declares_position_unknown_in_public_api() -> None:
+    """POSITION_UNKNOWN is part of the explicit public API surface."""
+    assert "POSITION_UNKNOWN" in explainer_module.__all__
+    assert POSITION_UNKNOWN == -1
+
+
 def test_rule_application_accepts_legacy_alias_fields() -> None:
+    """Verify legacy alias fields still populate the canonical rule fields."""
     application = RuleApplication(
         rule_id="LEGACY-001",
         rule_name="Legacy Name",
@@ -82,6 +90,7 @@ def test_rule_application_accepts_legacy_alias_fields() -> None:
 
 
 def test_rule_application_prefers_explicit_rule_name_over_description_parsing() -> None:
+    """Verify an explicit rule_name wins over any name parsed from description text."""
     application = RuleApplication(
         rule_id="EXPLICIT-001",
         description="Parsed Name: /a/ → /b/",
@@ -94,6 +103,7 @@ def test_rule_application_prefers_explicit_rule_name_over_description_parsing() 
 
 
 def test_rule_application_defaults_description_and_rule_name_together() -> None:
+    """Verify missing description metadata defaults both display fields to empty strings."""
     application = RuleApplication(
         rule_id="DEFAULT-001",
         description=None,
@@ -106,6 +116,7 @@ def test_rule_application_defaults_description_and_rule_name_together() -> None:
 
 
 def test_explain_detects_single_token_substitution_with_japanese_description() -> None:
+    """Verify explain emits one substitution step with the expected Japanese rule text."""
     rules = [
         _rule(
             rule_id="VSH-001",
@@ -136,6 +147,7 @@ def test_explain_detects_single_token_substitution_with_japanese_description() -
 
 
 def test_explain_prefers_longest_multi_token_rule() -> None:
+    """Verify explain prefers the longest matching multi-token rule over shorter overlaps."""
     rules = [
         _rule(
             rule_id="CCH-LONG",
@@ -168,6 +180,7 @@ def test_explain_prefers_longest_multi_token_rule() -> None:
 
 
 def test_explain_detects_deletion_and_uses_lemma_position() -> None:
+    """Verify deletions are reported at the lemma-side position where the phone disappears."""
     rules = [
         _rule(
             rule_id="CCH-DEL",
@@ -195,6 +208,7 @@ def test_explain_detects_deletion_and_uses_lemma_position() -> None:
 
 
 def test_explain_skips_empty_output_rule_without_query_gap() -> None:
+    """Verify deletion rules do not fire unless the alignment actually contains a query gap."""
     rules = [
         _rule(
             rule_id="CCH-DEL",
@@ -219,6 +233,7 @@ def test_explain_skips_empty_output_rule_without_query_gap() -> None:
 
 
 def test_explain_ignores_empty_input_rule_without_insertion_flag() -> None:
+    """Verify empty-input rules are ignored unless they are explicitly marked as insertions."""
     rules = [
         _rule(
             rule_id="INS-NOFLAG",
@@ -243,6 +258,7 @@ def test_explain_ignores_empty_input_rule_without_insertion_flag() -> None:
 
 
 def test_explain_matches_empty_input_rule_only_when_explicitly_allowed() -> None:
+    """Verify insertion rules match only when the rule is explicitly flagged as an insertion."""
     rule = _rule(
         rule_id="INS-ALLOWED",
         input_phoneme="",
@@ -266,6 +282,7 @@ def test_explain_matches_empty_input_rule_only_when_explicitly_allowed() -> None
 
 
 def test_explain_uses_context_to_choose_between_competing_rules() -> None:
+    """Verify context-sensitive competing rules resolve to the rule matching each environment."""
     rules = [
         _rule(
             rule_id="RET-AFTER",
@@ -307,6 +324,7 @@ def test_explain_uses_context_to_choose_between_competing_rules() -> None:
 
 
 def test_explain_prefers_specific_context_over_generic_rule() -> None:
+    """Verify a more specific contextual rule outranks a generic fallback rule."""
     rules = [
         _rule(
             rule_id="RET-GENERIC",
@@ -413,6 +431,7 @@ def test_explain_supports_primary_context_notation(
     alignment: Alignment,
     expected_rule_id: str,
 ) -> None:
+    """Verify primary context shorthand notations map to the intended matching rule."""
     applications = explain(
         query_ipa=query_ipa,
         lemma_ipa=lemma_ipa,
@@ -424,6 +443,7 @@ def test_explain_supports_primary_context_notation(
 
 
 def test_explain_supports_nc_context_with_query_side_fallback_after_lemma_end() -> None:
+    """Verify _NC context matching can fall back to query-side lookahead beyond lemma length."""
     applications = explain(
         query_ipa=["aː", "n", "t"],
         lemma_ipa=["a"],
@@ -446,6 +466,7 @@ def test_explain_supports_nc_context_with_query_side_fallback_after_lemma_end() 
 
 
 def test_explain_skips_unmatched_difference_blocks() -> None:
+    """Verify unmatched alignment differences produce no rule applications."""
     applications = explain(
         query_ipa=["x"],
         lemma_ipa=["a"],
@@ -460,6 +481,7 @@ def test_explain_skips_unmatched_difference_blocks() -> None:
 
 
 def test_explain_alignment_wraps_rule_ids_into_explanation_steps() -> None:
+    """Verify explain_alignment expands rule ids into populated explanation steps."""
     explanation = explain_alignment(
         source_ipa="aː",
         target_ipa="ɛː",
@@ -488,6 +510,7 @@ def test_explain_alignment_wraps_rule_ids_into_explanation_steps() -> None:
 
 
 def test_explain_alignment_normalizes_dialects_with_deduplication() -> None:
+    """Verify explain_alignment drops non-string dialects and deduplicates the remainder."""
     explanation = explain_alignment(
         source_ipa="aː",
         target_ipa="ɛː",
@@ -507,6 +530,7 @@ def test_explain_alignment_normalizes_dialects_with_deduplication() -> None:
 
 
 def test_explain_alignment_defaults_distance_to_zero_for_backward_compatibility() -> None:
+    """Verify explain_alignment defaults missing distance data to zero for legacy callers."""
     explanation = explain_alignment(
         source_ipa="aː",
         target_ipa="ɛː",
@@ -550,6 +574,7 @@ def test_load_rules_accepts_bare_relative_directory_name(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify load_rules resolves a bare relative rules directory name under the rules base."""
     rules_base = tmp_path / "rules"
     rules_dir = rules_base / "ancient_greek"
     elsewhere_dir = tmp_path / "elsewhere"
@@ -574,6 +599,7 @@ def test_load_rules_accepts_legacy_repo_style_relative_directory(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify load_rules still accepts the legacy data/rules/... relative path style."""
     rules_base = tmp_path / "rules"
     rules_dir = rules_base / "ancient_greek"
     elsewhere_dir = tmp_path / "elsewhere"
@@ -608,6 +634,7 @@ def test_load_rules_reports_missing_rules_base(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify load_rules reports a missing configured rules base before reading any files."""
     missing_rules_base = tmp_path / "missing-rules-base"
     rules_dir = missing_rules_base / "ancient_greek"
 
@@ -621,6 +648,7 @@ def test_load_rules_duplicate_error_includes_both_files(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Verify duplicate rule ids report both source files in the validation error."""
     rules_base = tmp_path / "rules"
     rules_dir = rules_base / "ancient_greek"
     rules_dir.mkdir(parents=True)

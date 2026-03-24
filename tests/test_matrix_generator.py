@@ -1,18 +1,29 @@
-"""Tests for proteus.phonology.matrix_generator."""
+"""Tests for phonology.matrix_generator."""
 
+from collections.abc import Generator
 import json
 from pathlib import Path
 
 import pytest
 
-from proteus.phonology import matrix_generator
+from phonology import matrix_generator
+
+
+@pytest.fixture
+def clear_seed_document_cache() -> Generator[None, None, None]:
+    """Reset the cached seed document around tests that override MATRIX_PATH."""
+    matrix_generator._load_seed_document.cache_clear()
+
+    yield
+
+    matrix_generator._load_seed_document.cache_clear()
 
 
 class TestOverlaySeedRows:
     def test_logs_unknown_seed_rows_and_columns(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        caplog.set_level("WARNING", logger="proteus.phonology.matrix_generator")
+        caplog.set_level("WARNING", logger="phonology.matrix_generator")
         base_rows = {
             "a": {"a": 0.0, "b": 0.1},
             "b": {"a": 0.1, "b": 0.0},
@@ -51,6 +62,7 @@ class TestLoadBaseSoundClassRows:
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
+        clear_seed_document_cache: None,
     ) -> None:
         bad_seed = tmp_path / "missing.json"
         bad_seed.write_text(json.dumps({"_meta": {}}), encoding="utf-8")
@@ -63,6 +75,7 @@ class TestLoadBaseSoundClassRows:
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
+        clear_seed_document_cache: None,
     ) -> None:
         bad_seed = tmp_path / "malformed.json"
         bad_seed.write_text(

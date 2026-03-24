@@ -27,16 +27,15 @@ proteus/
 ├── docs/
 │   └── phonology_rules.md       # Rule context notation and examples
 ├── src/
-│   └── proteus/
-│       ├── phonology/
-│       │   ├── ipa_converter.py # Greek script → IPA
-│       │   ├── distance.py      # Weighted edit distance
-│       │   ├── search.py        # Three-stage search
-│       │   └── explainer.py     # Human-readable rule explanations
-│       ├── api/
-│       │   └── main.py          # FastAPI endpoints
-│       └── web/
-│           └── index.html       # Frontend
+│   ├── phonology/
+│   │   ├── ipa_converter.py     # Greek script → IPA
+│   │   ├── distance.py          # Weighted edit distance
+│   │   ├── search.py            # Three-stage search
+│   │   └── explainer.py         # Human-readable rule explanations
+│   ├── api/
+│   │   └── main.py              # FastAPI endpoints
+│   └── web/
+│       └── index.html           # Frontend
 ├── tests/
 ├── pyproject.toml
 └── README.md
@@ -54,7 +53,7 @@ proteus/
 uv sync --all-extras
 
 # Run development server
-uv run uvicorn proteus.api.main:app --reload
+uv run uvicorn api.main:app --reload
 
 # Run tests
 uv run pytest
@@ -104,7 +103,7 @@ uv run pytest
 
 Each object in `rules_applied` records one explanatory rule step: `rule_id` is the stable identifier, `rule_name` is the display label, `from_phone` and `to_phone` capture the segment change, and `position` is the zero-based aligned phone index where that step applies.
 
-`hits[].explanation` is the human-readable companion to `hits[].rules_applied` and the API field `SearchHit.explanation`. It is a readable plain-text string, not HTML or Markdown, because the packaged frontend renders it via `textContent` in `src/proteus/web/index.html`.
+`hits[].explanation` is the human-readable companion to `hits[].rules_applied` and the API field `SearchHit.explanation`. It is a readable plain-text string, not HTML or Markdown, because the packaged frontend renders it via `textContent` in `src/web/index.html`.
 
 Typical `explanation` content is a short 1-2 sentence summary of why the hit is plausible: a compact etymological note, a summary of the rule sequence already listed in `rules_applied`, or a brief statement about the dialectal correspondence. It should stay concise, usually one short sentence and at most two, and it should not embed reference links, raw markup, or confidence-score fields. If richer provenance is needed later, add separate structured fields instead of overloading `explanation`.
 

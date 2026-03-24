@@ -5,6 +5,7 @@ Exposes the Proteus phonological search engine as a REST API.
 
 from __future__ import annotations
 
+import hashlib
 from functools import lru_cache
 import json
 import logging
@@ -20,14 +21,15 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import AliasChoices, BaseModel, Field, StringConstraints, field_validator
 
-from proteus.phonology import search as phonology_search
-from proteus.phonology._paths import resolve_repo_data_dir
-from proteus.phonology.distance import MatrixData, load_matrix
-from proteus.phonology.explainer import Explanation, explain_alignment, load_rules, to_prose
-from proteus.phonology.ipa_converter import to_ipa
+from phonology import search as phonology_search
+from phonology._paths import resolve_repo_data_dir
+from phonology.distance import MatrixData, load_matrix
+from phonology.explainer import Explanation, explain_alignment, load_rules, to_prose
+from phonology.ipa_converter import to_ipa
 
 logger = logging.getLogger(__name__)
 _ALLOWED_ORIGINS_ENV_VAR = "PROTEUS_ALLOWED_ORIGINS"
+_LOG_RAW_QUERY_ENV_VAR = "PROTEUS_LOG_RAW_SEARCH_QUERY"
 
 
 def _get_allowed_origins() -> list[str]:
@@ -44,6 +46,23 @@ def _get_allowed_origins() -> list[str]:
         for origin in (item.strip() for item in raw_origins.split(","))
         if origin
     ]
+
+
+def _summarize_query_for_logs(query: str) -> str:
+    """Return a redacted search-query identifier safe for routine logs."""
+    digest = hashlib.sha256(query.encode("utf-8")).hexdigest()[:12]
+    return f"len={len(query)} sha256={digest}"
+
+
+def _should_log_raw_search_query() -> bool:
+    """Return True only when raw search queries may appear in debug logs."""
+    raw_value = os.environ.get(_LOG_RAW_QUERY_ENV_VAR, "")
+    return logger.isEnabledFor(logging.DEBUG) and raw_value.strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 app = FastAPI(
@@ -81,7 +100,11 @@ def _load_lexicon_entries() -> tuple[dict[str, Any], ...]:
     """Load the packaged Greek lemma lexicon once per process."""
     lexicon_path = resolve_repo_data_dir("lexicon") / "greek_lemmas.json"
     try:
-        document = json.loads(lexicon_path.read_text(encoding="utf-8"))
+        raw_text = lexicon_path.read_text(encoding="utf-8")
+    except FileNotFoundError as err:
+        raise ValueError(f"Lexicon file not found at {lexicon_path}: {err}") from err
+    try:
+        document = json.loads(raw_text)
     except json.JSONDecodeError as err:
         raise ValueError(f"Failed to parse JSON in {lexicon_path}: {err}") from err
     if not isinstance(document, dict):
@@ -210,7 +233,7 @@ class SearchRequest(BaseModel):
         if value is None:
             return "attic"
         if isinstance(value, str):
-            return value.strip()
+            return value.strip().lower()
         return value
 
 
@@ -286,6 +309,8 @@ async def root() -> HTMLResponse:
 @app.post("/search", response_model=SearchResponse)
 async def search(request: SearchRequest) -> SearchResponse:
     """Run phonological search for a Greek query word."""
+    query_log_label = _summarize_query_for_logs(request.query_form)
+
     try:
         lexicon = load_lexicon_entries()
         matrix = _load_distance_matrix()
@@ -293,8 +318,8 @@ async def search(request: SearchRequest) -> SearchResponse:
         search_index = _load_search_index()
     except (ValueError, FileNotFoundError, OSError, yaml.YAMLError) as err:
         logger.exception(
-            "Failed to load search dependencies for query %r",
-            request.query_form,
+            "Failed to load search dependencies for query (%s)",
+            query_log_label,
         )
         raise HTTPException(
             status_code=500,
@@ -313,11 +338,18 @@ async def search(request: SearchRequest) -> SearchResponse:
             index=search_index,
         )
     except ValueError as err:
-        logger.info("Rejected search query %r: %s", request.query_form, err)
-        logger.debug("Full ValueError details for query %r", request.query_form, exc_info=True)
+        logger.info("Rejected search query (%s): %s", query_log_label, err)
+        debug_query = (
+            request.query_form if _should_log_raw_search_query() else query_log_label
+        )
+        logger.debug(
+            "Full ValueError details for query %r",
+            debug_query,
+            exc_info=True,
+        )
         raise HTTPException(status_code=400, detail="Invalid search query") from err
-    except (OSError, KeyError, TypeError) as err:
-        logger.exception("Search execution failed for query %r", request.query_form)
+    except OSError as err:
+        logger.exception("Search execution failed for query (%s)", query_log_label)
         raise HTTPException(
             status_code=500,
             detail="Search failed due to an internal error.",
@@ -339,6 +371,23 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/ready")
+async def ready() -> dict[str, str]:
+    """Readiness probe."""
+    try:
+        _load_lexicon_entries()
+        _load_distance_matrix()
+        _load_rules_registry()
+        _load_search_index()
+    except (ValueError, FileNotFoundError, OSError, yaml.YAMLError) as err:
+        logger.exception("Readiness probe failed")
+        raise HTTPException(
+            status_code=503,
+            detail="Dependencies not ready",
+        ) from err
+    return {"status": "ok"}
+
+
 # Mount static files after all route definitions. A StaticFiles mount at "/"
 # would shadow every route registered after it; placing all mounts last is a
 # safe convention even for prefix-scoped paths like "/static".
@@ -352,7 +401,7 @@ def main() -> None:
     """Run the local development server on a safe loopback default."""
     import uvicorn
 
-    uvicorn.run("proteus.api.main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("api.main:app", host="127.0.0.1", port=8000, reload=True)
 
 
 if __name__ == "__main__":

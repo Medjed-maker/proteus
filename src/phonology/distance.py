@@ -9,11 +9,11 @@ helpers expose a 0.0-1.0 normalized scale for API-facing consumers.
 from __future__ import annotations
 
 import errno
+import functools
 import importlib.resources as resources
 import json
 import os
 import stat
-import threading
 from numbers import Real
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -43,8 +43,6 @@ MatrixData = dict[str, dict[str, float]]
 DEFAULT_COST = 5.0
 UNKNOWN_SUBSTITUTION_COST = 1.0
 _TRUSTED_MATRICES_DIR_ENV_VAR = "PROTEUS_TRUSTED_MATRICES_DIR"
-_KNOWN_IPA_PHONES_CACHE: frozenset[str] | None = None
-_KNOWN_IPA_PHONES_LOCK = threading.Lock()
 
 
 def _normalize_ipa_phone(phone: str) -> str:
@@ -57,14 +55,10 @@ def _normalize_ipa_sequence(seq: Sequence[str]) -> list[str]:
     return [_normalize_ipa_phone(phone) for phone in seq]
 
 
+@functools.lru_cache(maxsize=1)
 def _get_known_ipa_phones() -> frozenset[str]:
     """Return the cached set of known IPA phones, loading on first use."""
-    global _KNOWN_IPA_PHONES_CACHE
-    if _KNOWN_IPA_PHONES_CACHE is None:
-        with _KNOWN_IPA_PHONES_LOCK:
-            if _KNOWN_IPA_PHONES_CACHE is None:
-                _KNOWN_IPA_PHONES_CACHE = frozenset(get_known_phones())
-    return _KNOWN_IPA_PHONES_CACHE
+    return frozenset(get_known_phones())
 
 
 def _get_trusted_matrices_dir() -> Path:
@@ -81,7 +75,7 @@ def _get_trusted_matrices_dir() -> Path:
         return override_path
 
     try:
-        resource_dir = resources.files("proteus.phonology").joinpath("data", "matrices")
+        resource_dir = resources.files("phonology").joinpath("data", "matrices")
     except (ModuleNotFoundError, FileNotFoundError):
         resource_dir = None
 
@@ -211,7 +205,7 @@ def load_matrix(path: Path | str) -> MatrixData:
         ):
             raise ValueError(f"Matrix path changed during validation, got {path}")
 
-        raw_data = json.loads(matrix_file.read())
+        raw_data = json.load(matrix_file)
 
     matrix: MatrixData = {}
     _flatten_rows(raw_data, matrix)

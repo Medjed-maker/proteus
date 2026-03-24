@@ -1,9 +1,10 @@
 """Shared pytest fixtures for the test suite."""
 
-from fastapi.testclient import TestClient
 import pytest
 
-from proteus.api.main import app
+from fastapi.testclient import TestClient
+
+from api.main import app
 
 
 @pytest.fixture

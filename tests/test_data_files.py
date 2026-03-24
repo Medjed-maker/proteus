@@ -12,8 +12,8 @@ import pytest
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 
-from proteus.phonology.ipa_converter import to_ipa
-from proteus.phonology.matrix_generator import build_attic_doric_matrix
+from phonology.ipa_converter import to_ipa
+from phonology.matrix_generator import build_attic_doric_matrix
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]

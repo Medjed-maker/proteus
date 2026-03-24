@@ -99,7 +99,19 @@ def build_kmer_index(
     lexicon: Sequence[dict[str, Any]],
     k: int = _DEFAULT_KMER_SIZE,
 ) -> KmerIndex:
-    """Build a consonant-skeleton k-mer index over the lexicon."""
+    """Build a consonant-skeleton k-mer index for lexicon lookup.
+
+    Args:
+        lexicon: Sequence of lexicon entry dicts to index.
+        k: Size of each consonant-skeleton k-mer. Defaults to ``2``.
+
+    Returns:
+        KmerIndex mapping each space-joined k-mer to a list of matching
+        lexicon entry ids.
+
+    Raises:
+        ValueError: If ``k <= 0``.
+    """
     if k <= 0:
         raise ValueError(f"build_kmer_index requires k > 0 for k-mer size, got {k}")
 
@@ -117,7 +129,19 @@ def seed_stage(
     index: KmerIndex,
     k: int = _DEFAULT_KMER_SIZE,
 ) -> list[str]:
-    """Stage 1: rank candidate ids by shared consonant-skeleton k-mers."""
+    """Stage 1: rank candidate ids by shared consonant-skeleton k-mers.
+
+    Args:
+        query_ipa: String of IPA phones representing the search query.
+        index: KmerIndex mapping k-mers to lists of candidate IDs.
+        k: Size of consonant-skeleton k-mers. Defaults to `_DEFAULT_KMER_SIZE`.
+
+    Returns:
+        List of candidate IDs ranked by number of shared consonant-skeleton k-mers.
+
+    Raises:
+        ValueError: If `k <= 0`.
+    """
     if k <= 0:
         raise ValueError(f"seed_stage requires k > 0 for k-mer size, got {k}")
 
@@ -358,6 +382,11 @@ def extend_stage(
         Unranked list of ``SearchResult`` objects, one per successfully
         resolved candidate.  Callers should pass them through
         ``filter_stage`` for ranking and truncation.
+
+    Raises:
+        ValueError: If a candidate lexicon entry is missing a non-empty
+            ``"headword"`` or ``"ipa"`` field and ``_lemma_label`` or
+            ``_entry_ipa`` rejects it.
     """
     query_tokens = tokenize_ipa(query_ipa)
     results: list[SearchResult] = []
@@ -367,7 +396,11 @@ def extend_stage(
     for candidate_id in candidates:
         entry = lexicon_map.get(candidate_id)
         if entry is None:
-            # Skip stale candidate ids if the seed index and lexicon map drift apart.
+            logger.debug(
+                "Skipping candidate_id %r not found in lexicon_map (size=%d)",
+                candidate_id,
+                len(lexicon_map),
+            )
             continue
         lemma = _lemma_label(entry)
         lemma_ipa = _entry_ipa(entry)
@@ -451,6 +484,12 @@ def search(
 
     Returns:
         Ranked search results ordered by descending confidence.
+
+    Raises:
+        ValueError: If ``query`` is empty/whitespace-only, ``max_results``
+            is non-positive, or a lexicon entry lacks a valid ``"id"`` or
+            ``"headword"`` (raised by ``_entry_id`` during lexicon map
+            construction).
     """
     if not query.strip():
         raise ValueError("query must be a non-empty string")
@@ -468,7 +507,7 @@ def search(
     if seed_candidates:
         candidate_ids = seed_candidates[:stage2_limit]
     else:
-        candidate_ids = lexicon_map.keys()
+        candidate_ids = list(lexicon_map.keys())
         logger.warning(
             "No seed candidates found for query IPA %r; falling back to full-lexicon "
             "scan (%d entries)",

@@ -1,4 +1,4 @@
-"""Tests for proteus.phonology.search."""
+"""Tests for phonology.search."""
 
 from __future__ import annotations
 
@@ -7,9 +7,9 @@ from collections.abc import Generator
 import pytest
 import yaml
 
-from proteus.phonology import search as search_module
-from proteus.phonology.explainer import RuleApplication
-from proteus.phonology.search import (
+from phonology import search as search_module
+from phonology.explainer import RuleApplication
+from phonology.search import (
     SearchResult,
     build_kmer_index,
     extend_stage,
@@ -464,7 +464,7 @@ class TestSearch:
         results = search("ἄ", lexicon, matrix={}, max_results=1)
 
         assert captured["query_ipa"] == "aː"
-        assert captured["candidate_type"].__name__ == "dict_keys"
+        assert captured["candidate_type"].__name__ == "list"
         assert captured["candidate_ids"] == [f"L{index}" for index in range(30)]
         assert [result.lemma for result in results] == ["lemma-0"]
 

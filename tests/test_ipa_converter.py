@@ -1,16 +1,18 @@
-"""Tests for proteus.phonology.ipa_converter."""
+"""Tests for phonology.ipa_converter."""
 
 import unicodedata
 
 import pytest
 
-from proteus.phonology.distance import word_distance
-from proteus.phonology.ipa_converter import (
+from phonology.distance import word_distance
+from phonology.ipa_converter import (
     _strip_ignored_ipa_combining_marks,
     greek_to_ipa,
     strip_diacritics,
+    strip_ignored_ipa_combining_marks,
     to_ipa,
     tokenize_ipa,
+    get_known_phones,
 )
 
 
@@ -26,6 +28,20 @@ class TestStripDiacritics:
 
     def test_empty_string_returns_empty_string(self) -> None:
         assert strip_diacritics("") == ""
+
+
+class TestStripIgnoredIpaCombiningMarks:
+    def test_public_strip_ignored_ipa_combining_marks(self) -> None:
+        assert strip_ignored_ipa_combining_marks("a\u0301b\u0300c\u0342") == "abc"
+
+    def test_empty_string(self) -> None:
+        assert strip_ignored_ipa_combining_marks("") == ""
+
+    def test_no_combining_marks(self) -> None:
+        assert strip_ignored_ipa_combining_marks("abc") == "abc"
+
+    def test_consecutive_combining_marks(self) -> None:
+        assert strip_ignored_ipa_combining_marks("a\u0301\u0300\u0342") == "a"
 
 
 class TestGreekToIpa:
@@ -62,12 +78,21 @@ class TestGreekToIpa:
         assert "".join(greek_to_ipa("α1β?")) == "ab"
 
     def test_unknown_characters_emit_debug_logs(self, caplog: pytest.LogCaptureFixture) -> None:
-        caplog.set_level("DEBUG", logger="proteus.phonology.ipa_converter")
+        caplog.set_level("DEBUG", logger="phonology.ipa_converter")
 
         assert "".join(greek_to_ipa("α1?")) == "a"
 
         assert "Skipping unknown Greek character '1'" in caplog.text
         assert "Skipping unknown Greek character '?'" in caplog.text
+
+    def test_literal_h_is_not_treated_as_a_rough_breathing_marker(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level("DEBUG", logger="phonology.ipa_converter")
+
+        assert "".join(greek_to_ipa("αhβ")) == "ab"
+
+        assert "Skipping unknown Greek character 'h'" in caplog.text
 
     def test_diaeresis_prevents_false_diphthong(self) -> None:
         assert "".join(greek_to_ipa("ἀϋτή")) == "aytɛ́ː"
@@ -99,12 +124,21 @@ class TestGreekToIpa:
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Diphthong boundary marker is consumed without a spurious debug log."""
-        caplog.set_level("DEBUG", logger="proteus.phonology.ipa_converter")
+        caplog.set_level("DEBUG", logger="phonology.ipa_converter")
 
         result = greek_to_ipa("ἀϋτή")
 
         assert result == ["a", "y", "t", "ɛ́ː"]
         assert "|" not in caplog.text
+
+    def test_nfc_nfd_equivalence_with_complex_diacritics(self) -> None:
+        nfc_text = "ᾅ"
+        nfd_text = unicodedata.normalize("NFD", nfc_text)
+        assert greek_to_ipa(nfc_text) == greek_to_ipa(nfd_text)
+        assert greek_to_ipa(nfc_text) == ["h", unicodedata.normalize("NFC", "a\u0301i")]
+
+    def test_only_diacritics_returns_empty_list(self) -> None:
+        assert greek_to_ipa("\u0301\u0314") == []
 
 
 class TestToIpa:
@@ -137,7 +171,7 @@ class TestToIpa:
         def fail_if_called(_: str) -> list[str]:
             raise AssertionError("greek_to_ipa should not be called")
 
-        monkeypatch.setattr("proteus.phonology.ipa_converter.greek_to_ipa", fail_if_called)
+        monkeypatch.setattr("phonology.ipa_converter.greek_to_ipa", fail_if_called)
 
         with pytest.raises(NotImplementedError, match="ionic"):
             to_ipa("λόγος", dialect="ionic")
@@ -156,7 +190,7 @@ class TestTokenizeIpa:
     def test_known_h_phone_is_not_treated_as_unknown_literal(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        caplog.set_level("DEBUG", logger="proteus.phonology.ipa_converter")
+        caplog.set_level("DEBUG", logger="phonology.ipa_converter")
 
         assert tokenize_ipa("halos") == ["h", "a", "l", "o", "s"]
         assert "Treating unknown IPA token" not in caplog.text
@@ -181,9 +215,17 @@ class TestTokenizeIpa:
         assert tokenize_ipa("!̃") == ["!̃"]
 
     def test_unknown_tokens_emit_debug_logs(self, caplog: pytest.LogCaptureFixture) -> None:
-        caplog.set_level("DEBUG", logger="proteus.phonology.ipa_converter")
+        caplog.set_level("DEBUG", logger="phonology.ipa_converter")
 
         assert tokenize_ipa("a!") == ["a", "!"]
 
         assert "Treating unknown IPA token '!'" in caplog.text
         assert "at index 1" in caplog.text
+
+
+class TestGetKnownPhones:
+    def test_get_known_phones_consistency(self) -> None:
+        phones: list[str] = get_known_phones()
+        assert phones, "get_known_phones() returned an empty list"
+        for phone in phones:
+            assert tokenize_ipa(phone) == [phone]

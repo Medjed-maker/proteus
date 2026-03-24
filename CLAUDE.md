@@ -30,10 +30,10 @@ uv run pytest --cov=src
 bash scripts/build-css.sh
 
 # Start dev server (localhost:8000, auto-reload)
-uv run uvicorn proteus.api.main:app --reload
+uv run uvicorn api.main:app --reload
 
 # Regenerate the Attic-Doric distance matrix
-uv run python -m proteus.phonology.matrix_generator
+uv run python -m phonology.matrix_generator
 
 # Build wheel
 uv build
@@ -41,7 +41,7 @@ uv build
 
 ## Architecture
 
-### Source Layout (`src/proteus/`)
+### Source Layout (`src/`)
 
 The package uses `src/` layout with hatchling as the build backend.
 
