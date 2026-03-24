@@ -4,8 +4,8 @@ set -euo pipefail
 TAILWIND_VERSION="v3.4.17"
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN_DIR="${PROJECT_ROOT}/.tailwind"
-INPUT="${PROJECT_ROOT}/src/proteus/web/input.css"
-OUTPUT="${PROJECT_ROOT}/src/proteus/web/static/styles.css"
+INPUT="${PROJECT_ROOT}/src/web/input.css"
+OUTPUT="${PROJECT_ROOT}/src/web/static/styles.css"
 
 # Pinned SHA-256 checksums for tailwindcss v3.4.17 binaries.
 # To update: download sha256sums.txt from the release page and replace these values.

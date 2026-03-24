@@ -6,10 +6,10 @@ def test_project_imports() -> None:
     import importlib
 
     for module in [
-        "proteus.phonology.ipa_converter",
-        "proteus.phonology.distance",
-        "proteus.phonology.search",
-        "proteus.phonology.explainer",
-        "proteus.api.main",
+        "phonology.ipa_converter",
+        "phonology.distance",
+        "phonology.search",
+        "phonology.explainer",
+        "api.main",
     ]:
         importlib.import_module(module)

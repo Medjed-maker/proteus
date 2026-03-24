@@ -23,6 +23,7 @@ __all__ = [
     "Alignment",
     "RuleApplication",
     "Explanation",
+    "POSITION_UNKNOWN",
     "load_rules",
     "explain",
     "explain_alignment",
@@ -41,6 +42,7 @@ _ALWAYS_MATCH_CONTEXTS = frozenset(
         "quantitative metathesis environments",
     }
 )
+POSITION_UNKNOWN: int = -1
 
 
 @dataclass(frozen=True)
@@ -114,6 +116,10 @@ class RuleApplication:
         to_phone: str | None = None,
     ) -> None:
         self.rule_id = rule_id
+        # Backward-compatible fallback: rule_name and description are mutual
+        # fallbacks (rule_name takes precedence) so callers can supply either.
+        # Similarly, input_phoneme/from_phone and output_phoneme/to_phone are
+        # aliases where the canonical field takes precedence over the legacy one.
         fallback = (
             rule_name if rule_name is not None else (description if description is not None else "")
         )
@@ -868,7 +874,7 @@ def explain_alignment(
                 rule_name=rule_name,
                 input_phoneme=input_phoneme,
                 output_phoneme=output_phoneme,
-                position=-1,
+                position=POSITION_UNKNOWN,
                 dialects=dialects,
             )
         )
@@ -894,7 +900,22 @@ def to_prose(explanation: Explanation) -> str:
         normalized distance, and any applied rules.  When no rules were
         recorded, the summary includes a "No rule applications" note.
     """
+    def format_with_optional_ipa(text: str, ipa: str) -> str:
+        """Render text with IPA only when it differs from the surface form."""
+        if text == ipa:
+            return text
+        return f"{text} /{ipa}/"
+
     # Dialect labels are omitted from prose, but step weights are retained.
+    source_repr = format_with_optional_ipa(
+        explanation.source,
+        explanation.source_ipa,
+    )
+    target_repr = format_with_optional_ipa(
+        explanation.target,
+        explanation.target_ipa,
+    )
+
     if explanation.steps:
         step_summary = "; ".join(
             (
@@ -904,14 +925,14 @@ def to_prose(explanation: Explanation) -> str:
             for step in explanation.steps
         )
         prose = (
-            f"{explanation.source} /{explanation.source_ipa}/ aligns to "
-            f"{explanation.target} /{explanation.target_ipa}/ with distance "
+            f"{source_repr} aligns to "
+            f"{target_repr} with distance "
             f"{explanation.distance:.3f}. Applied rules: {step_summary}."
         )
     else:
         prose = (
-            f"{explanation.source} /{explanation.source_ipa}/ aligns to "
-            f"{explanation.target} /{explanation.target_ipa}/ with distance "
+            f"{source_repr} aligns to "
+            f"{target_repr} with distance "
             f"{explanation.distance:.3f}. No rule applications were recorded."
         )
 

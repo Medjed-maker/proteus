@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./src/proteus/web/**/*.html"],
+  content: ["./src/web/**/*.html"],
   theme: {
     extend: {
       colors: {

@@ -1,17 +1,17 @@
-"""Tests for proteus.api.main."""
-
-from collections.abc import Generator
+"""Tests for api.main."""
 
 import logging
+from collections.abc import Generator
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from proteus.api import main as api_main
-from proteus.api.main import SearchHit
-from proteus.phonology.explainer import RuleApplication
-from proteus.phonology.search import SearchResult
+from api import main as api_main
+from api.main import SearchHit
+from phonology.explainer import RuleApplication
+from phonology.search import SearchResult
 
 
 def _clear_loader_caches() -> None:
@@ -28,6 +28,15 @@ def _clear_loader_caches() -> None:
     search_cache_clear = getattr(api_main.phonology_search._get_rules_registry, "cache_clear", None)
     if search_cache_clear is not None:
         search_cache_clear()
+
+
+def _install_invalid_query_to_ipa(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Patch to_ipa to raise the same query validation error used in search tests."""
+
+    def fake_to_ipa(query: str, dialect: str = "attic") -> str:
+        raise ValueError("query must be a non-empty string")
+
+    monkeypatch.setattr(api_main, "to_ipa", fake_to_ipa)
 
 
 @pytest.fixture(autouse=True)
@@ -336,6 +345,42 @@ class TestHealthEndpoint:
         assert response.json() == {"status": "ok"}
 
 
+class TestReadyEndpoint:
+    def test_ready_returns_ok(self, client: TestClient) -> None:
+        """Readiness probe returns 200 when all dependencies load."""
+        response = client.get("/ready")
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}
+
+    @pytest.mark.parametrize(
+        ("loader_name", "error"),
+        [
+            ("_load_lexicon_entries", ValueError("lexicon unavailable")),
+            ("_load_distance_matrix", FileNotFoundError("matrix not found")),
+            ("_load_rules_registry", yaml.YAMLError("bad rules")),
+            ("_load_search_index", OSError("index error")),
+        ],
+    )
+    def test_ready_returns_503_when_loader_fails(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+        loader_name: str,
+        error: Exception,
+    ) -> None:
+        """Readiness probe returns 503 when a dependency loader raises."""
+
+        def failing_loader() -> None:
+            raise error
+
+        monkeypatch.setattr(api_main, loader_name, failing_loader)
+
+        response = client.get("/ready")
+
+        assert response.status_code == 503
+        assert response.json() == {"detail": "Dependencies not ready"}
+
+
 class TestDocumentationAndCors:
     def test_docs_route_is_available(self, client: TestClient) -> None:
         response = client.get("/docs")
@@ -639,6 +684,68 @@ class TestSearchEndpoint:
 
         assert response.status_code == 400
         assert response.json() == {"detail": "Invalid search query"}
+
+    def test_search_error_logs_redacted_query_by_default(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+        _install_invalid_query_to_ipa(monkeypatch)
+        monkeypatch.delenv(api_main._LOG_RAW_QUERY_ENV_VAR, raising=False)
+        caplog.set_level(logging.DEBUG, logger="api.main")
+
+        query = "λόγος"
+        response = client.post(
+            "/search",
+            json={"query_form": query, "dialect_hint": "attic"},
+        )
+
+        assert response.status_code == 400
+        assert query not in caplog.text
+        assert api_main._summarize_query_for_logs(query) in caplog.text
+
+    @pytest.mark.parametrize(
+        ("env_value", "expect_raw_query"),
+        [
+            ("", False),
+            ("0", False),
+            ("false", False),
+            ("FALSE", False),
+            ("1", True),
+            ("TRUE", True),
+            ("true", True),
+        ],
+    )
+    def test_search_debug_logs_raw_query_based_on_opt_in_env_value(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+        env_value: str,
+        expect_raw_query: bool,
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+        _install_invalid_query_to_ipa(monkeypatch)
+        monkeypatch.setenv(api_main._LOG_RAW_QUERY_ENV_VAR, env_value)
+        caplog.set_level(logging.DEBUG, logger="api.main")
+
+        query = "λόγος"
+        response = client.post(
+            "/search",
+            json={"query_form": query, "dialect_hint": "attic"},
+        )
+
+        assert response.status_code == 400
+        summary = api_main._summarize_query_for_logs(query)
+        assert summary in caplog.text
+        debug_message = f"Full ValueError details for query '{query}'"
+        if expect_raw_query:
+            assert debug_message in caplog.text
+        else:
+            assert debug_message not in caplog.text
+            assert query not in caplog.text
 
     def test_search_returns_server_error_when_loader_fails(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch

@@ -1,4 +1,4 @@
-"""Tests for proteus.phonology.distance."""
+"""Tests for phonology.distance."""
 
 import json
 import shutil
@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from proteus.phonology import distance as distance_module
-from proteus.phonology.distance import (
+from phonology import distance as distance_module
+from phonology.distance import (
     DEFAULT_COST,
     UNKNOWN_SUBSTITUTION_COST,
     load_matrix,
@@ -19,9 +19,9 @@ from proteus.phonology.distance import (
     sequence_distance,
     word_distance,
 )
-from proteus.phonology._paths import resolve_repo_data_dir
-from proteus.phonology import ipa_converter as ipa_converter_module
-from proteus.phonology.ipa_converter import greek_to_ipa, to_ipa
+from phonology._paths import resolve_repo_data_dir
+from phonology import ipa_converter as ipa_converter_module
+from phonology.ipa_converter import greek_to_ipa, to_ipa
 
 
 @pytest.fixture

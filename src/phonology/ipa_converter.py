@@ -117,19 +117,22 @@ def _should_keep_rough_breathed_diphthong(
     )
 
 
-def _normalize_greek_for_ipa(greek_text: str) -> tuple[str, set[int]]:
+def _normalize_greek_for_ipa(greek_text: str) -> tuple[str, set[int], set[int]]:
     """Normalize Greek text for phone conversion without losing boundaries.
 
     Args:
         greek_text: NFC-encoded Greek text to normalize before IPA conversion.
 
     Returns:
-        A tuple of (normalized_text, accent_positions) where accent_positions
-        contains the indices of accented characters in the normalized text.
+        A tuple of ``(normalized_text, accent_positions, rough_h_positions)``.
+        ``accent_positions`` contains the indices of accented Greek letters in
+        the normalized text, while ``rough_h_positions`` records only the
+        inserted ``h`` markers that originate from Greek rough breathing.
     """
     nfd = unicodedata.normalize("NFD", greek_text)
     normalized: list[str] = []
     accent_positions: set[int] = set()
+    rough_h_positions: set[int] = set()
     index = 0
 
     while index < len(nfd):
@@ -155,6 +158,7 @@ def _normalize_greek_for_ipa(greek_text: str) -> tuple[str, set[int]]:
             base.lower(),
             marks_set,
         ):
+            rough_h_positions.add(len(normalized))
             normalized.append("h")
 
         accent_pos = len(normalized)
@@ -165,7 +169,7 @@ def _normalize_greek_for_ipa(greek_text: str) -> tuple[str, set[int]]:
         if _YPOGEGRAMMENI in marks_set:
             normalized.append("ι")
 
-    return "".join(normalized), accent_positions
+    return "".join(normalized), accent_positions, rough_h_positions
 
 
 def _apply_accent(phone: str) -> str:
@@ -222,14 +226,14 @@ def greek_to_ipa(text: str) -> list[str]:
     Returns:
         List of IPA phone strings.
     """
-    normalized, accent_positions = _normalize_greek_for_ipa(text)
+    normalized, accent_positions, rough_h_positions = _normalize_greek_for_ipa(text)
     result: list[str] = []
     i = 0
     while i < len(normalized):
         if normalized[i] == _DIPHTHONG_BOUNDARY:
             i += 1
             continue
-        if normalized[i] == "h":
+        if normalized[i] == "h" and i in rough_h_positions:
             phone = "h"
             if i in accent_positions:
                 phone = _apply_accent(phone)
@@ -261,7 +265,18 @@ def greek_to_ipa(text: str) -> list[str]:
 
 
 def tokenize_ipa(ipa_text: str) -> list[str]:
-    """Tokenize compact or space-separated IPA into comparable phone units."""
+    """Tokenize compact or space-separated IPA into comparable phone units.
+
+    Uses greedy left-to-right matching against the known phone inventory.
+    Unknown segments are emitted as single-character literals with any
+    trailing combining marks.
+
+    Args:
+        ipa_text: IPA string (compact or space-separated).
+
+    Returns:
+        List of IPA phone tokens, with stress marks stripped for comparison.
+    """
     # _normalize_ipa_for_tokenization() already returns NFD text for token scanning.
     text = _normalize_ipa_for_tokenization(ipa_text)
     tokens: list[str] = []
@@ -303,13 +318,15 @@ def to_ipa(greek_text: str, dialect: str = "attic") -> str:
 
     Args:
         greek_text: NFC-encoded Greek Unicode string.
-        dialect: Pronunciation variety ('attic', 'ionic', 'doric', 'koine').
+        dialect: Pronunciation variety. Only ``"attic"`` is currently
+            supported; other dialects raise ``NotImplementedError`` until
+            dedicated conversion rules are implemented.
 
     Returns:
         Compact IPA transcription string.
 
     Raises:
-        NotImplementedError: If the dialect is not yet supported.
+        NotImplementedError: If ``dialect`` is anything other than ``"attic"``.
     """
     if dialect != "attic":
         raise NotImplementedError(f"Dialect {dialect!r} not yet supported")

@@ -11,23 +11,25 @@ from copy import deepcopy
 from numbers import Real
 from pathlib import Path
 from typing import Any
+from collections.abc import Sequence
 
 from ._paths import resolve_repo_data_dir
 
 MATRIX_PATH = resolve_repo_data_dir("matrices") / "attic_doric.json"
 logger = logging.getLogger(__name__)
 
-VOWEL_ORDER = ["a", "aː", "e", "eː", "ɛː", "i", "o", "ɔː", "oː", "y", "ai", "oi", "au", "eu"]
-STOP_ORDER = ["p", "b", "pʰ", "t", "d", "tʰ", "k", "ɡ", "kʰ"]
+VOWEL_ORDER = ("a", "aː", "e", "eː", "ɛː", "i", "o", "ɔː", "oː", "y", "ai", "oi", "au", "eu")
+STOP_ORDER = ("p", "b", "pʰ", "t", "d", "tʰ", "k", "ɡ", "kʰ")
 
 
+@functools.lru_cache(maxsize=1)
 def _load_seed_document() -> dict[str, Any]:
-    """Load the committed matrix as the seed document for regeneration."""
+    """Load and cache the committed matrix as the seed document for regeneration."""
     return json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
 
 
 def _coerce_seed_rows(
-    raw_rows: Any, order: list[str], *, label: str
+    raw_rows: Any, order: Sequence[str], *, label: str
 ) -> dict[str, dict[str, float]]:
     """Normalize JSON-backed matrix rows into validated float mappings."""
     if not isinstance(raw_rows, dict):
@@ -128,7 +130,7 @@ _get_base_rows.cache_info = _get_cached_base_rows.cache_info  # type: ignore[att
 def _overlay_seed_rows(
     base_rows: dict[str, dict[str, float]],
     seed_rows: dict[str, Any],
-    order: list[str],
+    order: Sequence[str],
     seed_source: str = "committed matrix seed",
 ) -> dict[str, dict[str, float]]:
     """Overlay committed seed distances onto a complete base matrix."""
@@ -140,6 +142,14 @@ def _overlay_seed_rows(
                 "Skipping unknown row %r from %s", row_phone, seed_source
             )
             continue
+        if not isinstance(row, dict):
+            logger.warning(
+                "Skipping non-mapping row %r (type %s) from %s",
+                row_phone,
+                type(row).__name__,
+                seed_source,
+            )
+            continue
         for column_phone, distance in row.items():
             if column_phone not in rows[row_phone]:
                 logger.warning(
@@ -149,8 +159,18 @@ def _overlay_seed_rows(
                     seed_source,
                 )
                 continue
-            rows[row_phone][column_phone] = float(distance)
-            rows[column_phone][row_phone] = float(distance)
+            if not isinstance(distance, Real):
+                logger.warning(
+                    "Skipping non-numeric distance for %r -> %r from %s: %r",
+                    row_phone,
+                    column_phone,
+                    seed_source,
+                    distance,
+                )
+                continue
+            coerced = float(distance)
+            rows[row_phone][column_phone] = coerced
+            rows[column_phone][row_phone] = coerced
 
     for row_phone in order:
         for column_phone in order:
@@ -158,6 +178,9 @@ def _overlay_seed_rows(
                 rows[row_phone][column_phone] = 0.0
                 continue
 
+            # `_get_base_rows` and `_coerce_seed_rows` guarantee that every phone
+            # in `order` is present in `rows`. We keep this check to defensively
+            # protect the matrix invariant against any future structural bugs.
             if column_phone not in rows[row_phone]:
                 reverse_row = rows.get(column_phone)
                 if reverse_row is None or row_phone not in reverse_row:
@@ -170,7 +193,7 @@ def _overlay_seed_rows(
     return rows
 
 
-def _validate_complete_matrix(rows: dict[str, dict[str, float]], order: list[str]) -> None:
+def _validate_complete_matrix(rows: dict[str, dict[str, float]], order: Sequence[str]) -> None:
     """Ensure matrix rows are complete, symmetric, and normalized."""
     for row_phone in order:
         row = rows[row_phone]
@@ -237,7 +260,7 @@ def _validate_dialect_pairs(dialect_pairs: Any) -> dict[str, dict[str, float]]:
 
 def build_attic_doric_matrix() -> dict[str, Any]:
     """Build the canonical Attic-Doric matrix document."""
-    seed_document = _load_seed_document()
+    seed_document = deepcopy(_load_seed_document())
     sound_classes = seed_document["sound_classes"]
     base_vowels, base_stops = _get_base_rows()
 
