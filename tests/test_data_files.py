@@ -27,6 +27,7 @@ PHONOLOGY_RULES_DOC_PATH = ROOT_DIR / "docs" / "phonology_rules.md"
 
 @pytest.fixture
 def base_meta() -> dict[str, object]:
+    """Base metadata for testing schema validation."""
     return {
         "source": "LSJ",
         "encoding": "Unicode NFC",
@@ -38,6 +39,20 @@ def base_meta() -> dict[str, object]:
         "contributors": ["Proteus maintainers"],
         "data_schema_ref": "data/lexicon/greek_lemmas.schema.json",
         "description": "Test fixture",
+    }
+
+
+@pytest.fixture
+def dummy_lemma() -> dict[str, str]:
+    """Dummy lemma for testing schema validation."""
+    return {
+        "id": "LSJ-99999",
+        "headword": "x",
+        "transliteration": "x",
+        "ipa": "x",
+        "pos": "particle",
+        "gloss": "x",
+        "dialect": "attic",
     }
 
 
@@ -236,6 +251,7 @@ def test_lexicon_dialect_is_consistent_across_metadata_and_lemmas() -> None:
 
 def test_lexicon_schema_allows_extension_and_conditional_gender_rules(
     base_meta: dict[str, object],
+    dummy_lemma: dict[str, str],
 ) -> None:
     schema = _load_json(LEXICON_SCHEMA_PATH)
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
@@ -243,7 +259,7 @@ def test_lexicon_schema_allows_extension_and_conditional_gender_rules(
     root_extension = {
         "schema_version": "2.0.0",
         "_meta": base_meta,
-        "lemmas": [],
+        "lemmas": [dummy_lemma],
         "future_field": {"status": "reserved"},
     }
     assert not list(validator.iter_errors(root_extension))
@@ -290,6 +306,7 @@ def test_lexicon_schema_allows_extension_and_conditional_gender_rules(
 
 def test_lexicon_schema_accepts_structured_contributors_and_rejects_extra_keys(
     base_meta: dict[str, object],
+    dummy_lemma: dict[str, str],
 ) -> None:
     schema = _load_json(LEXICON_SCHEMA_PATH)
     validator = Draft202012Validator(schema, format_checker=FormatChecker())
@@ -310,7 +327,7 @@ def test_lexicon_schema_accepts_structured_contributors_and_rejects_extra_keys(
             {
                 "schema_version": "2.0.0",
                 "_meta": structured_meta,
-                "lemmas": [],
+                "lemmas": [dummy_lemma],
             }
         )
     )
@@ -330,7 +347,7 @@ def test_lexicon_schema_accepts_structured_contributors_and_rejects_extra_keys(
             {
                 "schema_version": "2.0.0",
                 "_meta": invalid_meta,
-                "lemmas": [],
+                "lemmas": [dummy_lemma],
             }
         )
     )
@@ -353,7 +370,7 @@ def test_lexicon_schema_accepts_structured_contributors_and_rejects_extra_keys(
             {
                 "schema_version": "2.0.0",
                 "_meta": invalid_orcid_meta,
-                "lemmas": [],
+                "lemmas": [dummy_lemma],
             }
         )
     )

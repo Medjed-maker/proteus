@@ -163,6 +163,9 @@ class TestToIpa:
     def test_rough_breathed_diphthongs_compare_without_extra_phone_penalty(self) -> None:
         assert word_distance(to_ipa("αὑτός"), "autos", {}) == pytest.approx(0.0)
 
+    def test_digamma_is_converted_to_w(self) -> None:
+        assert to_ipa("ϝοῖκος") == "wóikos"
+
     def test_non_attic_dialect_raises_not_implemented(self) -> None:
         with pytest.raises(NotImplementedError, match="ionic"):
             to_ipa("λόγος", dialect="ionic")
