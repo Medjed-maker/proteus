@@ -75,5 +75,8 @@ secrets.json
 # Tailwind CLI binary (downloaded on demand)
 .tailwind/
 
+# Downloaded external data (Perseus LSJ, etc.)
+data/external/
+
 # MCP
 .serena/

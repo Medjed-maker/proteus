@@ -37,6 +37,7 @@ _LETTER_MAP: dict[str, str] = {
     "χ": "kʰ",
     "ψ": "ps",
     "ω": "ɔː",
+    "ϝ": "w",
 }
 
 _DIPHTHONG_MAP: dict[str, str] = {

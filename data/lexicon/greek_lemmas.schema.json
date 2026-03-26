@@ -40,8 +40,7 @@
           "minLength": 1
         },
         "dialect": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/dialect"
         },
         "version": {
           "type": "string",
@@ -120,6 +119,16 @@
     }
   },
   "$defs": {
+    "dialect": {
+      "type": "string",
+      "enum": [
+        "attic",
+        "ionic",
+        "doric",
+        "aeolic",
+        "koine"
+      ]
+    },
     "lemma": {
       "type": "object",
       "required": [
@@ -180,8 +189,7 @@
           "minLength": 1
         },
         "dialect": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/dialect"
         }
       },
       "allOf": [
