@@ -59,6 +59,28 @@ uv run uvicorn api.main:app --reload
 uv run pytest
 ```
 
+## Data Setup
+
+The lexicon is generated from Perseus LSJ XML and not stored in the repository.
+`uv build` reuses a fresh local `data/lexicon/greek_lemmas.json` when a matching
+`data/lexicon/greek_lemmas.meta.json` exists. It regenerates the lexicon when a local
+LSJ checkout is available. The build hook does not clone LSJ data during the build;
+if the lexicon is missing or stale, provide a local checkout via the `PROTEUS_LSJ_REPO_DIR`
+environment variable, or pre-generate the lexicon before building.
+Generated `sdist` artifacts bundle the current `greek_lemmas.json` and
+`greek_lemmas.meta.json` so `sdist -> wheel` rebuilds can stay offline. `wheel`
+artifacts still include the lexicon JSON but omit the freshness metadata.
+
+```bash
+# Generate or refresh lexicon explicitly
+# (--if-missing: 新鮮な出力がある場合のみ生成をスキップ)
+bash scripts/extract-lsj.sh [--xml-dir DIR] [--lsj-repo-dir DIR] [--if-missing]
+```
+
+The `--xml-dir` and `--lsj-repo-dir` options apply to `scripts/extract-lsj.sh` (and the
+underlying `python -m phonology.build_lexicon` module), while `PROTEUS_LSJ_REPO_DIR` is
+read by both `uv build` and the extraction script.
+
 ## API
 
 ### `POST /search`
