@@ -1,0 +1,19 @@
+# POS override data for LSJ extraction.
+# Beta Code keys (without quantity markers) used for special-case classification.
+
+# Nouns that should receive "common" gender despite a masculine-looking lemma form.
+common_gender_keys:
+  - "a)/nqrwpos"    # ἄνθρωπος (human/person)
+
+# Cardinal numeral headwords (1-10) that lack explicit POS tags in LSJ.
+numeral_keys:
+  - "ei(=s"         # εἷς (one)
+  - "du/o"          # δύο (two)
+  - "trei=s"        # τρεῖς (three)
+  - "te/ssares"     # τέσσαρες (four)
+  - "pe/nte"        # πέντε (five)
+  - "e(/c"          # ἕξ (six)
+  - "e(pta/"        # ἑπτά (seven)
+  - "o)ktw/"        # ὀκτώ (eight)
+  - "e)nne/a"       # ἐννέα (nine)
+  - "de/ka"         # δέκα (ten)

@@ -27,6 +27,35 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
+      # Generate the lexicon before tests so extractor regressions fail the job.
+      - name: Prepare LSJ extractor script
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f scripts/extract-lsj.sh
+          chmod +x scripts/extract-lsj.sh
+
+      - name: Cache Perseus LSJ checkout
+        uses: actions/cache@v4
+        with:
+          path: data/external/lsj
+          key: ${{ runner.os }}-perseus-lsj-${{ hashFiles('scripts/extract-lsj.sh', 'src/phonology/build_lexicon.py') }}
+          # restore-keys intentionally omitted: a partial cache hit for the LSJ
+          # checkout is not useful — the step requires the exact matching tree.
+
+      - name: Cache generated lexicon
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/lexicon/greek_lemmas.json
+            data/lexicon/greek_lemmas.meta.json
+          key: ${{ runner.os }}-lexicon-${{ hashFiles('scripts/extract-lsj.sh', 'src/phonology/lsj_extractor.py', 'src/phonology/build_lexicon.py', 'src/phonology/ipa_converter.py', 'src/phonology/transliterate.py', 'src/phonology/betacode.py', 'data/lexicon/pos_overrides.yaml', 'data/lexicon/greek_lemmas.schema.json') }}
+          # restore-keys intentionally omitted: the generated lexicon is either
+          # fully current or must be regenerated; a stale partial file is useless.
+
+      - name: Generate lexicon from Perseus LSJ
+        run: bash scripts/extract-lsj.sh --if-missing
+
       - name: Run tests
         run: uv run pytest --tb=short -v
 

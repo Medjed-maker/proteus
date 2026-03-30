@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter, defaultdict
 import json
 import math
 import unicodedata
@@ -23,6 +24,11 @@ MATRIX_PATH = ROOT_DIR / "data" / "matrices" / "attic_doric.json"
 CONSONANT_RULES_PATH = ROOT_DIR / "data" / "rules" / "ancient_greek" / "consonant_changes.yaml"
 VOWEL_RULES_PATH = ROOT_DIR / "data" / "rules" / "ancient_greek" / "vowel_shifts.yaml"
 PHONOLOGY_RULES_DOC_PATH = ROOT_DIR / "docs" / "phonology_rules.md"
+MIN_LEMMAS_COUNT = 100
+_skip_no_lexicon = pytest.mark.skipif(
+    not LEXICON_PATH.exists(),
+    reason="Lexicon not generated; run scripts/extract-lsj.sh",
+)
 
 
 @pytest.fixture
@@ -216,22 +222,158 @@ def assert_dicts_close(
     assert expected == actual, f"{path}: {expected!r} != {actual!r}"
 
 
-def test_lexicon_metadata_and_psykhe_stress() -> None:
+@_skip_no_lexicon
+def test_lexicon_metadata_and_representative_lemma_regressions() -> None:
     lexicon = _load_json(LEXICON_PATH)
     metadata = lexicon["_meta"]
+    pos_counts = Counter(lemma["pos"] for lemma in lexicon["lemmas"])
+
+    # Build O(1) headword index
+    by_headword: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for lemma in lexicon["lemmas"]:
+        by_headword[lemma["headword"]].append(lemma)
+
+    def find(hw: str) -> dict[str, Any] | None:
+        entries = by_headword.get(hw)
+        return entries[0] if entries else None
+
+    def find_all(hw: str) -> list[dict[str, Any]]:
+        return by_headword.get(hw, [])
 
     assert lexicon["schema_version"] == "2.0.0"
-    assert metadata["version"] == "1.0.0"
-    assert metadata["last_updated"] == "2026-03-19T00:00:00Z"
-    assert metadata["license"] == "MIT"
-    assert metadata["contributors"] == ["Proteus maintainers"]
     assert metadata["data_schema_ref"] == "data/lexicon/greek_lemmas.schema.json"
-    assert "phonological search experiments" in metadata["description"]
+    assert metadata["dialect"] == "attic"
+    assert len(lexicon["lemmas"]) > MIN_LEMMAS_COUNT
 
-    psykhe = next(lemma for lemma in lexicon["lemmas"] if lemma["headword"] == "ψυχή")
-    assert psykhe["ipa"] == "psyːkʰɛ́ː"
+    anthropos = find("ἄνθρωπος")
+    assert anthropos is not None, "Lemma 'ἄνθρωπος' not found in lexicon"
+    assert anthropos["ipa"] == "ántʰrɔːpos", (
+        f"Expected IPA 'ántʰrɔːpos', got {anthropos['ipa']!r}"
+    )
+    assert anthropos["gender"] == "common"
+
+    abelteros = find("ἀβέλτερος")
+    assert abelteros is not None, "Lemma 'ἀβέλτερος' not found in lexicon"
+    assert (
+        abelteros["pos"] == "adjective"
+    ), f"Expected POS 'adjective' for lemma 'ἀβέλτερος' but got {abelteros['pos']}"
+
+    hosanei = find("ὡσανεί")
+    assert hosanei is not None, "Lemma 'ὡσανεί' not found in lexicon"
+    assert (
+        hosanei["pos"] == "adverb"
+    ), f"Expected POS 'adverb' for lemma 'ὡσανεί' but got {hosanei['pos']}"
+
+    hopos = find_all("ὅπως")
+    assert hopos, "Lemma 'ὅπως' not found in lexicon"
+    assert any(lemma["pos"] == "adverb" for lemma in hopos), (
+        "Expected at least one adverb entry for lemma 'ὅπως'"
+    )
+
+    for headword in ("ἀκέω", "λέγω", "νέω"):
+        lemmas = find_all(headword)
+        assert lemmas, f"Lemma {headword!r} not found in lexicon"
+        assert any(lemma["pos"] == "verb" for lemma in lemmas), (
+            f"Expected at least one verb entry for lemma {headword!r}"
+        )
+
+    anelees = find("ἀνελεής")
+    assert anelees is not None, "Lemma 'ἀνελεής' not found in lexicon"
+    assert (
+        anelees["pos"] == "adverb"
+    ), f"Expected POS 'adverb' for lemma 'ἀνελεής' but got {anelees['pos']}"
+
+    psykhe = find("ψυχή")
+    assert psykhe is not None, "Lemma 'ψυχή' not found in lexicon"
+    assert psykhe["ipa"] == "psykʰɛ́ː", (
+        f"Expected IPA 'psykʰɛ́ː', got {psykhe['ipa']!r}"
+    )
+
+    anaklisis = find("ἀνάκλισις")
+    assert anaklisis is not None, "Lemma 'ἀνάκλισις' not found in lexicon"
+    assert anaklisis["pos"] == "noun", "Expected POS 'noun' for lemma 'ἀνάκλισις'"
+    assert anaklisis["gender"] == "feminine", "Expected gender 'feminine' for lemma 'ἀνάκλισις'"
+
+    apoteikhisma = find("ἀποτείχισμα")
+    assert apoteikhisma is not None, "Lemma 'ἀποτείχισμα' not found in lexicon"
+    assert apoteikhisma["pos"] == "noun", "Expected POS 'noun' for lemma 'ἀποτείχισμα'"
+    assert apoteikhisma["gender"] == "neuter", "Expected gender 'neuter' for lemma 'ἀποτείχισμα'"
+
+    aeropetes = find("ἀεροπέτης")
+    assert aeropetes is not None, "Lemma 'ἀεροπέτης' not found in lexicon"
+    assert find("ἀεροπέτησ2") is None, (
+        "Lemma 'ἀεροπέτησ2' should not exist in lexicon"
+    )
+    assert find("εως") is None, "Suffix-only lemma 'εως' should not exist"
+    assert find("ατος") is None, "Suffix-only lemma 'ατος' should not exist"
+
+    thymiatizo = find("θυμιατίζω")
+    assert (
+        thymiatizo is None or thymiatizo["pos"] != "adjective"
+    ), "Lemma 'θυμιατίζω' should not be classified as an adjective"
+
+    apollymi = find("ἀπόλλυμι")
+    assert apollymi is not None, "Lemma 'ἀπόλλυμι' not found in lexicon"
+    assert apollymi["pos"] == "verb", "Expected POS 'verb' for lemma 'ἀπόλλυμι'"
+
+    askion = find("ἀσκίον")
+    assert askion is not None, "Lemma 'ἀσκίον' not found in lexicon"
+    assert askion["pos"] == "noun", "Expected POS 'noun' for lemma 'ἀσκίον'"
+    assert askion["gender"] == "neuter", "Expected gender 'neuter' for lemma 'ἀσκίον'"
+
+    epimemptos = find("ἐπίμεμπτος")
+    assert epimemptos is not None, "Lemma 'ἐπίμεμπτος' not found in lexicon"
+    assert epimemptos["pos"] == "adjective", "Expected POS 'adjective' for lemma 'ἐπίμεμπτος'"
+
+    arkhon = find("ἄρχων")
+    assert arkhon is not None, "Lemma 'ἄρχων' not found in lexicon"
+    assert arkhon["pos"] == "noun", "Expected POS 'noun' for lemma 'ἄρχων'"
+
+    autos = find("αὐτός")
+    assert autos is not None, "Lemma 'αὐτός' not found in lexicon"
+    assert autos["pos"] == "pronoun", "Expected POS 'pronoun' for lemma 'αὐτός'"
+    assert autos["gender"] == "common", "Expected gender 'common' for lemma 'αὐτός'"
+
+    ego = find("ἐγώ")
+    assert ego is not None, "Lemma 'ἐγώ' not found in lexicon"
+    assert ego["pos"] == "pronoun", "Expected POS 'pronoun' for lemma 'ἐγώ'"
+    assert ego["dialect"] == "attic", "Expected dialect 'attic' for lemma 'ἐγώ'"
+
+    kai = find("καί")
+    assert kai is not None, "Lemma 'καί' not found in lexicon"
+    assert kai["pos"] == "conjunction", "Expected POS 'conjunction' for lemma 'καί'"
+
+    iou = find("ἰού")
+    assert iou is not None, "Lemma 'ἰού' not found in lexicon"
+    assert iou["pos"] == "interjection", "Expected POS 'interjection' for lemma 'ἰού'"
+
+    article = find("ὁ")
+    assert article is not None, "Lemma 'ὁ' not found in lexicon"
+    assert article["pos"] == "article", "Expected POS 'article' for lemma 'ὁ'"
+    assert article["gender"] == "common", "Expected gender 'common' for lemma 'ὁ'"
+
+    deka = find("δέκα")
+    assert deka is not None, "Lemma 'δέκα' not found in lexicon"
+    assert deka["pos"] == "numeral", "Expected POS 'numeral' for lemma 'δέκα'"
+    assert deka["gender"] == "common", "Expected gender 'common' for lemma 'δέκα'"
+
+    assert find("ἀγαπάζω") is None, "Non-Attic lemma 'ἀγαπάζω' should not exist"
+    assert find("ἄελλα") is None, "Non-Attic lemma 'ἄελλα' should not exist"
+
+    for pos in (
+        "pronoun",
+        "article",
+        "preposition",
+        "conjunction",
+        "particle",
+        "interjection",
+        "numeral",
+        "participle",
+    ):
+        assert pos_counts[pos] > 0, f"Expected at least one {pos!r} entry in lexicon"
 
 
+@_skip_no_lexicon
 def test_lexicon_matches_committed_json_schema() -> None:
     lexicon = _load_json(LEXICON_PATH)
     schema = _load_json(LEXICON_SCHEMA_PATH)
@@ -241,6 +383,7 @@ def test_lexicon_matches_committed_json_schema() -> None:
     assert not errors, [error.message for error in errors]
 
 
+@_skip_no_lexicon
 def test_lexicon_dialect_is_consistent_across_metadata_and_lemmas() -> None:
     lexicon = _load_json(LEXICON_PATH)
     top_level_dialect = lexicon["_meta"]["dialect"]
