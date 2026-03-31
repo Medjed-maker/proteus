@@ -236,6 +236,7 @@ class TestSearchHit:
             {
                 "rule_id": "VSH-010",
                 "rule_name": "アッティカ方言の e・i・r 後における長母音 ā 保持",
+                "rule_name_en": "",
                 "from_phone": "ɛː",
                 "to_phone": "aː",
                 "position": 1,
@@ -532,6 +533,7 @@ class TestSearchEndpoint:
             {
                 "rule_id": "CCH-001",
                 "rule_name": "CCH-001",
+                "rule_name_en": "",
                 "from_phone": "s",
                 "to_phone": "h",
                 "position": 2,
@@ -562,6 +564,20 @@ class TestSearchEndpoint:
             lambda: {"ɛː": {"aː": 0.1}},
         )
         monkeypatch.setattr(api_main, "_load_search_index", lambda: {})
+        monkeypatch.setattr(
+            api_main,
+            "_load_rules_registry",
+            lambda: {
+                "VSH-010": {
+                    "id": "VSH-010",
+                    "name_ja": "アッティカ方言の e・i・r 後における長母音 ā 保持",
+                    "name_en": "Attic retention of long alpha after e, i, or r",
+                    "input": "ɛː",
+                    "output": "aː",
+                    "dialects": ["attic"],
+                }
+            },
+        )
         monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "raː")
         monkeypatch.setattr(
             api_main.phonology_search,
@@ -580,6 +596,7 @@ class TestSearchEndpoint:
             {
                 "rule_id": "VSH-010",
                 "rule_name": "アッティカ方言の e・i・r 後における長母音 ā 保持",
+                "rule_name_en": "Attic retention of long alpha after e, i, or r",
                 "from_phone": "ɛː",
                 "to_phone": "aː",
                 "position": 1,
@@ -647,6 +664,68 @@ class TestSearchEndpoint:
         assert response.status_code == 200
         assert captured["rule_ids"] == ["CCH-001"]
         assert response.json()["hits"][0]["rules_applied"][0]["position"] == -1
+
+    def test_search_hit_prefers_observed_rule_applications_over_fallback_ids(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            api_main,
+            "_load_lexicon_entries",
+            lambda: (
+                {
+                    "id": "L1",
+                    "headword": "λόγος",
+                    "ipa": "a",
+                    "dialect": "attic",
+                },
+            ),
+        )
+        monkeypatch.setattr(api_main, "_load_distance_matrix", lambda: {"a": {"x": 0.5}})
+        monkeypatch.setattr(api_main, "_load_rules_registry", lambda: {})
+        monkeypatch.setattr(api_main, "_load_search_index", lambda: {"l ɡ": ["L1"]})
+        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "x")
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search",
+            lambda *args, **kwargs: [
+                SearchResult(
+                    lemma="λόγος",
+                    confidence=0.5,
+                    dialect_attribution="lemma dialect: attic",
+                    applied_rules=[],
+                    rule_applications=[
+                        RuleApplication(
+                            rule_id="OBS-SUB",
+                            rule_name="観測された置換",
+                            rule_name_en="Observed substitution",
+                            from_phone="a",
+                            to_phone="x",
+                            position=0,
+                        )
+                    ],
+                    ipa="a",
+                )
+            ],
+        )
+
+        def fail_explain_alignment(**_kwargs: object) -> object:
+            raise AssertionError("explain_alignment should not run when rule_applications are present")
+
+        monkeypatch.setattr(api_main, "explain_alignment", fail_explain_alignment)
+
+        response = client.post("/search", json={"query_form": "λόγος"})
+
+        assert response.status_code == 200
+        assert response.json()["hits"][0]["rules_applied"] == [
+            {
+                "rule_id": "OBS-SUB",
+                "rule_name": "観測された置換",
+                "rule_name_en": "Observed substitution",
+                "from_phone": "a",
+                "to_phone": "x",
+                "position": 0,
+            }
+        ]
 
     def test_search_accepts_legacy_request_shape(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch

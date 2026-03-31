@@ -208,7 +208,11 @@ def test_explain_detects_deletion_and_uses_lemma_position() -> None:
 
 
 def test_explain_skips_empty_output_rule_without_query_gap() -> None:
-    """Verify deletion rules do not fire unless the alignment actually contains a query gap."""
+    """Verify deletion rules do not fire unless the alignment actually contains a query gap.
+
+    The catalogued deletion rule CCH-DEL should NOT match (no query gap), but an
+    observed-substitution annotation is still generated for the mismatch.
+    """
     rules = [
         _rule(
             rule_id="CCH-DEL",
@@ -229,11 +233,19 @@ def test_explain_skips_empty_output_rule_without_query_gap() -> None:
         rules=rules,
     )
 
-    assert applications == []
+    # The catalogued rule should not match; only the fallback observation fires.
+    assert len(applications) == 1
+    assert applications[0].rule_id == "OBS-SUB"
+    assert applications[0].input_phoneme == "s"
+    assert applications[0].output_phoneme == "a"
 
 
 def test_explain_ignores_empty_input_rule_without_insertion_flag() -> None:
-    """Verify empty-input rules are ignored unless they are explicitly marked as insertions."""
+    """Verify empty-input rules are ignored unless they are explicitly marked as insertions.
+
+    The unflagged insertion rule should NOT match, but an observed-insertion
+    annotation is still generated for the unmatched gap.
+    """
     rules = [
         _rule(
             rule_id="INS-NOFLAG",
@@ -254,7 +266,11 @@ def test_explain_ignores_empty_input_rule_without_insertion_flag() -> None:
         rules=rules,
     )
 
-    assert applications == []
+    # The unflagged rule should not match; only the fallback observation fires.
+    assert len(applications) == 1
+    assert applications[0].rule_id == "OBS-INS"
+    assert applications[0].input_phoneme == ""
+    assert applications[0].output_phoneme == "a"
 
 
 def test_explain_matches_empty_input_rule_only_when_explicitly_allowed() -> None:
@@ -462,11 +478,15 @@ def test_explain_supports_nc_context_with_query_side_fallback_after_lemma_end() 
         ],
     )
 
-    assert [application.rule_id for application in applications] == ["CTX-NC-FALLBACK"]
+    # The catalogued rule matches the first mismatch; the remaining unmatched
+    # gaps produce observed-insertion annotations.
+    assert applications[0].rule_id == "CTX-NC-FALLBACK"
+    obs_ids = [a.rule_id for a in applications[1:]]
+    assert all(oid == "OBS-INS" for oid in obs_ids)
 
 
-def test_explain_skips_unmatched_difference_blocks() -> None:
-    """Verify unmatched alignment differences produce no rule applications."""
+def test_explain_generates_observed_substitution_for_unmatched_blocks() -> None:
+    """Verify unmatched alignment differences produce observed-substitution annotations."""
     applications = explain(
         query_ipa=["x"],
         lemma_ipa=["a"],
@@ -477,7 +497,12 @@ def test_explain_skips_unmatched_difference_blocks() -> None:
         rules=[_rule(rule_id="NOPE", input_phoneme="b", output_phoneme="c")],
     )
 
-    assert applications == []
+    assert len(applications) == 1
+    assert applications[0].rule_id == "OBS-SUB"
+    assert applications[0].input_phoneme == "a"
+    assert applications[0].output_phoneme == "x"
+    assert applications[0].rule_name == "観測された置換"
+    assert applications[0].rule_name_en == "Observed substitution"
 
 
 def test_explain_alignment_wraps_rule_ids_into_explanation_steps() -> None:
@@ -673,3 +698,179 @@ def test_load_rules_duplicate_error_includes_both_files(
     message = str(exc_info.value)
     assert "first.yaml" in message
     assert "second.yaml" in message
+
+
+def test_explain_generates_observed_deletion() -> None:
+    """Verify a gap-aligned mismatch (deletion) produces OBS-DEL."""
+    applications = explain(
+        query_ipa=["a"],
+        lemma_ipa=["a", "s"],
+        alignment=Alignment(
+            aligned_query=("a", None),
+            aligned_lemma=("a", "s"),
+        ),
+        rules=[],
+    )
+    obs = [a for a in applications if a.rule_id == "OBS-DEL"]
+    assert len(obs) == 1
+    assert obs[0].input_phoneme == "s"
+    assert obs[0].output_phoneme == ""
+    assert obs[0].rule_name == "観測された脱落"
+    assert obs[0].rule_name_en == "Observed deletion"
+
+
+def test_explain_generates_observed_insertion() -> None:
+    """Verify a gap-aligned mismatch (insertion) produces OBS-INS."""
+    applications = explain(
+        query_ipa=["a", "s"],
+        lemma_ipa=["a"],
+        alignment=Alignment(
+            aligned_query=("a", "s"),
+            aligned_lemma=("a", None),
+        ),
+        rules=[],
+    )
+    obs = [a for a in applications if a.rule_id == "OBS-INS"]
+    assert len(obs) == 1
+    assert obs[0].input_phoneme == ""
+    assert obs[0].output_phoneme == "s"
+    assert obs[0].rule_name == "観測された挿入"
+    assert obs[0].rule_name_en == "Observed insertion"
+
+
+def test_explain_preserves_column_order_for_leading_query_gap() -> None:
+    """Verify OBS fallback consumes mismatch columns in aligned order."""
+    applications = explain(
+        query_ipa=["x"],
+        lemma_ipa=["a", "b"],
+        alignment=Alignment(
+            aligned_query=(None, "x"),
+            aligned_lemma=("a", "b"),
+        ),
+        rules=[],
+    )
+
+    assert [(app.rule_id, app.input_phoneme, app.output_phoneme) for app in applications] == [
+        ("OBS-DEL", "a", ""),
+        ("OBS-SUB", "b", "x"),
+    ]
+    assert [app.position for app in applications] == [0, 1]
+
+
+def test_explain_preserves_column_order_for_leading_lemma_gap() -> None:
+    """Verify leading insertions do not shift later observed substitutions."""
+    applications = explain(
+        query_ipa=["x", "y"],
+        lemma_ipa=["a"],
+        alignment=Alignment(
+            aligned_query=("x", "y"),
+            aligned_lemma=(None, "a"),
+        ),
+        rules=[],
+    )
+
+    assert [(app.rule_id, app.input_phoneme, app.output_phoneme) for app in applications] == [
+        ("OBS-INS", "", "x"),
+        ("OBS-SUB", "a", "y"),
+    ]
+    assert [app.position for app in applications] == [0, 0]
+
+
+def test_explain_matches_catalogued_rule_after_leading_query_gap() -> None:
+    """Verify OBS fallback does not consume a later catalogued substitution."""
+    applications = explain(
+        query_ipa=["x"],
+        lemma_ipa=["a", "b"],
+        alignment=Alignment(
+            aligned_query=(None, "x"),
+            aligned_lemma=("a", "b"),
+        ),
+        rules=[
+            _rule(
+                rule_id="RULE-BX",
+                input_phoneme="b",
+                output_phoneme="x",
+                name_ja="b から x への推移",
+            )
+        ],
+    )
+
+    assert [(app.rule_id, app.input_phoneme, app.output_phoneme) for app in applications] == [
+        ("OBS-DEL", "a", ""),
+        ("RULE-BX", "b", "x"),
+    ]
+    assert [app.position for app in applications] == [0, 1]
+
+
+def test_explain_fails_fast_on_double_gap_mismatch_column() -> None:
+    """Verify invalid mismatch blocks with double-gap columns raise a clear error."""
+    with pytest.raises(RuntimeError) as exc_info:
+        explain(
+            query_ipa=["x"],
+            lemma_ipa=["a"],
+            alignment=Alignment(
+                aligned_query=(None, "x"),
+                aligned_lemma=(None, "a"),
+            ),
+            rules=[],
+        )
+
+    message = str(exc_info.value)
+    assert "lemma_token=None" in message
+    assert "query_token=None" in message
+    assert "lemma_index=0" in message
+    assert "query_index=0" in message
+
+
+def test_to_prose_exact_match_message() -> None:
+    """Verify distance=0 with no steps produces an exact-match message."""
+    explanation = Explanation(
+        source="loɡos",
+        target="loɡos",
+        source_ipa="loɡos",
+        target_ipa="loɡos",
+        distance=0.0,
+        steps=[],
+    )
+    prose = to_prose(explanation)
+    assert "exact match" in prose
+    assert "No rule applications" not in prose
+
+
+def test_to_prose_treats_near_zero_distance_as_exact_match() -> None:
+    """Verify a tiny floating-point residue still produces the exact-match prose."""
+    explanation = Explanation(
+        source="loɡos",
+        target="loɡos",
+        source_ipa="loɡos",
+        target_ipa="loɡos",
+        distance=1e-12,
+        steps=[],
+    )
+    prose = to_prose(explanation)
+    assert "exact match" in prose
+    assert "No rule applications" not in prose
+
+
+def test_rule_application_has_bilingual_names() -> None:
+    """Verify RuleApplication stores both Japanese and English names."""
+    app = RuleApplication(
+        rule_id="VSH-001",
+        rule_name="長母音 ā > ē 推移",
+        rule_name_en="Long vowel ā > ē shift",
+        input_phoneme="aː",
+        output_phoneme="ɛː",
+        position=0,
+    )
+    assert app.rule_name == "長母音 ā > ē 推移"
+    assert app.rule_name_en == "Long vowel ā > ē shift"
+
+
+def test_rule_application_rule_name_en_defaults_to_empty() -> None:
+    """Verify rule_name_en defaults to empty string when not provided."""
+    app = RuleApplication(
+        rule_id="X",
+        rule_name="test",
+        position=0,
+    )
+    assert app.rule_name_en == ""

@@ -190,6 +190,7 @@ def _build_search_hit(
             RuleStep(
                 rule_id=step.rule_id,
                 rule_name=step.rule_name,
+                rule_name_en=step.rule_name_en,
                 from_phone=step.from_phone,
                 to_phone=step.to_phone,
                 position=step.position,
@@ -242,6 +243,7 @@ class RuleStep(BaseModel):
 
     rule_id: str = Field(description="Stable identifier for the phonological rule.")
     rule_name: str = Field(description="Human-readable display name for the rule.")
+    rule_name_en: str = Field(default="", description="English display name for the rule.")
     from_phone: str = Field(description="Source IPA phone before the rule applied.")
     to_phone: str = Field(description="Target IPA phone after the rule applied.")
     position: int = Field(description="Zero-based phone position in the alignment.")

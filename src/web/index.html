@@ -166,39 +166,59 @@
       return pre;
     }
 
+    function normalizeRuleId(rule) {
+      return String(rule.rule_id ?? "");
+    }
+
     function renderRulesList(rules) {
       if (!rules || !rules.length) return null;
+
+      const rulesWithNormalizedId = rules.map((r) => ({ rule: r, ruleId: normalizeRuleId(r) }));
+      const cataloged = rulesWithNormalizedId.filter((r) => !r.ruleId.startsWith("OBS-"));
+      const observed = rulesWithNormalizedId.filter((r) => r.ruleId.startsWith("OBS-"));
 
       const details = document.createElement("details");
       details.className = "mt-3";
 
       const summary = document.createElement("summary");
       summary.className = "cursor-pointer text-sm font-medium text-accent select-none list-item hover:text-accent-hover";
-      summary.textContent = rules.length + " rule" + (rules.length > 1 ? "s" : "") + " applied";
+      const parts = [];
+      if (cataloged.length) parts.push(cataloged.length + " rule" + (cataloged.length > 1 ? "s" : "") + " applied");
+      if (observed.length) parts.push(observed.length + " observed change" + (observed.length > 1 ? "s" : ""));
+      summary.textContent = parts.join(", ");
       details.appendChild(summary);
 
       const list = document.createElement("div");
       list.className = "mt-2 pl-4 space-y-1.5";
 
-      rules.forEach((rule) => {
+      rulesWithNormalizedId.forEach(({ rule, ruleId }) => {
+        const isObs = ruleId.startsWith("OBS-");
         const row = document.createElement("div");
-        row.className = "flex flex-wrap items-center gap-x-2 text-sm";
+        row.className = "flex flex-wrap items-center gap-x-2 text-sm" + (isObs ? " text-ink-muted" : "");
 
         const id = document.createElement("span");
         id.className = "font-mono text-xs text-ink-muted";
-        id.textContent = "[" + rule.rule_id + "]";
+        id.textContent = "[" + ruleId + "]";
 
         const name = document.createElement("span");
         name.className = "font-serif";
-        name.textContent = rule.rule_name;
+        // Show bilingual name: Japanese + English when both exist
+        const baseName = rule.rule_name ?? "";
+        let nameText = baseName;
+        if (rule.rule_name_en && rule.rule_name_en !== baseName) {
+          nameText = baseName ? `${baseName} / ${rule.rule_name_en}` : rule.rule_name_en;
+        }
+        name.textContent = nameText;
 
         const phones = document.createElement("span");
         phones.className = "font-mono text-ink-light";
-        phones.textContent = "/" + rule.from_phone + "/ \u2192 /" + rule.to_phone + "/";
+        const fromPhone = rule.from_phone ? rule.from_phone : "\u2205";
+        const toPhone = rule.to_phone ? rule.to_phone : "\u2205";
+        phones.textContent = "/" + fromPhone + "/ \u2192 /" + toPhone + "/";
 
         const pos = document.createElement("span");
         pos.className = "text-xs text-ink-muted";
-        pos.textContent = "pos " + rule.position;
+        pos.textContent = "pos " + (rule.position ?? "-");
 
         row.appendChild(id);
         row.appendChild(name);
