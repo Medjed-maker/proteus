@@ -208,6 +208,86 @@ class TestExtendStage:
             "doric",
         ]
 
+    def test_is_observed_application_matches_obs_prefix(self) -> None:
+        # Canonical case: uppercase OBS- prefix with suffix
+        assert search_module._is_observed_application(
+            RuleApplication(
+                rule_id="OBS-SUB",
+                rule_name="Observed substitution",
+                input_phoneme="a",
+                output_phoneme="x",
+                position=0,
+            )
+        )
+        # Prefix only (still starts with OBS-)
+        assert search_module._is_observed_application(
+            RuleApplication(
+                rule_id="OBS-",
+                rule_name="Observed",
+                input_phoneme="a",
+                output_phoneme="x",
+                position=0,
+            )
+        )
+        # Non-observed rule
+        assert not search_module._is_observed_application(
+            RuleApplication(
+                rule_id="RULE-1",
+                rule_name="Rule 1",
+                input_phoneme="a",
+                output_phoneme="x",
+                position=0,
+            )
+        )
+        # Edge case: no dash after OBS
+        assert not search_module._is_observed_application(
+            RuleApplication(
+                rule_id="OBS",
+                rule_name="Observed",
+                input_phoneme="a",
+                output_phoneme="x",
+                position=0,
+            )
+        )
+        # Edge case: lowercase prefix
+        assert not search_module._is_observed_application(
+            RuleApplication(
+                rule_id="obs-sub",
+                rule_name="Observed",
+                input_phoneme="a",
+                output_phoneme="x",
+                position=0,
+            )
+        )
+        # Edge case: empty string
+        assert not search_module._is_observed_application(
+            RuleApplication(
+                rule_id="",
+                rule_name="Empty",
+                input_phoneme="a",
+                output_phoneme="x",
+                position=0,
+            )
+        )
+
+    def test_apply_rule_markers_ignores_observed_steps(self) -> None:
+        updated_markers = search_module._apply_rule_markers(
+            ["."],
+            aligned_query=["x"],
+            aligned_lemma=["a"],
+            applications=[
+                RuleApplication(
+                    rule_id="OBS-SUB",
+                    rule_name="Observed substitution",
+                    input_phoneme="a",
+                    output_phoneme="x",
+                    position=0,
+                )
+            ],
+        )
+
+        assert updated_markers == ["."]
+
     def test_exact_match_returns_confidence_one_and_three_line_visualization(self) -> None:
         lexicon_map = {
             "L1": {"headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"}
@@ -343,6 +423,58 @@ class TestExtendStage:
             results[0].dialect_attribution
             == "lemma dialect: attic; query-compatible dialects: ionic"
         )
+
+    def test_observed_steps_remain_visible_but_not_catalogued(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
+        lexicon_map = {
+            "L1": {"headword": "χ", "ipa": "a", "dialect": "attic"}
+        }
+
+        results = extend_stage("x", ["L1"], lexicon_map, matrix={"a": {"x": 0.5}})
+
+        assert results[0].applied_rules == []
+        assert [application.rule_id for application in results[0].rule_applications] == ["OBS-SUB"]
+        assert "." in results[0].alignment_visualization.splitlines()[1]
+        assert ":" not in results[0].alignment_visualization.splitlines()[1]
+
+    def test_catalogued_rules_survive_alongside_observed_steps(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            search_module,
+            "load_rules",
+            lambda _path: {
+                "RULE-BX": {
+                    "id": "RULE-BX",
+                    "input": "b",
+                    "output": "x",
+                    "dialects": ["attic"],
+                }
+            },
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_smith_waterman_alignment",
+            lambda query_tokens, lemma_tokens, matrix: (
+                1.0,
+                [None, "x"],
+                ["a", "b"],
+            ),
+        )
+        lexicon_map = {
+            "L1": {"headword": "χ", "ipa": "ab", "dialect": "ionic"}
+        }
+
+        results = extend_stage("x", ["L1"], lexicon_map, matrix={"a": {"x": 0.5}, "b": {"x": 0.4}})
+
+        assert results[0].applied_rules == ["RULE-BX"]
+        assert [application.rule_id for application in results[0].rule_applications] == [
+            "OBS-DEL",
+            "RULE-BX",
+        ]
+        marker_line = results[0].alignment_visualization.splitlines()[1]
+        assert marker_line.endswith(" :")
+        assert marker_line.count(":") == 1
 
     def test_skips_stale_candidates_missing_from_lexicon_map(self) -> None:
         lexicon_map = {

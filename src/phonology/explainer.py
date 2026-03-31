@@ -8,6 +8,7 @@ descriptions suitable for APIs and UI consumers.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from pathlib import Path
 import re
 from typing import Any, TypeAlias
@@ -100,6 +101,7 @@ class RuleApplication:
     dialects: list[str] = field(default_factory=list)
     weight: float = 1.0
     _rule_name: str = field(init=False, repr=False)
+    _rule_name_en: str = field(init=False, repr=False)
 
     def __init__(
         self,
@@ -112,6 +114,7 @@ class RuleApplication:
         dialects: list[str] | None = None,
         weight: float = 1.0,
         rule_name: str | None = None,
+        rule_name_en: str | None = None,
         from_phone: str | None = None,
         to_phone: str | None = None,
     ) -> None:
@@ -125,6 +128,7 @@ class RuleApplication:
         )
         self.description = description if description is not None else fallback
         self._rule_name = rule_name if rule_name is not None else fallback
+        self._rule_name_en = rule_name_en if rule_name_en is not None else ""
         self.input_phoneme = input_phoneme if input_phoneme is not None else (from_phone or "")
         self.output_phoneme = (
             output_phoneme if output_phoneme is not None else (to_phone or "")
@@ -137,6 +141,11 @@ class RuleApplication:
     def rule_name(self) -> str:
         """Backward-compatible alias for the display label of this rule step."""
         return self._rule_name
+
+    @property
+    def rule_name_en(self) -> str:
+        """English display name for the rule."""
+        return self._rule_name_en
 
     @property
     def from_phone(self) -> str:
@@ -552,6 +561,14 @@ def _rule_name_for_description(rule: Rule) -> str:
     return "unknown rule"
 
 
+def _rule_name_en_for_description(rule: Rule) -> str:
+    """Return the English display label for a rule, if available."""
+    value = rule.get("name_en")
+    if isinstance(value, str) and value:
+        return value
+    return ""
+
+
 def _display_phoneme(phoneme: str) -> str:
     """Render phonemes in prose, using ∅ for empty sides."""
     return phoneme if phoneme else "∅"
@@ -611,6 +628,29 @@ def _block_column_index(
     if consumed_lemma == lemma_index and consumed_query == query_index:
         return len(block.aligned_query)
     return None
+
+
+def _current_block_column(
+    block: _MismatchBlock,
+    *,
+    lemma_index: int,
+    query_index: int,
+) -> tuple[int, str | None, str | None]:
+    """Return the current aligned column for the given mismatch-block cursor."""
+    column_index = _block_column_index(
+        block,
+        lemma_index=lemma_index,
+        query_index=query_index,
+    )
+    if column_index is None or column_index >= len(block.aligned_query):
+        raise RuntimeError(
+            "Mismatch block cursor advanced beyond aligned columns before block consumption finished"
+        )
+    return (
+        column_index,
+        block.aligned_query[column_index],
+        block.aligned_lemma[column_index],
+    )
 
 
 def _allows_empty_input(rule: Rule) -> bool:
@@ -762,9 +802,47 @@ def _collect_block_applications(
             break
 
         if matched_rule is None:
-            if lemma_index < len(block.lemma_tokens):
+            # Generate an observed-difference annotation for the unmatched
+            # mismatch so the user still sees what changed even without a
+            # catalogued phonological rule.
+            column_index, query_token, lemma_token = _current_block_column(
+                block,
+                lemma_index=lemma_index,
+                query_index=query_index,
+            )
+            if lemma_token is None and query_token is None:
+                raise RuntimeError(
+                    "Encountered an invalid mismatch block column with lemma_token=None "
+                    f"and query_token=None at column_index={column_index}, "
+                    f"lemma_index={lemma_index}, query_index={query_index}; "
+                    "the cursor cannot advance from a double-gap column."
+                )
+            lemma_phone = lemma_token or ""
+            query_phone = query_token or ""
+            if lemma_phone and query_phone:
+                obs_id, obs_ja, obs_en = "OBS-SUB", "観測された置換", "Observed substitution"
+            elif lemma_phone:
+                obs_id, obs_ja, obs_en = "OBS-DEL", "観測された脱落", "Observed deletion"
+            else:
+                obs_id, obs_ja, obs_en = "OBS-INS", "観測された挿入", "Observed insertion"
+            applications.append(
+                RuleApplication(
+                    rule_id=obs_id,
+                    description=(
+                        f"{obs_ja} / {obs_en}:"
+                        f" /{_display_phoneme(lemma_phone)}/"
+                        f" \u2192 /{_display_phoneme(query_phone)}/"
+                    ),
+                    rule_name=obs_ja,
+                    rule_name_en=obs_en,
+                    input_phoneme=lemma_phone,
+                    output_phoneme=query_phone,
+                    position=block.lemma_start_position + lemma_index,
+                )
+            )
+            if lemma_token is not None:
                 lemma_index += 1
-            if query_index < len(block.query_tokens):
+            if query_token is not None:
                 query_index += 1
             continue
 
@@ -773,6 +851,7 @@ def _collect_block_applications(
         input_phoneme = "".join(matched_rule.input_tokens)
         output_phoneme = "".join(matched_rule.output_tokens)
         rule_name = _rule_name_for_description(matched_rule.rule)
+        rule_name_en = _rule_name_en_for_description(matched_rule.rule)
         dialects = _extract_dialects(matched_rule.rule.get("dialects", []))
         applications.append(
             RuleApplication(
@@ -784,6 +863,7 @@ def _collect_block_applications(
                     output_phoneme,
                 ),
                 rule_name=rule_name,
+                rule_name_en=rule_name_en,
                 input_phoneme=input_phoneme,
                 output_phoneme=output_phoneme,
                 position=block.lemma_start_position + lemma_index,
@@ -861,6 +941,7 @@ def explain_alignment(
         input_phoneme = raw_input if isinstance(raw_input, str) else ""
         output_phoneme = raw_output if isinstance(raw_output, str) else ""
         rule_name = _rule_name_for_description(rule)
+        rule_name_en = _rule_name_en_for_description(rule)
         dialects = _extract_dialects(rule.get("dialects", []))
         steps.append(
             RuleApplication(
@@ -872,6 +953,7 @@ def explain_alignment(
                     output_phoneme,
                 ),
                 rule_name=rule_name,
+                rule_name_en=rule_name_en,
                 input_phoneme=input_phoneme,
                 output_phoneme=output_phoneme,
                 position=POSITION_UNKNOWN,
@@ -930,10 +1012,13 @@ def to_prose(explanation: Explanation) -> str:
             f"{explanation.distance:.3f}. Applied rules: {step_summary}."
         )
     else:
-        prose = (
-            f"{source_repr} aligns to "
-            f"{target_repr} with distance "
-            f"{explanation.distance:.3f}. No rule applications were recorded."
-        )
+        if math.isclose(explanation.distance, 0.0, abs_tol=1e-9):
+            prose = f"{source_repr} is an exact match for {target_repr}."
+        else:
+            prose = (
+                f"{source_repr} aligns to "
+                f"{target_repr} with distance "
+                f"{explanation.distance:.3f}. No rule applications were recorded."
+            )
 
     return prose

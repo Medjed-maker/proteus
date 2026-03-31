@@ -37,6 +37,11 @@ _MIN_STAGE2_CANDIDATES = 25
 _GAP_PENALTY = -1.0
 _MATCH_SCORE = 2.0
 
+# Prefix for synthetic observed-difference annotations generated during alignment.
+# These pseudo-rules mark raw phoneme mismatches that were not explained by any
+# phonological rule in the loaded rule set.
+OBSERVED_PREFIX = "OBS-"
+
 
 @dataclass
 class SearchResult:
@@ -300,7 +305,7 @@ def _apply_rule_markers(
         if lemma_token is not None
     ]
     for application in applications:
-        if application.position < 0:
+        if application.position < 0 or _is_observed_application(application):
             continue
         input_tokens = tokenize_ipa(application.input_phoneme)
         for offset in range(len(input_tokens)):
@@ -311,6 +316,14 @@ def _apply_rule_markers(
             if aligned_query[aligned_index] is not None:
                 local_markers[aligned_index] = ":"
     return local_markers
+
+
+def _is_observed_application(application: RuleApplication) -> bool:
+    """Return True for synthetic observed-difference annotations."""
+    rule_id = application.rule_id
+    if not isinstance(rule_id, str) or not rule_id:
+        return False
+    return rule_id.startswith(OBSERVED_PREFIX)
 
 
 def _collect_application_dialects(applications: list[RuleApplication]) -> list[str]:
@@ -437,12 +450,22 @@ def extend_stage(
         else:
             dialect_attribution = f"lemma dialect: {candidate_dialect}"
 
+        # applied_rules: rule IDs excluding observed-difference annotations (OBS-*).
+        # Used by api.main.explain_alignment for rule-based explanations.
+        # rule_applications: full application list including observed annotations.
+        # Used by api.main for Explanation construction when no rule-based explanation exists.
+        # This asymmetry is intentional: applied_rules captures phonological rules only,
+        # while rule_applications preserves the complete alignment history.
         results.append(
             SearchResult(
                 lemma=lemma,
                 confidence=confidence,
                 dialect_attribution=dialect_attribution,
-                applied_rules=[application.rule_id for application in applications],
+                applied_rules=[
+                    application.rule_id
+                    for application in applications
+                    if not _is_observed_application(application)
+                ],
                 rule_applications=list(applications),
                 alignment_visualization=_format_alignment_visualization(
                     aligned_query, aligned_lemma, markers
