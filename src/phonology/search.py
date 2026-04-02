@@ -8,14 +8,14 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 import logging
 import math
-from typing import Any, TypeAlias
+from typing import Any, Literal, TypeAlias
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from ._phones import VOWEL_PHONES
 from .distance import MatrixData, phone_distance
 from .explainer import Alignment, RuleApplication, explain, load_rules
-from .ipa_converter import to_ipa, tokenize_ipa
+from .ipa_converter import apply_koine_consonant_shifts, to_ipa, tokenize_ipa
 
 DistanceMatrix: TypeAlias = MatrixData
 KmerIndex: TypeAlias = dict[str, list[str]]
@@ -86,13 +86,47 @@ def _entry_ipa(entry: dict[str, Any]) -> str:
     return raw_ipa
 
 
-def _extract_consonant_skeleton(ipa_text: str) -> list[str]:
-    """Drop vowels from a tokenized IPA string to form a consonant skeleton."""
-    return [token for token in tokenize_ipa(ipa_text) if token not in VOWEL_PHONES]
+def _extract_consonant_skeleton(tokens: list[str]) -> list[str]:
+    """Drop vowels from a tokenized IPA sequence to form a consonant skeleton."""
+    return [token for token in tokens if token not in VOWEL_PHONES]
+
+
+def _build_entry_kmers(ipa_text: str, k: int) -> list[str]:
+    """Return stable, de-duplicated seed k-mers for one lexicon IPA form.
+
+    Each entry contributes both its stored Attic-oriented skeleton and the
+    Koine-compatible skeleton produced by the shared consonant-shift logic.
+    
+    Args:
+        ipa_text: IPA transcription string for a lexicon entry.
+        k: Size of each consonant-skeleton k-mer.
+
+    Returns:
+        De-duplicated list of space-joined k-mer strings.
+    """
+    original_tokens = tokenize_ipa(ipa_text)
+    original_skeleton = _extract_consonant_skeleton(original_tokens)
+    koine_skeleton = _extract_consonant_skeleton(apply_koine_consonant_shifts(original_tokens))
+    return list(
+        dict.fromkeys(
+            [
+                *_iter_kmers(original_skeleton, k),
+                *_iter_kmers(koine_skeleton, k),
+            ]
+        )
+    )
 
 
 def _iter_kmers(tokens: list[str], k: int) -> list[str]:
-    """Return space-joined k-mers for a token sequence."""
+    """Return space-joined k-mers for a token sequence.
+    
+    Args:
+        tokens: List of IPA tokens.
+        k: Size of each k-mer.
+        
+    Returns:
+        List of space-joined k-mer strings.
+    """
     if k <= 0:
         raise ValueError(f"k-mer size must be positive, got {k}")
     if len(tokens) < k:
@@ -123,8 +157,7 @@ def build_kmer_index(
     index: KmerIndex = {}
     for entry in lexicon:
         entry_id = _entry_id(entry)
-        skeleton = _extract_consonant_skeleton(_entry_ipa(entry))
-        for kmer in _iter_kmers(skeleton, k):
+        for kmer in _build_entry_kmers(_entry_ipa(entry), k):
             index.setdefault(kmer, []).append(entry_id)
     return index
 
@@ -150,7 +183,7 @@ def seed_stage(
     if k <= 0:
         raise ValueError(f"seed_stage requires k > 0 for k-mer size, got {k}")
 
-    query_skeleton = _extract_consonant_skeleton(query_ipa)
+    query_skeleton = _extract_consonant_skeleton(tokenize_ipa(query_ipa))
     query_kmers = _iter_kmers(query_skeleton, k)
     if not query_kmers:
         return []
@@ -171,6 +204,60 @@ def _substitution_score(lemma_phone: str, query_phone: str, matrix: DistanceMatr
     if lemma_phone == query_phone:
         return _MATCH_SCORE
     return 1.0 - phone_distance(lemma_phone, query_phone, matrix)
+
+
+def _align_edge_tokens(
+    query_tokens: list[str],
+    lemma_tokens: list[str],
+    *,
+    side: Literal["prefix", "suffix"],
+) -> tuple[list[str | None], list[str | None]]:
+    """Align unmatched edge tokens around a local-alignment core.
+
+    Preserve any exact-match run on the outer edge, then align the remaining
+    unmatched phones nearest the local-alignment core.
+    """
+    if side == "prefix":
+        shared_length = 0
+        while (
+            shared_length < len(query_tokens)
+            and shared_length < len(lemma_tokens)
+            and query_tokens[shared_length] == lemma_tokens[shared_length]
+        ):
+            shared_length += 1
+        shared_query = list(query_tokens[:shared_length])
+        shared_lemma = list(lemma_tokens[:shared_length])
+        remaining_query = list(query_tokens[shared_length:])
+        remaining_lemma = list(lemma_tokens[shared_length:])
+        max_length = max(len(remaining_query), len(remaining_lemma))
+        return (
+            shared_query + ([None] * (max_length - len(remaining_query))) + remaining_query,
+            shared_lemma + ([None] * (max_length - len(remaining_lemma))) + remaining_lemma,
+        )
+    if side == "suffix":
+        shared_length = 0
+        while (
+            shared_length < len(query_tokens)
+            and shared_length < len(lemma_tokens)
+            and query_tokens[-(shared_length + 1)] == lemma_tokens[-(shared_length + 1)]
+        ):
+            shared_length += 1
+        if shared_length == 0:
+            shared_query = []
+            shared_lemma = []
+            remaining_query = list(query_tokens)
+            remaining_lemma = list(lemma_tokens)
+        else:
+            shared_query = list(query_tokens[-shared_length:])
+            shared_lemma = list(lemma_tokens[-shared_length:])
+            remaining_query = list(query_tokens[:-shared_length])
+            remaining_lemma = list(lemma_tokens[:-shared_length])
+        max_length = max(len(remaining_query), len(remaining_lemma))
+        return (
+            remaining_query + ([None] * (max_length - len(remaining_query))) + shared_query,
+            remaining_lemma + ([None] * (max_length - len(remaining_lemma))) + shared_lemma,
+        )
+    raise ValueError(f"Unknown edge-alignment side {side!r}")
 
 
 def _smith_waterman_alignment(
@@ -221,6 +308,11 @@ def _smith_waterman_alignment(
 
     aligned_query: list[str | None] = []
     aligned_lemma: list[str | None] = []
+    # Preserve the end-of-local-alignment position before traceback mutates
+    # row/col.  When no match is found (best_position stays at (0, 0)), the
+    # traceback loop is skipped and all tokens fall into the suffix edge
+    # alignment, which is the correct degenerate-case behaviour.
+    end_row, end_col = best_position
     row, col = best_position
     while row > 0 and col > 0 and scores[row][col] > 0.0:
         direction = directions[row][col]
@@ -242,7 +334,22 @@ def _smith_waterman_alignment(
 
     aligned_query.reverse()
     aligned_lemma.reverse()
-    return best_score, aligned_query, aligned_lemma
+
+    prefix_query, prefix_lemma = _align_edge_tokens(
+        query_tokens[:col],
+        lemma_tokens[:row],
+        side="prefix",
+    )
+    suffix_query, suffix_lemma = _align_edge_tokens(
+        query_tokens[end_col:],
+        lemma_tokens[end_row:],
+        side="suffix",
+    )
+    return (
+        best_score,
+        prefix_query + aligned_query + suffix_query,
+        prefix_lemma + aligned_lemma + suffix_lemma,
+    )
 
 
 def _normalized_confidence(
@@ -500,7 +607,8 @@ def search(
         lexicon: Lexicon entries to search over.
         matrix: Distance matrix used for phone substitution scoring.
         max_results: Maximum number of ranked hits to return.
-        dialect: Dialect/model used for IPA conversion. Defaults to ``"attic"``.
+        dialect: Dialect/model used for IPA conversion. Supports ``"attic"``
+            and query-side ``"koine"`` normalization. Defaults to ``"attic"``.
         index: Optional precomputed k-mer index to reuse for faster searches.
         language: Language identifier selecting the phonological rule set
             passed to ``extend_stage``. Defaults to ``"ancient_greek"``.

@@ -6,6 +6,7 @@ import pytest
 
 from phonology.distance import word_distance
 from phonology.ipa_converter import (
+    apply_koine_consonant_shifts,
     _strip_ignored_ipa_combining_marks,
     greek_to_ipa,
     strip_diacritics,
@@ -145,6 +146,21 @@ class TestToIpa:
     def test_attic_conversion_succeeds(self) -> None:
         assert to_ipa("Δημοσθένης", dialect="attic") == "dɛːmostʰénɛːs"
 
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("λόγος", "lóɣos"),
+            ("οδός", "oðós"),
+            ("φῶς", "fɔ́ːs"),
+            ("θεός", "θeós"),
+            ("χείρ", "xéːr"),
+        ],
+    )
+    def test_koine_conversion_applies_supported_consonant_shifts(
+        self, text: str, expected: str
+    ) -> None:
+        assert to_ipa(text, dialect="koine") == expected
+
     def test_rough_breathing_is_preserved_as_h(self) -> None:
         assert to_ipa("ἁλος", dialect="attic") == "halos"
 
@@ -166,7 +182,7 @@ class TestToIpa:
     def test_digamma_is_converted_to_w(self) -> None:
         assert to_ipa("ϝοῖκος") == "wóikos"
 
-    def test_non_attic_dialect_raises_not_implemented(self) -> None:
+    def test_unsupported_dialect_raises_not_implemented(self) -> None:
         with pytest.raises(NotImplementedError, match="ionic"):
             to_ipa("λόγος", dialect="ionic")
 
@@ -178,6 +194,14 @@ class TestToIpa:
 
         with pytest.raises(NotImplementedError, match="ionic"):
             to_ipa("λόγος", dialect="ionic")
+
+
+class TestApplyKoineConsonantShifts:
+    def test_preserves_accent_for_direct_shift(self) -> None:
+        assert apply_koine_consonant_shifts(["kʰ\u0301"]) == ["x\u0301"]
+
+    def test_preserves_accent_for_intervocalic_shift(self) -> None:
+        assert apply_koine_consonant_shifts(["a", "d\u0301", "a"]) == ["a", "ð\u0301", "a"]
 
 
 class TestTokenizeIpa:
@@ -232,3 +256,8 @@ class TestGetKnownPhones:
         assert phones, "get_known_phones() returned an empty list"
         for phone in phones:
             assert tokenize_ipa(phone) == [phone]
+
+    def test_get_known_phones_includes_supported_koine_outputs(self) -> None:
+        phones = set(get_known_phones())
+
+        assert {"ɣ", "ð", "f", "θ", "x"} <= phones

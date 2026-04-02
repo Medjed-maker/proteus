@@ -8,7 +8,9 @@ import pytest
 import yaml
 
 from phonology import search as search_module
+from phonology.distance import load_matrix
 from phonology.explainer import RuleApplication
+from phonology.ipa_converter import to_ipa
 from phonology.search import (
     SearchResult,
     build_kmer_index,
@@ -17,6 +19,8 @@ from phonology.search import (
     search,
     seed_stage,
 )
+
+MATRIX_FILE = "attic_doric.json"
 
 
 @pytest.fixture(autouse=True)
@@ -80,6 +84,16 @@ class TestBuildKmerIndex:
         assert index["t n"] == ["L1", "L3"]
         assert "p n" not in index
 
+    def test_adds_koine_compatible_kmers_without_duplicate_entry_ids(self) -> None:
+        index = build_kmer_index(
+            [{"id": "L1", "headword": "target", "ipa": "apʰlas", "dialect": "attic"}],
+            k=2,
+        )
+
+        assert index["pʰ l"] == ["L1"]
+        assert index["f l"] == ["L1"]
+        assert index["l s"] == ["L1"]
+
     @pytest.mark.parametrize("k", [0, -1])
     def test_rejects_non_positive_k(self, k: int) -> None:
         with pytest.raises(ValueError, match="build_kmer_index.*k"):
@@ -103,7 +117,12 @@ class TestSeedStage:
 
 
 class TestExtendStage:
-    """Verify stage-2 Smith-Waterman extension, rule detection, and dialect attribution."""
+    """Verify stage-2 extension behavior, including an integration-style packaged-data case.
+
+    This class includes a test that depends on packaged resources
+    ``attic_doric.json`` and rule ``MPH-013`` to exercise the runtime suffix
+    matching path end-to-end.
+    """
 
     def test_get_rules_registry_uses_requested_language(
         self, monkeypatch: pytest.MonkeyPatch
@@ -372,6 +391,198 @@ class TestExtendStage:
         )
         assert ":" in results[0].alignment_visualization.splitlines()[1]
 
+    def test_extend_stage_uses_packaged_morphophonemic_rule_for_runtime_suffix_match(self) -> None:
+        lexicon_map = {
+            "L1": {
+                "headword": "βασιλεύς",
+                "ipa": to_ipa("βασιλεύς"),
+                "dialect": "attic",
+            }
+        }
+
+        results = extend_stage(
+            to_ipa("βασιλέος"),
+            ["L1"],
+            lexicon_map,
+            matrix=load_matrix(MATRIX_FILE),
+        )
+
+        assert len(results) == 1
+        assert results[0].applied_rules == ["MPH-013"]
+        assert [application.rule_id for application in results[0].rule_applications] == ["MPH-013"]
+        assert results[0].dialect_attribution == (
+            "lemma dialect: attic; query-compatible dialects: attic, ionic"
+        )
+        assert ":" in results[0].alignment_visualization.splitlines()[1]
+
+    def test_extend_stage_uses_packaged_runtime_velar_assimilation_rule(self) -> None:
+        lexicon_map = {
+            "L1": {
+                "headword": "ἄνκυρα",
+                "ipa": to_ipa("ἄνκυρα"),
+                "dialect": "attic",
+            }
+        }
+
+        results = extend_stage(
+            to_ipa("ἄγκυρα"),
+            ["L1"],
+            lexicon_map,
+            matrix=load_matrix(MATRIX_FILE),
+        )
+
+        assert len(results) == 1
+        assert "CCH-015" in results[0].applied_rules
+        assert results[0].dialect_attribution == (
+            f"lemma dialect: {lexicon_map['L1']['dialect']}; "
+            "query-compatible dialects: attic, ionic, doric, koine"
+        )
+        assert any(
+            application.rule_id == "CCH-015"
+            and application.input_phoneme == "n"
+            and application.output_phoneme == "ɡ"
+            for application in results[0].rule_applications
+        )
+
+    @pytest.mark.parametrize(
+        ("query_word", "expected_rule_ids"),
+        [
+            ("λόγος", {"CCH-009"}),
+            ("ἀδελφός", {"CCH-010", "CCH-011"}),
+            ("φῶς", {"CCH-011"}),
+            ("θεός", {"CCH-012"}),
+            ("χείρ", {"CCH-013"}),
+        ],
+    )
+    def test_search_supports_koine_query_side_spirantization_rules(
+        self,
+        query_word: str,
+        expected_rule_ids: set[str],
+    ) -> None:
+        lexicon = [
+            {
+                "id": "L1",
+                "headword": query_word,
+                "ipa": to_ipa(query_word, dialect="attic"),
+                "dialect": "attic",
+            }
+        ]
+
+        results = search(
+            query_word,
+            lexicon=lexicon,
+            matrix=load_matrix(MATRIX_FILE),
+            max_results=1,
+            dialect="koine",
+        )
+
+        assert len(results) == 1
+        assert expected_rule_ids <= set(results[0].applied_rules)
+        assert "query-compatible dialects: koine" in results[0].dialect_attribution
+
+    @pytest.mark.parametrize(
+        ("query_tokens", "lemma_tokens", "expected_query", "expected_lemma"),
+        [
+            (["f", "ɔː", "s"], ["pʰ", "ɔː", "s"], ["f", "ɔː", "s"], ["pʰ", "ɔː", "s"]),
+            (["θ", "e", "o", "s"], ["tʰ", "e", "o", "s"], ["θ", "e", "o", "s"], ["tʰ", "e", "o", "s"]),
+        ],
+    )
+    def test_smith_waterman_alignment_retains_edge_substitutions(
+        self,
+        query_tokens: list[str],
+        lemma_tokens: list[str],
+        expected_query: list[str],
+        expected_lemma: list[str],
+    ) -> None:
+        _score, aligned_query, aligned_lemma = search_module._smith_waterman_alignment(
+            query_tokens,
+            lemma_tokens,
+            load_matrix(MATRIX_FILE),
+        )
+
+        assert aligned_query == expected_query
+        assert aligned_lemma == expected_lemma
+
+    @pytest.mark.parametrize(
+        ("query_tokens", "lemma_tokens", "expected_query", "expected_lemma"),
+        [
+            (
+                ["a", "p", "t", "k"],
+                ["a", "s", "x", "p", "t", "k"],
+                ["a", None, None, "p", "t", "k"],
+                ["a", "s", "x", "p", "t", "k"],
+            ),
+            (
+                ["p", "t", "k", "a"],
+                ["p", "t", "k", "s", "x", "a"],
+                ["p", "t", "k", None, None, "a"],
+                ["p", "t", "k", "s", "x", "a"],
+            ),
+        ],
+    )
+    def test_smith_waterman_alignment_preserves_shared_edge_matches(
+        self,
+        query_tokens: list[str],
+        lemma_tokens: list[str],
+        expected_query: list[str | None],
+        expected_lemma: list[str | None],
+    ) -> None:
+        _score, aligned_query, aligned_lemma = search_module._smith_waterman_alignment(
+            query_tokens,
+            lemma_tokens,
+            load_matrix(MATRIX_FILE),
+        )
+
+        assert aligned_query == expected_query
+        assert aligned_lemma == expected_lemma
+
+    @pytest.mark.parametrize(
+        ("query_tokens", "lemma_tokens", "expected_applications"),
+        [
+            (
+                ["a", "p", "t", "k"],
+                ["a", "s", "x", "p", "t", "k"],
+                [("OBS-DEL", "s", "", 1), ("OBS-DEL", "x", "", 2)],
+            ),
+            (
+                ["p", "t", "k", "a"],
+                ["p", "t", "k", "s", "x", "a"],
+                [("OBS-DEL", "s", "", 3), ("OBS-DEL", "x", "", 4)],
+            ),
+        ],
+    )
+    def test_explain_does_not_invent_observed_changes_for_shared_edge_matches(
+        self,
+        query_tokens: list[str],
+        lemma_tokens: list[str],
+        expected_applications: list[tuple[str, str, str, int]],
+    ) -> None:
+        _score, aligned_query, aligned_lemma = search_module._smith_waterman_alignment(
+            query_tokens,
+            lemma_tokens,
+            load_matrix(MATRIX_FILE),
+        )
+
+        applications = search_module.explain(
+            query_ipa=query_tokens,
+            lemma_ipa=lemma_tokens,
+            alignment=search_module.Alignment(
+                aligned_query=tuple(aligned_query),
+                aligned_lemma=tuple(aligned_lemma),
+            ),
+            rules=[],
+        )
+
+        assert [
+            (
+                application.rule_id,
+                application.input_phoneme,
+                application.output_phoneme,
+                application.position,
+            )
+            for application in applications
+        ] == expected_applications
+
     def test_detects_multi_token_rule(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(
             search_module,
@@ -455,6 +666,8 @@ class TestExtendStage:
         monkeypatch.setattr(
             search_module,
             "_smith_waterman_alignment",
+            # Returns alignment simulating: position 0 = deletion (None vs "a"),
+            # position 1 = substitution ("x" vs "b")
             lambda query_tokens, lemma_tokens, matrix: (
                 1.0,
                 [None, "x"],
@@ -701,6 +914,69 @@ class TestSearch:
         results = search("πτην", lexicon, matrix={}, max_results=1, index=index)
 
         assert [result.lemma for result in results] == ["πτην"]
+
+    def test_koine_seed_index_keeps_attic_target_within_stage2_limit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            search_module,
+            "to_ipa",
+            lambda query, dialect="attic": "aflas" if dialect == "koine" else "apʰlas",
+        )
+        lexicon = [
+            {
+                "id": f"D{index:02d}",
+                "headword": f"distractor-{index:02d}",
+                "ipa": "nals",
+                "dialect": "attic",
+            }
+            for index in range(60)
+        ]
+        lexicon.append(
+            {
+                "id": "TARGET",
+                "headword": "target",
+                "ipa": "apʰlas",
+                "dialect": "attic",
+            }
+        )
+
+        results = search(
+            "ignored",
+            lexicon,
+            matrix=load_matrix(MATRIX_FILE),
+            max_results=5,
+            dialect="koine",
+            index=build_kmer_index(lexicon),
+        )
+
+        assert len(results) > 0
+        assert len(results) <= 5
+        assert results[0].lemma == "target"
+
+    def test_short_koine_query_ranks_attic_source_ahead_of_alphabetical_distractor(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            search_module,
+            "to_ipa",
+            lambda query, dialect="attic": "xa" if dialect == "koine" else "kʰa",
+        )
+        lexicon = [
+            {"id": "TARGET", "headword": "target", "ipa": "kʰa", "dialect": "attic"},
+            {"id": "DISTRACTOR", "headword": "alpha", "ipa": "pa", "dialect": "attic"},
+        ]
+
+        results = search(
+            "ignored",
+            lexicon,
+            matrix=load_matrix(MATRIX_FILE),
+            max_results=2,
+            dialect="koine",
+        )
+
+        assert [result.lemma for result in results] == ["target", "alpha"]
+        assert results[0].confidence > results[1].confidence
 
     @pytest.mark.parametrize(
         ("language_kwarg", "expected_language"),

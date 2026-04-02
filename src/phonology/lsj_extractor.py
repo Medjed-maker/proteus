@@ -112,7 +112,7 @@ def _load_pos_overrides(*, cli_mode: bool = False) -> dict[str, frozenset[str]]:
     global _pos_overrides  # noqa: PLW0603
     if _pos_overrides is not None:
         return _pos_overrides
-    import yaml
+    import yaml  # type: ignore[import-untyped]
 
     raw: dict[str, object] = {}
     overrides_path: Path | str = "<unresolved>"

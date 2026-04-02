@@ -26,6 +26,7 @@ EXPECTED_WHEEL_ASSETS = {
     "phonology/data/lexicon/greek_lemmas.json",
     "phonology/data/matrices/attic_doric.json",
     "phonology/data/rules/ancient_greek/consonant_changes.yaml",
+    "phonology/data/rules/ancient_greek/morphophonemic_alternations.yaml",
     "phonology/data/rules/ancient_greek/vowel_shifts.yaml",
     "web/index.html",
     "web/static/styles.css",
@@ -361,8 +362,10 @@ assert any(entry.get("headword") == "ἄνθρωπος" for entry in lexicon_ent
 assert matrix["a"]["a"] == 0.0
 assert legacy_matrix["a"]["a"] == 0.0
 assert "CCH-001" in rules
+assert "MPH-001" in rules
 assert "VSH-001" in rules
 assert "CCH-001" in legacy_rules
+assert "MPH-001" in legacy_rules
 assert "VSH-001" in legacy_rules
 print("ok")
 """

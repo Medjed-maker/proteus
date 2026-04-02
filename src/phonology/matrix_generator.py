@@ -19,13 +19,63 @@ MATRIX_PATH = resolve_repo_data_dir("matrices") / "attic_doric.json"
 logger = logging.getLogger(__name__)
 
 VOWEL_ORDER = ("a", "aː", "e", "eː", "ɛː", "i", "o", "ɔː", "oː", "y", "ai", "oi", "au", "eu")
-STOP_ORDER = ("p", "b", "pʰ", "t", "d", "tʰ", "k", "ɡ", "kʰ")
+_LEGACY_STOP_ORDER = ("p", "b", "pʰ", "t", "d", "tʰ", "k", "ɡ", "kʰ")
+STOP_ORDER = _LEGACY_STOP_ORDER + ("f", "θ", "x", "ð", "ɣ")
+_KOINE_STOP_BASES = {"f": "pʰ", "θ": "tʰ", "x": "kʰ", "ð": "d", "ɣ": "ɡ"}
+_KOINE_DIRECT_DISTANCE = 0.1
+_MATRIX_NOTE = (
+    "Generated from the repository sound-class inventory and validated for symmetry, "
+    "completeness, and 0.0-1.0 bounds. Fricatives are included in the stop class "
+    "because of their historical development from aspirated stops."
+)
 
 
 @functools.lru_cache(maxsize=1)
 def _load_seed_document() -> dict[str, Any]:
     """Load and cache the committed matrix as the seed document for regeneration."""
     return json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
+
+
+def _expand_koine_stop_rows(
+    legacy_rows: dict[str, dict[str, float]],
+) -> dict[str, dict[str, float]]:
+    """Expand legacy stop rows with Koine spirantized phones."""
+    rows = deepcopy(legacy_rows)
+
+    for koine_phone, base_phone in _KOINE_STOP_BASES.items():
+        if base_phone not in legacy_rows:
+            raise ValueError(
+                "Cannot expand Koine stop rows in _expand_koine_stop_rows: "
+                f"_KOINE_STOP_BASES maps {koine_phone!r} to missing base_phone "
+                f"{base_phone!r}, but legacy_rows has no such key. This should "
+                "have been guaranteed by _coerce_seed_rows before calling "
+                f"_expand_koine_stop_rows; available legacy_rows keys="
+                f"{sorted(legacy_rows)!r}"
+            )
+        base_row = legacy_rows[base_phone]
+        row: dict[str, float] = {}
+        for phone in STOP_ORDER:
+            if phone == koine_phone:
+                row[phone] = 0.0
+            elif phone == base_phone:
+                row[phone] = _KOINE_DIRECT_DISTANCE
+            elif phone in legacy_rows:
+                row[phone] = base_row[phone]
+            elif phone in _KOINE_STOP_BASES:
+                row[phone] = base_row[_KOINE_STOP_BASES[phone]]
+            else:
+                raise ValueError(
+                    "Cannot expand Koine stop row for unknown phone "
+                    f"{phone!r}: not present in legacy_rows and not mapped in "
+                    f"_KOINE_STOP_BASES={_KOINE_STOP_BASES!r}; STOP_ORDER={STOP_ORDER!r}"
+                )
+        rows[koine_phone] = row
+
+    for legacy_phone in _LEGACY_STOP_ORDER:
+        for koine_phone in _KOINE_STOP_BASES:
+            rows[legacy_phone][koine_phone] = rows[koine_phone][legacy_phone]
+
+    return rows
 
 
 def _coerce_seed_rows(
@@ -85,11 +135,30 @@ def _load_base_sound_class_rows() -> tuple[dict[str, dict[str, float]], dict[str
             VOWEL_ORDER,
             label="sound_classes.vowels",
         )
-        stops = _coerce_seed_rows(
-            sound_classes["stops"],
-            STOP_ORDER,
-            label="sound_classes.stops",
-        )
+        raw_stops = sound_classes["stops"]
+        if not isinstance(raw_stops, dict):
+            raise ValueError("sound_classes.stops must be a JSON object")
+
+        actual_stop_phones = set(raw_stops)
+        if actual_stop_phones == set(STOP_ORDER):
+            stops = _coerce_seed_rows(
+                raw_stops,
+                STOP_ORDER,
+                label="sound_classes.stops",
+            )
+        elif actual_stop_phones == set(_LEGACY_STOP_ORDER):
+            stops = _expand_koine_stop_rows(
+                _coerce_seed_rows(
+                    raw_stops,
+                    _LEGACY_STOP_ORDER,
+                    label="sound_classes.stops",
+                )
+            )
+        else:
+            raise ValueError(
+                "sound_classes.stops must define either the legacy or expanded stop inventory; "
+                f"got {sorted(actual_stop_phones)}"
+            )
     except KeyError as exc:
         raise RuntimeError(
             f"Matrix seed file at {MATRIX_PATH} is missing required key {exc.args[0]!r}"
@@ -285,10 +354,7 @@ def build_attic_doric_matrix() -> dict[str, Any]:
             "description": "Phonological distance matrix between Attic and Doric Greek",
             "method": "weighted edit distance based on sound classes (Dolgopolsky/ASJP)",
             "range": "0.0 (identical) to 1.0 (maximally distant)",
-            "note": (
-                "Generated from the repository sound-class inventory and validated for "
-                "symmetry, completeness, and 0.0-1.0 bounds."
-            ),
+            "note": _MATRIX_NOTE,
         },
         "sound_classes": {
             "vowels": vowels,

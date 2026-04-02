@@ -16,7 +16,7 @@ import os
 import stat
 from numbers import Real
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Sequence, TypeGuard
 
 from ._paths import resolve_repo_data_dir
 from .ipa_converter import (
@@ -79,7 +79,14 @@ def _get_trusted_matrices_dir() -> Path:
     except (ModuleNotFoundError, FileNotFoundError):
         resource_dir = None
 
-    if resource_dir is not None and resource_dir.is_dir():
+    # resources.files() may return a Traversable that does not implement
+    # os.PathLike (e.g. when loaded from a zip archive), so verify the
+    # interface before attempting filesystem resolution.
+    if (
+        resource_dir is not None
+        and isinstance(resource_dir, os.PathLike)
+        and resource_dir.is_dir()
+    ):
         try:
             return Path(os.fspath(resource_dir))
         except TypeError:
@@ -88,15 +95,17 @@ def _get_trusted_matrices_dir() -> Path:
     return resolve_repo_data_dir("matrices")
 
 
-def _is_numeric_row(candidate: Any) -> bool:
+def _is_numeric_row(candidate: Any) -> TypeGuard[dict[str, Real]]:
     """Return True for dict-valued rows whose values are all ``Real`` numbers.
 
     ``_flatten_rows()`` uses this to distinguish terminal matrix rows from
     nested namespaces while only accepting numeric phone-distance mappings.
     """
-    return isinstance(candidate, dict) and candidate and all(
-        isinstance(value, Real) for value in candidate.values()
-    )
+    if not isinstance(candidate, dict):
+        return False
+    if not candidate:
+        return False
+    return all(isinstance(value, Real) for value in candidate.values())
 
 
 def _flatten_rows(data: dict[str, Any], matrix: MatrixData) -> None:

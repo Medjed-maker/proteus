@@ -9,6 +9,8 @@ from __future__ import annotations
 import logging
 import unicodedata
 
+from ._phones import VOWEL_PHONES
+
 # Mapping: Greek letter (NFC) -> IPA phone(s)
 # Covers basic alphabet; diacritics handled separately.
 _LETTER_MAP: dict[str, str] = {
@@ -63,10 +65,15 @@ _EXTRA_IPA_PHONES: frozenset[str] = frozenset(
         # "aː"/"yː" appear in committed rule/matrix/lexicon IPA data, while "u"
         # can arrive in caller-provided IPA after
         # _normalize_ipa_for_tokenization() strips marks.
+        "f",
         "aː",
+        "ð",
         "h",
         "u",
         "yː",
+        "x",
+        "ɣ",
+        "θ",
     }
 )
 _IPA_PHONE_INVENTORY = tuple(
@@ -77,6 +84,8 @@ _IPA_PHONE_INVENTORY = tuple(
     )
 )
 logger = logging.getLogger(__name__)
+_KOINE_INTERVOCALIC_MAP: dict[str, str] = {"ɡ": "ɣ", "d": "ð"}
+_KOINE_DIRECT_MAP: dict[str, str] = {"pʰ": "f", "tʰ": "θ", "kʰ": "x"}
 
 
 def _strip_ignored_ipa_combining_marks(
@@ -200,6 +209,63 @@ def _consume_trailing_combining_marks(text: str, start: int) -> tuple[str, int]:
     return text[start:end], end
 
 
+def _reapply_ipa_accents(mapped_phone: str, original_phone: str) -> str:
+    """Copy accent/stress marks from ``original_phone`` onto ``mapped_phone``.
+
+    Args:
+        mapped_phone: The IPA phone after consonant shift mapping.
+        original_phone: The original IPA phone containing accent marks.
+
+    Returns:
+        The mapped phone with accent marks reattached after its first character,
+        NFC-normalized.
+    """
+    accents = "".join(
+        char
+        for char in unicodedata.normalize("NFD", original_phone)
+        if char in _ACCENT_MARKS
+    )
+    if not accents or not mapped_phone:
+        return mapped_phone
+    return unicodedata.normalize("NFC", mapped_phone[0] + accents + mapped_phone[1:])
+
+
+def _is_vowel_phone(phone: str) -> bool:
+    """Return True when a phone is a vowel after accent normalization."""
+    return strip_ignored_ipa_combining_marks(phone) in VOWEL_PHONES
+
+
+def apply_koine_consonant_shifts(phones: list[str]) -> list[str]:
+    """Convert an Attic IPA phone sequence into the supported Koine subset.
+
+    This intentionally implements only the minimal query-side Koine
+    consonant changes that correspond to the committed Koine consonant rules.
+    """
+    normalized_phones = [strip_ignored_ipa_combining_marks(phone) for phone in phones]
+    shifted: list[str] = []
+
+    for index, phone in enumerate(normalized_phones):
+        if phone in _KOINE_DIRECT_MAP:
+            shifted.append(_reapply_ipa_accents(_KOINE_DIRECT_MAP[phone], phones[index]))
+            continue
+
+        prev_phone = normalized_phones[index - 1] if index > 0 else None
+        next_phone = normalized_phones[index + 1] if index + 1 < len(normalized_phones) else None
+        if (
+            phone in _KOINE_INTERVOCALIC_MAP
+            and prev_phone is not None
+            and next_phone is not None
+            and _is_vowel_phone(prev_phone)
+            and _is_vowel_phone(next_phone)
+        ):
+            shifted.append(_reapply_ipa_accents(_KOINE_INTERVOCALIC_MAP[phone], phones[index]))
+            continue
+
+        shifted.append(phones[index])
+
+    return shifted
+
+
 def strip_diacritics(greek_text: str) -> str:
     """Remove all diacritics, returning bare Greek letters.
 
@@ -319,19 +385,21 @@ def to_ipa(greek_text: str, dialect: str = "attic") -> str:
 
     Args:
         greek_text: NFC-encoded Greek Unicode string.
-        dialect: Pronunciation variety. Only ``"attic"`` is currently
-            supported; other dialects raise ``NotImplementedError`` until
-            dedicated conversion rules are implemented.
+        dialect: Pronunciation variety. Supports ``"attic"`` and a
+            query-side ``"koine"`` normalization that applies the committed
+            Koine consonant shifts after Attic conversion.
 
     Returns:
         Compact IPA transcription string.
 
     Raises:
-        NotImplementedError: If ``dialect`` is anything other than ``"attic"``.
+        NotImplementedError: If ``dialect`` is unsupported.
     """
-    if dialect != "attic":
+    if dialect not in {"attic", "koine"}:
         raise NotImplementedError(f"Dialect {dialect!r} not yet supported")
     phones = greek_to_ipa(greek_text)
+    if dialect == "koine":
+        phones = apply_koine_consonant_shifts(phones)
     return "".join(phones)
 
 

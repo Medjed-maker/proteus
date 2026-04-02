@@ -11,9 +11,9 @@ from dataclasses import dataclass, field
 import math
 from pathlib import Path
 import re
-from typing import Any, TypeAlias
+from typing import Any, Sequence, TypeAlias
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from ._paths import resolve_repo_data_dir
 from ._phones import VOWEL_PHONES
@@ -494,6 +494,14 @@ def _matches_context(
     normalized = context.strip().lower()
     if normalized in _ALWAYS_MATCH_CONTEXTS:
         return True
+    if normalized == "_#":
+        next_token = _lookup_next_token(
+            lemma_ipa,
+            query_ipa,
+            lemma_end=lemma_end,
+            query_end=query_end,
+        )
+        return next_token is None
     if normalized == "v_v":
         prev_token = _lookup_prev_token(
             lemma_ipa,
@@ -653,6 +661,18 @@ def _current_block_column(
     )
 
 
+def _has_crossing_gaps(
+    aligned_query: Sequence[str | None],
+    aligned_lemma: Sequence[str | None],
+    start_column: int,
+    end_column: int | None = None,
+) -> bool:
+    """Return True when both a lemma gap and a query gap appear in [start_column, end_column)."""
+    q_span = aligned_query[start_column:end_column]
+    l_span = aligned_lemma[start_column:end_column]
+    return None in q_span and None in l_span
+
+
 def _allows_empty_input(rule: Rule) -> bool:
     """Return True when a rule explicitly opts into empty-input insertion matches."""
     return bool(rule.get("is_insertion") or rule.get("allows_empty_input"))
@@ -676,21 +696,18 @@ def _matches_block_columns(
       * For each alignment column, the lemma token is checked against the next
         unconsumed ``candidate.input_tokens`` element, and the query token
         against the next ``candidate.output_tokens`` element.
-      * A ``None`` lemma token (gap) sets ``saw_lemma_gap`` and immediately
-        rejects if the rule has a non-empty input side, since an insertion
-        rule cannot consume a lemma phone from a gap column.
-      * A ``None`` query token (gap) sets ``saw_query_gap`` and immediately
-        rejects if the rule has a non-empty output side.
       * Walking stops when all input and output tokens have been consumed.
+      * If both lemma-side and query-side gaps are encountered while matching
+        the same candidate, the match is rejected as a crossing-gap alignment.
 
     Post-walk validation:
       * All input and output tokens must be fully consumed
         (``input_index == input_length`` and ``output_index == output_length``).
       * Empty-input rules (insertions) match only when the rule is explicitly
         marked via ``_allows_empty_input(candidate.rule)`` AND at least one
-        lemma-gap column was encountered (``saw_lemma_gap``).
+        lemma-gap column was encountered.
       * Empty-output rules (deletions) match only when at least one query-gap
-        column was encountered (``saw_query_gap``).
+        column was encountered.
 
     Args:
         block: The mismatch block containing aligned query/lemma columns.
@@ -716,8 +733,7 @@ def _matches_block_columns(
     output_length = len(candidate.output_tokens)
     input_index = 0
     output_index = 0
-    saw_lemma_gap = False
-    saw_query_gap = False
+    start_match_column = column_index
 
     while column_index < len(block.aligned_query):
         if input_index == input_length and output_index == output_length:
@@ -726,20 +742,12 @@ def _matches_block_columns(
         query_token = block.aligned_query[column_index]
         lemma_token = block.aligned_lemma[column_index]
 
-        if lemma_token is None:
-            saw_lemma_gap = True
-            if input_length > 0:
-                return False
-        else:
+        if lemma_token is not None:
             if input_index >= input_length or lemma_token != candidate.input_tokens[input_index]:
                 return False
             input_index += 1
 
-        if query_token is None:
-            saw_query_gap = True
-            if output_length > 0:
-                return False
-        else:
+        if query_token is not None:
             if (
                 output_index >= output_length
                 or query_token != candidate.output_tokens[output_index]
@@ -751,11 +759,94 @@ def _matches_block_columns(
 
     if input_index != input_length or output_index != output_length:
         return False
-    if input_length == 0 and (not _allows_empty_input(candidate.rule) or not saw_lemma_gap):
+
+    # Check for crossing gaps in the matched span
+    if _has_crossing_gaps(block.aligned_query, block.aligned_lemma, start_match_column, column_index):
         return False
-    if output_length == 0 and not saw_query_gap:
-        return False
+
+    if input_length == 0:
+        saw_lemma_gap = None in block.aligned_lemma[start_match_column:column_index]
+        if not _allows_empty_input(candidate.rule) or not saw_lemma_gap:
+            return False
+    if output_length == 0:
+        saw_query_gap = None in block.aligned_query[start_match_column:column_index]
+        if not saw_query_gap:
+            return False
     return True
+
+
+def _matches_word_final_suffix(
+    candidate: _TokenizedRule,
+    block: _MismatchBlock,
+    *,
+    lemma_index: int,
+    query_index: int,
+    lemma_suffix_tokens: tuple[str, ...],
+    query_suffix_tokens: tuple[str, ...],
+) -> bool:
+    """Return True when a `_#` rule matches the remaining word-final suffixes.
+
+    Args:
+        candidate: Pre-tokenized rule candidate whose ``input_tokens`` and
+            ``output_tokens`` are compared against the remaining word-final
+            suffix slices.
+        block: Current mismatch block. The `_#` shortcut only applies when the
+            remaining mismatched portion of the suffix is fully contained in
+            this block; any suffix tail after the block must therefore be an
+            exact token-for-token match on both sides.
+        lemma_index: Offset into ``block.lemma_tokens`` where the candidate's
+            lemma-side suffix should start.
+        query_index: Offset into ``block.query_tokens`` where the candidate's
+            query-side suffix should start.
+        lemma_suffix_tokens: Pre-computed ``tuple(lemma_ipa[lemma_start:])``
+            for the current outer-loop position, cached by the caller to
+            avoid redundant tuple conversions across candidate rules.
+        query_suffix_tokens: Pre-computed ``tuple(query_ipa[query_start:])``
+            for the current outer-loop position.
+
+    Returns:
+        ``bool``: ``True`` only when the candidate rule's context is ``"_#"``,
+        the remaining lemma/query suffixes match the candidate exactly, the
+        portion still inside the current mismatch block matches the block's
+        remaining token sequences, the remaining aligned block columns do not
+        contain crossing gaps, and any candidate tail beyond this block is
+        identical on both sides (so no later mismatch block remains).
+        Otherwise returns ``False``.
+    """
+    context = candidate.rule.get("context")
+    if not isinstance(context, str) or context.strip().lower() != "_#":
+        return False
+    if (
+        lemma_suffix_tokens != candidate.input_tokens
+        or query_suffix_tokens != candidate.output_tokens
+    ):
+        return False
+
+    block_input_length = len(block.lemma_tokens) - lemma_index
+    block_output_length = len(block.query_tokens) - query_index
+    if block_input_length < 0 or block_output_length < 0:
+        return False
+    if (
+        candidate.input_tokens[:block_input_length] != block.lemma_tokens[lemma_index:]
+        or candidate.output_tokens[:block_output_length] != block.query_tokens[query_index:]
+    ):
+        return False
+
+    column_index = _block_column_index(
+        block,
+        lemma_index=lemma_index,
+        query_index=query_index,
+    )
+    if column_index is None:
+        return False
+
+    if _has_crossing_gaps(block.aligned_query, block.aligned_lemma, column_index):
+        return False
+
+    return (
+        candidate.input_tokens[block_input_length:]
+        == candidate.output_tokens[block_output_length:]
+    )
 
 
 def _collect_block_applications(
@@ -771,9 +862,38 @@ def _collect_block_applications(
 
     while lemma_index < len(block.lemma_tokens) or query_index < len(block.query_tokens):
         matched_rule: _TokenizedRule | None = None
+        matched_word_final_suffix = False
+        # Word-final suffix rules (_# context) are checked before normal block
+        # matching so that longer suffix-level rules take priority over
+        # individual-segment rules that would otherwise consume the first
+        # mismatched token.  tokenized_rules is pre-sorted by
+        # _tokenize_rules() (specificity desc, total token length desc), so
+        # the first candidate that passes _matches_word_final_suffix is the
+        # longest available _# rule.
+        # Constant within the inner candidate loop; computed here to share
+        # with both _matches_word_final_suffix and _matches_context.
+        global_lemma_start = block.lemma_start_position + lemma_index
+        global_query_start = block.query_start_position + query_index
+        # Cache suffix tuples once per outer-loop position so that the inner
+        # candidate loop avoids redundant list→tuple conversions.
+        lemma_suffix_tokens = tuple(lemma_ipa[global_lemma_start:])
+        query_suffix_tokens = tuple(query_ipa[global_query_start:])
         for candidate in tokenized_rules:
             input_length = len(candidate.input_tokens)
             output_length = len(candidate.output_tokens)
+
+            if _matches_word_final_suffix(
+                candidate,
+                block,
+                lemma_index=lemma_index,
+                query_index=query_index,
+                lemma_suffix_tokens=lemma_suffix_tokens,
+                query_suffix_tokens=query_suffix_tokens,
+            ):
+                matched_rule = candidate
+                matched_word_final_suffix = True
+                break
+
             if block.lemma_tokens[lemma_index : lemma_index + input_length] != candidate.input_tokens:
                 continue
             if block.query_tokens[query_index : query_index + output_length] != candidate.output_tokens:
@@ -785,9 +905,6 @@ def _collect_block_applications(
                 query_index=query_index,
             ):
                 continue
-
-            global_lemma_start = block.lemma_start_position + lemma_index
-            global_query_start = block.query_start_position + query_index
             if not _matches_context(
                 candidate.rule.get("context"),
                 lemma_ipa,
@@ -870,8 +987,12 @@ def _collect_block_applications(
                 dialects=dialects,
             )
         )
-        lemma_index += input_length
-        query_index += output_length
+        if matched_word_final_suffix:
+            lemma_index = len(block.lemma_tokens)
+            query_index = len(block.query_tokens)
+        else:
+            lemma_index += input_length
+            query_index += output_length
 
     return applications
 

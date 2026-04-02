@@ -122,3 +122,104 @@ rules:
     references: ["Allen Vox Graeca 2.4", "Horrocks 2010: 160-162"]
     examples:
       - { standard: "βίος", phonetic: "[bíos] → [víos]", meaning: "life" }
+
+  - id: CCH-008
+    name_en: "Grassmann's Law: kappa aspiration dissimilation"
+    name_ja: "グラスマンの法則：帯気音の異化（軟口蓋音）"
+    input: "kʰ"
+    output: "k"
+    context: "_...kʰ"
+    dialects: [attic, ionic, doric]
+    period: "archaic"
+    references: ["Buck §68", "Smyth §125"]
+    examples:
+      - { standard: "κέχυκα", reconstruction: "*χέχυκα", meaning: "I have poured" }
+    note: "Applies when another aspirate follows later in the same word; `...` uses the standard same-word span described in docs/phonology_rules.md."
+
+  - id: CCH-009
+    name_en: "Koine spirantization: gamma"
+    name_ja: "コイネー期の γ 摩擦音化"
+    input: "ɡ"
+    output: "ɣ"
+    context: "V_V"
+    dialects: [koine]
+    period: "hellenistic"
+    references: ["Allen Vox Graeca 2.4", "Horrocks 2010: 160-162"]
+    examples:
+      - { standard: "λόγος", phonetic: "[lóɡos] → [lóɣos]", meaning: "word" }
+
+  - id: CCH-010
+    name_en: "Koine spirantization: delta"
+    name_ja: "コイネー期の δ 摩擦音化"
+    input: "d"
+    output: "ð"
+    context: "V_V"
+    dialects: [koine]
+    period: "hellenistic"
+    references: ["Allen Vox Graeca 2.4", "Horrocks 2010: 160-162"]
+    examples:
+      - { standard: "ἀδελφός", phonetic: "[adelpʰós] → [aðelpʰós]", meaning: "brother" }
+
+  - id: CCH-011
+    name_en: "Koine spirantization: phi"
+    name_ja: "コイネー期の φ 摩擦音化"
+    input: "pʰ"
+    output: "f"
+    context: null
+    dialects: [koine]
+    period: "hellenistic"
+    references: ["Allen Vox Graeca 2.4", "Horrocks 2010: 160-162"]
+    examples:
+      - { standard: "φῶς", phonetic: "[pʰɔːs] → [fɔːs]", meaning: "light" }
+    note: "Applies in Hellenistic/Koine Greek and supersedes the earlier aspirate dissimilation path of CCH-001 in koine contexts."
+
+  - id: CCH-012
+    name_en: "Koine spirantization: theta"
+    name_ja: "コイネー期の θ 摩擦音化"
+    input: "tʰ"
+    output: "θ"
+    context: null
+    dialects: [koine]
+    period: "hellenistic"
+    references: ["Allen Vox Graeca 2.4", "Horrocks 2010: 160-162"]
+    examples:
+      - { standard: "θεός", phonetic: "[tʰeós] → [θeós]", meaning: "god" }
+    note: "Applies in Hellenistic/Koine Greek and supersedes the earlier aspirate dissimilation path of CCH-002 in koine contexts."
+
+  - id: CCH-013
+    name_en: "Koine spirantization: chi"
+    name_ja: "コイネー期の χ 摩擦音化"
+    input: "kʰ"
+    output: "x"
+    context: null
+    dialects: [koine]
+    period: "hellenistic"
+    references: ["Allen Vox Graeca 2.4", "Horrocks 2010: 160-162"]
+    examples:
+      - { standard: "χείρ", phonetic: "[kʰeːr] → [xeːr]", meaning: "hand" }
+    note: "Applies in Hellenistic/Koine Greek and supersedes the earlier aspirate dissimilation path of CCH-008 in koine contexts."
+
+  - id: CCH-014
+    name_en: "Place assimilation of nu to labials"
+    name_ja: "唇音前における ν の調音点同化"
+    input: "n"
+    output: "m"
+    context: "_{p,b,pʰ}"
+    dialects: [attic, ionic, doric, koine]
+    period: "archaic, classical, and hellenistic periods"
+    references: ["Smyth §83", "Buck §85"]
+    examples:
+      - { standard: "συμπάσχω", reconstruction: "*συνπάσχω", meaning: "suffer with" }
+
+  - id: CCH-015
+    name_en: "Runtime velar assimilation of nu"
+    name_ja: "Proteus実行時IPAにおける ν の軟口蓋音前同化"
+    input: "n"
+    output: "ɡ"
+    context: "_{k,ɡ,kʰ}"
+    dialects: [attic, ionic, doric, koine]
+    period: "archaic, classical, and hellenistic periods"
+    references: ["Smyth §83", "Buck §85"]
+    examples:
+      - { standard: "ἄγκυρα", reconstruction: "*ἄνκυρα", meaning: "anchor" }
+    note: "Historical velar nasal assimilation is approximated in Proteus runtime IPA as `n -> ɡ`, because the current converter and packaged lexicon encode forms like ἄγκυρα as /aɡkyra/ rather than with /ŋ/."
