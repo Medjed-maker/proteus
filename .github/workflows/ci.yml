@@ -7,6 +7,43 @@ on:
     branches: [ main ]
 
 jobs:
+  validate-matrix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.3"
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Validate committed matrices
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          matrix_files=(data/matrices/*.json)
+          if [ ${#matrix_files[@]} -eq 0 ]; then
+            echo "No matrix files found under data/matrices/"
+            exit 1
+          fi
+          failed=false
+          for matrix_file in "${matrix_files[@]}"; do
+            if ! uv run python tools/validate_matrix.py "${matrix_file}"; then
+              failed=true
+            fi
+          done
+          if $failed; then
+            exit 1
+          fi
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -19,7 +56,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          version: "latest"
+          version: "0.11.3"
 
       - name: Set up Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}

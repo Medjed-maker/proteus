@@ -245,6 +245,49 @@ class TestSearchHit:
         assert "distance 0.275" in hit.explanation
         assert "position 1" in hit.explanation
 
+    def test_build_search_hit_accepts_morphophonemic_rule_ids_without_schema_changes(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            api_main,
+            "explain_alignment",
+            lambda **kwargs: (_ for _ in ()).throw(AssertionError("should not use fallback")),
+        )
+
+        hit = api_main._build_search_hit(
+            SearchResult(
+                lemma="Δημοσθένης",
+                confidence=0.7,
+                dialect_attribution="lemma dialect: attic; query-compatible dialects: attic",
+                applied_rules=["MPH-001"],
+                rule_applications=[
+                    RuleApplication(
+                        rule_id="MPH-001",
+                        rule_name="アッティカ語の男性語尾 -ās > -ēs 交替",
+                        rule_name_en="Attic masculine ending -ās -> -ēs",
+                        from_phone="aːs",
+                        to_phone="ɛːs",
+                        position=4,
+                        dialects=["attic"],
+                    )
+                ],
+                ipa="dɛːmostʰenɛːs",
+            ),
+            query_ipa="damostʰenaːs",
+            rules_registry={},
+        )
+
+        assert [step.model_dump() for step in hit.rules_applied] == [
+            {
+                "rule_id": "MPH-001",
+                "rule_name": "アッティカ語の男性語尾 -ās > -ēs 交替",
+                "rule_name_en": "Attic masculine ending -ās -> -ēs",
+                "from_phone": "aːs",
+                "to_phone": "ɛːs",
+                "position": 4,
+            }
+        ]
+
     def test_build_search_hit_coalesces_missing_dialect_attribution_to_empty_string(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -542,6 +585,70 @@ class TestSearchEndpoint:
         assert "Applied rules:" in payload["hits"][0]["explanation"]
         assert "CCH-001" in payload["hits"][0]["explanation"]
         assert "distance 0.250" in payload["hits"][0]["explanation"]
+
+    def test_search_accepts_koine_dialect_hint_and_returns_koine_rule(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured = mock_search_dependencies(monkeypatch)
+        monkeypatch.setattr(
+            api_main,
+            "to_ipa",
+            lambda query, dialect="attic": "loɣos" if dialect == "koine" else "loɡos",
+        )
+        monkeypatch.setattr(
+            api_main,
+            "_load_rules_registry",
+            lambda: {
+                "CCH-009": {
+                    "id": "CCH-009",
+                    "name_ja": "コイネー期の γ 摩擦音化",
+                    "name_en": "Koine spirantization: gamma",
+                    "input": "ɡ",
+                    "output": "ɣ",
+                    "dialects": ["koine"],
+                }
+            },
+        )
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search",
+            lambda *args, **kwargs: captured.update(
+                {"dialect": kwargs.get("dialect", args[4] if len(args) > 4 else None)}
+            ) or [
+                SearchResult(
+                    lemma="λόγος",
+                    confidence=0.8,
+                    dialect_attribution="lemma dialect: attic; query-compatible dialects: koine",
+                    applied_rules=["CCH-009"],
+                    rule_applications=[
+                        RuleApplication(
+                            rule_id="CCH-009",
+                            rule_name="コイネー期の γ 摩擦音化",
+                            rule_name_en="Koine spirantization: gamma",
+                            from_phone="ɡ",
+                            to_phone="ɣ",
+                            position=2,
+                            dialects=["koine"],
+                        )
+                    ],
+                    ipa="lóɡos",
+                )
+            ],
+        )
+
+        response = client.post(
+            "/search",
+            json={"query_form": "λόγος", "dialect_hint": "koine", "max_candidates": 3},
+        )
+
+        assert response.status_code == 200
+        assert captured["dialect"] == "koine"
+        payload = response.json()
+        assert payload["query_ipa"] == "loɣos"
+        assert payload["hits"][0]["rules_applied"][0]["rule_id"] == "CCH-009"
+        assert payload["hits"][0]["dialect_attribution"] == (
+            "lemma dialect: attic; query-compatible dialects: koine"
+        )
 
     def test_search_uses_contextual_rule_ids_and_matching_distance_in_api_response(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -855,6 +962,7 @@ class TestSearchValidation:
         [
             (None, "attic"),
             (" attic ", "attic"),
+            (" Koine ", "koine"),
         ],
     )
     def test_normalize_dialect_hint_handles_none_and_str_values(

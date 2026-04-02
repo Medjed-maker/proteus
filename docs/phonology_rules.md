@@ -1,12 +1,39 @@
 # Phonology Rule Notation
 
 Proteus stores Ancient Greek sound changes in YAML files under `data/rules/ancient_greek/`.
+The current Ancient Greek rule inventory is split into three categories:
+
+- `consonant_changes.yaml` for segmental consonant developments
+- `vowel_shifts.yaml` for vowel quantity, quality, and contraction rules
+- `morphophonemic_alternations.yaml` for recurrent ending-level alternations
+
+Use `consonant_changes.yaml` when the target is an individual consonant segment and the trigger is a local phonological environment such as `V_V`, `#_V`, or a nearby consonant set.
+Use `vowel_shifts.yaml` when the target is an individual vowel or vowel sequence and the change is primarily segmental, quantitative, qualitative, or a local contraction pattern.
+Use `morphophonemic_alternations.yaml` when the target is an ending or recurrent alternation pattern spanning a suffix-sized slice, especially when the condition is a regular paradigm-level alternation rather than a local sound environment.
+
+Short decision flow:
+
+1. If the rule changes an individual consonant in a local environment, place it in `consonant_changes.yaml`.
+2. If the rule changes an individual vowel or contraction pattern in a local environment, place it in `vowel_shifts.yaml`.
+3. If the rule describes a recurring ending-level alternation such as `-eus` -> `-eos` or `-as` -> `-ɛːs`, place it in `morphophonemic_alternations.yaml`.
+
+Examples:
+
+- `pʰ` -> `f` in Koine is a segment-level consonant development, so it belongs in `consonant_changes.yaml`.
+- `eus` -> `eos` as a recurring word-final ending alternation belongs in `morphophonemic_alternations.yaml`.
+
+The runtime `to_ipa()` converter accepts `dialect="koine"` for query-side
+Koine consonant normalization, so searches can compare a Koine-style query IPA
+form against the existing Attic-oriented lexicon IPA and surface the matching
+Koine consonant rules during explanation.
+
 Consonant rules generally use a compact notation in the `context` field:
 
 - `_` marks the position of the segment being transformed.
 - Example: `#_V` means "the target segment sits at word start before a vowel", e.g. a rule applying to the initial consonant in `pa`.
 - `#` marks a word boundary.
 - Example: `#_V` uses `#` to mark the left edge of a word before an initial vowel, e.g. `#a`.
+- Example: `_#` means "the matched suffix runs to word end", e.g. a word-final ending rule matching the tail of `po.lis`.
 - `...` means any intervening span within the same word.
 - Example: `V...V` means "between two vowels somewhere in the same word", e.g. `axta` matches the span from the first `a` to the final `a`.
 - `V` means any vowel.
@@ -37,3 +64,41 @@ rule: VSH-010
 type: vowel
 context: after e, i, or r
 ```
+
+## Morphophonemic Rules
+
+Morphophonemic rules use the same `input`/`output` schema, but they model
+larger suffix-sized alternations rather than a single segment in isolation.
+They are written in the same runtime IPA token space produced by `to_ipa()`,
+which converts orthographic Greek input into the runtime IPA representation,
+and consumed by `tokenize_ipa()`, which splits an IPA string into runtime phone
+tokens for comparison. This section uses IPA notation such as `ɛː`; readers new
+to IPA may want a short primer such as the International Phonetic Alphabet
+overview at https://en.wikipedia.org/wiki/International_Phonetic_Alphabet.
+Because they are meant to capture recurring ending patterns, they
+typically use `_#` to mark a word-final suffix slice and may start at the
+first differing token rather than at the beginning of the orthographic ending.
+
+Example:
+
+```yaml
+rule: MPH-001
+type: morphophonemic
+input: "as"
+output: "ɛːs"
+context: "_#"
+```
+
+These ending-level rules may intentionally overlap with broader vowel rules.
+The Explainer component, a module that selects, ranks, and emits explanation-ready
+rule matches, resolves that overlap by preferring the longest matching rule.
+
+## Accent Scope
+
+Accent-related patterns are not currently encoded as executable rules.
+`tokenize_ipa()` strips accent marks before phoneme comparison, so adding
+accent rules to YAML alone would not make them fire in the present engine.
+This remains a known limitation and future support is not yet scheduled.
+Supporting accent-sensitive rules would likely require either a
+`tokenize_ipa()` mode that preserves accent marks or changes to the comparison
+logic so accent-bearing tokens survive into rule matching.

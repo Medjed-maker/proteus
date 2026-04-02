@@ -17,6 +17,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "httpx>=0.28.0",
     "jsonschema>=4.26.0",  # also in [extract]; needed here for test_data_files.py
+    "types-PyYAML>=6.0.2",
 ]
 extract = [
     "jsonschema>=4.26.0",  # also in [dev]; needed here for lsj_extractor validation

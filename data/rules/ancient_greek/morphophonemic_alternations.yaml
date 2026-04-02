@@ -1,0 +1,195 @@
+# Ancient Greek Morphophonemic Alternation Rules
+# Format: each rule records a recurrent ending-level alternation that is useful
+# for search explanation across dialectal and chronological forms.
+#
+# Fields:
+#   id:         unique rule identifier
+#   name_en:    English rule name
+#   name_ja:    Japanese rule name
+#   input:      source ending or phone sequence in IPA
+#   output:     resulting ending or phone sequence in IPA
+#   context:    phonological environment understood by explainer.py
+#   dialects:   applicable dialect(s) or chronological varieties
+#   period:     chronological range
+#   references: short-form scholarly references
+#   examples:   attested contrastive examples with glosses
+# Optional fields:
+#   change_type: "retention" marks reverse-mapped conservative patterns
+#   note:        clarification for overlap with broader vowel-shift rules
+#
+# Notes:
+#   These rules intentionally encode suffix-sized patterns. Some overlap the
+#   more general vowel rules, but they are kept as separate entries so the
+#   explainer can prefer a more informative ending-level description when a
+#   longer match is available.
+#   The `input`/`output` fields use the same runtime IPA tokenization as
+#   `to_ipa()` and `tokenize_ipa()`. For word-final alternations, the stored
+#   sequence begins at the first differing token and continues to the end
+#   of the word.
+
+rules:
+  - id: MPH-001
+    name_en: "Attic masculine ending -as -> -ēs"
+    name_ja: "アッティカ語の男性語尾 -as > -ēs 交替"
+    input: "as"
+    output: "ɛːs"
+    context: "_#"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Buck §10", "Smyth §32"]
+    examples:
+      - { standard: "Δαμοσθένας", dialect: "Δημοσθένης", meaning: "Demosthenes" }
+    note: "Encodes the runtime word-final suffix slice used by the explainer for the broader Attic a > ɛː ending pattern."
+
+  - id: MPH-002
+    name_en: "Attic case ending -an -> -ēn"
+    name_ja: "アッティカ語の格語尾 -an > -ēn 交替"
+    input: "an"
+    output: "ɛːn"
+    context: "_#"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Buck §10", "Smyth §32"]
+    examples:
+      - { standard: "πολίταν", dialect: "πολίτην", meaning: "citizen (accusative singular)" }
+    note: "Encodes the runtime word-final accusative-style ending slice used by the explainer."
+
+  - id: MPH-003
+    name_en: "Attic feminine ending -a -> -ē"
+    name_ja: "アッティカ語の女性語尾 -a > -ē 交替"
+    input: "a"
+    output: "ɛː"
+    context: "_#"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Buck §10", "Smyth §32"]
+    examples:
+      - { standard: "ὥρα", dialect: "ὥρη", meaning: "season, time" }
+    note: "Suffix-level counterpart to the general Attic ending alternation, encoded in runtime IPA tokens."
+
+  - id: MPH-004
+    name_en: "Doric retention of masculine ending -ēs -> -as"
+    name_ja: "ドーリア語の男性語尾 -ēs > -as 保持"
+    input: "ɛːs"
+    output: "as"
+    change_type: "retention"
+    context: "_#"
+    dialects: [doric]
+    period: "archaic and classical periods"
+    references: ["Buck §11", "Smyth §34"]
+    examples:
+      - { standard: "Δημοσθένης", dialect: "Δαμοσθένας", meaning: "Demosthenes" }
+
+  - id: MPH-005
+    name_en: "Doric retention of case ending -ēn -> -an"
+    name_ja: "ドーリア語の格語尾 -ēn > -an 保持"
+    input: "ɛːn"
+    output: "an"
+    change_type: "retention"
+    context: "_#"
+    dialects: [doric]
+    period: "archaic and classical periods"
+    references: ["Buck §11", "Smyth §34"]
+    examples:
+      - { standard: "πολίτην", dialect: "πολίταν", meaning: "citizen (accusative singular)" }
+
+  - id: MPH-006
+    name_en: "Doric retention of feminine ending -ē -> -a"
+    name_ja: "ドーリア語の女性語尾 -ē > -a 保持"
+    input: "ɛː"
+    output: "a"
+    change_type: "retention"
+    context: "_#"
+    dialects: [doric]
+    period: "archaic and classical periods"
+    references: ["Buck §11", "Smyth §34"]
+    examples:
+      - { standard: "ὥρη", dialect: "ὥρα", meaning: "season, time" }
+
+  - id: MPH-007
+    name_en: "Contracted noun ending -ō -> -oa"
+    name_ja: "収縮した名詞語尾 -ō > -oa"
+    input: "ɔː"
+    output: "oa"
+    context: "_#"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§63-65", "Buck §27"]
+    examples:
+      - { standard: "αἰδῶ", dialect: "αἰδόα", meaning: "shame, respect" }
+    note: "Runtime IPA encodes the word-final contracted vowel as ɔː and the expanded ending as oa."
+
+  - id: MPH-008
+    name_en: "Contracted ending -te -> -ete"
+    name_ja: "収縮した語尾 -te > -ete"
+    input: "te"
+    output: "ete"
+    context: "_#"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§59-60", "Buck §27"]
+    examples:
+      - { standard: "τιμᾶτε", dialect: "τιμάετε", meaning: "you honor" }
+    note: "The shared preceding a is outside the mismatch block, so the runtime suffix slice begins at the final te."
+
+  - id: MPH-009
+    name_en: "Contracted ending -ēte -> -eate"
+    name_ja: "収縮した語尾 -ēte > -eate"
+    input: "ɛːte"
+    output: "eate"
+    context: "_#"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§61-62", "Buck §27"]
+    examples:
+      - { standard: "ποιῆτε", dialect: "ποιέατε", meaning: "that you may do" }
+
+  - id: MPH-010
+    name_en: "Contracted ending -ēte -> -eete"
+    name_ja: "収縮した語尾 -ēte > -eete"
+    input: "eːte"
+    output: "eete"
+    context: "_#"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§61-62", "Buck §27"]
+    examples:
+      - { standard: "ποιεῖτε", dialect: "ποιέετε", meaning: "you do" }
+
+  - id: MPH-011
+    name_en: "Contracted verbal ending -ōn -> -eon"
+    name_ja: "動詞語尾の収縮 -ōn > -eon"
+    input: "oːn"
+    output: "eon"
+    context: "_#"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§61-65", "Buck §27"]
+    examples:
+      - { standard: "ποιοῦν", dialect: "ποιέον", meaning: "doing" }
+
+  - id: MPH-012
+    name_en: "Contracted ending -ois -> -oeːs"
+    name_ja: "収縮した語尾 -ois > -oeːs"
+    input: "ois"
+    output: "oeːs"
+    context: "_#"
+    dialects: [attic]
+    period: "classical period"
+    references: ["Smyth §§63-65", "Buck §27"]
+    examples:
+      - { standard: "δηλοῖς", dialect: "δηλόεις", meaning: "you may make clear" }
+    note: "Runtime IPA tokenization yields oi on the contracted side and o + eː before the final s on the expanded side."
+
+  - id: MPH-013
+    name_en: "Nominal ending -eus -> -eos"
+    name_ja: "名詞語尾 -eus > -eos 交替"
+    input: "eus"
+    output: "eos"
+    context: "_#"
+    dialects: [attic, ionic]
+    period: "archaic and classical periods"
+    references: ["Smyth §288", "Buck §27"]
+    examples:
+      - { standard: "βασιλεύς", dialect: "βασιλέος", meaning: "king" }
+    note: "Models a nominative vs genitive (inflectional alternation) in the runtime IPA suffix slice rather than a single unconditional segment change."

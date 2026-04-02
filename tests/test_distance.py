@@ -218,6 +218,18 @@ class TestLoadMatrix:
         assert resolved_dir.is_dir()
         assert resolved_dir.resolve() == expected_dir.resolve()
 
+    def test_uses_package_resources_when_they_are_pathlike(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("PROTEUS_TRUSTED_MATRICES_DIR", raising=False)
+        package_root = tmp_path / "package-root"
+        resource_dir = package_root / "data" / "matrices"
+        resource_dir.mkdir(parents=True)
+
+        monkeypatch.setattr(distance_module.resources, "files", lambda _: package_root)
+
+        assert distance_module._get_trusted_matrices_dir() == resource_dir.resolve()
+
 
 class TestPublicApi:
     def test_declares_explicit_public_api(self) -> None:
@@ -258,7 +270,7 @@ class TestPhoneDistance:
         assert phone_distance("ɛː", "a", matrix) == pytest.approx(0.5)
 
     def test_unknown_pair_uses_default_cost(self) -> None:
-        assert phone_distance("x", "y", {}) == DEFAULT_COST
+        assert phone_distance("!", "?", {}) == DEFAULT_COST
 
     def test_known_unmapped_pair_uses_unknown_substitution_cost(self) -> None:
         assert phone_distance("s", "n", {}) == UNKNOWN_SUBSTITUTION_COST
@@ -323,7 +335,7 @@ class TestPhonologicalDistance:
     def test_internal_mismatch_uses_default_cost(self) -> None:
         assert phonological_distance(
             ["a", "b", "d"],
-            ["a", "x", "d"],
+            ["a", "!", "d"],
             {},
         ) == pytest.approx(DEFAULT_COST)
 
@@ -566,9 +578,12 @@ class TestRealMatrix:
 
         assert matrix["e"]["o"] == pytest.approx(0.4)
         assert matrix["ɡ"]["k"] == pytest.approx(0.2)
+        assert matrix["ɣ"]["ɡ"] == pytest.approx(0.1)
+        assert matrix["x"]["kʰ"] == pytest.approx(0.1)
         assert matrix["y"]["i"] == pytest.approx(0.3)
         assert matrix["oi"]["i"] == pytest.approx(0.15)
         assert phone_distance("ɡ", "k", matrix) == pytest.approx(0.2)
+        assert phone_distance("x", "kʰ", matrix) == pytest.approx(0.1)
         assert phone_distance("y", "i", matrix) == pytest.approx(0.3)
         assert phone_distance("oi", "i", matrix) == pytest.approx(0.15)
 
@@ -595,3 +610,31 @@ class TestRealMatrix:
         result = normalized_word_distance("logos", "logon", matrix)
 
         assert 0.15 <= result <= 0.25
+
+    @pytest.mark.parametrize(
+        ("koine_phone", "attic_phone"),
+        [("f", "pʰ"), ("θ", "tʰ"), ("x", "kʰ"), ("ð", "d"), ("ɣ", "ɡ")],
+    )
+    def test_committed_matrix_includes_supported_koine_consonants(
+        self,
+        committed_matrix_copy: Path,
+        koine_phone: str,
+        attic_phone: str,
+    ) -> None:
+        matrix = load_matrix(committed_matrix_copy)
+
+        assert koine_phone in matrix
+        assert attic_phone in matrix[koine_phone]
+        assert phone_distance(koine_phone, attic_phone, matrix) == pytest.approx(0.1)
+
+    def test_koine_short_word_distance_uses_matrix_backed_consonant_mapping(
+        self,
+        committed_matrix_copy: Path,
+    ) -> None:
+        matrix = load_matrix(committed_matrix_copy)
+
+        assert normalized_word_distance("xa", "kʰa", matrix) < normalized_word_distance(
+            "xa",
+            "pa",
+            matrix,
+        )

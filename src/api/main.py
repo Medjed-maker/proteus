@@ -215,10 +215,10 @@ class SearchRequest(BaseModel):
         validation_alias=AliasChoices("query_form", "query"),
         description="Greek word to search for (Unicode, polytonic or monotonic).",
     )
-    dialect_hint: Literal["attic"] = Field(
+    dialect_hint: Literal["attic", "koine"] = Field(
         default="attic",
         validation_alias=AliasChoices("dialect_hint", "dialect"),
-        description="Dialect hint for IPA conversion. Only 'attic' is currently supported.",
+        description="Dialect hint for IPA conversion. Supports 'attic' and query-side 'koine'.",
     )
     max_candidates: int = Field(
         default=20,

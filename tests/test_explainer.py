@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from phonology import explainer as explainer_module
+from phonology.distance import load_matrix
 from phonology.explainer import (
     Alignment,
     Explanation,
@@ -15,6 +16,13 @@ from phonology.explainer import (
     load_rules,
     to_prose,
 )
+from phonology.ipa_converter import to_ipa, tokenize_ipa
+# Intentional private import: these packaged-rule tests need the exact
+# Smith-Waterman alignment used at runtime before calling explain(), so they
+# depend on _smith_waterman_alignment and may need updates after refactors.
+from phonology.search import _smith_waterman_alignment
+
+MATRIX_FILE = "attic_doric.json"
 
 
 def _rule(
@@ -458,6 +466,189 @@ def test_explain_supports_primary_context_notation(
     assert [application.rule_id for application in applications] == [expected_rule_id]
 
 
+def test_explain_supports_word_final_context_with_exact_tail_inside_suffix() -> None:
+    """Accept CTX-FINAL when the exact remaining tail is contained within a suffix alignment."""
+    applications = explain(
+        query_ipa=["b", "a", "s", "i", "l", "e", "o", "s"],
+        lemma_ipa=["b", "a", "s", "i", "l", "eu", "s"],
+        alignment=Alignment(
+            aligned_query=("b", "a", "s", "i", "l", "e", "o", "s"),
+            aligned_lemma=("b", "a", "s", "i", "l", "eu", None, "s"),
+        ),
+        rules=[
+            _rule(
+                rule_id="CTX-FINAL",
+                input_phoneme="eus",
+                output_phoneme="eos",
+                context="_#",
+                name_ja="語末規則",
+            )
+        ],
+    )
+
+    assert [application.rule_id for application in applications] == ["CTX-FINAL"]
+
+
+def test_explain_rejects_word_final_context_when_tokens_remain_after_suffix() -> None:
+    """Reject CTX-FINAL when tokens remain after the candidate word-final suffix."""
+    applications = explain(
+        query_ipa=["b", "a", "s", "i", "l", "e", "o", "s", "u"],
+        lemma_ipa=["b", "a", "s", "i", "l", "eu", "s", "u"],
+        alignment=Alignment(
+            aligned_query=("b", "a", "s", "i", "l", "e", "o", "s", "u"),
+            aligned_lemma=("b", "a", "s", "i", "l", "eu", None, "s", "u"),
+        ),
+        rules=[
+            _rule(
+                rule_id="CTX-FINAL",
+                input_phoneme="eus",
+                output_phoneme="eos",
+                context="_#",
+                name_ja="語末規則",
+            )
+        ],
+    )
+
+    assert [application.rule_id for application in applications] == ["OBS-SUB", "OBS-INS"]
+
+
+def test_explain_rejects_word_final_context_when_later_mismatch_block_remains() -> None:
+    """Reject CTX-FINAL when the candidate would need a later mismatch block."""
+    applications = explain(
+        query_ipa=["x", "b", "y"],
+        lemma_ipa=["a", "b", "c"],
+        alignment=Alignment(
+            aligned_query=("x", "b", "y"),
+            aligned_lemma=("a", "b", "c"),
+        ),
+        rules=[
+            _rule(
+                rule_id="CTX-FINAL",
+                input_phoneme="abc",
+                output_phoneme="xby",
+                context="_#",
+                name_ja="語末規則",
+            )
+        ],
+    )
+
+    assert [application.rule_id for application in applications] == ["OBS-SUB", "OBS-SUB"]
+    assert [application.position for application in applications] == [0, 2]
+
+
+def test_explain_supports_gap_spanning_one_to_two_token_rule() -> None:
+    """Verify alignment matches GAP-1TO2 when one lemma token expands into two query tokens."""
+    applications = explain(
+        query_ipa=["e", "o"],
+        lemma_ipa=["eu"],
+        alignment=Alignment(
+            aligned_query=("e", "o"),
+            aligned_lemma=("eu", None),
+        ),
+        rules=[_rule(rule_id="GAP-1TO2", input_phoneme="eu", output_phoneme="eo", context=None)],
+    )
+
+    assert [application.rule_id for application in applications] == ["GAP-1TO2"]
+
+
+def test_explain_supports_gap_spanning_two_to_one_token_rule() -> None:
+    """Verify alignment matches GAP-2TO1 when two lemma tokens contract into one query token."""
+    applications = explain(
+        query_ipa=["ɛː"],
+        lemma_ipa=["e", "a"],
+        alignment=Alignment(
+            aligned_query=("ɛː", None),
+            aligned_lemma=("e", "a"),
+        ),
+        rules=[_rule(rule_id="GAP-2TO1", input_phoneme="ea", output_phoneme="ɛː", context=None)],
+    )
+
+    assert [application.rule_id for application in applications] == ["GAP-2TO1"]
+
+
+def test_explain_supports_gap_spanning_two_to_three_token_expansion() -> None:
+    """Verify a 2->3 rule matches across a lemma gap when all columns are mismatches.
+
+    All alignment columns must differ so they remain inside a single mismatch
+    block; exact-match columns would split the block and prevent the rule from
+    spanning the gap.
+    """
+    # tokenize_ipa("ɛːp") = ["ɛː", "p"], tokenize_ipa("eab") = ["e", "a", "b"]
+    applications = explain(
+        query_ipa=["e", "a", "b"],
+        lemma_ipa=["ɛː", "p"],
+        alignment=Alignment(
+            aligned_query=("e", "a", "b"),
+            aligned_lemma=("ɛː", None, "p"),
+        ),
+        rules=[_rule(rule_id="GAP-2TO3", input_phoneme="ɛːp", output_phoneme="eab", context=None)],
+    )
+
+    assert [application.rule_id for application in applications] == ["GAP-2TO3"]
+
+
+def test_explain_supports_gap_spanning_three_to_two_token_contraction() -> None:
+    """Verify a 3->2 rule matches across a query gap when all columns are mismatches."""
+    # tokenize_ipa("ean") = ["e", "a", "n"], tokenize_ipa("ɛːm") = ["ɛː", "m"]
+    applications = explain(
+        query_ipa=["ɛː", "m"],
+        lemma_ipa=["e", "a", "n"],
+        alignment=Alignment(
+            aligned_query=("ɛː", None, "m"),
+            aligned_lemma=("e", "a", "n"),
+        ),
+        rules=[_rule(rule_id="GAP-3TO2", input_phoneme="ean", output_phoneme="ɛːm", context=None)],
+    )
+
+    assert [application.rule_id for application in applications] == ["GAP-3TO2"]
+
+
+def test_explain_rejects_crossing_gap_match_for_multi_token_rule() -> None:
+    """Reject a candidate when insertion and deletion gaps cross in one match."""
+    applications = explain(
+        query_ipa=["t", "t"],
+        lemma_ipa=["s", "s"],
+        alignment=Alignment(
+            aligned_query=("t", None, "t"),
+            aligned_lemma=(None, "s", "s"),
+        ),
+        rules=[_rule(rule_id="CCH-LONG", input_phoneme="ss", output_phoneme="tt", context=None)],
+    )
+
+    assert [application.rule_id for application in applications] == ["OBS-INS", "OBS-DEL", "OBS-SUB"]
+    assert [application.position for application in applications] == [0, 0, 1]
+
+
+def test_explain_rejects_crossing_gap_match_for_two_to_two_rule() -> None:
+    """Reject 2->2 rules when they would need both gap directions in one match."""
+    applications = explain(
+        query_ipa=["e", "oː"],
+        lemma_ipa=["eː", "o"],
+        alignment=Alignment(
+            aligned_query=("e", None, "oː"),
+            aligned_lemma=(None, "eː", "o"),
+        ),
+        rules=[_rule(rule_id="VSH-004", input_phoneme="eːo", output_phoneme="eoː", context=None)],
+    )
+
+    assert [application.rule_id for application in applications] == ["OBS-INS", "OBS-DEL", "OBS-SUB"]
+
+
+def test_explain_rejects_crossing_gap_match_for_word_final_suffix_rule() -> None:
+    """Reject `_#` suffix rules when the remaining alignment contains crossing gaps."""
+    applications = explain(
+        query_ipa=["e", "oː"],
+        lemma_ipa=["eː", "o"],
+        alignment=Alignment(
+            aligned_query=("e", None, "oː"),
+            aligned_lemma=(None, "eː", "o"),
+        ),
+        rules=[_rule(rule_id="CTX-FINAL", input_phoneme="eːo", output_phoneme="eoː", context="_#")],
+    )
+
+    assert [application.rule_id for application in applications] == ["OBS-INS", "OBS-DEL", "OBS-SUB"]
+
+
 def test_explain_supports_nc_context_with_query_side_fallback_after_lemma_end() -> None:
     """Verify _NC context matching can fall back to query-side lookahead beyond lemma length."""
     applications = explain(
@@ -643,6 +834,61 @@ def test_load_rules_accepts_legacy_repo_style_relative_directory(
     rules = load_rules("data/rules/ancient_greek")
 
     assert "TEST-LEGACY-001" in rules
+
+
+def test_load_rules_reads_all_three_packaged_rule_files() -> None:
+    """Verify that all three default packaged rule files are loaded properly.
+
+    Checks for the presence of specific rule IDs across the domains and ensures
+    a minimum number of rules are loaded without tying the test to a hardcoded count.
+    """
+    rules = load_rules("ancient_greek")
+
+    assert len(rules) >= 50
+    assert "CCH-015" in rules
+    assert "VSH-022" in rules
+    assert "MPH-013" in rules
+
+
+@pytest.mark.parametrize(
+    ("query_word", "lemma_word", "expected_rule_id"),
+    [
+        ("Δαμοσθένας", "Δημοσθένης", "MPH-004"),
+        ("βασιλέος", "βασιλεύς", "MPH-013"),
+    ],
+)
+def test_packaged_morphophonemic_rules_match_runtime_ipa_examples(
+    query_word: str,
+    lemma_word: str,
+    expected_rule_id: str,
+) -> None:
+    """Verify packaged morphophonemic rules yield the expected rule_id for runtime IPA examples.
+
+    ``query_word`` and ``lemma_word`` are orthographic forms converted to runtime
+    IPA tokens, and ``expected_rule_id`` is the packaged rule expected after
+    building the alignment via ``_smith_waterman_alignment`` before ``explain()``.
+    """
+    rules = list(load_rules("ancient_greek").values())
+    matrix = load_matrix(MATRIX_FILE)
+    query_tokens = tokenize_ipa(to_ipa(query_word))
+    lemma_tokens = tokenize_ipa(to_ipa(lemma_word))
+    _, aligned_query, aligned_lemma = _smith_waterman_alignment(
+        query_tokens,
+        lemma_tokens,
+        matrix,
+    )
+
+    applications = explain(
+        query_ipa=query_tokens,
+        lemma_ipa=lemma_tokens,
+        alignment=Alignment(
+            aligned_query=tuple(aligned_query),
+            aligned_lemma=tuple(aligned_lemma),
+        ),
+        rules=rules,
+    )
+
+    assert expected_rule_id in [application.rule_id for application in applications]
 
 
 def test_load_rules_rejects_directories_outside_rules_base(tmp_path: Path) -> None:

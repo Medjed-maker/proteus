@@ -19,6 +19,19 @@ def clear_seed_document_cache() -> Generator[None, None, None]:
     matrix_generator._load_seed_document.cache_clear()
 
 
+def _make_legacy_rows(
+    order: tuple[str, ...] | None = None,
+) -> dict[str, dict[str, float]]:
+    legacy_order = order if order is not None else matrix_generator._LEGACY_STOP_ORDER
+    return {
+        row_phone: {
+            column_phone: abs(row_index - column_index) / 10
+            for column_index, column_phone in enumerate(legacy_order)
+        }
+        for row_index, row_phone in enumerate(legacy_order)
+    }
+
+
 class TestOverlaySeedRows:
     def test_logs_unknown_seed_rows_and_columns(
         self, caplog: pytest.LogCaptureFixture
@@ -47,6 +60,48 @@ class TestOverlaySeedRows:
 
         with pytest.raises(ValueError, match="Missing symmetric distance"):
             matrix_generator._overlay_seed_rows(base_rows, {}, ["a", "b"], seed_source="seed.json")
+
+
+class TestExpandKoineStopRows:
+    def test_expands_koine_rows_from_legacy_inventory(self) -> None:
+        legacy_rows = _make_legacy_rows()
+
+        rows = matrix_generator._expand_koine_stop_rows(legacy_rows)
+
+        assert set(rows) == set(matrix_generator.STOP_ORDER)
+        assert rows["f"]["f"] == pytest.approx(0.0)
+        assert rows["f"]["pʰ"] == pytest.approx(matrix_generator._KOINE_DIRECT_DISTANCE)
+        assert rows["f"]["p"] == pytest.approx(legacy_rows["pʰ"]["p"])
+        assert rows["f"]["θ"] == pytest.approx(legacy_rows["pʰ"]["tʰ"])
+        assert rows["p"]["f"] == pytest.approx(rows["f"]["p"])
+
+    def test_raises_clear_error_for_unmapped_stop_order_phone(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        legacy_rows = _make_legacy_rows()
+        monkeypatch.setattr(
+            matrix_generator,
+            "STOP_ORDER",
+            matrix_generator.STOP_ORDER + ("z",),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=r"unknown phone.*'z'.*_KOINE_STOP_BASES=.*STOP_ORDER=",
+        ):
+            matrix_generator._expand_koine_stop_rows(legacy_rows)
+
+    def test_raises_clear_error_when_base_phone_is_missing(self) -> None:
+        legacy_order = tuple(
+            phone for phone in matrix_generator._LEGACY_STOP_ORDER if phone != "pʰ"
+        )
+        legacy_rows = _make_legacy_rows(legacy_order)
+
+        with pytest.raises(
+            ValueError,
+            match=r"_expand_koine_stop_rows.*_KOINE_STOP_BASES.*missing base_phone 'pʰ'.*_coerce_seed_rows",
+        ):
+            matrix_generator._expand_koine_stop_rows(legacy_rows)
 
 
 class TestLoadBaseSoundClassRows:
