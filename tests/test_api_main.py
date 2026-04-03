@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from api import main as api_main
 from api.main import SearchHit
 from phonology.explainer import RuleApplication
-from phonology.search import SearchResult
+from phonology.search import LexiconRecord, SearchResult
 
 
 def _clear_loader_caches() -> None:
@@ -21,6 +21,8 @@ def _clear_loader_caches() -> None:
         "_load_distance_matrix",
         "_load_rules_registry",
         "_load_search_index",
+        "_load_unigram_index",
+        "_load_lexicon_map",
     ):
         cache_clear = getattr(getattr(api_main, loader_name), "cache_clear", None)
         if cache_clear is not None:
@@ -403,6 +405,8 @@ class TestReadyEndpoint:
             ("_load_distance_matrix", FileNotFoundError("matrix not found")),
             ("_load_rules_registry", yaml.YAMLError("bad rules")),
             ("_load_search_index", OSError("index error")),
+            ("_load_unigram_index", OSError("unigram index error")),
+            ("_load_lexicon_map", OSError("lexicon map error")),
         ],
     )
     def test_ready_returns_503_when_loader_fails(
@@ -485,6 +489,8 @@ def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, objec
         max_results: int,
         dialect: str,
         index: dict[str, list[str]],
+        unigram_index: dict[str, list[str]] | None = None,
+        prebuilt_lexicon_map: dict[str, object] | None = None,
     ) -> list[SearchResult]:
         captured["query"] = query
         captured["lexicon"] = lexicon
@@ -492,6 +498,8 @@ def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, objec
         captured["max_results"] = max_results
         captured["dialect"] = dialect
         captured["index"] = index
+        captured["unigram_index"] = unigram_index
+        captured["prebuilt_lexicon_map"] = prebuilt_lexicon_map
         return [
             SearchResult(
                 lemma="λόγος",
@@ -538,6 +546,17 @@ def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, objec
     )
     monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "loɡos")
     monkeypatch.setattr(api_main, "_load_search_index", lambda: {"l ɡ": ["L1"]})
+    monkeypatch.setattr(api_main, "_load_unigram_index", lambda: {"l": ["L1"]})
+    monkeypatch.setattr(
+        api_main,
+        "_load_lexicon_map",
+        lambda: {
+            "L1": LexiconRecord(
+                entry={"id": "L1", "headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},
+                token_count=4,
+            )
+        },
+    )
     monkeypatch.setattr(api_main.phonology_search, "search", fake_search)
     return captured
 
@@ -559,6 +578,13 @@ class TestSearchEndpoint:
         assert captured["max_results"] == 3
         assert captured["dialect"] == "attic"
         assert captured["index"] == {"l ɡ": ["L1"]}
+        assert captured["unigram_index"] == {"l": ["L1"]}
+        assert captured["prebuilt_lexicon_map"] == {
+            "L1": LexiconRecord(
+                entry={"id": "L1", "headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},
+                token_count=4,
+            )
+        }
         assert captured["lexicon"] == (
             {"id": "L1", "headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},
         )
@@ -944,6 +970,46 @@ class TestSearchEndpoint:
             "_load_distance_matrix",
             fail_distance_matrix,
         )
+
+        response = client.post(
+            "/search",
+            json={"query_form": "λόγος", "dialect_hint": "attic"},
+        )
+
+        assert response.status_code == 500
+        assert response.json() == {
+            "detail": "Search is temporarily unavailable. Please try again later."
+        }
+
+    def test_search_returns_server_error_when_unigram_loader_fails(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+
+        def fail_unigram_index() -> dict[str, list[str]]:
+            raise ValueError("unigram unavailable")
+
+        monkeypatch.setattr(api_main, "_load_unigram_index", fail_unigram_index)
+
+        response = client.post(
+            "/search",
+            json={"query_form": "λόγος", "dialect_hint": "attic"},
+        )
+
+        assert response.status_code == 500
+        assert response.json() == {
+            "detail": "Search is temporarily unavailable. Please try again later."
+        }
+
+    def test_search_returns_server_error_when_lexicon_map_loader_fails(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+
+        def fail_lexicon_map() -> dict[str, object]:
+            raise ValueError("lexicon map unavailable")
+
+        monkeypatch.setattr(api_main, "_load_lexicon_map", fail_lexicon_map)
 
         response = client.post(
             "/search",

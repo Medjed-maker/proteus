@@ -145,6 +145,18 @@ def _load_search_index() -> phonology_search.KmerIndex:
     return phonology_search.build_kmer_index(load_lexicon_entries())
 
 
+@lru_cache(maxsize=1)
+def _load_unigram_index() -> phonology_search.KmerIndex:
+    """Build and cache the k=1 unigram index for fallback lookup."""
+    return phonology_search.build_kmer_index(load_lexicon_entries(), k=1)
+
+
+@lru_cache(maxsize=1)
+def _load_lexicon_map() -> phonology_search.LexiconMap:
+    """Build and cache the lexicon map with per-entry token counts."""
+    return phonology_search.build_lexicon_map(load_lexicon_entries())
+
+
 def _distance_from_confidence(confidence: float) -> float:
     """Convert a normalized confidence score into normalized distance."""
     return max(0.0, min(1.0, 1.0 - confidence))
@@ -318,6 +330,8 @@ async def search(request: SearchRequest) -> SearchResponse:
         matrix = _load_distance_matrix()
         rules_registry = _load_rules_registry()
         search_index = _load_search_index()
+        unigram_index = _load_unigram_index()
+        lexicon_map = _load_lexicon_map()
     except (ValueError, FileNotFoundError, OSError, yaml.YAMLError) as err:
         logger.exception(
             "Failed to load search dependencies for query (%s)",
@@ -338,6 +352,8 @@ async def search(request: SearchRequest) -> SearchResponse:
             max_results=request.max_candidates,
             dialect=request.dialect_hint,
             index=search_index,
+            unigram_index=unigram_index,
+            prebuilt_lexicon_map=lexicon_map,
         )
     except ValueError as err:
         logger.info("Rejected search query (%s): %s", query_log_label, err)
@@ -381,6 +397,8 @@ async def ready() -> dict[str, str]:
         _load_distance_matrix()
         _load_rules_registry()
         _load_search_index()
+        _load_unigram_index()
+        _load_lexicon_map()
     except (ValueError, FileNotFoundError, OSError, yaml.YAMLError) as err:
         logger.exception("Readiness probe failed")
         raise HTTPException(
