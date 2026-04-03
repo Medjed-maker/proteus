@@ -6,9 +6,10 @@ from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
+import heapq
 import logging
 import math
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, NamedTuple, TypeAlias
 
 import yaml  # type: ignore[import-untyped]
 
@@ -19,12 +20,29 @@ from .ipa_converter import apply_koine_consonant_shifts, to_ipa, tokenize_ipa
 
 DistanceMatrix: TypeAlias = MatrixData
 KmerIndex: TypeAlias = dict[str, list[str]]
+LexiconEntry: TypeAlias = dict[str, Any]
+
+
+class LexiconRecord(NamedTuple):
+    """A lexicon entry paired with its cached IPA token count."""
+
+    entry: LexiconEntry
+    token_count: int
+
+
+LexiconMap: TypeAlias = dict[str, LexiconRecord]
+LexiconLookupValue: TypeAlias = LexiconEntry | LexiconRecord
+LexiconLookup: TypeAlias = dict[str, LexiconLookupValue]
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "LexiconEntry",
+    "LexiconMap",
+    "LexiconRecord",
     "SearchResult",
     "build_kmer_index",
+    "build_lexicon_map",
     "seed_stage",
     "extend_stage",
     "filter_stage",
@@ -62,7 +80,7 @@ class SearchResult:
     ipa: str | None = None
 
 
-def _entry_id(entry: dict[str, Any]) -> str:
+def _entry_id(entry: LexiconEntry) -> str:
     """Return a stable id for a lexicon entry."""
     raw_id = entry.get("id") or entry.get("headword")
     if not isinstance(raw_id, str) or not raw_id.strip():
@@ -70,7 +88,7 @@ def _entry_id(entry: dict[str, Any]) -> str:
     return raw_id
 
 
-def _lemma_label(entry: dict[str, Any]) -> str:
+def _lemma_label(entry: LexiconEntry) -> str:
     """Return the display lemma for a lexicon entry."""
     raw_lemma = entry.get("headword")
     if not isinstance(raw_lemma, str) or not raw_lemma.strip():
@@ -78,12 +96,34 @@ def _lemma_label(entry: dict[str, Any]) -> str:
     return raw_lemma
 
 
-def _entry_ipa(entry: dict[str, Any]) -> str:
+def _entry_ipa(entry: LexiconEntry) -> str:
     """Return the IPA field for a lexicon entry."""
     raw_ipa = entry.get("ipa")
     if not isinstance(raw_ipa, str) or not raw_ipa.strip():
         raise ValueError("Lexicon entries must define a non-empty 'ipa'")
     return raw_ipa
+
+
+def _build_entry_lookup(lexicon: Sequence[LexiconEntry]) -> dict[str, LexiconEntry]:
+    """Build an entry-id lookup without tokenizing IPA strings."""
+    result: dict[str, LexiconEntry] = {}
+    for entry in lexicon:
+        entry_id = _entry_id(entry)
+        if entry_id in result:
+            raise ValueError(
+                f"Duplicate entry ID {entry_id!r} in lexicon; "
+                f"existing entry: {result[entry_id]!r}, "
+                f"new duplicate entry: {entry!r}"
+            )
+        result[entry_id] = entry
+    return result
+
+
+def _lookup_entry(record_or_entry: LexiconLookupValue) -> LexiconEntry:
+    """Return the underlying lexicon entry from a lookup value."""
+    if isinstance(record_or_entry, LexiconRecord):
+        return record_or_entry.entry
+    return record_or_entry
 
 
 def _extract_consonant_skeleton(tokens: list[str]) -> list[str]:
@@ -160,6 +200,47 @@ def build_kmer_index(
         for kmer in _build_entry_kmers(_entry_ipa(entry), k):
             index.setdefault(kmer, []).append(entry_id)
     return index
+
+
+def _rank_by_token_count_proximity(
+    query_ipa: str,
+    lexicon_map: LexiconMap,
+    *,
+    max_candidates: int | None = None,
+    query_token_count: int | None = None,
+) -> list[str]:
+    """Rank candidates whose IPA token count is closest to the query's.
+
+    Used as a last-resort fallback when no consonant k-mers can be
+    generated (e.g. pure-vowel queries). Returns entry IDs sorted by
+    ascending token-count difference, then exact-IPA matches, then entry ID.
+    By default callers can evaluate the full ranked list; ``max_candidates``
+    is only an explicit override for a capped fallback scan.
+    
+    If ``query_token_count`` is provided, it is used directly instead of
+    re-tokenizing ``query_ipa``.
+    """
+    if max_candidates is not None and max_candidates <= 0:
+        raise ValueError("max_candidates must be a positive integer when provided")
+
+    query_length = query_token_count
+    if query_length is None:
+        query_length = len(tokenize_ipa(query_ipa))
+
+    def _sort_key(item: tuple[str, LexiconRecord]) -> tuple[int, bool, str]:
+        entry_id, record = item
+        return (
+            abs(record.token_count - query_length),
+            _entry_ipa(record.entry) != query_ipa,
+            entry_id,
+        )
+
+    if max_candidates is not None:
+        top = heapq.nsmallest(max_candidates, lexicon_map.items(), key=_sort_key)
+        return [entry_id for entry_id, _ in top]
+
+    scored = sorted(lexicon_map.items(), key=_sort_key)
+    return [entry_id for entry_id, _ in scored]
 
 
 def seed_stage(
@@ -379,6 +460,27 @@ def _get_rules_registry(language: str = "ancient_greek") -> dict[str, dict[str, 
         ) from err
 
 
+def build_lexicon_map(lexicon: Sequence[LexiconEntry]) -> LexiconMap:
+    """Build a lexicon map with cached IPA token counts for each entry.
+
+    Args:
+        lexicon: Sequence of lexicon entry dicts to index.
+
+    Returns:
+        LexiconMap mapping entry ids to LexiconRecord instances.
+    
+    Raises:
+        ValueError: If duplicate entry IDs are found in the lexicon.
+    """
+    result: LexiconMap = {}
+    for entry_id, entry in _build_entry_lookup(lexicon).items():
+        result[entry_id] = LexiconRecord(
+            entry=entry,
+            token_count=len(tokenize_ipa(_entry_ipa(entry))),
+        )
+    return result
+
+
 def _build_alignment_markers(
     aligned_query: list[str | None],
     aligned_lemma: list[str | None],
@@ -477,7 +579,7 @@ def _format_alignment_visualization(
 def extend_stage(
     query_ipa: str,
     candidates: Iterable[str],
-    lexicon_map: dict[str, dict[str, Any]],
+    lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
     language: str = "ancient_greek",
 ) -> list[SearchResult]:
@@ -491,9 +593,9 @@ def extend_stage(
         query_ipa: IPA transcription of the search query (space-separated or
             compact notation accepted by ``tokenize_ipa``).
         candidates: Iterable of lexicon entry ids produced by the seed stage.
-        lexicon_map: Mapping from entry id to full lexicon entry dict.  Each
-            entry must contain ``"headword"``, ``"ipa"``, and optionally
-            ``"dialect"`` keys.
+        lexicon_map: Mapping from entry id to either full lexicon entry dicts
+            or ``LexiconRecord`` instances. Each entry must contain
+            ``"headword"``, ``"ipa"``, and optionally ``"dialect"`` keys.
         matrix: Phonological distance matrix used for substitution scoring.
         language: Language identifier selecting the phonological rule set.
             Defaults to ``"ancient_greek"``.
@@ -514,14 +616,15 @@ def extend_stage(
     rules = list(rules_registry.values())
 
     for candidate_id in candidates:
-        entry = lexicon_map.get(candidate_id)
-        if entry is None:
+        record_or_entry = lexicon_map.get(candidate_id)
+        if record_or_entry is None:
             logger.debug(
                 "Skipping candidate_id %r not found in lexicon_map (size=%d)",
                 candidate_id,
                 len(lexicon_map),
             )
             continue
+        entry = _lookup_entry(record_or_entry)
         lemma = _lemma_label(entry)
         lemma_ipa = _entry_ipa(entry)
         lemma_tokens = tokenize_ipa(lemma_ipa)
@@ -593,12 +696,15 @@ def filter_stage(results: list[SearchResult], max_results: int) -> list[SearchRe
 
 def search(
     query: str,
-    lexicon: Sequence[dict[str, Any]],
+    lexicon: Sequence[LexiconEntry],
     matrix: DistanceMatrix,
     max_results: int = 5,
     dialect: str = "attic",
     index: KmerIndex | None = None,
+    unigram_index: KmerIndex | None = None,
+    prebuilt_lexicon_map: LexiconMap | None = None,
     language: str = "ancient_greek",
+    similarity_fallback_limit: int | None = None,
 ) -> list[SearchResult]:
     """Run full three-stage search for a Greek query word.
 
@@ -610,8 +716,17 @@ def search(
         dialect: Dialect/model used for IPA conversion. Supports ``"attic"``
             and query-side ``"koine"`` normalization. Defaults to ``"attic"``.
         index: Optional precomputed k-mer index to reuse for faster searches.
+        unigram_index: Optional precomputed k=1 index used as fallback when
+            the default k=2 index produces no seed candidates. This fallback
+            only reorders stage-2 work for short queries; it does not prune
+            the candidate set.
+        prebuilt_lexicon_map: Optional cached entry-id map with token counts
+            to reuse across repeated searches over the same lexicon.
         language: Language identifier selecting the phonological rule set
             passed to ``extend_stage``. Defaults to ``"ancient_greek"``.
+        similarity_fallback_limit: Optional explicit cap for the token-count
+            fallback path used when both k=2 and k=1 seeds are empty.
+            Defaults to uncapped evaluation of the ranked fallback list.
 
     Returns:
         Ranked search results ordered by descending confidence.
@@ -626,31 +741,94 @@ def search(
         raise ValueError("query must be a non-empty string")
     if max_results <= 0:
         raise ValueError("max_results must be a positive integer")
+    if similarity_fallback_limit is not None and similarity_fallback_limit <= 0:
+        raise ValueError("similarity_fallback_limit must be a positive integer")
 
     query_ipa = to_ipa(query, dialect=dialect)
-    lexicon_map = {_entry_id(entry): entry for entry in lexicon}
+    query_tokens = tokenize_ipa(query_ipa)
+    query_skeleton = _extract_consonant_skeleton(query_tokens)
+    entry_lookup: dict[str, LexiconEntry] | None = None
+    lexicon_map = prebuilt_lexicon_map
+
+    def _get_entry_lookup() -> dict[str, LexiconEntry]:
+        nonlocal entry_lookup
+        if entry_lookup is None:
+            entry_lookup = _build_entry_lookup(lexicon)
+        return entry_lookup
+
+    def _get_lexicon_lookup() -> LexiconLookup:
+        if lexicon_map is not None:
+            return lexicon_map
+        return _get_entry_lookup()
+
+    def _get_tokenized_lexicon_map() -> LexiconMap:
+        nonlocal lexicon_map
+        if lexicon_map is None:
+            lexicon_map = build_lexicon_map(lexicon)
+        return lexicon_map
+
     search_index = (
         index if index is not None else build_kmer_index(lexicon, k=_DEFAULT_KMER_SIZE)
     )
     seed_candidates = seed_stage(query_ipa, search_index, k=_DEFAULT_KMER_SIZE)
     stage2_limit = max(_MIN_STAGE2_CANDIDATES, max_results * _SEED_MULTIPLIER)
+    token_proximity_limit = similarity_fallback_limit
 
+    candidate_ids: list[str]
+    lexicon_lookup: LexiconLookup
     if seed_candidates:
         candidate_ids = seed_candidates[:stage2_limit]
+        lexicon_lookup = _get_lexicon_lookup()
     else:
-        candidate_ids = list(lexicon_map.keys())
-        logger.warning(
-            "No seed candidates found for query IPA %r; falling back to full-lexicon "
-            "scan (%d entries)",
-            query_ipa,
-            len(lexicon_map),
-        )
+        unigram_candidates: list[str] = []
+        if query_skeleton:
+            fallback_unigram_index = (
+                unigram_index if unigram_index is not None else build_kmer_index(lexicon, k=1)
+            )
+            unigram_candidates = seed_stage(query_ipa, fallback_unigram_index, k=1)
+        if unigram_candidates:
+            # Keep unigram hits first for lightweight ranking, but preserve full
+            # lexicon coverage so short-query recall still comes from stage 2.
+            lexicon_lookup = _get_lexicon_lookup()
+            unigram_candidate_set = set(unigram_candidates)
+            candidate_ids = unigram_candidates + [
+                entry_id for entry_id in lexicon_lookup if entry_id not in unigram_candidate_set
+            ]
+            logger.info(
+                "k=2 seed empty for query IPA %r; k=1 fallback evaluating %d candidates",
+                query_ipa,
+                len(candidate_ids),
+            )
+        else:
+            tokenized_map = _get_tokenized_lexicon_map()
+            lexicon_lookup = tokenized_map
+            candidate_ids = _rank_by_token_count_proximity(
+                query_ipa,
+                tokenized_map,
+                max_candidates=token_proximity_limit,
+                query_token_count=len(query_tokens),
+            )
+            if token_proximity_limit is None:
+                logger.info(
+                    "k=2 and k=1 seeds empty for query IPA %r; evaluating all %d candidates "
+                    "ranked by token-count proximity",
+                    query_ipa,
+                    len(candidate_ids),
+                )
+            else:
+                logger.info(
+                    "k=2 and k=1 seeds empty for query IPA %r; evaluating %d of %d candidates "
+                    "ranked by token-count proximity",
+                    query_ipa,
+                    len(candidate_ids),
+                    len(tokenized_map),
+                )
 
     return filter_stage(
         extend_stage(
             query_ipa=query_ipa,
             candidates=candidate_ids,
-            lexicon_map=lexicon_map,
+            lexicon_map=lexicon_lookup,
             matrix=matrix,
             language=language,
         ),
