@@ -22,9 +22,12 @@ from .ipa_converter import tokenize_ipa
 __all__ = [
     "Rule",
     "Alignment",
+    "TokenizedRule",
     "RuleApplication",
     "Explanation",
     "POSITION_UNKNOWN",
+    "tokenize_rules_for_matching",
+    "explain_with_tokenized_rules",
     "load_rules",
     "explain",
     "explain_alignment",
@@ -240,7 +243,7 @@ def load_rules(rules_dir: Path | str) -> dict[str, dict]:
 
 
 @dataclass(frozen=True)
-class _TokenizedRule:
+class TokenizedRule:
     """Rule metadata tokenized for mismatch-block matching."""
 
     rule: Rule
@@ -268,16 +271,16 @@ def _tokenize_rule_side(raw_value: object) -> tuple[str, ...]:
     return tuple(tokenize_ipa(raw_value))
 
 
-def _tokenize_rules(rules: list[Rule]) -> list[_TokenizedRule]:
+def _tokenize_rules(rules: list[Rule]) -> list[TokenizedRule]:
     """Pre-tokenize rules and sort them for longest-match-first scanning."""
-    tokenized: list[_TokenizedRule] = []
+    tokenized: list[TokenizedRule] = []
     for order, rule in enumerate(rules):
         input_tokens = _tokenize_rule_side(rule.get("input"))
         output_tokens = _tokenize_rule_side(rule.get("output"))
         if not input_tokens and not output_tokens:
             continue
         tokenized.append(
-            _TokenizedRule(
+            TokenizedRule(
                 rule=rule,
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
@@ -295,6 +298,20 @@ def _tokenize_rules(rules: list[Rule]) -> list[_TokenizedRule]:
             candidate.order,
         ),
     )
+
+
+def tokenize_rules_for_matching(rules: list[Rule]) -> list[TokenizedRule]:
+    """Return reusable tokenized rule metadata for mismatch matching.
+
+    Args:
+        rules: A ``list[Rule]`` containing the phonological rules to pre-tokenize.
+
+    Returns:
+        A ``list[TokenizedRule]`` where each item stores the original rule,
+        tokenized input/output phones, and a stable sort order for repeated
+        longest-match-first scans.
+    """
+    return _tokenize_rules(rules)
 
 
 def _rule_specificity(rule: Rule) -> int:
@@ -381,23 +398,23 @@ def _is_consonant(token: str | None) -> bool:
 
 
 def _lookup_prev_token(
-    lemma_ipa: list[str],
-    query_ipa: list[str],
+    lemma_tokens: list[str],
+    query_tokens: list[str],
     *,
     lemma_start: int,
     query_start: int,
 ) -> str | None:
     """Return the nearest preceding token, preferring the lemma side."""
     if lemma_start > 0:
-        return lemma_ipa[lemma_start - 1]
+        return lemma_tokens[lemma_start - 1]
     if query_start > 0:
-        return query_ipa[query_start - 1]
+        return query_tokens[query_start - 1]
     return None
 
 
 def _lookup_next_token(
-    lemma_ipa: list[str],
-    query_ipa: list[str],
+    lemma_tokens: list[str],
+    query_tokens: list[str],
     *,
     lemma_end: int,
     query_end: int,
@@ -406,7 +423,7 @@ def _lookup_next_token(
     """Return a following token from the remaining lemma-then-query sequence.
 
     The function treats the unconsumed tokens as one concatenated sequence:
-    ``lemma_ipa[lemma_end:]`` followed by ``query_ipa[query_end:]``.
+    ``lemma_tokens[lemma_end:]`` followed by ``query_tokens[query_end:]``.
     ``offset=0`` returns the immediate next token on the lemma side when one
     remains. Once ``offset`` moves past the remaining lemma tokens, lookup
     continues on the query side using ``offset - remaining_lemma``.
@@ -416,26 +433,26 @@ def _lookup_next_token(
         token remains in either sequence.
 
     Examples:
-        If ``lemma_ipa=['l', 'e', 'm']``, ``query_ipa=['q', 'u']``,
+        If ``lemma_tokens=['l', 'e', 'm']``, ``query_tokens=['q', 'u']``,
         ``lemma_end=1``, and ``query_end=0``, then ``offset=0`` returns ``'e'``
         and ``offset=2`` returns ``'q'``.
-        If ``lemma_ipa=['l']``, ``query_ipa=['q']``, ``lemma_end=1``,
+        If ``lemma_tokens=['l']``, ``query_tokens=['q']``, ``lemma_end=1``,
         ``query_end=1``, and ``offset=0``, the function returns ``None``.
     """
-    remaining_lemma = max(0, len(lemma_ipa) - lemma_end)
+    remaining_lemma = max(0, len(lemma_tokens) - lemma_end)
     if offset < remaining_lemma:
-        return lemma_ipa[lemma_end + offset]
+        return lemma_tokens[lemma_end + offset]
 
     query_index = query_end + max(0, offset - remaining_lemma)
-    if query_index < len(query_ipa):
-        return query_ipa[query_index]
+    if query_index < len(query_tokens):
+        return query_tokens[query_index]
     return None
 
 
 def _matches_following_set(
     context: str,
-    lemma_ipa: list[str],
-    query_ipa: list[str],
+    lemma_tokens: list[str],
+    query_tokens: list[str],
     *,
     lemma_end: int,
     query_end: int,
@@ -446,8 +463,8 @@ def _matches_following_set(
         return False
     allowed = {item.strip() for item in match.group(1).split(",") if item.strip()}
     next_token = _lookup_next_token(
-        lemma_ipa,
-        query_ipa,
+        lemma_tokens,
+        query_tokens,
         lemma_end=lemma_end,
         query_end=query_end,
     )
@@ -456,7 +473,7 @@ def _matches_following_set(
 
 def _matches_same_word_lookahead(
     context: str,
-    lemma_ipa: list[str],
+    lemma_tokens: list[str],
     *,
     lemma_end: int,
 ) -> bool:
@@ -467,7 +484,7 @@ def _matches_same_word_lookahead(
     tail_tokens = tuple(tokenize_ipa(match.group(1)))
     if not tail_tokens:
         return False
-    remaining = lemma_ipa[lemma_end:]
+    remaining = lemma_tokens[lemma_end:]
     target_length = len(tail_tokens)
     return any(
         tuple(remaining[index : index + target_length]) == tail_tokens
@@ -477,8 +494,8 @@ def _matches_same_word_lookahead(
 
 def _matches_context(
     context: object,
-    lemma_ipa: list[str],
-    query_ipa: list[str],
+    lemma_tokens: list[str],
+    query_tokens: list[str],
     *,
     lemma_start: int,
     lemma_end: int,
@@ -496,36 +513,36 @@ def _matches_context(
         return True
     if normalized == "_#":
         next_token = _lookup_next_token(
-            lemma_ipa,
-            query_ipa,
+            lemma_tokens,
+            query_tokens,
             lemma_end=lemma_end,
             query_end=query_end,
         )
         return next_token is None
     if normalized == "v_v":
         prev_token = _lookup_prev_token(
-            lemma_ipa,
-            query_ipa,
+            lemma_tokens,
+            query_tokens,
             lemma_start=lemma_start,
             query_start=query_start,
         )
         next_token = _lookup_next_token(
-            lemma_ipa,
-            query_ipa,
+            lemma_tokens,
+            query_tokens,
             lemma_end=lemma_end,
             query_end=query_end,
         )
         return _is_vowel(prev_token) and _is_vowel(next_token)
     if normalized == "_nc":
         next_token = _lookup_next_token(
-            lemma_ipa,
-            query_ipa,
+            lemma_tokens,
+            query_tokens,
             lemma_end=lemma_end,
             query_end=query_end,
         )
         following_token = _lookup_next_token(
-            lemma_ipa,
-            query_ipa,
+            lemma_tokens,
+            query_tokens,
             lemma_end=lemma_end,
             query_end=query_end,
             offset=1,
@@ -533,29 +550,29 @@ def _matches_context(
         return next_token in _NASAL_PHONES and _is_consonant(following_token)
     if normalized == "after e, i, or r":
         prev_token = _lookup_prev_token(
-            lemma_ipa,
-            query_ipa,
+            lemma_tokens,
+            query_tokens,
             lemma_start=lemma_start,
             query_start=query_start,
         )
         return prev_token in _AFTER_E_I_R_PHONES
     if normalized == "all environments except after e, i, or r":
         prev_token = _lookup_prev_token(
-            lemma_ipa,
-            query_ipa,
+            lemma_tokens,
+            query_tokens,
             lemma_start=lemma_start,
             query_start=query_start,
         )
         return prev_token not in _AFTER_E_I_R_PHONES
     if _matches_following_set(
         normalized,
-        lemma_ipa,
-        query_ipa,
+        lemma_tokens,
+        query_tokens,
         lemma_end=lemma_end,
         query_end=query_end,
     ):
         return True
-    if _matches_same_word_lookahead(normalized, lemma_ipa, lemma_end=lemma_end):
+    if _matches_same_word_lookahead(normalized, lemma_tokens, lemma_end=lemma_end):
         return True
     return False
 
@@ -680,7 +697,7 @@ def _allows_empty_input(rule: Rule) -> bool:
 
 def _matches_block_columns(
     block: _MismatchBlock,
-    candidate: _TokenizedRule,
+    candidate: TokenizedRule,
     *,
     lemma_index: int,
     query_index: int,
@@ -776,7 +793,7 @@ def _matches_block_columns(
 
 
 def _matches_word_final_suffix(
-    candidate: _TokenizedRule,
+    candidate: TokenizedRule,
     block: _MismatchBlock,
     *,
     lemma_index: int,
@@ -798,10 +815,10 @@ def _matches_word_final_suffix(
             lemma-side suffix should start.
         query_index: Offset into ``block.query_tokens`` where the candidate's
             query-side suffix should start.
-        lemma_suffix_tokens: Pre-computed ``tuple(lemma_ipa[lemma_start:])``
+        lemma_suffix_tokens: Pre-computed ``tuple(lemma_tokens[lemma_start:])``
             for the current outer-loop position, cached by the caller to
             avoid redundant tuple conversions across candidate rules.
-        query_suffix_tokens: Pre-computed ``tuple(query_ipa[query_start:])``
+        query_suffix_tokens: Pre-computed ``tuple(query_tokens[query_start:])``
             for the current outer-loop position.
 
     Returns:
@@ -851,9 +868,9 @@ def _matches_word_final_suffix(
 
 def _collect_block_applications(
     block: _MismatchBlock,
-    query_ipa: list[str],
-    lemma_ipa: list[str],
-    tokenized_rules: list[_TokenizedRule],
+    query_tokens: list[str],
+    lemma_tokens: list[str],
+    tokenized_rules: list[TokenizedRule],
 ) -> list[RuleApplication]:
     """Match longest rules against a mismatch block."""
     applications: list[RuleApplication] = []
@@ -861,7 +878,7 @@ def _collect_block_applications(
     query_index = 0
 
     while lemma_index < len(block.lemma_tokens) or query_index < len(block.query_tokens):
-        matched_rule: _TokenizedRule | None = None
+        matched_rule: TokenizedRule | None = None
         matched_word_final_suffix = False
         # Word-final suffix rules (_# context) are checked before normal block
         # matching so that longer suffix-level rules take priority over
@@ -876,8 +893,8 @@ def _collect_block_applications(
         global_query_start = block.query_start_position + query_index
         # Cache suffix tuples once per outer-loop position so that the inner
         # candidate loop avoids redundant list→tuple conversions.
-        lemma_suffix_tokens = tuple(lemma_ipa[global_lemma_start:])
-        query_suffix_tokens = tuple(query_ipa[global_query_start:])
+        lemma_suffix_tokens = tuple(lemma_tokens[global_lemma_start:])
+        query_suffix_tokens = tuple(query_tokens[global_query_start:])
         for candidate in tokenized_rules:
             input_length = len(candidate.input_tokens)
             output_length = len(candidate.output_tokens)
@@ -907,8 +924,8 @@ def _collect_block_applications(
                 continue
             if not _matches_context(
                 candidate.rule.get("context"),
-                lemma_ipa,
-                query_ipa,
+                lemma_tokens,
+                query_tokens,
                 lemma_start=global_lemma_start,
                 lemma_end=global_lemma_start + input_length,
                 query_start=global_query_start,
@@ -997,36 +1014,51 @@ def _collect_block_applications(
     return applications
 
 
-def explain(
-    query_ipa: list[str],
-    lemma_ipa: list[str],
+def explain_with_tokenized_rules(
+    query_tokens: list[str],
+    lemma_tokens: list[str],
     alignment: Alignment,
-    rules: list[Rule],
+    tokenized_rules: list[TokenizedRule],
 ) -> list[RuleApplication]:
-    """Explain which phonological rules account for aligned IPA mismatches.
+    """Explain aligned IPA mismatches using pre-tokenized phonological rules.
 
     Args:
-        query_ipa: Tokenized IPA phones for the query form.
-        lemma_ipa: Tokenized IPA phones for the lemma form.
+        query_tokens: Tokenized IPA phones for the query form.
+        lemma_tokens: Tokenized IPA phones for the lemma form.
         alignment: Alignment of aligned query/lemma token columns.
-        rules: A list[Rule] of phonological rules to match against mismatches.
+        tokenized_rules: Pre-tokenized phonological rules to match against
+            mismatches.
 
     Returns:
         A list[RuleApplication] describing which rules account for aligned
         query/lemma mismatches.
     """
-    tokenized_rules = _tokenize_rules(rules)
     applications: list[RuleApplication] = []
     for block in _iter_mismatch_blocks(alignment):
         applications.extend(
             _collect_block_applications(
                 block,
-                query_ipa=query_ipa,
-                lemma_ipa=lemma_ipa,
+                query_tokens=query_tokens,
+                lemma_tokens=lemma_tokens,
                 tokenized_rules=tokenized_rules,
             )
         )
     return applications
+
+
+def explain(
+    query_tokens: list[str],
+    lemma_tokens: list[str],
+    alignment: Alignment,
+    rules: list[Rule],
+) -> list[RuleApplication]:
+    """Explain which phonological rules account for aligned IPA mismatches."""
+    return explain_with_tokenized_rules(
+        query_tokens=query_tokens,
+        lemma_tokens=lemma_tokens,
+        alignment=alignment,
+        tokenized_rules=tokenize_rules_for_matching(rules),
+    )
 
 
 def explain_alignment(

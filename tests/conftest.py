@@ -12,9 +12,14 @@ from api.main import app
 
 
 @pytest.fixture
-def client() -> TestClient:
-    with TestClient(app) as test_client:
-        yield test_client
+def client() -> Generator[TestClient, None, None]:
+    """Yield ``TestClient`` while ``app.state.disable_startup_warmup`` skips startup warmup."""
+    app.state.disable_startup_warmup = True
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.state.disable_startup_warmup = False
 
 
 def _clear_pos_overrides(lsx: ModuleType | None) -> None:

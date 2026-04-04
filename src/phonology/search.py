@@ -15,7 +15,15 @@ import yaml  # type: ignore[import-untyped]
 
 from ._phones import VOWEL_PHONES
 from .distance import MatrixData, phone_distance
-from .explainer import Alignment, RuleApplication, explain, load_rules
+from .explainer import (
+    Alignment,
+    RuleApplication,
+    TokenizedRule,
+    explain,
+    explain_with_tokenized_rules,
+    load_rules,
+    tokenize_rules_for_matching,
+)
 from .ipa_converter import apply_koine_consonant_shifts, to_ipa, tokenize_ipa
 
 DistanceMatrix: TypeAlias = MatrixData
@@ -24,10 +32,11 @@ LexiconEntry: TypeAlias = dict[str, Any]
 
 
 class LexiconRecord(NamedTuple):
-    """A lexicon entry paired with its cached IPA token count."""
+    """A lexicon entry paired with its cached IPA tokens and count."""
 
     entry: LexiconEntry
     token_count: int
+    ipa_tokens: tuple[str, ...] = ()
 
 
 LexiconMap: TypeAlias = dict[str, LexiconRecord]
@@ -68,7 +77,11 @@ class SearchResult:
     ``dialect_attribution`` is always set to a descriptive string by
     ``extend_stage``, but defaults to ``None`` so that callers constructing
     instances outside the pipeline (e.g. tests, future stages) are not
-    forced to supply a value.  Consumers should handle ``None`` gracefully.
+    forced to supply a value. Consumers should handle ``None`` gracefully.
+    ``entry_id`` identifies the source lexicon entry for this ``SearchResult``;
+    pipeline stages or external constructors may populate it similarly to how
+    ``extend_stage`` populates ``dialect_attribution``. Consumers should treat
+    ``entry_id=None`` as "source entry unknown" and only rely on it when set.
     """
 
     lemma: str
@@ -78,6 +91,8 @@ class SearchResult:
     rule_applications: list[RuleApplication] = field(default_factory=list)
     alignment_visualization: str = ""
     ipa: str | None = None
+    entry_id: str | None = None
+    _alignment: Alignment | None = field(default=None, init=False, repr=False, compare=False)
 
 
 def _entry_id(entry: LexiconEntry) -> str:
@@ -124,6 +139,13 @@ def _lookup_entry(record_or_entry: LexiconLookupValue) -> LexiconEntry:
     if isinstance(record_or_entry, LexiconRecord):
         return record_or_entry.entry
     return record_or_entry
+
+
+def _lookup_entry_tokens(record_or_entry: LexiconLookupValue) -> tuple[str, ...]:
+    """Return cached IPA tokens when available, tokenizing only as a fallback."""
+    if isinstance(record_or_entry, LexiconRecord) and len(record_or_entry.ipa_tokens) > 0:
+        return record_or_entry.ipa_tokens
+    return tuple(tokenize_ipa(_entry_ipa(_lookup_entry(record_or_entry))))
 
 
 def _extract_consonant_skeleton(tokens: list[str]) -> list[str]:
@@ -460,6 +482,12 @@ def _get_rules_registry(language: str = "ancient_greek") -> dict[str, dict[str, 
         ) from err
 
 
+@lru_cache(maxsize=8)
+def _get_tokenized_rules(language: str = "ancient_greek") -> list[TokenizedRule]:
+    rules_registry = _get_rules_registry(language)
+    return tokenize_rules_for_matching(list(rules_registry.values()))
+
+
 def build_lexicon_map(lexicon: Sequence[LexiconEntry]) -> LexiconMap:
     """Build a lexicon map with cached IPA token counts for each entry.
 
@@ -474,9 +502,11 @@ def build_lexicon_map(lexicon: Sequence[LexiconEntry]) -> LexiconMap:
     """
     result: LexiconMap = {}
     for entry_id, entry in _build_entry_lookup(lexicon).items():
+        ipa_tokens = tuple(tokenize_ipa(_entry_ipa(entry)))
         result[entry_id] = LexiconRecord(
             entry=entry,
-            token_count=len(tokenize_ipa(_entry_ipa(entry))),
+            token_count=len(ipa_tokens),
+            ipa_tokens=ipa_tokens,
         )
     return result
 
@@ -576,6 +606,179 @@ def _format_alignment_visualization(
     return "\n".join([query_line.rstrip(), marker_line.rstrip(), lemma_line.rstrip()])
 
 
+def _candidate_dialect(entry: LexiconEntry) -> str:
+    """Return a normalized display label for a candidate's lemma dialect."""
+    dialect = entry.get("dialect")
+    if dialect is None or str(dialect).strip() == "":
+        return "unknown"
+    return str(dialect)
+
+
+def _build_dialect_attribution(
+    candidate_dialect: str,
+    matched_dialects: list[str] | None = None,
+) -> str:
+    """Return the public dialect attribution string for a search hit."""
+    if matched_dialects:
+        return (
+            f"lemma dialect: {candidate_dialect}; "
+            f"query-compatible dialects: {', '.join(matched_dialects)}"
+        )
+    return f"lemma dialect: {candidate_dialect}"
+
+
+def _score_stage(
+    query_ipa: str,
+    candidates: Iterable[str],
+    lexicon_map: LexiconLookup,
+    matrix: DistanceMatrix,
+) -> list[SearchResult]:
+    """Stage 2a: score candidates without explanation or visualization work.
+
+    Perform tokenization, Smith-Waterman alignment via _smith_waterman_alignment,
+    and initial confidence scoring via _normalized_confidence for a set of
+    candidate entry IDs against the query IPA. This internal stage uses
+    _lookup_entry, _lookup_entry_tokens, and _lemma_label to resolve candidate
+    metadata and defers expensive rule explanation and visualization logic
+    until after top-N results have been ranked.
+
+    Args:
+        query_ipa: IPA transcription string of the search query.
+        candidates: Iterable of lexicon entry IDs to score.
+        lexicon_map: Lookup mapping entry IDs to entries or LexiconRecords.
+        matrix: Phonological distance matrix for substitution scoring.
+
+    Returns:
+        List of SearchResult objects with populated lemma, confidence,
+        dialect_attribution, ipa, and entry_id fields. Each result also
+        carries a private ._alignment attribute for subsequent annotation.
+
+    Raises:
+        KeyError: If a candidate lookup in lexicon_map fails fundamentally.
+        ValueError: If tokenize_ipa, _lookup_entry, or _entry_ipa rejects
+            an entry.
+    """
+    query_tokens = tokenize_ipa(query_ipa)
+    results: list[SearchResult] = []
+
+    for candidate_id in candidates:
+        record_or_entry = lexicon_map.get(candidate_id)
+        if record_or_entry is None:
+            logger.debug(
+                "Skipping candidate_id %r not found in lexicon_map (size=%d)",
+                candidate_id,
+                len(lexicon_map),
+            )
+            continue
+        entry = _lookup_entry(record_or_entry)
+        lemma = _lemma_label(entry)
+        lemma_ipa = _entry_ipa(entry)
+        lemma_tokens = list(_lookup_entry_tokens(record_or_entry))
+        best_score, aligned_query, aligned_lemma = _smith_waterman_alignment(
+            query_tokens, lemma_tokens, matrix
+        )
+        confidence = _normalized_confidence(best_score, query_tokens, lemma_tokens)
+        result = SearchResult(
+            lemma=lemma,
+            confidence=confidence,
+            dialect_attribution=_build_dialect_attribution(_candidate_dialect(entry)),
+            ipa=lemma_ipa,
+            entry_id=candidate_id,
+        )
+        result._alignment = Alignment(
+            aligned_query=tuple(aligned_query),
+            aligned_lemma=tuple(aligned_lemma),
+        )
+        results.append(result)
+
+    return results
+
+
+def _annotate_search_results(
+    query_ipa: str,
+    results: list[SearchResult],
+    lexicon_map: LexiconLookup,
+    matrix: DistanceMatrix,
+    language: str = "ancient_greek",
+) -> list[SearchResult]:
+    """Stage 2b: annotate ranked hits with explanations and alignments."""
+    if not results:
+        return []
+
+    query_tokens = tokenize_ipa(query_ipa)
+    tokenized_rules = _get_tokenized_rules(language)
+    annotated: list[SearchResult] = []
+
+    for result in results:
+        candidate_id = result.entry_id
+        if candidate_id is None:
+            annotated.append(result)
+            continue
+
+        record_or_entry = lexicon_map.get(candidate_id)
+        if record_or_entry is None:
+            logger.debug(
+                "Skipping annotation for candidate_id %r not found in lexicon_map (size=%d)",
+                candidate_id,
+                len(lexicon_map),
+            )
+            annotated.append(result)
+            continue
+
+        entry = _lookup_entry(record_or_entry)
+        lemma_ipa = _entry_ipa(entry)
+        lemma_tokens = list(_lookup_entry_tokens(record_or_entry))
+        alignment = result._alignment
+        if alignment is None:
+            _best_score, aligned_query, aligned_lemma = _smith_waterman_alignment(
+                query_tokens, lemma_tokens, matrix
+            )
+            alignment = Alignment(
+                aligned_query=tuple(aligned_query),
+                aligned_lemma=tuple(aligned_lemma),
+            )
+        else:
+            aligned_query = list(alignment.aligned_query)
+            aligned_lemma = list(alignment.aligned_lemma)
+        # explain_with_tokenized_rules accepts tokenized input.
+        applications = explain_with_tokenized_rules(
+            query_tokens=query_tokens,
+            lemma_tokens=lemma_tokens,
+            alignment=alignment,
+            tokenized_rules=tokenized_rules,
+        )
+        matched_dialects = _collect_application_dialects(applications)
+        markers = _apply_rule_markers(
+            _build_alignment_markers(aligned_query, aligned_lemma),
+            aligned_query,
+            aligned_lemma,
+            applications,
+        )
+        annotated_result = SearchResult(
+            lemma=result.lemma,
+            confidence=result.confidence,
+            dialect_attribution=_build_dialect_attribution(
+                _candidate_dialect(entry),
+                matched_dialects,
+            ),
+            applied_rules=[
+                application.rule_id
+                for application in applications
+                if not _is_observed_application(application)
+            ],
+            rule_applications=list(applications),
+            alignment_visualization=_format_alignment_visualization(
+                aligned_query, aligned_lemma, markers
+            ),
+            ipa=result.ipa,
+            entry_id=candidate_id,
+        )
+        annotated_result._alignment = alignment
+        annotated.append(annotated_result)
+
+    return annotated
+
+
 def extend_stage(
     query_ipa: str,
     candidates: Iterable[str],
@@ -610,81 +813,19 @@ def extend_stage(
             ``"headword"`` or ``"ipa"`` field and ``_lemma_label`` or
             ``_entry_ipa`` rejects it.
     """
-    query_tokens = tokenize_ipa(query_ipa)
-    results: list[SearchResult] = []
-    rules_registry = _get_rules_registry(language)
-    rules = list(rules_registry.values())
-
-    for candidate_id in candidates:
-        record_or_entry = lexicon_map.get(candidate_id)
-        if record_or_entry is None:
-            logger.debug(
-                "Skipping candidate_id %r not found in lexicon_map (size=%d)",
-                candidate_id,
-                len(lexicon_map),
-            )
-            continue
-        entry = _lookup_entry(record_or_entry)
-        lemma = _lemma_label(entry)
-        lemma_ipa = _entry_ipa(entry)
-        lemma_tokens = tokenize_ipa(lemma_ipa)
-        best_score, aligned_query, aligned_lemma = _smith_waterman_alignment(
-            query_tokens, lemma_tokens, matrix
-        )
-        confidence = _normalized_confidence(best_score, query_tokens, lemma_tokens)
-        applications = explain(
-            query_ipa=query_tokens,
-            lemma_ipa=lemma_tokens,
-            alignment=Alignment(
-                aligned_query=tuple(aligned_query),
-                aligned_lemma=tuple(aligned_lemma),
-            ),
-            rules=rules,
-        )
-        matched_dialects = _collect_application_dialects(applications)
-        markers = _apply_rule_markers(
-            _build_alignment_markers(aligned_query, aligned_lemma),
-            aligned_query,
-            aligned_lemma,
-            applications,
-        )
-        dialect = entry.get("dialect")
-        candidate_dialect = (
-            "unknown" if dialect is None or str(dialect).strip() == "" else str(dialect)
-        )
-        if matched_dialects:
-            dialect_attribution = (
-                f"lemma dialect: {candidate_dialect}; "
-                f"query-compatible dialects: {', '.join(matched_dialects)}"
-            )
-        else:
-            dialect_attribution = f"lemma dialect: {candidate_dialect}"
-
-        # applied_rules: rule IDs excluding observed-difference annotations (OBS-*).
-        # Used by api.main.explain_alignment for rule-based explanations.
-        # rule_applications: full application list including observed annotations.
-        # Used by api.main for Explanation construction when no rule-based explanation exists.
-        # This asymmetry is intentional: applied_rules captures phonological rules only,
-        # while rule_applications preserves the complete alignment history.
-        results.append(
-            SearchResult(
-                lemma=lemma,
-                confidence=confidence,
-                dialect_attribution=dialect_attribution,
-                applied_rules=[
-                    application.rule_id
-                    for application in applications
-                    if not _is_observed_application(application)
-                ],
-                rule_applications=list(applications),
-                alignment_visualization=_format_alignment_visualization(
-                    aligned_query, aligned_lemma, markers
-                ),
-                ipa=lemma_ipa,
-            )
-        )
-
-    return results
+    scored_results = _score_stage(
+        query_ipa=query_ipa,
+        candidates=candidates,
+        lexicon_map=lexicon_map,
+        matrix=matrix,
+    )
+    return _annotate_search_results(
+        query_ipa=query_ipa,
+        results=scored_results,
+        lexicon_map=lexicon_map,
+        matrix=matrix,
+        language=language,
+    )
 
 
 def filter_stage(results: list[SearchResult], max_results: int) -> list[SearchResult]:
@@ -705,6 +846,7 @@ def search(
     prebuilt_lexicon_map: LexiconMap | None = None,
     language: str = "ancient_greek",
     similarity_fallback_limit: int | None = None,
+    unigram_fallback_limit: int | None = None,
 ) -> list[SearchResult]:
     """Run full three-stage search for a Greek query word.
 
@@ -727,6 +869,10 @@ def search(
         similarity_fallback_limit: Optional explicit cap for the token-count
             fallback path used when both k=2 and k=1 seeds are empty.
             Defaults to uncapped evaluation of the ranked fallback list.
+        unigram_fallback_limit: Optional explicit cap for the k=1 fallback
+            path used when the default k=2 seed is empty but single-consonant
+            unigram matches exist. Defaults to evaluating the full lexicon in
+            unigram-hit-first order.
 
     Returns:
         Ranked search results ordered by descending confidence.
@@ -743,6 +889,8 @@ def search(
         raise ValueError("max_results must be a positive integer")
     if similarity_fallback_limit is not None and similarity_fallback_limit <= 0:
         raise ValueError("similarity_fallback_limit must be a positive integer")
+    if unigram_fallback_limit is not None and unigram_fallback_limit <= 0:
+        raise ValueError("unigram_fallback_limit must be a positive integer")
 
     query_ipa = to_ipa(query, dialect=dialect)
     query_tokens = tokenize_ipa(query_ipa)
@@ -790,15 +938,51 @@ def search(
             # Keep unigram hits first for lightweight ranking, but preserve full
             # lexicon coverage so short-query recall still comes from stage 2.
             lexicon_lookup = _get_lexicon_lookup()
-            unigram_candidate_set = set(unigram_candidates)
-            candidate_ids = unigram_candidates + [
-                entry_id for entry_id in lexicon_lookup if entry_id not in unigram_candidate_set
-            ]
-            logger.info(
-                "k=2 seed empty for query IPA %r; k=1 fallback evaluating %d candidates",
-                query_ipa,
-                len(candidate_ids),
-            )
+            if unigram_fallback_limit is None:
+                unigram_candidate_set = set(unigram_candidates)
+                candidate_ids = unigram_candidates + [
+                    entry_id for entry_id in lexicon_lookup if entry_id not in unigram_candidate_set
+                ]
+                logger.info(
+                    "k=2 seed empty for query IPA %r; k=1 fallback evaluating %d candidates",
+                    query_ipa,
+                    len(candidate_ids),
+                )
+            else:
+                tokenized_map = _get_tokenized_lexicon_map()
+                missing_unigram_candidates = list(
+                    dict.fromkeys(
+                        entry_id
+                        for entry_id in unigram_candidates
+                        if entry_id not in tokenized_map
+                    )
+                )
+                if missing_unigram_candidates:
+                    logger.warning(
+                        "k=2 seed empty for query IPA %r; ignoring unigram fallback "
+                        "candidates missing from tokenized lexicon map: %s",
+                        query_ipa,
+                        missing_unigram_candidates,
+                    )
+                unigram_candidate_map = {
+                    entry_id: tokenized_map[entry_id]
+                    for entry_id in unigram_candidates
+                    if entry_id in tokenized_map
+                }
+                candidate_ids = _rank_by_token_count_proximity(
+                    query_ipa,
+                    unigram_candidate_map,
+                    max_candidates=unigram_fallback_limit,
+                    query_token_count=len(query_tokens),
+                )
+                lexicon_lookup = tokenized_map
+                logger.info(
+                    "k=2 seed empty for query IPA %r; k=1 fallback evaluating %d of %d "
+                    "unigram candidates ranked by token-count proximity",
+                    query_ipa,
+                    len(candidate_ids),
+                    len(unigram_candidates),
+                )
         else:
             tokenized_map = _get_tokenized_lexicon_map()
             lexicon_lookup = tokenized_map
@@ -824,13 +1008,20 @@ def search(
                     len(tokenized_map),
                 )
 
-    return filter_stage(
-        extend_stage(
-            query_ipa=query_ipa,
-            candidates=candidate_ids,
-            lexicon_map=lexicon_lookup,
-            matrix=matrix,
-            language=language,
-        ),
+    scored_results = _score_stage(
+        query_ipa=query_ipa,
+        candidates=candidate_ids,
+        lexicon_map=lexicon_lookup,
+        matrix=matrix,
+    )
+    ranked_results = filter_stage(
+        scored_results,
         max_results=max_results,
+    )
+    return _annotate_search_results(
+        query_ipa=query_ipa,
+        results=ranked_results,
+        lexicon_map=lexicon_lookup,
+        matrix=matrix,
+        language=language,
     )
