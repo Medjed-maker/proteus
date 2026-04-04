@@ -1,0 +1,14 @@
+Proteus
+Copyright 2024-2026 Medjed and contributors
+
+---
+
+This project incorporates data from the following sources:
+
+Perseus Digital Library / LSJ
+  Source:  https://github.com/PerseusDL/lexica
+  License: Creative Commons Attribution-ShareAlike 4.0 International
+           https://creativecommons.org/licenses/by-sa/4.0/
+  Note:    Liddell-Scott-Jones Greek-English Lexicon (LSJ) XML, digitised
+           and morphologically annotated by the Perseus Digital Library,
+           Tufts University.
