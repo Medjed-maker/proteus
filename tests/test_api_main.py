@@ -368,6 +368,19 @@ class TestFrontendHtml:
         assert "cdn.tailwindcss.com" not in response.text
         assert "fonts.googleapis.com" not in response.text
 
+    def test_root_html_footer_uses_sticky_layout_and_announces_external_links(
+        self, client: TestClient
+    ) -> None:
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert 'footer class="mt-auto text-center text-xs text-ink-light"' in response.text
+        assert 'footer class="mt-16 text-center text-xs text-ink-light"' not in response.text
+        assert 'Perseus Digital Library<span class="sr-only"> (opens in a new tab)</span>' in response.text
+        assert 'PerseusDL/lexica<span class="sr-only"> (opens in a new tab)</span>' in response.text
+        assert 'CC BY-SA 4.0<span class="sr-only"> (opens in a new tab)</span>' in response.text
+        assert 'https://github.com/PerseusDL/morpheus' not in response.text
+
     def test_missing_route_returns_not_found_json(self, client: TestClient) -> None:
         response = client.get("/missing-route")
 
@@ -381,6 +394,7 @@ class TestStaticAssets:
 
         assert response.status_code == 200
         assert "text/css" in response.headers["content-type"]
+        assert ".mt-auto" in response.text
 
 
 class TestHealthEndpoint:

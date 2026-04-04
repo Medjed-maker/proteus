@@ -136,6 +136,11 @@ Liveness probe — returns `{"status": "ok"}`.
 ## Data Sources
 
 - **Lexicon**: [LSJ — Liddell-Scott-Jones Greek-English Lexicon](http://stephanus.tlg.uci.edu/lsj/)
+  — XML source provided by [Perseus Digital Library](http://www.perseus.tufts.edu/)
+  ([PerseusDL/lexica](https://github.com/PerseusDL/lexica)); licensed
+  [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Morpheus
+  ([PerseusDL/morpheus](https://github.com/PerseusDL/morpheus)) is a separate
+  morphological analysis system.
 - **Phonology**: Allen, W.S. *Vox Graeca* (3rd ed., 1987); Horrocks, G. *Greek: A History of the Language and its Speakers* (2010)
 - **IPA system**: Scholarly Ancient Greek pronunciation (Attic, c. 400 BCE default)
 - **Rule notation**: See `docs/phonology_rules.md` for context notation used in the committed YAML rule files.
