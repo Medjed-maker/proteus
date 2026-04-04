@@ -491,6 +491,7 @@ def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, objec
         index: dict[str, list[str]],
         unigram_index: dict[str, list[str]] | None = None,
         prebuilt_lexicon_map: dict[str, object] | None = None,
+        unigram_fallback_limit: int | None = None,
     ) -> list[SearchResult]:
         captured["query"] = query
         captured["lexicon"] = lexicon
@@ -500,6 +501,7 @@ def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, objec
         captured["index"] = index
         captured["unigram_index"] = unigram_index
         captured["prebuilt_lexicon_map"] = prebuilt_lexicon_map
+        captured["unigram_fallback_limit"] = unigram_fallback_limit
         return [
             SearchResult(
                 lemma="λόγος",
@@ -579,6 +581,7 @@ class TestSearchEndpoint:
         assert captured["dialect"] == "attic"
         assert captured["index"] == {"l ɡ": ["L1"]}
         assert captured["unigram_index"] == {"l": ["L1"]}
+        assert captured["unigram_fallback_limit"] == api_main._API_UNIGRAM_FALLBACK_LIMIT
         assert captured["prebuilt_lexicon_map"] == {
             "L1": LexiconRecord(
                 entry={"id": "L1", "headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},

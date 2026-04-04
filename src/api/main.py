@@ -5,13 +5,15 @@ Exposes the Proteus phonological search engine as a REST API.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import hashlib
 from functools import lru_cache
 import json
 import logging
 import os
 from pathlib import Path
-from typing import Annotated, Any, Literal
+import threading
+from typing import Annotated, Any, AsyncIterator, Literal
 
 import yaml
 
@@ -30,6 +32,22 @@ from phonology.ipa_converter import to_ipa
 logger = logging.getLogger(__name__)
 _ALLOWED_ORIGINS_ENV_VAR = "PROTEUS_ALLOWED_ORIGINS"
 _LOG_RAW_QUERY_ENV_VAR = "PROTEUS_LOG_RAW_SEARCH_QUERY"
+_DISABLE_STARTUP_WARMUP_ATTR = "disable_startup_warmup"
+_API_UNIGRAM_FALLBACK_LIMIT = 2000
+
+
+@asynccontextmanager
+async def _app_lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Run best-effort startup warmup while keeping app startup non-blocking."""
+    if not getattr(app.state, _DISABLE_STARTUP_WARMUP_ATTR, False):
+        warmup_thread = threading.Thread(
+            target=_warm_search_dependencies,
+            name="proteus-search-warmup",
+            daemon=True,
+        )
+        app.state.search_warmup_thread = warmup_thread
+        warmup_thread.start()
+    yield
 
 
 def _get_allowed_origins() -> list[str]:
@@ -70,6 +88,7 @@ app = FastAPI(
     description="Ancient Greek phonological search engine",
     version="0.1.0",
     docs_url="/docs",
+    lifespan=_app_lifespan,
 )
 app.add_middleware(
     CORSMiddleware,
@@ -155,6 +174,19 @@ def _load_unigram_index() -> phonology_search.KmerIndex:
 def _load_lexicon_map() -> phonology_search.LexiconMap:
     """Build and cache the lexicon map with per-entry token counts."""
     return phonology_search.build_lexicon_map(load_lexicon_entries())
+
+
+def _warm_search_dependencies() -> None:
+    """Eagerly populate cached search dependencies for faster first queries."""
+    try:
+        _load_lexicon_entries()
+        _load_distance_matrix()
+        _load_rules_registry()
+        _load_search_index()
+        _load_unigram_index()
+        _load_lexicon_map()
+    except (ValueError, FileNotFoundError, OSError, yaml.YAMLError):
+        logger.exception("Background search warmup failed")
 
 
 def _distance_from_confidence(confidence: float) -> float:
@@ -354,6 +386,7 @@ async def search(request: SearchRequest) -> SearchResponse:
             index=search_index,
             unigram_index=unigram_index,
             prebuilt_lexicon_map=lexicon_map,
+            unigram_fallback_limit=_API_UNIGRAM_FALLBACK_LIMIT,
         )
     except ValueError as err:
         logger.info("Rejected search query (%s): %s", query_log_label, err)

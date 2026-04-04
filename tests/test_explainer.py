@@ -135,8 +135,8 @@ def test_explain_detects_single_token_substitution_with_japanese_description() -
     ]
 
     applications = explain(
-        query_ipa=["k", "ɛː", "s"],
-        lemma_ipa=["k", "aː", "s"],
+        query_tokens=["k", "ɛː", "s"],
+        lemma_tokens=["k", "aː", "s"],
         alignment=Alignment(
             aligned_query=("k", "ɛː", "s"),
             aligned_lemma=("k", "aː", "s"),
@@ -172,8 +172,8 @@ def test_explain_prefers_longest_multi_token_rule() -> None:
     ]
 
     applications = explain(
-        query_ipa=["t", "t"],
-        lemma_ipa=["s", "s"],
+        query_tokens=["t", "t"],
+        lemma_tokens=["s", "s"],
         alignment=Alignment(
             aligned_query=("t", "t"),
             aligned_lemma=("s", "s"),
@@ -200,8 +200,8 @@ def test_explain_detects_deletion_and_uses_lemma_position() -> None:
     ]
 
     applications = explain(
-        query_ipa=["a", "a"],
-        lemma_ipa=["a", "s", "a"],
+        query_tokens=["a", "a"],
+        lemma_tokens=["a", "s", "a"],
         alignment=Alignment(
             aligned_query=("a", None, "a"),
             aligned_lemma=("a", "s", "a"),
@@ -232,8 +232,8 @@ def test_explain_skips_empty_output_rule_without_query_gap() -> None:
     ]
 
     applications = explain(
-        query_ipa=["a"],
-        lemma_ipa=["s"],
+        query_tokens=["a"],
+        lemma_tokens=["s"],
         alignment=Alignment(
             aligned_query=("a",),
             aligned_lemma=("s",),
@@ -265,8 +265,8 @@ def test_explain_ignores_empty_input_rule_without_insertion_flag() -> None:
     ]
 
     applications = explain(
-        query_ipa=["a"],
-        lemma_ipa=[],
+        query_tokens=["a"],
+        lemma_tokens=[],
         alignment=Alignment(
             aligned_query=("a",),
             aligned_lemma=(None,),
@@ -293,8 +293,8 @@ def test_explain_matches_empty_input_rule_only_when_explicitly_allowed() -> None
     rule["is_insertion"] = True
 
     applications = explain(
-        query_ipa=["a"],
-        lemma_ipa=[],
+        query_tokens=["a"],
+        lemma_tokens=[],
         alignment=Alignment(
             aligned_query=("a",),
             aligned_lemma=(None,),
@@ -325,8 +325,8 @@ def test_explain_uses_context_to_choose_between_competing_rules() -> None:
     ]
 
     after_result = explain(
-        query_ipa=["e", "aː"],
-        lemma_ipa=["e", "ɛː"],
+        query_tokens=["e", "aː"],
+        lemma_tokens=["e", "ɛː"],
         alignment=Alignment(
             aligned_query=("e", "aː"),
             aligned_lemma=("e", "ɛː"),
@@ -334,8 +334,8 @@ def test_explain_uses_context_to_choose_between_competing_rules() -> None:
         rules=rules,
     )
     elsewhere_result = explain(
-        query_ipa=["o", "aː"],
-        lemma_ipa=["o", "ɛː"],
+        query_tokens=["o", "aː"],
+        lemma_tokens=["o", "ɛː"],
         alignment=Alignment(
             aligned_query=("o", "aː"),
             aligned_lemma=("o", "ɛː"),
@@ -367,8 +367,8 @@ def test_explain_prefers_specific_context_over_generic_rule() -> None:
     ]
 
     applications = explain(
-        query_ipa=["r", "aː"],
-        lemma_ipa=["r", "ɛː"],
+        query_tokens=["r", "aː"],
+        lemma_tokens=["r", "ɛː"],
         alignment=Alignment(
             aligned_query=("r", "aː"),
             aligned_lemma=("r", "ɛː"),
@@ -380,7 +380,7 @@ def test_explain_prefers_specific_context_over_generic_rule() -> None:
 
 
 @pytest.mark.parametrize(
-    ("rule", "query_ipa", "lemma_ipa", "alignment", "expected_rule_id"),
+    ("rule", "query_tokens", "lemma_tokens", "alignment", "expected_rule_id"),
     [
         (
             _rule(
@@ -450,15 +450,15 @@ def test_explain_prefers_specific_context_over_generic_rule() -> None:
 )
 def test_explain_supports_primary_context_notation(
     rule: dict[str, object],
-    query_ipa: list[str],
-    lemma_ipa: list[str],
+    query_tokens: list[str],
+    lemma_tokens: list[str],
     alignment: Alignment,
     expected_rule_id: str,
 ) -> None:
     """Verify primary context shorthand notations map to the intended matching rule."""
     applications = explain(
-        query_ipa=query_ipa,
-        lemma_ipa=lemma_ipa,
+        query_tokens=query_tokens,
+        lemma_tokens=lemma_tokens,
         alignment=alignment,
         rules=[rule],
     )
@@ -469,8 +469,8 @@ def test_explain_supports_primary_context_notation(
 def test_explain_supports_word_final_context_with_exact_tail_inside_suffix() -> None:
     """Accept CTX-FINAL when the exact remaining tail is contained within a suffix alignment."""
     applications = explain(
-        query_ipa=["b", "a", "s", "i", "l", "e", "o", "s"],
-        lemma_ipa=["b", "a", "s", "i", "l", "eu", "s"],
+        query_tokens=["b", "a", "s", "i", "l", "e", "o", "s"],
+        lemma_tokens=["b", "a", "s", "i", "l", "eu", "s"],
         alignment=Alignment(
             aligned_query=("b", "a", "s", "i", "l", "e", "o", "s"),
             aligned_lemma=("b", "a", "s", "i", "l", "eu", None, "s"),
@@ -492,8 +492,8 @@ def test_explain_supports_word_final_context_with_exact_tail_inside_suffix() -> 
 def test_explain_rejects_word_final_context_when_tokens_remain_after_suffix() -> None:
     """Reject CTX-FINAL when tokens remain after the candidate word-final suffix."""
     applications = explain(
-        query_ipa=["b", "a", "s", "i", "l", "e", "o", "s", "u"],
-        lemma_ipa=["b", "a", "s", "i", "l", "eu", "s", "u"],
+        query_tokens=["b", "a", "s", "i", "l", "e", "o", "s", "u"],
+        lemma_tokens=["b", "a", "s", "i", "l", "eu", "s", "u"],
         alignment=Alignment(
             aligned_query=("b", "a", "s", "i", "l", "e", "o", "s", "u"),
             aligned_lemma=("b", "a", "s", "i", "l", "eu", None, "s", "u"),
@@ -515,8 +515,8 @@ def test_explain_rejects_word_final_context_when_tokens_remain_after_suffix() ->
 def test_explain_rejects_word_final_context_when_later_mismatch_block_remains() -> None:
     """Reject CTX-FINAL when the candidate would need a later mismatch block."""
     applications = explain(
-        query_ipa=["x", "b", "y"],
-        lemma_ipa=["a", "b", "c"],
+        query_tokens=["x", "b", "y"],
+        lemma_tokens=["a", "b", "c"],
         alignment=Alignment(
             aligned_query=("x", "b", "y"),
             aligned_lemma=("a", "b", "c"),
@@ -539,8 +539,8 @@ def test_explain_rejects_word_final_context_when_later_mismatch_block_remains() 
 def test_explain_supports_gap_spanning_one_to_two_token_rule() -> None:
     """Verify alignment matches GAP-1TO2 when one lemma token expands into two query tokens."""
     applications = explain(
-        query_ipa=["e", "o"],
-        lemma_ipa=["eu"],
+        query_tokens=["e", "o"],
+        lemma_tokens=["eu"],
         alignment=Alignment(
             aligned_query=("e", "o"),
             aligned_lemma=("eu", None),
@@ -554,8 +554,8 @@ def test_explain_supports_gap_spanning_one_to_two_token_rule() -> None:
 def test_explain_supports_gap_spanning_two_to_one_token_rule() -> None:
     """Verify alignment matches GAP-2TO1 when two lemma tokens contract into one query token."""
     applications = explain(
-        query_ipa=["ɛː"],
-        lemma_ipa=["e", "a"],
+        query_tokens=["ɛː"],
+        lemma_tokens=["e", "a"],
         alignment=Alignment(
             aligned_query=("ɛː", None),
             aligned_lemma=("e", "a"),
@@ -575,8 +575,8 @@ def test_explain_supports_gap_spanning_two_to_three_token_expansion() -> None:
     """
     # tokenize_ipa("ɛːp") = ["ɛː", "p"], tokenize_ipa("eab") = ["e", "a", "b"]
     applications = explain(
-        query_ipa=["e", "a", "b"],
-        lemma_ipa=["ɛː", "p"],
+        query_tokens=["e", "a", "b"],
+        lemma_tokens=["ɛː", "p"],
         alignment=Alignment(
             aligned_query=("e", "a", "b"),
             aligned_lemma=("ɛː", None, "p"),
@@ -591,8 +591,8 @@ def test_explain_supports_gap_spanning_three_to_two_token_contraction() -> None:
     """Verify a 3->2 rule matches across a query gap when all columns are mismatches."""
     # tokenize_ipa("ean") = ["e", "a", "n"], tokenize_ipa("ɛːm") = ["ɛː", "m"]
     applications = explain(
-        query_ipa=["ɛː", "m"],
-        lemma_ipa=["e", "a", "n"],
+        query_tokens=["ɛː", "m"],
+        lemma_tokens=["e", "a", "n"],
         alignment=Alignment(
             aligned_query=("ɛː", None, "m"),
             aligned_lemma=("e", "a", "n"),
@@ -606,8 +606,8 @@ def test_explain_supports_gap_spanning_three_to_two_token_contraction() -> None:
 def test_explain_rejects_crossing_gap_match_for_multi_token_rule() -> None:
     """Reject a candidate when insertion and deletion gaps cross in one match."""
     applications = explain(
-        query_ipa=["t", "t"],
-        lemma_ipa=["s", "s"],
+        query_tokens=["t", "t"],
+        lemma_tokens=["s", "s"],
         alignment=Alignment(
             aligned_query=("t", None, "t"),
             aligned_lemma=(None, "s", "s"),
@@ -622,8 +622,8 @@ def test_explain_rejects_crossing_gap_match_for_multi_token_rule() -> None:
 def test_explain_rejects_crossing_gap_match_for_two_to_two_rule() -> None:
     """Reject 2->2 rules when they would need both gap directions in one match."""
     applications = explain(
-        query_ipa=["e", "oː"],
-        lemma_ipa=["eː", "o"],
+        query_tokens=["e", "oː"],
+        lemma_tokens=["eː", "o"],
         alignment=Alignment(
             aligned_query=("e", None, "oː"),
             aligned_lemma=(None, "eː", "o"),
@@ -637,8 +637,8 @@ def test_explain_rejects_crossing_gap_match_for_two_to_two_rule() -> None:
 def test_explain_rejects_crossing_gap_match_for_word_final_suffix_rule() -> None:
     """Reject `_#` suffix rules when the remaining alignment contains crossing gaps."""
     applications = explain(
-        query_ipa=["e", "oː"],
-        lemma_ipa=["eː", "o"],
+        query_tokens=["e", "oː"],
+        lemma_tokens=["eː", "o"],
         alignment=Alignment(
             aligned_query=("e", None, "oː"),
             aligned_lemma=(None, "eː", "o"),
@@ -652,8 +652,8 @@ def test_explain_rejects_crossing_gap_match_for_word_final_suffix_rule() -> None
 def test_explain_supports_nc_context_with_query_side_fallback_after_lemma_end() -> None:
     """Verify _NC context matching can fall back to query-side lookahead beyond lemma length."""
     applications = explain(
-        query_ipa=["aː", "n", "t"],
-        lemma_ipa=["a"],
+        query_tokens=["aː", "n", "t"],
+        lemma_tokens=["a"],
         alignment=Alignment(
             aligned_query=("aː", "n", "t"),
             aligned_lemma=("a", None, None),
@@ -679,8 +679,8 @@ def test_explain_supports_nc_context_with_query_side_fallback_after_lemma_end() 
 def test_explain_generates_observed_substitution_for_unmatched_blocks() -> None:
     """Verify unmatched alignment differences produce observed-substitution annotations."""
     applications = explain(
-        query_ipa=["x"],
-        lemma_ipa=["a"],
+        query_tokens=["x"],
+        lemma_tokens=["a"],
         alignment=Alignment(
             aligned_query=("x",),
             aligned_lemma=("a",),
@@ -879,8 +879,8 @@ def test_packaged_morphophonemic_rules_match_runtime_ipa_examples(
     )
 
     applications = explain(
-        query_ipa=query_tokens,
-        lemma_ipa=lemma_tokens,
+        query_tokens=query_tokens,
+        lemma_tokens=lemma_tokens,
         alignment=Alignment(
             aligned_query=tuple(aligned_query),
             aligned_lemma=tuple(aligned_lemma),
@@ -949,8 +949,8 @@ def test_load_rules_duplicate_error_includes_both_files(
 def test_explain_generates_observed_deletion() -> None:
     """Verify a gap-aligned mismatch (deletion) produces OBS-DEL."""
     applications = explain(
-        query_ipa=["a"],
-        lemma_ipa=["a", "s"],
+        query_tokens=["a"],
+        lemma_tokens=["a", "s"],
         alignment=Alignment(
             aligned_query=("a", None),
             aligned_lemma=("a", "s"),
@@ -968,8 +968,8 @@ def test_explain_generates_observed_deletion() -> None:
 def test_explain_generates_observed_insertion() -> None:
     """Verify a gap-aligned mismatch (insertion) produces OBS-INS."""
     applications = explain(
-        query_ipa=["a", "s"],
-        lemma_ipa=["a"],
+        query_tokens=["a", "s"],
+        lemma_tokens=["a"],
         alignment=Alignment(
             aligned_query=("a", "s"),
             aligned_lemma=("a", None),
@@ -987,8 +987,8 @@ def test_explain_generates_observed_insertion() -> None:
 def test_explain_preserves_column_order_for_leading_query_gap() -> None:
     """Verify OBS fallback consumes mismatch columns in aligned order."""
     applications = explain(
-        query_ipa=["x"],
-        lemma_ipa=["a", "b"],
+        query_tokens=["x"],
+        lemma_tokens=["a", "b"],
         alignment=Alignment(
             aligned_query=(None, "x"),
             aligned_lemma=("a", "b"),
@@ -1006,8 +1006,8 @@ def test_explain_preserves_column_order_for_leading_query_gap() -> None:
 def test_explain_preserves_column_order_for_leading_lemma_gap() -> None:
     """Verify leading insertions do not shift later observed substitutions."""
     applications = explain(
-        query_ipa=["x", "y"],
-        lemma_ipa=["a"],
+        query_tokens=["x", "y"],
+        lemma_tokens=["a"],
         alignment=Alignment(
             aligned_query=("x", "y"),
             aligned_lemma=(None, "a"),
@@ -1025,8 +1025,8 @@ def test_explain_preserves_column_order_for_leading_lemma_gap() -> None:
 def test_explain_matches_catalogued_rule_after_leading_query_gap() -> None:
     """Verify OBS fallback does not consume a later catalogued substitution."""
     applications = explain(
-        query_ipa=["x"],
-        lemma_ipa=["a", "b"],
+        query_tokens=["x"],
+        lemma_tokens=["a", "b"],
         alignment=Alignment(
             aligned_query=(None, "x"),
             aligned_lemma=("a", "b"),
@@ -1052,8 +1052,8 @@ def test_explain_fails_fast_on_double_gap_mismatch_column() -> None:
     """Verify invalid mismatch blocks with double-gap columns raise a clear error."""
     with pytest.raises(RuntimeError) as exc_info:
         explain(
-            query_ipa=["x"],
-            lemma_ipa=["a"],
+            query_tokens=["x"],
+            lemma_tokens=["a"],
             alignment=Alignment(
                 aligned_query=(None, "x"),
                 aligned_lemma=(None, "a"),
