@@ -412,10 +412,47 @@ class TestReadyEndpoint:
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
 
+    def test_ready_returns_503_with_lexicon_setup_guidance_when_lexicon_loader_fails(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Readiness probe should explain how to generate the lexicon."""
+
+        def failing_loader() -> None:
+            raise ValueError("lexicon unavailable")
+
+        monkeypatch.setattr(api_main, "_load_lexicon_entries", failing_loader)
+
+        response = client.get("/ready")
+
+        assert response.status_code == 503
+        assert response.json()["detail"] == api_main._SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL
+
+    def test_ready_logs_warning_without_traceback_for_expected_not_ready_state(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Readiness probe should log expected 503 states without stack traces."""
+
+        def failing_loader() -> None:
+            raise ValueError("lexicon unavailable")
+
+        monkeypatch.setattr(api_main, "_load_lexicon_entries", failing_loader)
+        caplog.set_level(logging.WARNING, logger="api.main")
+
+        response = client.get("/ready")
+
+        assert response.status_code == 503
+        assert "Readiness probe skipped; dependencies not ready" in caplog.text
+        assert api_main._SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL in caplog.text
+        assert "Traceback" not in caplog.text
+
     @pytest.mark.parametrize(
         ("loader_name", "error"),
         [
-            ("_load_lexicon_entries", ValueError("lexicon unavailable")),
             ("_load_distance_matrix", FileNotFoundError("matrix not found")),
             ("_load_rules_registry", yaml.YAMLError("bad rules")),
             ("_load_search_index", OSError("index error")),
@@ -423,7 +460,7 @@ class TestReadyEndpoint:
             ("_load_lexicon_map", OSError("lexicon map error")),
         ],
     )
-    def test_ready_returns_503_when_loader_fails(
+    def test_ready_returns_generic_503_when_non_lexicon_loader_fails(
         self,
         client: TestClient,
         monkeypatch: pytest.MonkeyPatch,
@@ -440,7 +477,83 @@ class TestReadyEndpoint:
         response = client.get("/ready")
 
         assert response.status_code == 503
-        assert response.json() == {"detail": "Dependencies not ready"}
+        assert response.json() == {
+            "detail": api_main._SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL
+        }
+
+
+def _make_test_dependencies() -> dict[str, object]:
+    """Return standard test dependency fixtures shared across tests."""
+    return {
+        "lexicon": (
+            {
+                "id": "L1",
+                "headword": "λόγος",
+                "ipa": "lóɡos",
+                "dialect": "attic",
+            },
+        ),
+        "matrix": {"l": {"l": 0.0}},
+        "rules_registry": {
+            "CCH-001": {
+                "id": "CCH-001",
+                "input": "s",
+                "output": "h",
+                "dialects": ["attic"],
+            }
+        },
+        "search_index": {"l ɡ": ["L1"]},
+        "unigram_index": {"l": ["L1"]},
+        "lexicon_map": {
+            "L1": LexiconRecord(
+                entry={"id": "L1", "headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},
+                token_count=4,
+            )
+        },
+    }
+
+
+class TestSearchDependenciesLoader:
+    def test_load_search_dependencies_returns_named_tuple_with_named_fields(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        td = _make_test_dependencies()
+
+        monkeypatch.setattr(api_main, "load_lexicon_entries", lambda: td["lexicon"])
+        monkeypatch.setattr(api_main, "_load_distance_matrix", lambda: td["matrix"])
+        monkeypatch.setattr(api_main, "_load_rules_registry", lambda: td["rules_registry"])
+        monkeypatch.setattr(api_main, "_load_search_index", lambda: td["search_index"])
+        monkeypatch.setattr(api_main, "_load_unigram_index", lambda: td["unigram_index"])
+        monkeypatch.setattr(api_main, "_load_lexicon_map", lambda: td["lexicon_map"])
+
+        deps = api_main._load_search_dependencies()
+
+        assert isinstance(deps, api_main.SearchDependencies)
+        assert deps.lexicon == td["lexicon"]
+        assert deps.matrix == td["matrix"]
+        assert deps.rules_registry == td["rules_registry"]
+        assert deps.search_index == td["search_index"]
+        assert deps.unigram_index == td["unigram_index"]
+        assert deps.lexicon_map == td["lexicon_map"]
+
+    def test_warm_search_dependencies_logs_info_without_traceback_when_not_ready(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        detail = api_main._SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL
+
+        def fail_dependencies() -> api_main.SearchDependencies:
+            raise api_main.SearchDependenciesNotReadyError(detail)
+
+        monkeypatch.setattr(api_main, "_load_search_dependencies", fail_dependencies)
+        caplog.set_level(logging.INFO, logger="api.main")
+
+        api_main._warm_search_dependencies()
+
+        assert "Background search warmup skipped; dependencies not ready" in caplog.text
+        assert detail in caplog.text
+        assert "Traceback" not in caplog.text
 
 
 class TestDocumentationAndCors:
@@ -494,6 +607,7 @@ class TestDocumentationAndCors:
 
 def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
     """Stub all search dependencies and return a capture dict."""
+    td = _make_test_dependencies()
     captured: dict[str, object] = {}
 
     def fake_search(
@@ -535,49 +649,95 @@ def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, objec
             )
         ]
 
-    monkeypatch.setattr(
-        api_main,
-        "_load_lexicon_entries",
-        lambda: (
-            {
-                "id": "L1",
-                "headword": "λόγος",
-                "ipa": "lóɡos",
-                "dialect": "attic",
-            },
-        ),
-    )
-    monkeypatch.setattr(api_main, "_load_distance_matrix", lambda: {"l": {"l": 0.0}})
-    monkeypatch.setattr(
-        api_main,
-        "_load_rules_registry",
-        lambda: {
-            "CCH-001": {
-                "id": "CCH-001",
-                "input": "s",
-                "output": "h",
-                "dialects": ["attic"],
-            }
-        },
-    )
+    monkeypatch.setattr(api_main, "_load_lexicon_entries", lambda: td["lexicon"])
+    monkeypatch.setattr(api_main, "_load_distance_matrix", lambda: td["matrix"])
+    monkeypatch.setattr(api_main, "_load_rules_registry", lambda: td["rules_registry"])
     monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "loɡos")
-    monkeypatch.setattr(api_main, "_load_search_index", lambda: {"l ɡ": ["L1"]})
-    monkeypatch.setattr(api_main, "_load_unigram_index", lambda: {"l": ["L1"]})
-    monkeypatch.setattr(
-        api_main,
-        "_load_lexicon_map",
-        lambda: {
-            "L1": LexiconRecord(
-                entry={"id": "L1", "headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},
-                token_count=4,
-            )
-        },
-    )
+    monkeypatch.setattr(api_main, "_load_search_index", lambda: td["search_index"])
+    monkeypatch.setattr(api_main, "_load_unigram_index", lambda: td["unigram_index"])
+    monkeypatch.setattr(api_main, "_load_lexicon_map", lambda: td["lexicon_map"])
     monkeypatch.setattr(api_main.phonology_search, "search", fake_search)
     return captured
 
 
 class TestSearchEndpoint:
+    def test_search_uses_named_search_dependencies_fields(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        td = _make_test_dependencies()
+        captured: dict[str, object] = {}
+
+        monkeypatch.setattr(
+            api_main,
+            "_load_search_dependencies",
+            lambda: api_main.SearchDependencies(
+                lexicon=td["lexicon"],
+                matrix=td["matrix"],
+                rules_registry=td["rules_registry"],
+                search_index=td["search_index"],
+                unigram_index=td["unigram_index"],
+                lexicon_map=td["lexicon_map"],
+            ),
+        )
+        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "loɡos")
+
+        def fake_search(
+            query: str,
+            lexicon: tuple[dict[str, object], ...],
+            matrix: dict[str, dict[str, float]],
+            max_results: int,
+            dialect: str,
+            index: dict[str, list[str]],
+            unigram_index: dict[str, list[str]] | None = None,
+            prebuilt_lexicon_map: dict[str, object] | None = None,
+            unigram_fallback_limit: int | None = None,
+        ) -> list[SearchResult]:
+            captured["query"] = query
+            captured["lexicon"] = lexicon
+            captured["matrix"] = matrix
+            captured["max_results"] = max_results
+            captured["dialect"] = dialect
+            captured["index"] = index
+            captured["unigram_index"] = unigram_index
+            captured["prebuilt_lexicon_map"] = prebuilt_lexicon_map
+            captured["unigram_fallback_limit"] = unigram_fallback_limit
+            return [
+                SearchResult(
+                    lemma="λόγος",
+                    confidence=0.75,
+                    dialect_attribution="lemma dialect: attic",
+                    applied_rules=["CCH-001"],
+                    rule_applications=[
+                        RuleApplication(
+                            rule_id="CCH-001",
+                            rule_name="CCH-001",
+                            from_phone="s",
+                            to_phone="h",
+                            position=2,
+                        )
+                    ],
+                    ipa="lóɡos",
+                )
+            ]
+
+        monkeypatch.setattr(api_main.phonology_search, "search", fake_search)
+
+        response = client.post(
+            "/search",
+            json={"query_form": "λόγος", "dialect_hint": "attic", "max_candidates": 3},
+        )
+
+        assert response.status_code == 200
+        assert captured["query"] == "λόγος"
+        assert captured["lexicon"] is td["lexicon"]
+        assert captured["matrix"] is td["matrix"]
+        assert captured["max_results"] == 3
+        assert captured["dialect"] == "attic"
+        assert captured["index"] is td["search_index"]
+        assert captured["unigram_index"] is td["unigram_index"]
+        assert captured["prebuilt_lexicon_map"] is td["lexicon_map"]
+        assert captured["unigram_fallback_limit"] == api_main._API_UNIGRAM_FALLBACK_LIMIT
+        assert response.json()["hits"][0]["rules_applied"][0]["rule_id"] == "CCH-001"
 
     def test_search_accepts_public_request_shape_and_returns_hits(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -976,7 +1136,49 @@ class TestSearchEndpoint:
             assert debug_message not in caplog.text
             assert query not in caplog.text
 
-    def test_search_returns_server_error_when_loader_fails(
+    def test_search_returns_503_with_lexicon_setup_guidance_when_lexicon_loader_fails(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def fail_lexicon_entries() -> tuple[dict[str, object], ...]:
+            raise ValueError("lexicon unavailable")
+
+        monkeypatch.setattr(api_main, "_load_lexicon_entries", fail_lexicon_entries)
+
+        response = client.post(
+            "/search",
+            json={"query_form": "λόγος", "dialect_hint": "attic"},
+        )
+
+        assert response.status_code == 503
+        assert response.json()["detail"] == api_main._SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL
+
+    def test_search_logs_warning_with_redacted_query_without_traceback_when_not_ready(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        def fail_lexicon_entries() -> tuple[dict[str, object], ...]:
+            raise ValueError("lexicon unavailable")
+
+        monkeypatch.setattr(api_main, "_load_lexicon_entries", fail_lexicon_entries)
+        monkeypatch.delenv(api_main._LOG_RAW_QUERY_ENV_VAR, raising=False)
+        caplog.set_level(logging.WARNING, logger="api.main")
+
+        query = "λόγος"
+        response = client.post(
+            "/search",
+            json={"query_form": query, "dialect_hint": "attic"},
+        )
+
+        assert response.status_code == 503
+        assert "Search dependencies are not ready" in caplog.text
+        assert api_main._SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL in caplog.text
+        assert api_main._summarize_query_for_logs(query) in caplog.text
+        assert query not in caplog.text
+        assert "Traceback" not in caplog.text
+
+    def test_search_returns_generic_503_when_distance_matrix_loader_fails(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         def fail_distance_matrix() -> dict[str, dict[str, float]]:
@@ -993,12 +1195,12 @@ class TestSearchEndpoint:
             json={"query_form": "λόγος", "dialect_hint": "attic"},
         )
 
-        assert response.status_code == 500
+        assert response.status_code == 503
         assert response.json() == {
-            "detail": "Search is temporarily unavailable. Please try again later."
+            "detail": api_main._SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL
         }
 
-    def test_search_returns_server_error_when_unigram_loader_fails(
+    def test_search_returns_generic_503_when_unigram_loader_fails(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         mock_search_dependencies(monkeypatch)
@@ -1013,12 +1215,12 @@ class TestSearchEndpoint:
             json={"query_form": "λόγος", "dialect_hint": "attic"},
         )
 
-        assert response.status_code == 500
+        assert response.status_code == 503
         assert response.json() == {
-            "detail": "Search is temporarily unavailable. Please try again later."
+            "detail": api_main._SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL
         }
 
-    def test_search_returns_server_error_when_lexicon_map_loader_fails(
+    def test_search_returns_generic_503_when_lexicon_map_loader_fails(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         mock_search_dependencies(monkeypatch)
@@ -1033,9 +1235,9 @@ class TestSearchEndpoint:
             json={"query_form": "λόγος", "dialect_hint": "attic"},
         )
 
-        assert response.status_code == 500
+        assert response.status_code == 503
         assert response.json() == {
-            "detail": "Search is temporarily unavailable. Please try again later."
+            "detail": api_main._SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL
         }
 
 

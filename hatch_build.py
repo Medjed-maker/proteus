@@ -19,16 +19,36 @@ class build_hook(BuildHookInterface):
         """Prepare the build environment and ensure lexicon assets exist.
 
         Args:
-            version: Hatch build version string, ignored by this hook.
-            build_data: Mutable Hatch build metadata, ignored by this hook.
+            version: Hatch build version string (``"editable"`` for editable
+                installs, ``"standard"`` for wheel/sdist builds).
+            build_data: Mutable Hatch build metadata.  For editable installs,
+                ``force_include_editable`` is populated with force-include
+                entries excluding the generated lexicon.
 
         Side Effects:
-            Ensures the project's ``src`` directory is on ``sys.path`` and calls
+            For standard builds, ensures the project's ``src`` directory is on
+            ``sys.path`` and calls
             ``ensure_generated_lexicon(project_root=..., skip_if_present=True)``.
             Importing ``phonology.build_lexicon`` may occur as part of this setup.
             Stale lexicon outputs are regenerated instead of being silently reused.
+
+            For editable builds, lexicon generation is skipped entirely and the
+            lexicon asset is excluded from the editable force-include set.
         """
-        del version, build_data
+        if version == "editable":
+            lexicon_source = (Path(self.root) / "data" / "lexicon" / "greek_lemmas.json").resolve(
+                strict=False
+            )
+            editable_force_include = {
+                source: destination
+                for source, destination in self.build_config.get_force_include().items()
+                if Path(source).resolve(strict=False) != lexicon_source
+            }
+            build_data["force_include_editable"] = editable_force_include
+            logger.info(
+                "Skipping lexicon build hook for editable builds; explicit extraction remains the caller's responsibility."
+            )
+            return
 
         src_dir = str(Path(self.root, "src"))
         added_to_path = src_dir not in sys.path
