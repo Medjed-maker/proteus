@@ -49,8 +49,11 @@ proteus/
 ## Setup
 
 ```bash
-# Install dependencies
+# Install dependencies for editable development
 uv sync --all-extras
+
+# Generate the lexicon before using /ready or /search
+uv run --extra extract python -m phonology.build_lexicon --if-missing
 
 # Run development server
 uv run uvicorn api.main:app --reload
@@ -58,6 +61,13 @@ uv run uvicorn api.main:app --reload
 # Run tests
 uv run pytest
 ```
+
+If you skip the extraction step, the editable install still succeeds, but `/ready`
+and `/search` return HTTP 503 until the lexicon is generated.
+
+`bash scripts/extract-lsj.sh --if-missing` remains available as a convenience
+wrapper on shell-friendly platforms, but the Python module command above is the
+canonical cross-platform workflow, including native Windows environments.
 
 ## Data Setup
 
@@ -73,13 +83,14 @@ artifacts still include the lexicon JSON but omit the freshness metadata.
 
 ```bash
 # Generate or refresh lexicon explicitly
-# (--if-missing: 新鮮な出力がある場合のみ生成をスキップ)
-bash scripts/extract-lsj.sh [--xml-dir DIR] [--lsj-repo-dir DIR] [--if-missing]
+# (--if-missing: skip generation if fresh output exists)
+uv run --extra extract python -m phonology.build_lexicon [--xml-dir DIR] [--lsj-repo-dir DIR] [--if-missing]
 ```
 
-The `--xml-dir` and `--lsj-repo-dir` options apply to `scripts/extract-lsj.sh` (and the
-underlying `python -m phonology.build_lexicon` module), while `PROTEUS_LSJ_REPO_DIR` is
-read by both `uv build` and the extraction script.
+The `--xml-dir` and `--lsj-repo-dir` options apply directly to
+`python -m phonology.build_lexicon`. `scripts/extract-lsj.sh` forwards the same
+arguments to that module, while `PROTEUS_LSJ_REPO_DIR` is read by both
+`uv build` and the extraction workflow.
 
 ## API
 

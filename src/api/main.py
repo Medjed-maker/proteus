@@ -13,7 +13,7 @@ import logging
 import os
 from pathlib import Path
 import threading
-from typing import Annotated, Any, AsyncIterator, Literal
+from typing import Annotated, Any, AsyncIterator, Literal, NamedTuple
 
 import yaml
 
@@ -32,8 +32,38 @@ from phonology.ipa_converter import to_ipa
 logger = logging.getLogger(__name__)
 _ALLOWED_ORIGINS_ENV_VAR = "PROTEUS_ALLOWED_ORIGINS"
 _LOG_RAW_QUERY_ENV_VAR = "PROTEUS_LOG_RAW_SEARCH_QUERY"
+_LSJ_REPO_DIR_ENV_VAR = "PROTEUS_LSJ_REPO_DIR"
 _DISABLE_STARTUP_WARMUP_ATTR = "disable_startup_warmup"
 _API_UNIGRAM_FALLBACK_LIMIT = 2000
+_SEARCH_DEPENDENCY_LOAD_ERRORS = (ValueError, FileNotFoundError, OSError, yaml.YAMLError)
+_SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL = (
+    "Search dependencies are not ready. Verify packaged matrices, rules, and lexicon assets "
+    "are available."
+)
+_SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL = (
+    "Search dependencies are not ready. Run uv run --extra extract python -m "
+    "phonology.build_lexicon --if-missing "
+    "to generate the lexicon. If you use a non-default LSJ checkout, set "
+    f"{_LSJ_REPO_DIR_ENV_VAR} before extraction."
+)
+class SearchDependencies(NamedTuple):
+    """Search dependencies loaded at startup."""
+    lexicon: tuple[dict[str, Any], ...]
+    matrix: MatrixData
+    rules_registry: dict[str, dict[str, Any]]
+    search_index: phonology_search.KmerIndex
+    unigram_index: phonology_search.KmerIndex
+    lexicon_map: phonology_search.LexiconMap
+
+
+class SearchDependenciesNotReadyError(RuntimeError):
+    """Represent a dependency-loading failure with an API-safe detail string."""
+
+    detail: str
+
+    def __init__(self, detail: str) -> None:
+        super().__init__(detail)
+        self.detail = detail
 
 
 @asynccontextmanager
@@ -176,17 +206,63 @@ def _load_lexicon_map() -> phonology_search.LexiconMap:
     return phonology_search.build_lexicon_map(load_lexicon_entries())
 
 
+def _load_search_dependencies() -> SearchDependencies:
+    """Load all cached search dependencies needed by /ready and /search."""
+    try:
+        lexicon = load_lexicon_entries()
+    except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
+        raise SearchDependenciesNotReadyError(
+            _SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL
+        ) from err
+
+    try:
+        return SearchDependencies(
+            lexicon=lexicon,
+            matrix=_load_distance_matrix(),
+            rules_registry=_load_rules_registry(),
+            search_index=_load_search_index(),
+            unigram_index=_load_unigram_index(),
+            lexicon_map=_load_lexicon_map(),
+        )
+    except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
+        raise SearchDependenciesNotReadyError(
+            _SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL
+        ) from err
+
+
+def _search_dependencies_not_ready_exception(detail: str) -> HTTPException:
+    """Return a consistent HTTP error for dependency-loading failures."""
+    return HTTPException(
+        status_code=503,
+        detail=detail,
+    )
+
+
+def _log_search_dependencies_not_ready(
+    detail: str,
+    *,
+    log_level: int,
+    message: str,
+    query_log_label: str | None = None,
+) -> None:
+    """Log expected dependency-not-ready states without a traceback."""
+    if query_log_label is None:
+        logger.log(log_level, "%s: %s", message, detail)
+        return
+
+    logger.log(log_level, "%s for query (%s): %s", message, query_log_label, detail)
+
+
 def _warm_search_dependencies() -> None:
     """Eagerly populate cached search dependencies for faster first queries."""
     try:
-        _load_lexicon_entries()
-        _load_distance_matrix()
-        _load_rules_registry()
-        _load_search_index()
-        _load_unigram_index()
-        _load_lexicon_map()
-    except (ValueError, FileNotFoundError, OSError, yaml.YAMLError):
-        logger.exception("Background search warmup failed")
+        _load_search_dependencies()
+    except SearchDependenciesNotReadyError as err:
+        _log_search_dependencies_not_ready(
+            err.detail,
+            log_level=logging.INFO,
+            message="Background search warmup skipped; dependencies not ready",
+        )
 
 
 def _distance_from_confidence(confidence: float) -> float:
@@ -358,34 +434,29 @@ async def search(request: SearchRequest) -> SearchResponse:
     query_log_label = _summarize_query_for_logs(request.query_form)
 
     try:
-        lexicon = load_lexicon_entries()
-        matrix = _load_distance_matrix()
-        rules_registry = _load_rules_registry()
-        search_index = _load_search_index()
-        unigram_index = _load_unigram_index()
-        lexicon_map = _load_lexicon_map()
-    except (ValueError, FileNotFoundError, OSError, yaml.YAMLError) as err:
-        logger.exception(
-            "Failed to load search dependencies for query (%s)",
-            query_log_label,
+        deps = _load_search_dependencies()
+    except SearchDependenciesNotReadyError as err:
+        _log_search_dependencies_not_ready(
+            err.detail,
+            log_level=logging.WARNING,
+            message="Search dependencies are not ready",
+            query_log_label=query_log_label,
         )
-        raise HTTPException(
-            status_code=500,
-            detail="Search is temporarily unavailable. Please try again later.",
-        ) from err
+        raise _search_dependencies_not_ready_exception(err.detail) from err
 
     try:
         query_ipa = to_ipa(request.query_form, dialect=request.dialect_hint)
-        # phonology_search.search accepts the cached tuple directly, so avoid copying it.
+        # The cached dependency bundle is reused across requests, so pass its
+        # named fields directly into the core search implementation.
         results = phonology_search.search(
             request.query_form,
-            lexicon=lexicon,
-            matrix=matrix,
+            lexicon=deps.lexicon,
+            matrix=deps.matrix,
             max_results=request.max_candidates,
             dialect=request.dialect_hint,
-            index=search_index,
-            unigram_index=unigram_index,
-            prebuilt_lexicon_map=lexicon_map,
+            index=deps.search_index,
+            unigram_index=deps.unigram_index,
+            prebuilt_lexicon_map=deps.lexicon_map,
             unigram_fallback_limit=_API_UNIGRAM_FALLBACK_LIMIT,
         )
     except ValueError as err:
@@ -410,7 +481,11 @@ async def search(request: SearchRequest) -> SearchResponse:
         query=request.query_form,
         query_ipa=query_ipa,
         hits=[
-            _build_search_hit(result, query_ipa=query_ipa, rules_registry=rules_registry)
+            _build_search_hit(
+                result,
+                query_ipa=query_ipa,
+                rules_registry=deps.rules_registry,
+            )
             for result in results
         ],
     )
@@ -426,18 +501,14 @@ async def health() -> dict[str, str]:
 async def ready() -> dict[str, str]:
     """Readiness probe."""
     try:
-        _load_lexicon_entries()
-        _load_distance_matrix()
-        _load_rules_registry()
-        _load_search_index()
-        _load_unigram_index()
-        _load_lexicon_map()
-    except (ValueError, FileNotFoundError, OSError, yaml.YAMLError) as err:
-        logger.exception("Readiness probe failed")
-        raise HTTPException(
-            status_code=503,
-            detail="Dependencies not ready",
-        ) from err
+        _load_search_dependencies()
+    except SearchDependenciesNotReadyError as err:
+        _log_search_dependencies_not_ready(
+            err.detail,
+            log_level=logging.WARNING,
+            message="Readiness probe skipped; dependencies not ready",
+        )
+        raise _search_dependencies_not_ready_exception(err.detail) from err
     return {"status": "ok"}
 
 

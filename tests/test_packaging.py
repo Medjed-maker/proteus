@@ -456,6 +456,63 @@ def test_build_hook_prefers_project_src_over_preexisting_phonology_package(
             sys.modules.pop(module_name, None)
 
 
+def test_build_hook_skips_lexicon_generation_for_editable_builds(tmp_path: Path) -> None:
+    """Verify editable builds bypass the lexicon generation hook."""
+    project_root = tmp_path / "project"
+    project_src = project_root / "src" / "phonology"
+    project_src.mkdir(parents=True)
+    marker_path = tmp_path / "editable-called.txt"
+    (project_src / "__init__.py").write_text("", encoding="utf-8")
+    (project_src / "build_lexicon.py").write_text(
+        "from pathlib import Path\n\n"
+        "def ensure_generated_lexicon(**kwargs):\n"
+        f"    Path({str(marker_path)!r}).write_text('called', encoding='utf-8')\n",
+        encoding="utf-8",
+    )
+
+    stashed_phonology_modules = _stash_phonology_modules()
+    try:
+        hatch_build_module = _import_hatch_build_module()
+        hook = hatch_build_module.build_hook.__new__(hatch_build_module.build_hook)
+        hook.root = str(project_root)
+        matrices_source = str((project_root / "data" / "matrices").resolve())
+        hook.build_config = type(
+            "DummyBuildConfig",
+            (),
+            {
+                "get_force_include": staticmethod(
+                    lambda: {
+                        str((project_root / "data" / "lexicon" / "greek_lemmas.json").resolve()):
+                        "phonology/data/lexicon/greek_lemmas.json",
+                        matrices_source: "phonology/data/matrices",
+                    }
+                )
+            },
+        )()
+        build_data: dict[str, object] = {}
+
+        hook.initialize("editable", build_data)
+
+        assert not marker_path.exists()
+        assert str(project_root / "src") not in sys.path
+        assert build_data == {
+            "force_include_editable": {
+                matrices_source: "phonology/data/matrices",
+            }
+        }
+    finally:
+        _restore_phonology_modules(stashed_phonology_modules)
+        sys.modules.pop("hatch_build", None)
+        for module_name in (
+            "hatchling",
+            "hatchling.builders",
+            "hatchling.builders.hooks",
+            "hatchling.builders.hooks.plugin",
+            "hatchling.builders.hooks.plugin.interface",
+        ):
+            sys.modules.pop(module_name, None)
+
+
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv CLI not available")
 def test_uv_build_generates_missing_lexicon_for_sdist(tmp_path: Path) -> None:
     """Verify sdist builds generate and bundle lexicon payload plus metadata."""
@@ -974,6 +1031,97 @@ def test_uv_build_fails_without_lexicon_or_local_lsj_checkout(tmp_path: Path) ->
     assert "--xml-dir" in result.stderr
     assert "--lsj-repo-dir" in result.stderr
     assert build_lexicon.LSJ_REPO_DIR_ENV_VAR in result.stderr
+
+
+@pytest.mark.skipif(shutil.which("uv") is None, reason="uv CLI not available")
+def test_uv_sync_succeeds_without_lexicon_or_lsj_checkout_for_editable_builds(
+    tmp_path: Path,
+) -> None:
+    """Verify editable installs succeed before lexicon generation, but search stays unready."""
+    project_dir = _copy_build_project(tmp_path)
+    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    metadata_path = _metadata_path_for_lexicon(lexicon_path)
+
+    if lexicon_path.exists():
+        lexicon_path.unlink()
+    if metadata_path.exists():
+        metadata_path.unlink()
+    shutil.rmtree(project_dir / "data" / "external", ignore_errors=True)
+
+    result = subprocess.run(
+        [_uv_executable(), "sync", "--all-extras", "--dev"],
+        cwd=project_dir,
+        check=False,
+        capture_output=True,
+        env=_uv_build_env(tmp_path),
+        text=True,
+    )
+
+    _assert_uv_build_succeeded_or_skip(result)
+
+    # Verify the editable install exposes packaged matrices while reporting
+    # lexicon-backed search dependencies as not ready.
+    verify_script = """
+import phonology
+from fastapi.testclient import TestClient
+import api.main as api_main
+
+from phonology.distance import load_matrix
+
+matrix = load_matrix("attic_doric.json")
+assert "a" in matrix
+assert "a" in matrix["a"]
+
+try:
+    api_main.load_lexicon_entries()
+except ValueError as exc:
+    assert "Lexicon file not found" in str(exc)
+else:
+    raise AssertionError("Expected load_lexicon_entries() to fail without generated lexicon")
+
+api_main.app.state.disable_startup_warmup = True
+with TestClient(api_main.app) as client:
+    ready_response = client.get("/ready")
+    assert ready_response.status_code == 503
+    assert ready_response.json() == {
+        "detail": api_main._SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL
+    }
+
+    search_response = client.post("/search", json={"query_form": "λόγος"})
+    assert search_response.status_code == 503
+    assert search_response.json() == {
+        "detail": api_main._SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL
+    }
+
+print("editable install verified: matrix ok, lexicon pending")
+"""
+
+    if os.name == "nt":
+        venv_dir = "Scripts"
+        venv_exe = "python.exe"
+    else:
+        venv_dir = "bin"
+        venv_exe = "python"
+
+    venv_python_path = project_dir / ".venv" / venv_dir / venv_exe
+    assert venv_python_path.exists(), (
+        f"Expected venv interpreter at {venv_python_path} after successful uv sync"
+    )
+    venv_python = str(venv_python_path)
+    verify_result = subprocess.run(
+        [venv_python, "-c", verify_script],
+        cwd=project_dir,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert verify_result.returncode == 0, (
+        "Editable install verification failed using interpreter "
+        f"{venv_python!r} (expected venv interpreter at {venv_python_path!s}).\n"
+        f"stderr:\n{verify_result.stderr}\nstdout:\n{verify_result.stdout}"
+    )
+    assert "editable install verified: matrix ok, lexicon pending" in verify_result.stdout
 
 
 def test_ci_workflow_caches_lexicon_json_and_metadata_together() -> None:
