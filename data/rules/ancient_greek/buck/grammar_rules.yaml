@@ -1,0 +1,573 @@
+rules:
+  - id: grc_orth_4_1
+    buck_section: "4.1"
+    category: "alphabet"
+    description: "Classification of local alphabets into primitive, eastern, and western divisions."
+    notes: "The primitive type in Crete, Thera, and Melos lacks non-Phoenician signs like phi, chi, and psi."
+  - id: grc_orth_4_2
+    buck_section: "4.2"
+    category: "alphabet"
+    description: "Use of specific signs for xi and psi."
+    notes: "The western division uses X for ks and psi is expressed by pi-sigma or phi-sigma."
+  - id: grc_orth_4_3
+    buck_section: "4.3"
+    category: "alphabet"
+    description: "Retention of archaic signs vau (digamma) and koppa."
+    notes: "Nearly all earliest inscriptions possess these characters."
+  - id: grc_orth_4_4
+    buck_section: "4.4"
+    category: "alphabet"
+    description: "Differentiation of sibilant signs between sigma and san."
+    notes: "Arcadian and certain Ionic inscriptions use modified characters like san or T for modified sounds."
+  - id: grc_orth_4_6
+    buck_section: "4.6"
+    category: "alphabet"
+    description: "Functional shift of the sign H from spiritus asper to the vowel eta."
+    notes: "In East Ionic, the H was turned to account as a vowel sign early on."
+  - id: grc_phon_5
+    buck_section: "5"
+    category: "vowels"
+    description: "Shift of alpha to omicron before or after liquids."
+    notes: "This is most frequent in Lesbian."
+  - id: grc_phon_8
+    buck_section: "8"
+    category: "vowels"
+    description: "Transformation of original long alpha to eta in Attic-Ionic."
+    transformation: { from: "ā", to: "η" }
+    notes: "Attic retains alpha after epsilon, iota, or rho."
+  - id: grc_phon_9
+    buck_section: "9"
+    category: "vowels"
+    description: "Shift of epsilon to iota before a vowel."
+    transformation: { from: "ε", to: "ι", context: "_V" }
+    notes: "Occurs regularly in Boeotian and Cyprian."
+  - id: grc_phon_10
+    buck_section: "10"
+    category: "vowels"
+    description: "Change of epsilon to iota before nu."
+    transformation: { from: "ε", to: "ι", context: "_ν" }
+    affected_dialects: [arcadian, cyprian]
+  - id: grc_phon_12
+    buck_section: "12"
+    category: "vowels"
+    description: "Change of epsilon to alpha before rho."
+    transformation: { from: "ε", to: "α", context: "_ρ" }
+    notes: "Characteristic of Northwest Greek dialects like Locrian and Elean."
+  - id: grc_phon_13
+    buck_section: "13"
+    category: "vowels"
+    description: "Dialectic interchange where West Greek uses alpha for East Greek epsilon."
+    notes: "Seen in words like hiaros versus hieros."
+  - id: grc_phon_15
+    buck_section: "15"
+    category: "vowels"
+    description: "Original eta appearing as long alpha in Elean."
+    notes: "The sound of eta was so open it approximated alpha."
+  - id: grc_phon_16
+    buck_section: "16"
+    category: "vowels"
+    description: "Substitution of epsilon-iota for eta in Thessalian and Boeotian."
+    notes: "Indicates a very close pronunciation of the long vowel."
+  - id: grc_phon_19
+    buck_section: "19"
+    category: "vowels"
+    description: "Development of consonantal iota from antevocalic iota in Lesbian and Thessalian."
+    notes: "Leads to doubling of following consonants or omission of iota."
+  - id: grc_phon_22
+    buck_section: "22"
+    category: "vowels"
+    description: "Shift of final omicron to upsilon."
+    transformation: { from: "ο", to: "υ", context: "_#" }
+    notes: "Regular in Arcadian and Cyprian."
+  - id: grc_phon_23
+    buck_section: "23"
+    category: "vowels"
+    description: "Thessalian use of ou to represent a close long back vowel."
+    notes: "Buck treats this spelling as a Thessalian reflex written with ou where other dialects write omega."
+    affected_dialects: [thessalian]
+  - id: grc_phon_24
+    buck_section: "24"
+    category: "vowels"
+    description: "Boeotian spurious ou used for long u."
+    notes: "A Boeotian orthographic reflex parallel to the better-known spurious diphthongs of Attic."
+    affected_dialects: [boeotian]
+  - id: grc_phon_25
+    buck_section: "25"
+    category: "vowels"
+    description: "Development of secondary long close vowels known as spurious diphthongs."
+    notes: "Attic uses epsilon-iota and omicron-upsilon, while other dialects use eta and omega."
+  - id: grc_phon_26
+    buck_section: "26"
+    category: "diphthongs"
+    description: "Boeotian monophthongization of ai to eta."
+    transformation: { from: "αι", to: "η" }
+  - id: grc_phon_30
+    buck_section: "30"
+    category: "diphthongs"
+    description: "Boeotian shift of oi to upsilon."
+    transformation: { from: "οι", to: "υ" }
+    notes: "Pronounced like German u or ü."
+  - id: grc_phon_31
+    buck_section: "31"
+    category: "diphthongs"
+    description: "Omission of iota in diphthongs before vowels."
+    notes: "Observed in various dialects with inconsistent spelling."
+  - id: grc_phon_33
+    buck_section: "33"
+    category: "diphthongs"
+    description: "Shift of alpha-omicron or epsilon-omicron to au or eu in East Ionic."
+  - id: grc_phon_37
+    buck_section: "37"
+    category: "diphthongs"
+    description: "Shortening or loss of elements in original long diphthongs."
+    notes: "Shortening of original long diphthongs prior to the historical period."
+  - id: grc_phon_41
+    buck_section: "41"
+    category: "vowel_contraction"
+    description: "Contraction results for alpha or long alpha combinations."
+    notes: "Attic-Ionic alpha plus epsilon yields long alpha, while West Greek yields eta."
+  - id: grc_phon_41_2
+    buck_section: "41.2"
+    category: "vowel_contraction"
+    description: "Boeotian preservation of uncontracted ao."
+    notes: "Buck notes Boeotian forms where ao remains uncontracted instead of following the Attic-Ionic contraction pattern."
+    affected_dialects: [boeotian]
+  - id: grc_phon_41_4
+    buck_section: "41.4"
+    category: "vowel_contraction"
+    description: "Attic quantitative metathesis in contracted vowel sequences."
+    notes: "This subrule covers Attic forms such as λεώς beside standard λαός."
+    affected_dialects: [attic]
+  - id: grc_phon_42
+    buck_section: "42"
+    category: "vowel_contraction"
+    description: "Contraction of epsilon combinations."
+    notes: "Attic contracts epsilon plus alpha to eta, while most other dialects remain uncontracted."
+  - id: grc_phon_43
+    buck_section: "43"
+    category: "vowel_contraction"
+    description: "Retention or shortening of eta in noun stems ending in -eus."
+    notes: "Attic shows quantitative metathesis."
+  - id: grc_phon_46
+    buck_section: "46"
+    category: "vowel_misc"
+    description: "Assimilation of vowels across syllables."
+    notes: "Comparatively rare and not characteristic of specific dialects."
+  - id: grc_phon_49
+    buck_section: "49"
+    category: "vowel_gradation"
+    description: "Inherited systems of vowel gradation shared by dialects."
+    notes: "Variations occur in series like er/or/ar."
+  - id: grc_phon_50
+    buck_section: "50"
+    category: "consonants"
+    description: "Loss of the digamma (F) in Attic-Ionic."
+    notes: "The loss occurred at a very early period."
+  - id: grc_phon_51
+    buck_section: "51"
+    category: "consonants"
+    description: "Representation of digamma (F) by beta."
+    notes: "Frequent in later Laconian inscriptions."
+  - id: grc_phon_53
+    buck_section: "53"
+    category: "consonants"
+    description: "Treatment of intervocalic digamma."
+    notes: "Most frequently found in Cyprian inscriptions."
+  - id: grc_phon_54
+    buck_section: "54"
+    category: "consonants"
+    description: "Developments of postconsonantal digamma."
+    notes: "Accompanied by lengthening of preceding vowels in East Ionic and Cretan."
+  - id: grc_phon_56
+    buck_section: "56"
+    category: "consonants"
+    description: "Cyprian representation of the glide sound with iota-like spelling."
+    notes: "Buck treats this as a conservative graphic reflex of a glide usually absent from the standard alphabetic spelling."
+    affected_dialects: [cyprian]
+  - id: grc_phon_57
+    buck_section: "57"
+    category: "consonants"
+    description: "Psilosis, or the loss of the spiritus asper."
+    notes: "Characteristic of East Ionic, Lesbian, Elean, Cyprian, and Cretan."
+  - id: grc_phon_59
+    buck_section: "59"
+    category: "consonants"
+    description: "Loss of Greek intervocalic sigma."
+    notes: "Lost in Laconian, Argolic, Elean, and Cyprian."
+  - id: grc_phon_59_1
+    buck_section: "59.1"
+    category: "consonants"
+    description: "Laconian loss of intervocalic sigma."
+    notes: "Glossary examples such as Ποηοιδάν are cited by Buck under this Laconian subcase."
+    affected_dialects: [laconian]
+  - id: grc_phon_59_4
+    buck_section: "59.4"
+    category: "consonants"
+    description: "Cyprian occasional omission of intervocalic or final sigma."
+    notes: "Buck cites this as an occasional Cyprian spelling habit rather than a universal development."
+    affected_dialects: [cyprian]
+  - id: grc_phon_60
+    buck_section: "60"
+    category: "consonants"
+    description: "Rhotacism, the change of final sigma to rho."
+    transformation: { from: "ς", to: "ρ", context: "_#" }
+    notes: "Found in Elean, late Laconian, and Eretrian."
+  - id: grc_phon_60_1
+    buck_section: "60.1"
+    category: "consonants"
+    description: "Elean rhotacism of final sigma."
+    transformation: { from: "ς", to: "ρ", context: "_#" }
+    notes: "Buck treats Elean final sigma > rho as a characteristic local development."
+    affected_dialects: [elean]
+  - id: grc_phon_60_2
+    buck_section: "60.2"
+    category: "consonants"
+    description: "Late Laconian rhotacism of final sigma."
+    transformation: { from: "ς", to: "ρ", context: "_#" }
+    notes: "A later Laconian extension of the rhotacism pattern."
+    affected_dialects: [laconian]
+  - id: grc_phon_61
+    buck_section: "61"
+    category: "consonants"
+    description: "Transformation of tau to sigma before iota."
+    transformation: { from: "τ", to: "σ", context: "_ι" }
+    notes: "Retention of tau is a characteristic of West Greek dialects."
+  - id: grc_phon_61_4
+    buck_section: "61.4"
+    category: "consonants"
+    description: "Cretan proti-type forms preserving a stop before i."
+    notes: "Buck cites Cretan forms such as porti for proti under this subcase."
+    affected_dialects: [cretan]
+  - id: grc_phon_62_2
+    buck_section: "62.2"
+    category: "consonants"
+    description: "Elean writing of zeta with delta in early inscriptions."
+    notes: "Buck treats this as an early orthographic reflex in Elean."
+    affected_dialects: [elean]
+  - id: grc_phon_64
+    buck_section: "64"
+    category: "consonants"
+    description: "Late Laconian use of sigma for theta."
+    notes: "Buck notes sigma spellings for original theta in later Laconian inscriptions."
+    affected_dialects: [laconian]
+  - id: grc_phon_65
+    buck_section: "65"
+    category: "consonants"
+    description: "Dissimilation, assimilation, or transposition of aspirates."
+  - id: grc_phon_68
+    buck_section: "68"
+    category: "consonants"
+    description: "Interchange of Labials, Dentals, and Gutturals."
+    notes: "Aeolic dialects frequently show a labial before a front vowel where others use a dental."
+  - id: grc_phon_68_3
+    buck_section: "68.3"
+    category: "consonants"
+    description: "Arcadian shift of ti to si."
+    transformation: { from: "τι", to: "σι" }
+    notes: "Buck cites Arcadian forms such as σίσ beside standard τίς."
+    affected_dialects: [arcadian]
+  - id: grc_phon_69
+    buck_section: "69"
+    category: "consonants"
+    description: "Treatment of nasals before consonants."
+    notes: "The nasal was always assimilated to the character of the following consonant."
+  - id: grc_phon_71
+    buck_section: "71"
+    category: "consonants"
+    description: "Cretan shift of lambda to upsilon."
+    transformation: { from: "λ", to: "υ" }
+    notes: "Upsilon represents a deep guttural liquid sound."
+  - id: grc_phon_72
+    buck_section: "72"
+    category: "consonants"
+    description: "Arcadian transposition yielding nt from lt."
+    notes: "Buck treats this as a local consonant transposition in Arcadian."
+    affected_dialects: [arcadian]
+  - id: grc_phon_74
+    buck_section: "74"
+    category: "consonants"
+    description: "Changes in combinations of liquids or nasals plus iota."
+    notes: "Yields double liquids or nasals in Lesbian and Thessalian."
+  - id: grc_phon_75
+    buck_section: "75"
+    category: "consonants"
+    description: "Lesbian reshaping of liquid clusters in forms such as στάλλα."
+    notes: "Buck groups these Lesbian spellings with nearby liquid-assimilation phenomena."
+    affected_dialects: [lesbian]
+  - id: grc_phon_77
+    buck_section: "77"
+    category: "consonants"
+    description: "Treatment of intervocalic nu-sigma."
+    notes: "Secondary nu-sigma is retained in Cretan, Argolic, Thessalian, and Arcadian."
+  - id: grc_phon_77_3
+    buck_section: "77.3"
+    category: "consonants"
+    description: "Retention of secondary nu-sigma."
+    notes: "Buck highlights Arcadian and Cretan retention of the secondary nu-sigma sequence."
+    affected_dialects: [arcadian, cretan]
+  - id: grc_phon_78
+    buck_section: "78"
+    category: "consonants"
+    description: "Developments of final nu-sigma."
+    notes: "Yields forms in -as or -os in Thessalian and Arcadian."
+  - id: grc_phon_81
+    buck_section: "81"
+    category: "consonants"
+    description: "Shift of original ky, khy, ty, thy to tau-tau or sigma-sigma."
+    notes: "Attic had tau-tau from the earliest times."
+  - id: grc_phon_84
+    buck_section: "84"
+    category: "consonants"
+    description: "Evolution of zeta and delta-delta combinations."
+    notes: "Boeotian and Thessalian show assimilation to delta-delta."
+  - id: grc_phon_86
+    buck_section: "86"
+    category: "consonants"
+    description: "Assimilation in consonant groups."
+    notes: "Kappa-tau shifts to tau-tau in Cretan and pi-tau shifts to tau-tau in Cretan and Thessalian."
+  - id: grc_phon_86_2
+    buck_section: "86.2"
+    category: "consonants"
+    description: "Cretan assimilation of pt and kt to tt."
+    notes: "Buck marks this as a characteristic Cretan assimilation pattern."
+    affected_dialects: [cretan]
+  - id: grc_phon_89
+    buck_section: "89"
+    category: "consonants"
+    description: "Writing of single consonants as double."
+    notes: "Most frequent in Boeotian hypocoristic names."
+  - id: grc_phon_91
+    buck_section: "91"
+    category: "sandhi"
+    description: "Elision common to all dialects."
+    notes: "Subject to inconsistency in written form across inscriptions."
+  - id: grc_phon_93
+    buck_section: "93"
+    category: "sandhi"
+    description: "Attic shortening of final long vowels."
+    notes: "Buck lists this as an Attic tendency affecting final long vowels in certain environments."
+    affected_dialects: [attic]
+  - id: grc_phon_94
+    buck_section: "94"
+    category: "sandhi"
+    description: "Crasis found in early inscriptions of all dialects."
+    notes: "Resulting forms often differ based on local contraction laws."
+  - id: grc_phon_95
+    buck_section: "95"
+    category: "sandhi"
+    description: "Apocope of prepositions."
+    notes: "Almost unknown in Attic-Ionic but usual in other dialects."
+  - id: grc_phon_96
+    buck_section: "96"
+    category: "sandhi"
+    description: "Assimilation of final nu to following labials or gutturals."
+  - id: grc_phon_97
+    buck_section: "97"
+    category: "sandhi"
+    description: "Assimilation of final sigma to following consonants."
+  - id: grc_phon_102
+    buck_section: "102"
+    category: "sandhi"
+    description: "Development of nu movable in Attic-Ionic."
+    notes: "Appears from earliest inscriptions with increasing frequency."
+  - id: grc_phon_103
+    buck_section: "103"
+    category: "accent"
+    description: "Dialectal variations in accentuation systems."
+    notes: "Lesbian is characterized by a recessive accent."
+
+
+  # --- INFLECTION: NOUNS AND ADJECTIVES (104-113) ---
+  - id: grc_morph_104_2
+    buck_section: "104.2"
+    category: "inflection_nominal"
+    description: "Genitive singular of feminine a-stems in -au (Tegea) or -as."
+    affected_dialects: [arcadian]
+  - id: grc_morph_105_2
+    buck_section: "105.2"
+    category: "inflection_nominal"
+    description: "Genitive singular of masculine a-stems in -ao, -eo, or -o."
+    notes: "Attic-Ionic uses -eo or -o; West Greek uses -ā."
+  - id: grc_morph_106_1
+    buck_section: "106.1"
+    category: "inflection_nominal"
+    description: "Genitive singular of o-stems in -oio or -on."
+    notes: "Cyprian regularly uses -on."
+  - id: grc_morph_107_3
+    buck_section: "107.3"
+    category: "inflection_nominal"
+    description: "Dative plural of consonant stems in -essi."
+    affected_dialects: [lesbian, thessalian, boeotian, arcado_cypriot, elean]
+  - id: grc_morph_111_2
+    buck_section: "111.2"
+    category: "inflection_nominal"
+    description: "Quantitative metathesis in genitive of -eus stems (e.g., -eos for -ēos)."
+    affected_dialects: [attic]
+
+  # --- NUMERALS (114-117) ---
+  - id: grc_morph_114_1
+    buck_section: "114.1"
+    category: "numerals"
+    description: "Dialectal forms for 'one' (e.g., hēs for eis)."
+    affected_dialects: [laconian, heraclean, cretan]
+  - id: grc_morph_116
+    buck_section: "116"
+    category: "numerals"
+    description: "Variation in 'twenty' (eikosi vs. wikati)."
+    notes: "Retention of w (digamma) is characteristic of West Greek."
+
+  # --- PRONOUNS (118-131) ---
+  - id: grc_morph_118_2
+    buck_section: "118.2"
+    category: "pronouns"
+    description: "First person nominative singular (egō, egōn, iō, iōn)."
+    notes: "Boeotian uses iō, iōn."
+  - id: grc_morph_119_2
+    buck_section: "119.2"
+    category: "pronouns"
+    description: "First person plural nominative (hēmeis vs. ammes)."
+    affected_dialects: [lesbian, thessalian, boeotian]
+
+  # --- ADVERBS, CONJUNCTIONS, AND PREPOSITIONS (132-136) ---
+  - id: grc_morph_134_1
+    buck_section: "134.1"
+    category: "conjunctions"
+    description: "Conditional conjunction 'if' (ei, ai, ō)."
+    variants:
+      - form: "ei"
+        dialects: [attic, ionic, arcado_cypriot]
+      - form: "ai"
+        dialects: [doric, aeolic]
+  - id: grc_morph_134_3
+    buck_section: "134.3"
+    category: "conjunctions"
+    description: "Arcadian conjunction kas for standard kai."
+    notes: "Buck cites Arcadian κάς as a dialectal conjunction meaning 'and'."
+    affected_dialects: [arcadian]
+  - id: grc_morph_135_3
+    buck_section: "135.3"
+    category: "prepositions"
+    description: "Variation of prepositions (on for ana, in for en)."
+    affected_dialects: [arcado_cypriot, lesbian, thessalian]
+
+  # --- VERBS (137-163) ---
+  - id: grc_morph_138_3
+    buck_section: "138.3"
+    category: "inflection_verbal"
+    description: "First person plural active ending -mes (vs. -men)."
+    affected_dialects: [doric, northwest_greek]
+  - id: grc_morph_138_4
+    buck_section: "138.4"
+    category: "inflection_verbal"
+    description: "Third person plural primary active ending -nti (vs. -si)."
+    affected_dialects: [doric, northwest_greek, boeotian, thessalian]
+  - id: grc_morph_141
+    buck_section: "141"
+    category: "inflection_verbal"
+    description: "Doric future in -seō."
+    affected_dialects: [doric, northwest_greek]
+  - id: grc_morph_154
+    buck_section: "154"
+    category: "inflection_verbal"
+    description: "Infinitive of unthematic forms (-nai, -menai, -men)."
+    variants:
+      - form: "-nai"
+        dialects: [attic, ionic, arcado_cypriot]
+      - form: "-menai"
+        dialects: [lesbian]
+      - form: "-men"
+        dialects: [thessalian, boeotian, northwest_greek]
+
+  # --- WORD-FORMATION (164-168) ---
+  - id: grc_wf_164_5
+    buck_section: "164.5"
+    category: "word_formation"
+    description: "Cyprian accusative singular in -ēran for occupational nouns."
+    notes: "Buck cites forms such as ἰατῆραν beside standard ἰατρόν."
+    affected_dialects: [cyprian]
+  - id: grc_wf_164_8
+    buck_section: "164.8"
+    category: "word_formation"
+    description: "Patronymics in -ōndas or -ondas."
+    affected_dialects: [boeotian]
+  - id: grc_wf_168
+    buck_section: "168"
+    category: "word_formation"
+    description: "Use of patronymic adjective instead of genitive singular of father's name."
+    affected_dialects: [lesbian, thessalian, boeotian]
+
+  # --- SYNTAX (169-179) ---
+  - id: grc_synt_170
+    buck_section: "170"
+    category: "syntax_cases"
+    description: "Genitive of time expressing the period within which."
+    notes: "Especially frequent in early Cretan and Locrian inscriptions and also attested in early Attic."
+    affected_dialects: [attic, cretan, locrian]
+  - id: grc_synt_171
+    buck_section: "171"
+    category: "syntax_cases"
+    description: "Genitive of the matter involved in legal phraseology."
+    notes: "Most extensively used in the Gortynian Law Code."
+    affected_dialects: [cretan]
+  - id: grc_synt_172
+    buck_section: "172"
+    category: "syntax_cases"
+    description: "Adnominal dative in inscription introductions."
+    notes: "Frequent in introductions or in separately headed sections of inscriptions."
+    affected_dialects: [attic, boeotian, elean, locrian, phocian]
+  - id: grc_synt_173
+    buck_section: "173"
+    category: "syntax_cases"
+    description: "Accusative absolute construction."
+    notes: "Buck treats this as an extension from agreement with an accusative carried over from a previous clause."
+    affected_dialects: [arcadian]
+  - id: grc_synt_174
+    buck_section: "174"
+    category: "syntax_moods"
+    description: "Distribution of modal particles and unmarked subjunctives."
+    notes: "Buck discusses both the particle system (an, ka, ke) and dialects that omit a modal particle where Attic prose would usually use one."
+    affected_dialects: [arcadian, cretan, cyprian, delphian, locrian, phocian]
+    variants:
+      - form: "an"
+        dialects: [attic, ionic, arcadian]
+      - form: "ka"
+        dialects: [doric, northwest_greek, boeotian]
+      - form: "ke"
+        dialects: [lesbian, thessalian, cyprian]
+  - id: grc_synt_175
+    buck_section: "175"
+    category: "syntax_moods"
+    description: "Optative with ka in prescriptions."
+    notes: "Buck presents this as the standard Elean prescription style, with Cyprian showing the optative without the particle."
+    affected_dialects: [cyprian, elean]
+  - id: grc_synt_176
+    buck_section: "176"
+    category: "syntax_moods"
+    description: "Survival of the optative in conditional clauses."
+    notes: "Elean preserves the optative most consistently after Attic-Ionic largely replaced it with the subjunctive."
+    affected_dialects: [arcadian, delphian, elean, locrian, phocian]
+  - id: grc_synt_177
+    buck_section: "177"
+    category: "syntax_moods"
+    description: "Use of ka with the optative in conditional clauses."
+    notes: "Buck compares this West Greek usage with Homeric practice."
+    affected_dialects: [argolic, cretan, locrian]
+  - id: grc_synt_178
+    buck_section: "178"
+    category: "syntax_moods"
+    description: "Imperative and infinitive used side by side in prescriptions."
+    notes: "Buck notes free alternation of the two constructions in legal and prescriptive texts."
+  - id: grc_synt_179
+    buck_section: "179"
+    category: "syntax_word_order"
+    description: "Position of tis before ka."
+    notes: "Buck contrasts West Greek ai tis ka with the Attic-Ionic order ean tis."
+    affected_dialects: [arcadian, boeotian, cyprian, lesbian, thessalian, west_greek]
+
+meta:
+  created_from: "manual"
+  extraction_warnings:
+    - "Section summaries are synthesized from the Phonology chapter (sections 4-103)."
+    - "Citations refer to the provided page numbers in ISGD.pdf."
+    - "This YAML covers Inflection through Syntax (sections 104-179)."
+    - "Section numbers are derived from the Table of Contents and corresponding chapters."

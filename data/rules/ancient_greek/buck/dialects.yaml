@@ -1,0 +1,239 @@
+meta:
+  source: "Carl Darling Buck, The Greek Dialects"
+  normalized_layer: "buck"
+  note: "Dialect catalog plus dialect-to-rule cross-references. Rule definitions live in grammar_rules.yaml. Note: Child groups and dialects inherit rules from their parent."
+  last_updated: "2026-04-07"
+
+dialects:
+  - id: aeolic
+    name: Aeolic
+    kind: group
+    group: "East Greek"
+    rules: []
+
+  - id: arcado_cypriot
+    name: Arcado-Cypriot
+    kind: group
+    group: "East Greek"
+    rules: []
+
+  - id: west_greek
+    name: West Greek
+    kind: group
+    group: "West Greek"
+    rules:
+      - grc_synt_179
+
+  - id: northwest_greek
+    name: Northwest Greek
+    kind: group
+    group: "West Greek"
+    parent: west_greek
+    rules: []
+
+  - id: doric
+    name: Doric
+    kind: group
+    group: "West Greek"
+    parent: west_greek
+    rules: []
+
+  - id: attic_ionic
+    name: Attic-Ionic
+    kind: group
+    group: "Attic-Ionic"
+    rules: []
+
+  - id: ionic
+    name: Ionic
+    kind: dialect
+    group: "Attic-Ionic"
+    parent: attic_ionic
+    rules: []
+
+  - id: ionic_east
+    name: East Ionic
+    kind: subdialect
+    group: "Attic-Ionic"
+    parent: ionic
+    rules:
+      - grc_phon_8
+      - grc_phon_33
+      - grc_phon_42
+      - grc_phon_54
+      - grc_phon_57
+
+  - id: attic
+    name: Attic
+    kind: dialect
+    group: "Attic-Ionic"
+    parent: attic_ionic
+    rules:
+      - grc_phon_8
+      - grc_phon_25
+      - grc_phon_41_4
+      - grc_phon_50
+      - grc_phon_81
+      - grc_phon_93
+      - grc_phon_102
+      - grc_synt_170
+      - grc_synt_172
+
+  - id: arcadian
+    name: Arcadian
+    kind: dialect
+    group: "Arcado-Cypriot"
+    parent: arcado_cypriot
+    rules:
+      - grc_phon_10
+      - grc_phon_22
+      - grc_phon_31
+      - grc_phon_68_3
+      - grc_phon_72
+      - grc_phon_77_3
+      - grc_synt_173
+      - grc_synt_174
+      - grc_synt_176
+      - grc_synt_179
+
+  - id: cyprian
+    name: Cyprian
+    kind: dialect
+    group: "Arcado-Cypriot"
+    parent: arcado_cypriot
+    rules:
+      - grc_phon_9
+      - grc_phon_56
+      - grc_phon_57
+      - grc_phon_59_4
+      - grc_synt_174
+      - grc_synt_175
+      - grc_synt_179
+
+  - id: lesbian
+    name: Lesbian
+    kind: dialect
+    group: "East Greek"
+    parent: aeolic
+    rules:
+      - grc_phon_5
+      - grc_phon_19
+      - grc_phon_57
+      - grc_phon_74
+      - grc_phon_103
+      - grc_synt_179
+
+  - id: thessalian
+    name: Thessalian
+    kind: dialect
+    group: "East Greek"
+    parent: aeolic
+    rules:
+      - grc_phon_19
+      - grc_phon_23
+      - grc_phon_84
+      - grc_phon_89
+      - grc_synt_179
+
+  - id: boeotian
+    name: Boeotian
+    kind: dialect
+    group: "East Greek"
+    parent: aeolic
+    rules:
+      - grc_phon_9
+      - grc_phon_24
+      - grc_phon_26
+      - grc_phon_30
+      - grc_phon_41_2
+      - grc_phon_81
+      - grc_synt_172
+      - grc_synt_179
+
+  - id: elean
+    name: Elean
+    kind: dialect
+    group: "Northwest Greek"
+    parent: northwest_greek
+    rules:
+      - grc_phon_12
+      - grc_phon_15
+      - grc_phon_57
+      - grc_phon_60_1
+      - grc_phon_62_2
+      - grc_synt_172
+      - grc_synt_175
+      - grc_synt_176
+
+  - id: locrian
+    name: Locrian
+    kind: dialect
+    group: "Northwest Greek"
+    parent: northwest_greek
+    rules:
+      - grc_synt_170
+      - grc_synt_172
+      - grc_synt_174
+      - grc_synt_176
+      - grc_synt_177
+
+  - id: phocian
+    name: Phocian
+    kind: dialect
+    group: "Northwest Greek"
+    parent: northwest_greek
+    rules:
+      - grc_synt_172
+      - grc_synt_174
+      - grc_synt_176
+
+  - id: delphian
+    name: Delphian
+    kind: dialect
+    group: "Northwest Greek"
+    parent: northwest_greek
+    rules:
+      - grc_synt_174
+      - grc_synt_176
+
+  - id: laconian
+    name: Laconian
+    kind: dialect
+    group: "Doric Proper"
+    parent: doric
+    rules:
+      - grc_phon_51
+      - grc_phon_59_1
+      - grc_phon_60_2
+      - grc_phon_64
+
+  - id: cretan
+    name: Cretan
+    kind: dialect
+    group: "Doric Proper"
+    parent: doric
+    rules:
+      - grc_phon_54
+      - grc_phon_61_4
+      - grc_phon_71
+      - grc_phon_77_3
+      - grc_phon_86_2
+      - grc_synt_170
+      - grc_synt_171
+      - grc_synt_174
+      - grc_synt_177
+
+  - id: argolic
+    name: Argolic
+    kind: dialect
+    group: "Doric Proper"
+    parent: doric
+    rules:
+      - grc_synt_177
+
+  - id: heraclean
+    name: Heraclean
+    kind: dialect
+    group: "Doric Proper"
+    parent: doric
+    rules: []
