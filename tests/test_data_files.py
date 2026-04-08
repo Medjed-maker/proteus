@@ -456,7 +456,23 @@ def test_lexicon_metadata_and_representative_lemma_regressions() -> None:
     assert deka["gender"] == "common", "Expected gender 'common' for lemma 'δέκα'"
 
     assert find("ἀγαπάζω") is None, "Non-Attic lemma 'ἀγαπάζω' should not exist"
-    assert find("ἄελλα") is None, "Non-Attic lemma 'ἄελλα' should not exist"
+    # ἄελλα is correctly classified as Attic after dialect-detection improvements.
+    aella = find("ἄελλα")
+    assert aella is not None, "Lemma 'ἄελλα' not found in lexicon"
+    assert aella["pos"] == "noun", "Expected POS 'noun' for lemma 'ἄελλα'"
+    assert aella["gender"] == "feminine", "Expected gender 'feminine' for lemma 'ἄελλα'"
+
+    # βίος was previously excluded due to <gen> nested inside <foreign>.
+    bios = find("βίος")
+    assert bios is not None, "Lemma 'βίος' not found in lexicon"
+    assert bios["pos"] == "noun", "Expected POS 'noun' for lemma 'βίος'"
+    assert bios["gender"] == "masculine", "Expected gender 'masculine' for lemma 'βίος'"
+
+    # θεός was previously excluded due to dialect misclassification.
+    theos = find("θεός")
+    assert theos is not None, "Lemma 'θεός' not found in lexicon"
+    assert theos["pos"] == "noun", "Expected POS 'noun' for lemma 'θεός'"
+    assert theos["gender"] == "masculine", "Expected gender 'masculine' for lemma 'θεός'"
 
     for pos in (
         "pronoun",

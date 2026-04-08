@@ -398,8 +398,8 @@ def _is_consonant(token: str | None) -> bool:
 
 
 def _lookup_prev_token(
-    lemma_tokens: list[str],
-    query_tokens: list[str],
+    lemma_tokens: Sequence[str],
+    query_tokens: Sequence[str],
     *,
     lemma_start: int,
     query_start: int,
@@ -413,8 +413,8 @@ def _lookup_prev_token(
 
 
 def _lookup_next_token(
-    lemma_tokens: list[str],
-    query_tokens: list[str],
+    lemma_tokens: Sequence[str],
+    query_tokens: Sequence[str],
     *,
     lemma_end: int,
     query_end: int,
@@ -451,8 +451,8 @@ def _lookup_next_token(
 
 def _matches_following_set(
     context: str,
-    lemma_tokens: list[str],
-    query_tokens: list[str],
+    lemma_tokens: Sequence[str],
+    query_tokens: Sequence[str],
     *,
     lemma_end: int,
     query_end: int,
@@ -473,7 +473,7 @@ def _matches_following_set(
 
 def _matches_same_word_lookahead(
     context: str,
-    lemma_tokens: list[str],
+    lemma_tokens: Sequence[str],
     *,
     lemma_end: int,
 ) -> bool:
@@ -494,8 +494,8 @@ def _matches_same_word_lookahead(
 
 def _matches_context(
     context: object,
-    lemma_tokens: list[str],
-    query_tokens: list[str],
+    lemma_tokens: Sequence[str],
+    query_tokens: Sequence[str],
     *,
     lemma_start: int,
     lemma_end: int,
@@ -868,9 +868,9 @@ def _matches_word_final_suffix(
 
 def _collect_block_applications(
     block: _MismatchBlock,
-    query_tokens: list[str],
-    lemma_tokens: list[str],
-    tokenized_rules: list[TokenizedRule],
+    query_tokens: Sequence[str],
+    lemma_tokens: Sequence[str],
+    tokenized_rules: Sequence[TokenizedRule],
 ) -> list[RuleApplication]:
     """Match longest rules against a mismatch block."""
     applications: list[RuleApplication] = []
@@ -1015,10 +1015,10 @@ def _collect_block_applications(
 
 
 def explain_with_tokenized_rules(
-    query_tokens: list[str],
-    lemma_tokens: list[str],
+    query_tokens: Sequence[str],
+    lemma_tokens: Sequence[str],
     alignment: Alignment,
-    tokenized_rules: list[TokenizedRule],
+    tokenized_rules: Sequence[TokenizedRule],
 ) -> list[RuleApplication]:
     """Explain aligned IPA mismatches using pre-tokenized phonological rules.
 
@@ -1047,8 +1047,8 @@ def explain_with_tokenized_rules(
 
 
 def explain(
-    query_tokens: list[str],
-    lemma_tokens: list[str],
+    query_tokens: Sequence[str],
+    lemma_tokens: Sequence[str],
     alignment: Alignment,
     rules: list[Rule],
 ) -> list[RuleApplication]:

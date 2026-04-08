@@ -265,6 +265,32 @@ def _rank_by_token_count_proximity(
     return [entry_id for entry_id, _ in scored]
 
 
+def _inject_exact_ipa_matches(
+    query_ipa: str,
+    candidate_ids: list[str],
+    lexicon_lookup: LexiconLookup,
+    *,
+    limit: int | None = None,
+) -> list[str]:
+    """Prepend lexicon entries whose IPA exactly matches the query.
+
+    Ensures that exact phonological matches always reach Stage 2,
+    even when seed ranking pushes them past the stage2_limit cutoff, while
+    preserving any caller-provided candidate cap.
+    """
+    candidate_set = set(candidate_ids)
+    exact_ids = [
+        entry_id
+        for entry_id, record_or_entry in lexicon_lookup.items()
+        if entry_id not in candidate_set
+        and _entry_ipa(_lookup_entry(record_or_entry)) == query_ipa
+    ]
+    merged_ids = exact_ids + candidate_ids if exact_ids else candidate_ids
+    if limit is None:
+        return merged_ids
+    return merged_ids[:limit]
+
+
 def seed_stage(
     query_ipa: str,
     index: KmerIndex,
@@ -483,9 +509,25 @@ def _get_rules_registry(language: str = "ancient_greek") -> dict[str, dict[str, 
 
 
 @lru_cache(maxsize=8)
-def _get_tokenized_rules(language: str = "ancient_greek") -> list[TokenizedRule]:
+def _get_tokenized_rules(language: str = "ancient_greek") -> tuple[TokenizedRule, ...]:
+    """Get tokenized rules from the registry for matching.
+
+    Retrieves rules from the rule registry for the specified language,
+    tokenizes them for matching, and returns as a tuple.
+
+    Args:
+        language: Language code for the rules registry (default: "ancient_greek").
+
+    Returns:
+        A tuple of TokenizedRule instances ready for matching.
+
+    Note:
+        Results are memoized via @lru_cache(maxsize=8) to avoid repeated
+        loading and tokenization. This caches the last 8 language codes.
+        Calls _get_rules_registry and tokenize_rules_for_matching internally.
+    """
     rules_registry = _get_rules_registry(language)
-    return tokenize_rules_for_matching(list(rules_registry.values()))
+    return tuple(tokenize_rules_for_matching(list(rules_registry.values())))
 
 
 def build_lexicon_map(lexicon: Sequence[LexiconEntry]) -> LexiconMap:
@@ -835,6 +877,29 @@ def filter_stage(results: list[SearchResult], max_results: int) -> list[SearchRe
     return sorted(results, key=lambda result: (-result.confidence, result.lemma))[:max_results]
 
 
+def _deduplicate_by_headword(results: list[SearchResult]) -> list[SearchResult]:
+    """Keep only the highest-confidence result for each headword.
+
+    Assumes results are already sorted by descending confidence.
+    For equal-confidence ties, the first entry wins.
+    """
+    if not all(
+        results[i].confidence >= results[i + 1].confidence
+        for i in range(len(results) - 1)
+    ):
+        raise ValueError(
+            "_deduplicate_by_headword requires results sorted by descending confidence"
+        )
+    seen: set[str] = set()
+    deduplicated: list[SearchResult] = []
+    for result in results:
+        if result.lemma in seen:
+            continue
+        seen.add(result.lemma)
+        deduplicated.append(result)
+    return deduplicated
+
+
 def search(
     query: str,
     lexicon: Sequence[LexiconEntry],
@@ -927,6 +992,12 @@ def search(
     if seed_candidates:
         candidate_ids = seed_candidates[:stage2_limit]
         lexicon_lookup = _get_lexicon_lookup()
+        candidate_ids = _inject_exact_ipa_matches(
+            query_ipa,
+            candidate_ids,
+            lexicon_lookup,
+            limit=stage2_limit,
+        )
     else:
         unigram_candidates: list[str] = []
         if query_skeleton:
@@ -1014,10 +1085,14 @@ def search(
         lexicon_map=lexicon_lookup,
         matrix=matrix,
     )
-    ranked_results = filter_stage(
-        scored_results,
-        max_results=max_results,
+    # Deduplicate before truncation so that max_results is honoured after
+    # removing duplicate headwords.  filter_stage sorts by confidence then
+    # truncates, so feeding it deduplicated input ensures the caller receives
+    # up to max_results unique headwords.
+    unique_scored = _deduplicate_by_headword(
+        sorted(scored_results, key=lambda r: (-r.confidence, r.lemma))
     )
+    ranked_results = unique_scored[:max_results]
     return _annotate_search_results(
         query_ipa=query_ipa,
         results=ranked_results,

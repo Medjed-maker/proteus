@@ -14,6 +14,8 @@ from phonology.ipa_converter import to_ipa, tokenize_ipa
 from phonology.search import (
     LexiconRecord,
     SearchResult,
+    _deduplicate_by_headword,
+    _inject_exact_ipa_matches,
     build_kmer_index,
     build_lexicon_map,
     extend_stage,
@@ -892,13 +894,14 @@ class TestSearch:
             {
                 "id": f"L{index:02d}",
                 "headword": f"lemma-{index}",
-                "ipa": "aː",
+                "ipa": f"aː{chr(ord('a') + index)}",
                 "dialect": "attic",
             }
             for index in range(30)
         ]
 
-        # max_results=1 → stage2_limit = max(25, 1*10) = 25, capping 30 entries
+        # max_results=1 → stage2_limit = max(25, 1*10) = 25, capping 30 entries.
+        # No entry has IPA matching query "aː", so exact-match injection adds nothing.
         search("ἄ", lexicon, matrix={}, max_results=1)
 
         assert len(captured["candidate_ids"]) == 25
@@ -1920,3 +1923,200 @@ class TestSearch:
         search("πτην", lexicon, matrix={}, max_results=1, **language_kwarg)
 
         assert captured["language"] == expected_language
+
+
+class TestInjectExactIpaMatches:
+    """Verify exact IPA match injection into candidate lists."""
+
+    def test_prepends_exact_match_not_in_candidates(self) -> None:
+        lookup = {
+            "L1": {"id": "L1", "headword": "α", "ipa": "aaa"},
+            "L2": {"id": "L2", "headword": "β", "ipa": "bbb"},
+            "L3": {"id": "L3", "headword": "γ", "ipa": "aaa"},
+        }
+        candidates = ["L2"]
+        result = _inject_exact_ipa_matches("aaa", candidates, lookup)
+        # L1 and L3 match IPA "aaa" and should be prepended
+        assert result[0] in ("L1", "L3")
+        assert result[-1] == "L2"
+        assert set(result) == {"L1", "L2", "L3"}
+
+    def test_respects_limit_after_prepending_exact_matches(self) -> None:
+        lookup = {
+            "L1": {"id": "L1", "headword": "α", "ipa": "aaa"},
+            "L2": {"id": "L2", "headword": "β", "ipa": "bbb"},
+            "L3": {"id": "L3", "headword": "γ", "ipa": "aaa"},
+            "L4": {"id": "L4", "headword": "δ", "ipa": "aaa"},
+        }
+        candidates = ["L2", "L1"]
+        result = _inject_exact_ipa_matches("aaa", candidates, lookup, limit=3)
+        assert len(result) == 3
+        assert result[:2] == ["L3", "L4"]
+        assert result[2] == "L2"
+
+    def test_returns_unchanged_when_no_match(self) -> None:
+        lookup = {
+            "L1": {"id": "L1", "headword": "α", "ipa": "aaa"},
+        }
+        candidates = ["L1"]
+        result = _inject_exact_ipa_matches("zzz", candidates, lookup)
+        assert result == ["L1"]
+
+    def test_no_duplicate_when_already_in_candidates(self) -> None:
+        lookup = {
+            "L1": {"id": "L1", "headword": "α", "ipa": "aaa"},
+            "L2": {"id": "L2", "headword": "β", "ipa": "bbb"},
+        }
+        candidates = ["L1", "L2"]
+        result = _inject_exact_ipa_matches("aaa", candidates, lookup)
+        # L1 already in candidates, should not be duplicated
+        assert result == ["L1", "L2"]
+
+    def test_works_with_lexicon_records(self) -> None:
+        lookup = {
+            "L1": LexiconRecord(
+                entry={"id": "L1", "headword": "α", "ipa": "aaa"},
+                token_count=3,
+                ipa_tokens=("a", "a", "a"),
+            ),
+        }
+        candidates: list[str] = []
+        result = _inject_exact_ipa_matches("aaa", candidates, lookup)
+        assert result == ["L1"]
+
+
+class TestDeduplicateByHeadword:
+    """Verify headword-based deduplication of search results."""
+
+    def test_keeps_highest_confidence(self) -> None:
+        results = [
+            SearchResult(lemma="α", confidence=0.9),
+            SearchResult(lemma="β", confidence=0.8),
+            SearchResult(lemma="α", confidence=0.7),
+        ]
+        deduped = _deduplicate_by_headword(results)
+        assert [(r.lemma, r.confidence) for r in deduped] == [
+            ("α", 0.9),
+            ("β", 0.8),
+        ]
+
+    def test_preserves_order(self) -> None:
+        results = [
+            SearchResult(lemma="γ", confidence=0.9),
+            SearchResult(lemma="α", confidence=0.8),
+            SearchResult(lemma="β", confidence=0.7),
+        ]
+        deduped = _deduplicate_by_headword(results)
+        assert [r.lemma for r in deduped] == ["γ", "α", "β"]
+
+    def test_empty_list(self) -> None:
+        assert _deduplicate_by_headword([]) == []
+
+    def test_all_same_headword(self) -> None:
+        results = [
+            SearchResult(lemma="α", confidence=0.9),
+            SearchResult(lemma="α", confidence=0.5),
+            SearchResult(lemma="α", confidence=0.3),
+        ]
+        deduped = _deduplicate_by_headword(results)
+        assert len(deduped) == 1
+        assert deduped[0].confidence == 0.9
+
+
+class TestSearchExactMatchIntegration:
+    """Integration tests for exact-match boost and deduplication in search()."""
+
+    def test_search_returns_exact_match_at_top(self) -> None:
+        """Verify that a query word appearing in the lexicon is returned as the top result."""
+        # Build a lexicon where the target word shares k-mers with many other entries,
+        # pushing it past the stage2_limit in seed ranking.
+        target = {"id": "TARGET", "headword": "τεστ", "ipa": "test", "dialect": "attic"}
+        # Create 30 entries sharing k-mers (consonant skeleton "t s t" has k-mers "t s" and "s t")
+        filler = [
+            {"id": f"F{i:03d}", "headword": f"filler{i}", "ipa": f"t{'a' * i}st", "dialect": "attic"}
+            for i in range(1, 31)
+        ]
+        lexicon = filler + [target]  # target last so its ID sorts late
+
+        matrix = load_matrix(MATRIX_FILE)
+        results = search("τεστ", lexicon, matrix, max_results=5, dialect="attic")
+        assert len(results) > 0, "Expected at least one search result"
+        assert results[0].lemma == "τεστ", (
+            f"Expected top result lemma 'τεστ', got {results[0].lemma!r}"
+        )
+        assert results[0].confidence == 1.0, (
+            f"Expected top result confidence 1.0, got {results[0].confidence!r}"
+        )
+
+    def test_search_deduplicates_homograph_entries(self) -> None:
+        """Verify that duplicate headwords are deduplicated in results."""
+        lexicon = [
+            {"id": "L1", "headword": "dup", "ipa": "dup", "dialect": "attic"},
+            {"id": "L2", "headword": "dup", "ipa": "dup", "dialect": "attic"},
+            {"id": "L3", "headword": "other", "ipa": "otʰer", "dialect": "attic"},
+        ]
+        matrix = load_matrix(MATRIX_FILE)
+        results = search("dup", lexicon, matrix, max_results=5, dialect="attic")
+        headwords = [r.lemma for r in results]
+        assert headwords.count("dup") == 1
+
+    def test_exact_match_injection_preserves_stage2_limit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Exact-match injection must not expand Stage 2 past its hard candidate cap."""
+        lexicon = [
+            {"id": f"E{i:02d}", "headword": f"dup{i:02d}", "ipa": "tat", "dialect": "attic"}
+            for i in range(40)
+        ]
+        captured: dict[str, list[str]] = {}
+
+        def fake_score_stage(
+            *,
+            query_ipa: str,
+            candidates: list[str],
+            lexicon_map: dict[str, LexiconRecord | dict[str, str]],
+            matrix: dict[str, dict[str, float]],
+        ) -> list[SearchResult]:
+            captured["candidate_ids"] = list(candidates)
+            return [
+                SearchResult(
+                    lemma=(
+                        lexicon_map[candidate_id].entry["headword"]
+                        if isinstance(lexicon_map[candidate_id], LexiconRecord)
+                        else lexicon_map[candidate_id]["headword"]
+                    ),
+                    confidence=1.0,
+                    dialect_attribution="lemma dialect: attic",
+                    entry_id=candidate_id,
+                )
+                for candidate_id in candidates
+            ]
+
+        monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
+        monkeypatch.setattr(search_module, "_annotate_search_results", lambda **kwargs: kwargs["results"])
+        monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results[:max_results])
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "tat")
+
+        search("dummy", lexicon, matrix={}, max_results=1, dialect="attic")
+
+        assert len(captured["candidate_ids"]) == 25
+        assert all(
+            lexicon[int(candidate_id.removeprefix("E"))]["ipa"] == "tat"
+            for candidate_id in captured["candidate_ids"]
+        )
+
+    def test_dedup_does_not_reduce_below_max_results(self) -> None:
+        """Dedup before truncation: max_results unique entries are returned."""
+        # 2 duplicate headwords + 3 unique = 5 entries.
+        # With max_results=3, dedup-before-truncation should yield 3 unique results
+        # (not 2 if dedup were applied after truncation).
+        lexicon = [
+            {"id": "L1", "headword": "alpha", "ipa": "alp", "dialect": "attic"},
+            {"id": "L2", "headword": "alpha", "ipa": "alp", "dialect": "attic"},
+            {"id": "L3", "headword": "beta", "ipa": "bet", "dialect": "attic"},
+            {"id": "L4", "headword": "gamma", "ipa": "ɡam", "dialect": "attic"},
+            {"id": "L5", "headword": "delta", "ipa": "del", "dialect": "attic"},
+        ]
+        matrix = load_matrix(MATRIX_FILE)
+        results = search("alp", lexicon, matrix, max_results=3, dialect="attic")
+        assert len(results) == 3
+        headwords = [r.lemma for r in results]
+        assert headwords.count("alpha") == 1
