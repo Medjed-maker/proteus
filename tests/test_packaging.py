@@ -26,10 +26,18 @@ EXPECTED_WHEEL_ASSETS = {
     "phonology/data/lexicon/greek_lemmas.json",
     "phonology/data/matrices/attic_doric.json",
     "phonology/data/rules/ancient_greek/consonant_changes.yaml",
+    "phonology/data/rules/ancient_greek/buck/dialects.yaml",
+    "phonology/data/rules/ancient_greek/buck/glossary.yaml",
+    "phonology/data/rules/ancient_greek/buck/grammar_rules.yaml",
     "phonology/data/rules/ancient_greek/morphophonemic_alternations.yaml",
     "phonology/data/rules/ancient_greek/vowel_shifts.yaml",
     "web/index.html",
     "web/static/styles.css",
+}
+
+EXPECTED_BUCK_RULE_ASSETS = {
+    asset for asset in EXPECTED_WHEEL_ASSETS
+    if asset.startswith("phonology/data/rules/ancient_greek/buck/")
 }
 
 
@@ -344,14 +352,17 @@ packaged_root = Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(packaged_root))
 
 import api.main as api_module
+import phonology.buck as buck_module
 import phonology.distance as distance_module
 import phonology.explainer as explainer_module
 
 assert Path(api_module.__file__).resolve().is_relative_to(packaged_root)
+assert Path(buck_module.__file__).resolve().is_relative_to(packaged_root)
 assert Path(distance_module.__file__).resolve().is_relative_to(packaged_root)
 assert Path(explainer_module.__file__).resolve().is_relative_to(packaged_root)
 
 lexicon_entries = api_module.load_lexicon_entries()
+buck_data = buck_module.load_buck_data()
 matrix = distance_module.load_matrix("attic_doric.json")
 rules = explainer_module.load_rules("ancient_greek")
 legacy_matrix = distance_module.load_matrix("data/matrices/attic_doric.json")
@@ -359,6 +370,8 @@ legacy_rules = explainer_module.load_rules("data/rules/ancient_greek")
 
 assert lexicon_entries
 assert any(entry.get("headword") == "ἄνθρωπος" for entry in lexicon_entries)
+assert set(buck_data) == {"grammar_rules", "dialects", "glossary"}
+assert any(rule.get("id") == "grc_synt_175" for rule in buck_data["grammar_rules"]["rules"])
 assert matrix["a"]["a"] == 0.0
 assert legacy_matrix["a"]["a"] == 0.0
 assert "CCH-001" in rules
@@ -562,6 +575,11 @@ def test_uv_build_generates_missing_lexicon_for_sdist(tmp_path: Path) -> None:
             pytest.fail(f"extractfile returned None for {metadata_member}")
         metadata_document = json.loads(metadata_file.read().decode("utf-8"))
 
+        for asset_path in EXPECTED_BUCK_RULE_ASSETS:
+            assert any(name.endswith(asset_path.removeprefix("phonology/")) for name in names), (
+                f"sdist does not contain {asset_path}"
+            )
+
     assert any(entry.get("headword") == "ἄνθρωπος" for entry in lexicon_document["lemmas"])
     assert metadata_document["schema_version"] == build_lexicon.FINGERPRINT_SCHEMA_VERSION
 
@@ -592,8 +610,11 @@ def test_uv_build_generates_missing_lexicon_for_wheel(tmp_path: Path) -> None:
     assert wheel_files, "uv build did not produce a wheel"
 
     with zipfile.ZipFile(wheel_files[0]) as wheel_zip:
-        assert "phonology/data/lexicon/greek_lemmas.json" in wheel_zip.namelist()
-        assert "phonology/data/lexicon/greek_lemmas.meta.json" not in wheel_zip.namelist()
+        asset_names = wheel_zip.namelist()
+        for asset_path in EXPECTED_BUCK_RULE_ASSETS:
+            assert asset_path in asset_names, f"Missing expected asset in wheel: {asset_path}"
+        assert "phonology/data/lexicon/greek_lemmas.json" in asset_names
+        assert "phonology/data/lexicon/greek_lemmas.meta.json" not in asset_names
         lexicon_document = json.loads(
             wheel_zip.read("phonology/data/lexicon/greek_lemmas.json").decode("utf-8")
         )

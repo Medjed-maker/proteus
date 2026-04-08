@@ -709,6 +709,505 @@ class TestExtractEntry:
         assert result["dialect"] == "attic"
         assert result["gender"] == "common"
 
+    def test_heading_variant_parenthetical_doric_note_keeps_attic_pronoun(self) -> None:
+        """Parenthetical variant notes like ``(so in Dor.)`` must not flip Attic entries."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25030" key="e)gw/" type="main">'
+            '<orth extent="full" lang="greek">e)gw/</orth>, <title>I</title>: '
+            'Pron. of the first person:—'
+            '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> mostly '
+            '<orth extent="full" lang="greek">e)gw/n</orth> before vowels (so in '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> before consonants), '
+            'rarely in Trag.; '
+            '<gramGrp><gram type="dialect">Boeot.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">i(w/n</orth>:— strengthd. '
+            '<orth extent="full" lang="greek">e)/gwge</orth>, '
+            '<sense id="s1" n="A" level="1">'
+            '<tr>I at least, for my part</tr> (more freq. in '
+            '<gramGrp><gram type="dialect">Att.</gram></gramGrp> than in Hom.)'
+            "</sense>"
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἐγώ"
+        assert result["pos"] == "pronoun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "common"
+
+    def test_heading_variant_dialect_after_title_pos_text_keeps_attic_entry(self) -> None:
+        """Title-wrapped heading prose should count as prior context for variant notes."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25045" key="e)gw/" type="main">'
+            '<orth extent="full" lang="greek">e)gw/</orth>'
+            '<title>Pron. of the first person</title>'
+            '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">e)gw/n</orth>, '
+            '<sense id="s1" n="A" level="1"><tr>I</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἐγώ"
+        assert result["pos"] == "pronoun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "common"
+
+    def test_heading_plain_gloss_title_does_not_hide_non_attic_entry(self) -> None:
+        """A bare English title before a dialect label must not imply variant context."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25056" key="dw=ron" type="main">'
+            '<orth extent="full" lang="greek">dw=ron</orth>, '
+            '<title>gift</title>, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<gen lang="greek">to/</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>gift</tr></sense>'
+            "</entryFree>"
+        )
+        assert extract_entry(elem) is None
+
+    def test_heading_plain_gloss_tail_does_not_hide_non_attic_entry(self) -> None:
+        """Bare tail prose before a dialect label must not imply variant context."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25057" key="dw=ron" type="main">'
+            '<orth extent="full" lang="greek">dw=ron</orth>, gift, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<gen lang="greek">to/</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>gift</tr></sense>'
+            "</entryFree>"
+        )
+        assert extract_entry(elem) is None
+
+    def test_heading_single_doric_variant_form_keeps_attic_adverb(self) -> None:
+        """A lone dialect spelling variant should not filter an Attic headword."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25047" key="a)bohti/" type="main">'
+            '<orth extent="full" lang="greek">a)bohti/</orth>, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<orth extent="suff" lang="greek">a)bohq-a_ti/</orth>, '
+            '<pos>Adv.</pos> (<etym lang="greek">boa/w</etym>) '
+            '<sense id="s1" n="A" level="1"><tr>without summons</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἀβοητί"
+        assert result["pos"] == "adverb"
+        assert result["dialect"] == "attic"
+        assert "gender" not in result
+
+    def test_heading_single_non_attic_surface_form_without_context_skips_entry(self) -> None:
+        """A bare dialect label plus one surface form still marks a non-Attic entry."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25054" key="dw=ron" type="main">'
+            '<orth extent="full" lang="greek">dw=ron</orth>, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">dw=ron</orth>, '
+            '<gen lang="greek">to/</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>gift</tr></sense>'
+            "</entryFree>"
+        )
+        assert extract_entry(elem) is None
+
+    def test_heading_multiple_dialect_variant_forms_keep_attic_noun(self) -> None:
+        """Multi-dialect variant chains should not drop Attic headwords."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25029" key="a)/ella" type="main">'
+            '<orth extent="full" lang="greek">a)/ella</orth>, '
+            '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">a)e/llh</orth>, '
+            '<itype lang="greek">hs</itype>, '
+            '<gramGrp><gram type="dialect">Aeol.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">au)/ella</orth>, '
+            '<gen lang="greek">h(</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>stormy wind, whirlwind</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἄελλα"
+        assert result["pos"] == "noun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "feminine"
+
+    def test_heading_single_form_of_dialect_label_stays_non_attic(self) -> None:
+        """A lone heading dialect label before ``form of`` must still filter the entry."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25034" key="a)gapa/zw" type="main">'
+            '<orth extent="full" lang="greek">a)gapa/zw</orth>, '
+            '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> form of '
+            '<foreign lang="greek">a)gapa/w</foreign>'
+            '<sense id="s1" n="A" level="1"><tns>impf.</tns><tr>love</tr></sense>'
+            "</entryFree>"
+        )
+        assert extract_entry(elem) is None
+
+    def test_heading_attic_variant_inside_non_attic_entry_stays_filtered(self) -> None:
+        """An Attic variant inside a Doric heading must not flip the entry to Attic."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25039" key="dw=ron" type="main">'
+            '<orth extent="full" lang="greek">dw=ron</orth>, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">dw=ron</orth>, '
+            '<gramGrp><gram type="dialect">Att.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">dw=ron</orth>, '
+            '<gen lang="greek">to/</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>gift</tr></sense>'
+            "</entryFree>"
+        )
+        assert extract_entry(elem) is None
+
+    def test_heading_laconian_spelling_after_itypes_keeps_attic_adjective(self) -> None:
+        """Non-Attic spellings after iTypes must not drop Attic headwords."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25036" key="a)gaqo/s" type="main">'
+            '<orth extent="full" lang="greek">a)ga^qo/s</orth>'
+            '<pron extent="full" lang="greek">[a^g]</pron>, '
+            '<itype lang="greek">h/</itype>, '
+            '<itype lang="greek">o/n</itype>, '
+            '<gramGrp><gram type="dialect">Lacon.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">a)gaso/s</orth> '
+            '<bibl><author>Ar.</author><title>Lys.</title><biblScope>1301</biblScope></bibl>, '
+            '<orth extent="full" lang="greek">a)zaqo/s</orth>:—'
+            '<sense id="s1" n="A" level="1"><tr>good</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἀγαθός"
+        assert result["pos"] == "adjective"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "common"
+
+    def test_heading_dialect_with_mostly_but_no_alt_form_stays_non_attic(self) -> None:
+        """Variant cue words alone must not discard an entry-level dialect label."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25041" key="dw=ron" type="main">'
+            '<orth extent="full" lang="greek">dw=ron</orth>, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> mostly in lyric poetry, '
+            '<gen lang="greek">to/</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>gift</tr></sense>'
+            "</entryFree>"
+        )
+        assert extract_entry(elem) is None
+
+    def test_heading_ionic_variant_chain_keeps_attic_noun(self) -> None:
+        """Variant chains with multiple Greek forms must not flip Attic nouns."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25037" key="a)gaqoergi/a" type="main">'
+            '<orth extent="suff" lang="greek">a)gaqo-ergi/a</orth>, '
+            '<gramGrp><gram type="dialect">Ion.</gram></gramGrp> '
+            '<foreign lang="greek">-ih,</foreign> '
+            '<gramGrp><gram type="var">contr.</gram></gramGrp> '
+            '<orth extent="suff" lang="greek">a)gaqo-ourgi/a</orth>, '
+            '<gen lang="greek">h(</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>good deed, service</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἀγαθοεργία"
+        assert result["pos"] == "noun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "feminine"
+
+    def test_heading_attic_label_with_following_form_still_keeps_entry(self) -> None:
+        """Attic labels should not be discarded as mere variant notes."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25038" key="a)ru/w1" type="main">'
+            '<orth extent="full" lang="greek">a)ru/w</orth> '
+            '<pron extent="full" lang="greek">[a^]</pron>, '
+            '<gramGrp><gram type="dialect">Att.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">a)ru/tw</orth> '
+            '<pron extent="full" lang="greek">[u^]</pron>; '
+            '<gramGrp><gram type="dialect">Aeol.</gram></gramGrp> '
+            '<mood>part.</mood> '
+            '<sense id="s1" n="A" level="1"><tr>draw</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἀρύω"
+        assert result["pos"] == "verb"
+        assert result["dialect"] == "attic"
+
+    def test_heading_variant_dialect_after_explicit_pos_tag_keeps_attic_entry(self) -> None:
+        """Tagged heading POS labels should count as prior prose for variant dialect notes."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25032" key="e)gw/" type="main">'
+            '<orth extent="full" lang="greek">e)gw/</orth>, '
+            '<pos>Pron.</pos>'
+            '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">e)gw/n</orth>, '
+            '<sense id="s1" n="A" level="1"><tr>I</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἐγώ"
+        assert result["pos"] == "pronoun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "common"
+
+    def test_strengthd_variant_context_with_non_dialect_gramgrp_keeps_attic_entry(self) -> None:
+        """A standalone ``strengthd.`` cue should keep variant dialect labels from flipping the entry."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25040" key="fo/os" type="main">'
+            '<orth extent="full" lang="greek">fo/os</orth>, <title>light</title>: '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> strengthd. '
+            '<gramGrp><gram type="var">sync.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">fo/oss</orth>, '
+            '<gen lang="greek">to/</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>light</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "φόος"
+        assert result["pos"] == "noun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "neuter"
+
+    def test_heading_dialect_followed_only_by_gen_still_counts_as_variant(self) -> None:
+        """A heading `gen` marker can be the only signal for a dialectal variant form."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25044" key="a)lw/phc" type="main">'
+            '<orth extent="full" lang="greek">a)lw/phc</orth>, older form, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<gen lang="greek">h(</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>fox</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἀλώπηξ"
+        assert result["pos"] == "noun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "feminine"
+
+    def test_heading_var_label_before_gen_keeps_non_attic_dialect(self) -> None:
+        """A non-dialect `gramGrp` before `gen` must not erase an entry-level dialect."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25052" key="dw=ron" type="main">'
+            '<orth extent="full" lang="greek">dw=ron</orth>, <title>gift</title>, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<gramGrp><gram type="var">contr.</gram></gramGrp> '
+            '<gen lang="greek">to/</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>gift</tr></sense>'
+            "</entryFree>"
+        )
+        assert extract_entry(elem) is None
+
+    def test_heading_pos_then_var_label_before_gen_keeps_non_attic_dialect(self) -> None:
+        """Tagged POS before a dialect note must not reclassify var-plus-gen headings as Attic."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25053" key="dw=ron" type="main">'
+            '<orth extent="full" lang="greek">dw=ron</orth>, <pos>Subst.</pos> '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<gramGrp><gram type="var">contr.</gram></gramGrp> '
+            '<gen lang="greek">to/</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>gift</tr></sense>'
+            "</entryFree>"
+        )
+        assert extract_entry(elem) is None
+
+    def test_heading_surface_form_plus_gen_without_prose_keeps_attic_noun(self) -> None:
+        """A lone dialect form plus `gen` should still keep the Attic headword."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25046" key="a)ggei=on" type="main">'
+            '<orth extent="full" lang="greek">a)ggei=on</orth>, '
+            '<gramGrp><gram type="dialect">Ion.</gram></gramGrp> '
+            '<orth extent="suff" lang="greek">a)ggeio-h/ion</orth>, '
+            '<gen lang="greek">to/</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>vessel</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἀγγεῖον"
+        assert result["pos"] == "noun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "neuter"
+
+    def test_heading_multiple_dialect_cited_forms_keep_attic_verb(self) -> None:
+        """Cited dialect form chains should still preserve the Attic headword."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25048" key="a)dike/w" type="main">'
+            '<orth extent="full" lang="greek">a)di^ke/w</orth>, '
+            '<gramGrp><gram type="dialect">Aeol.</gram></gramGrp> '
+            '<orth extent="suff" lang="greek">a)di-h/w</orth> '
+            '<bibl><author>Sapph.</author><biblScope>1.20</biblScope></bibl>, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<orth extent="suff" lang="greek">a)di-i/w</orth> '
+            '<bibl><title>Tab.Heracl.</title><biblScope>1.138</biblScope></bibl>, '
+            '<sense id="s1" n="A" level="1"><tr>do wrong</tr><tns>impf.</tns></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἀδικέω"
+        assert result["pos"] == "verb"
+        assert result["dialect"] == "attic"
+
+    def test_heading_nominal_morphology_continuation_keeps_attic_noun(self) -> None:
+        """Dialect-specific iType and gender continuations should stay variant-only."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25049" key="a)na/stasis" type="main">'
+            '<orth extent="full" lang="greek">a)na/-sta^sis</orth>, '
+            '<itype lang="greek">ews</itype>, '
+            '<gramGrp><gram type="dialect">Ion.</gram></gramGrp> '
+            '<itype lang="greek">ios</itype>, '
+            '<gen lang="greek">h(</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>raising up</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἀνάστασις"
+        assert result["pos"] == "noun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "feminine"
+
+    def test_heading_ionic_morphology_continuation_keeps_attic_goatherd(self) -> None:
+        """A dialect label bracketed by iTypes and gen should not filter the entry."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25050" key="ai)gonomeu/s" type="main">'
+            '<orth extent="suff" lang="greek">ai)go-nomeu/s</orth>, '
+            '<itype lang="greek">e/ws</itype>, '
+            '<gramGrp><gram type="dialect">Ion.</gram></gramGrp> '
+            '<itype lang="greek">h=os</itype>, '
+            '<gen lang="greek">o(</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>goat-herd</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "αἰγονομεύς"
+        assert result["pos"] == "noun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "masculine"
+
+    def test_heading_multiple_dialect_spelling_variants_keep_attic_noun(self) -> None:
+        """Sequential dialect spellings should remain heading variants, not entry labels."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25051" key="a)ni/a" type="main">'
+            '<orth extent="full" lang="greek">a)ni/a</orth>, '
+            '<gramGrp><gram type="dialect">Ion.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">a)ni/h</orth>, '
+            '<gramGrp><gram type="dialect">Aeol.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">o)ni/a</orth>, '
+            '<gen lang="greek">h(</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>grief, sorrow</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ἀνία"
+        assert result["pos"] == "noun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "feminine"
+
+    def test_pos_from_trailing_sense_prose_handles_second_person_plural_pronoun(self) -> None:
+        """POS notes after a gloss inside a sense should still classify pronouns."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25031" key="u(mei=s" type="main">'
+            '<orth extent="full" lang="greek">u(mei=s</orth>, '
+            '<sense id="s1" n="A" level="1">'
+            '<tr>ye</tr>: Pron. of the second pers. pl.:—'
+            '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> nom. '
+            '<orth extent="full" lang="greek">u)/mmes</orth>;'
+            "</sense>"
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ὑμεῖς"
+        assert result["pos"] == "pronoun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "common"
+
+    def test_tagged_pos_after_gloss_keeps_second_person_plural_pronoun(self) -> None:
+        """Tagged POS labels after a gloss should still classify the entry."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25033" key="u(mei=s" type="main">'
+            '<orth extent="full" lang="greek">u(mei=s</orth>, '
+            '<sense id="s1" n="A" level="1">'
+            '<tr>ye</tr>: <pos>Pron.</pos> of the second pers. pl.:—'
+            '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> nom. '
+            '<orth extent="full" lang="greek">u)/mmes</orth>;'
+            "</sense>"
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ὑμεῖς"
+        assert result["pos"] == "pronoun"
+        assert result["dialect"] == "attic"
+        assert result["gender"] == "common"
+
+    def test_secondary_post_gloss_pos_note_does_not_override_adjective(self) -> None:
+        """Secondary post-gloss POS notes must not replace the main headword POS."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25035" key="toi=os" type="main">'
+            '<orth extent="full" lang="greek">toi=os</orth>'
+            '<itype lang="greek">a</itype>'
+            '<itype lang="greek">on</itype>'
+            '<sense id="s1" n="A" level="1">'
+            '<tr>such</tr>; also <pos>Pron.</pos>, <tr>such a one</tr>'
+            "</sense>"
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "τοῖος"
+        assert result["pos"] == "adjective"
+        assert result["gender"] == "common"
+
+    def test_post_gloss_pronoun_note_does_not_override_itype_adjective(self) -> None:
+        """Fallback post-gloss POS notes must not beat stronger adjective signals."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25042" key="toi=os" type="main">'
+            '<orth extent="full" lang="greek">toi=os</orth>'
+            '<itype lang="greek">a</itype>'
+            '<itype lang="greek">on</itype>'
+            '<sense id="s1" n="A" level="1">'
+            '<tr>such</tr>: Pron. of the correlative form in late usage'
+            "</sense>"
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "τοῖος"
+        assert result["pos"] == "adjective"
+        assert result["gender"] == "common"
+
     def test_heading_entry_level_non_attic_dialect_after_morphology_skips_entry(self) -> None:
         """Heading dialect labels without a following variant form should filter the entry."""
 
@@ -831,6 +1330,57 @@ class TestExtractEntry:
         assert result["headword"] == "ὄντα"
         assert result["pos"] == "participle"
         assert result["gender"] == "common"
+
+    def test_participle_spelled_out_in_mood_intro_classifies_participle(self) -> None:
+        """Spelled-out ``Participle of`` mood notes should still classify participles."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25055" key="o)/nta2" type="main">'
+            '<orth extent="full" lang="greek">o)/nta</orth>, '
+            '<gen lang="greek">ta/</gen>, neut. pl. '
+            '<mood>Participle</mood> of <foreign lang="greek">ei)mi/</foreign> '
+            '<sense id="s1" n="A" level="1">'
+            '<tr>the things which actually exist</tr>'
+            "</sense>"
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["headword"] == "ὄντα"
+        assert result["pos"] == "participle"
+        assert result["gender"] == "common"
+
+    def test_mood_participle_without_of_classifies_participle(self) -> None:
+        """<mood>Participle</mood> without 'of' should still classify as participle."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25060" key="pa/qwn" type="main">'
+            '<orth extent="full" lang="greek">pa/qwn</orth>, '
+            '<gen lang="greek">o(</gen>, '
+            '<mood>Participle</mood> pres. act. '
+            '<sense id="s1" n="A" level="1"><tr>suffering</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["pos"] == "participle"
+        assert result["gender"] == "masculine"
+
+    def test_mood_partic_abbrev_without_of_classifies_participle(self) -> None:
+        """<mood>Partic.</mood> without 'of' should still classify as participle."""
+
+        elem = etree.fromstring(
+            '<entryFree id="n25061" key="pa/qwn2" type="main">'
+            '<orth extent="full" lang="greek">pa/qwn</orth>, '
+            '<gen lang="greek">o(</gen>, '
+            '<mood>Partic.</mood> pres. act. '
+            '<sense id="s1" n="A" level="1"><tr>suffering</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(elem)
+        assert result is not None
+        assert result["pos"] == "participle"
+        assert result["gender"] == "masculine"
 
     def test_explicit_adverb_pos_is_not_overridden_by_itypes(self) -> None:
         """Explicit adverb tags should win over adjective-like iTypes."""
@@ -1166,3 +1716,69 @@ class TestBetaCodeIntegration:
         assert headword == expected_headword
         ipa = to_ipa(headword)
         assert ipa == expected_ipa
+
+
+class TestNestedGenElement:
+    """Verify that <gen> nested inside <foreign> is found by the deep fallback."""
+
+    def test_nested_gen_inside_foreign_extracts_as_noun(self) -> None:
+        """βίος-like entry: <gen> is inside <foreign>, not a direct child."""
+        xml = etree.fromstring(
+            '<entryFree id="n19972" key="bi/os1" type="main">'
+            '<orth extent="full" lang="greek">bi/os</orth>'
+            '<foreign lang="greek">i^], <gen lang="greek">o(</gen></foreign>'
+            '<sense id="s1" n="A" level="1"><tr>life</tr></sense>'
+            "</entryFree>"
+        )
+        result = extract_entry(xml)
+        assert result is not None
+        assert result["pos"] == "noun"
+        assert result["gender"] == "masculine"
+
+    def test_direct_child_gen_still_preferred(self) -> None:
+        """Normal entry: direct-child <gen> is found without needing deep search."""
+        xml = _make_entry_xml(gen="o(", tr="word")
+        result = extract_entry(xml)
+        assert result is not None
+        assert result["gender"] == "masculine"
+
+    def test_find_gen_text_deep_returns_empty_when_no_gen(self) -> None:
+        """Deep search returns empty string when no <gen> exists anywhere."""
+        from phonology.lsj_extractor import _find_gen_text
+
+        xml = etree.fromstring(
+            '<entryFree id="n100" key="test" type="main">'
+            '<orth extent="full" lang="greek">test</orth>'
+            "</entryFree>"
+        )
+        assert _find_gen_text(xml) == ""
+
+    def test_deep_search_does_not_cross_sense_boundary(self) -> None:
+        """<gen> inside <sense> should not be found by the deep fallback."""
+        from phonology.lsj_extractor import _find_text_deep
+
+        xml = etree.fromstring(
+            '<entryFree id="n100" key="test" type="main">'
+            '<orth extent="full" lang="greek">test</orth>'
+            '<sense id="s1" n="A" level="1">'
+            '<gen lang="greek">h(</gen>'
+            "<tr>some word</tr>"
+            "</sense>"
+            "</entryFree>"
+        )
+        # The <gen> is inside <sense>, so deep search should NOT find it
+        assert _find_text_deep(xml, "gen", lang="greek") == ""
+
+    def test_deep_search_ignores_citation_subtrees(self) -> None:
+        """<gen> inside heading citations should not be treated as headword gender."""
+        from phonology.lsj_extractor import _find_gen_text
+
+        xml = etree.fromstring(
+            '<entryFree id="n101" key="a)gaqo/s" type="main">'
+            '<orth extent="full" lang="greek">a)gaqo/s</orth>'
+            '<cit><quote><foreign lang="greek">ti <gen lang="greek">h(</gen></foreign></quote></cit>'
+            '<sense id="s1" n="A" level="1"><tr>good</tr></sense>'
+            "</entryFree>"
+        )
+        assert _find_gen_text(xml) == ""
+        assert extract_entry(xml) is None

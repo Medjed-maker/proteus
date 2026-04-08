@@ -19,7 +19,7 @@ import unicodedata
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from ._paths import resolve_repo_data_dir
 from .betacode import beta_to_unicode
@@ -199,6 +199,48 @@ def _find_text(parent: Any, tag: str, **attribs: str) -> str:
     return ""
 
 
+def _find_text_deep(parent: Any, tag: str, **attribs: str) -> str:
+    """Search heading-area descendants for matching tag (fallback for nested elements).
+
+    Unlike ``_find_text`` which only searches direct children, this searches
+    descendant subtrees of direct children that are part of the heading prose,
+    while skipping citation/bookkeeping blocks that may mention other forms.
+    This prevents matching ``<gen>`` elements inside citations that do not
+    describe the headword itself.
+
+    Used as a fallback when direct-child search fails due to malformed XML
+    nesting (e.g. ``<gen>`` inside ``<foreign>``).
+    """
+    for child in parent:
+        if _local_name(child) in {"sense", "cit", "quote", "bibl"}:
+            continue
+        for descendant in child.iter():
+            if _local_name(descendant) != tag:
+                continue
+            if all(descendant.get(k) == v for k, v in attribs.items()):
+                return _elem_text(descendant)
+    return ""
+
+
+def _find_gen_text(entry: Any) -> str:
+    """Find gender text from ``<gen>`` element, with fallback for nested tags.
+
+    Some LSJ entries (e.g. βίος / n19972) have ``<gen>`` nested inside
+    ``<foreign>`` elements.  Try direct children first, then fall back to
+    a deep descendant search.
+    """
+    text = _find_text(entry, "gen", lang="greek")
+    if text:
+        return text
+    text = _find_text(entry, "gen")
+    if text:
+        return text
+    text = _find_text_deep(entry, "gen", lang="greek")
+    if text:
+        return text
+    return _find_text_deep(entry, "gen")
+
+
 def _find_texts(parent: Any, tag: str, **attribs: str) -> list[str]:
     """Find all direct children matching tag and optional attributes, return texts."""
     texts: list[str] = []
@@ -236,11 +278,49 @@ _INLINE_POS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("particle", re.compile(r"\b(?:Part\.(?!\w)|Particle)(?=$|[.,;:])", re.IGNORECASE)),
     ("interjection", re.compile(r"\b(?:Interj\.|Interjection)(?=$|[.,;:])", re.IGNORECASE)),
     ("numeral", re.compile(r"\b(?:Num\.|Numeral)(?=$|[.,;:])", re.IGNORECASE)),
-    ("participle", re.compile(r"\b(?:Partic\.|Participle)(?=$|[.,;:]|\s+of\b)", re.IGNORECASE)),
+    ("participle", re.compile(r"\b(?:Partic\.|Participle)(?=$|[.,;:\s])", re.IGNORECASE)),
 )
 _ATTIC_INLINE_RE = re.compile(r"\bAtt\.|\bAttic\b", re.IGNORECASE)
-_PARTICIPLE_OF_RE = re.compile(r"\b(?:part|partic)\.\s+of\b", re.IGNORECASE)
+_HEADING_NEARBY_VARIANT_CONTEXT_RE = re.compile(
+    r"(?:\b(?:so in|mostly|rarely|before vowels|before consonants)\b|\bstrengthd\.)",
+    re.IGNORECASE,
+)
+_HEADING_ENTRY_LEVEL_CONSTRAINT_RE = re.compile(
+    r"\b(?:form of|only in)\b",
+    re.IGNORECASE,
+)
+_HEADING_LEXICOGRAPHIC_CONTEXT_RE = re.compile(
+    r"\bolder\s+form\b",
+    re.IGNORECASE,
+)
+_POST_GLOSS_PRIMARY_POS_RE = re.compile(
+    r"^\s*[:\-—]*\s*(?:Art\.|Article|Pron\.|Pronoun|Partic\.|Participle)\s+of\b",
+    re.IGNORECASE,
+)
+_PARTICIPLE_OF_RE = re.compile(
+    r"\b(?:part\.|partic\.|participle)\s+of\b",
+    re.IGNORECASE,
+)
 _HEADING_GREEK_FORM_TAGS = frozenset({"orth", "foreign", "pron", "gen"})
+_HEADING_SURFACE_FORM_TAGS = frozenset({"orth", "foreign", "pron"})
+_HEADING_HEADWORD_CONTEXT_TAGS = frozenset({"pos"})
+_HEADING_NONPROSE_CONTEXT_TAGS = frozenset(
+    {
+        "author",
+        "bibl",
+        "biblScope",
+        "cit",
+        "foreign",
+        "gen",
+        "gramGrp",
+        "itype",
+        "mood",
+        "orth",
+        "pron",
+        "quote",
+        "tns",
+    }
+)
 
 
 def _normalize_beta_token(text: str) -> str:
@@ -326,22 +406,44 @@ def _normalize_intro_text(parts: list[str]) -> str:
     return _INTRO_WHITESPACE_RE.sub(" ", "".join(parts)).strip()
 
 
-def _entry_intro_text(entry: Any) -> str:
+def _append_intro_child_text(
+    parts: list[str], child: Any, *, skip_mood_text: bool = False
+) -> None:
+    """Append heading or sense-intro text from ``child`` to ``parts``.
+
+    When ``skip_mood_text`` is true, the body of ``<mood>`` elements is ignored
+    while their tail text is preserved. This keeps inline POS scans from
+    misreading ``<mood>part.</mood>`` as the POS abbreviation ``Part.``.
+    """
+    local = _local_name(child)
+    if local in {"cit", "quote", "bibl"}:
+        parts.append(child.tail or "")
+        return
+    if skip_mood_text and local == "mood":
+        body = _elem_text(child).strip().rstrip(".")
+        if body.lower() == "part":
+            # "part." would match the "particle" regex — skip it.
+            # Unambiguous forms like "Participle" / "Partic." fall through.
+            parts.append(child.tail or "")
+            return
+    parts.append(_elem_text(child))
+    parts.append(child.tail or "")
+
+
+def _entry_intro_text(entry: Any, *, skip_mood_text: bool = False) -> str:
     """Return the text that appears before the first top-level ``<sense>``."""
     parts: list[str] = [entry.text or ""]
     for child in entry:
         local = _local_name(child)
         if local == "sense":
             break
-        if local in {"cit", "quote", "bibl"}:
-            parts.append(child.tail or "")
-            continue
-        parts.append(_elem_text(child))
-        parts.append(child.tail or "")
+        _append_intro_child_text(parts, child, skip_mood_text=skip_mood_text)
     return _normalize_intro_text(parts)
 
 
-def _sense_intro_texts(entry: Any, *, limit: int = 3) -> list[str]:
+def _sense_intro_texts(
+    entry: Any, *, limit: int = 3, skip_mood_text: bool = False
+) -> list[str]:
     """Return introductory text for the first few top-level ``<sense>`` blocks.
 
     Only the first *limit* senses are scanned because entry-level POS labels
@@ -359,13 +461,43 @@ def _sense_intro_texts(entry: Any, *, limit: int = 3) -> list[str]:
             sub_local = _local_name(sub)
             if sub_local in {"tr", "sense"}:
                 break
+            _append_intro_child_text(parts, sub, skip_mood_text=skip_mood_text)
+        text = _normalize_intro_text(parts)
+        if text:
+            texts.append(text)
+        if len(texts) >= limit:
+            break
+    return texts
+
+
+def _sense_post_gloss_pos_texts(entry: Any, *, limit: int = 3) -> list[str]:
+    """Return post-gloss prose candidates for fallback POS inference only."""
+    texts: list[str] = []
+    for child in entry:
+        if _local_name(child) != "sense":
+            continue
+        if child.get("level") not in {None, "1"}:
+            continue
+        seen_gloss = False
+        parts: list[str] = []
+        for sub in child:
+            sub_local = _local_name(sub)
+            if sub_local == "sense":
+                break
+            if not seen_gloss:
+                if sub_local == "tr":
+                    seen_gloss = True
+                    parts.append(sub.tail or "")
+                continue
+            if sub_local == "tr":
+                break
             if sub_local in {"cit", "quote", "bibl"}:
                 parts.append(sub.tail or "")
                 continue
             parts.append(_elem_text(sub))
             parts.append(sub.tail or "")
         text = _normalize_intro_text(parts)
-        if text:
+        if text and _POST_GLOSS_PRIMARY_POS_RE.match(text):
             texts.append(text)
         if len(texts) >= limit:
             break
@@ -390,26 +522,298 @@ def _has_attic_inline_context(text: str, match_start: int) -> bool:
     return bool(_ATTIC_INLINE_RE.search(text[clause_start:match_start]))
 
 
-def _is_heading_greek_form(child: Any) -> bool:
-    """Return True when a heading child presents an alternate Greek form."""
+def _is_heading_surface_form(child: Any) -> bool:
+    """Return True when a heading child presents an alternate surface form."""
     return (
-        _local_name(child) in _HEADING_GREEK_FORM_TAGS
+        _local_name(child) in _HEADING_SURFACE_FORM_TAGS
         and child.get("lang") == "greek"
         and bool(_elem_text(child))
     )
 
 
-def _has_following_heading_greek_form(children: list[Any], start_index: int) -> bool:
-    """Return True when a heading dialect label is followed by an alternate form."""
+def _heading_spelling_form(child: Any) -> str | None:
+    """Return a normalized Greek spelling form for ``orth``/``foreign`` tags only."""
+    if _local_name(child) not in {"orth", "foreign"} or child.get("lang") != "greek":
+        return None
+    text = _elem_text(child)
+    if not text:
+        return None
+    return _normalize_beta_token(text)
+
+
+def _is_heading_gen_marker(child: Any) -> bool:
+    """Return True when a heading child carries Greek gender morphology only."""
+    return (
+        _local_name(child) == "gen"
+        and child.get("lang") == "greek"
+        and bool(_elem_text(child))
+    )
+
+
+def _is_heading_itype_marker(child: Any) -> bool:
+    """Return True when a heading child carries Greek inflectional morphology."""
+    return _local_name(child) == "itype" and bool(_elem_text(child))
+
+
+def _is_heading_dialect_gramgrp(child: Any) -> bool:
+    """Return True when ``child`` is a heading ``<gramGrp>`` with a dialect label."""
+    if _local_name(child) != "gramGrp":
+        return False
+    for descendant in child.iter():
+        if descendant is child:
+            continue
+        if _local_name(descendant) == "gram" and descendant.get("type", "") == "dialect":
+            return True
+    return False
+
+
+class _HeadingContext(NamedTuple):
+    """Pre-computed heading context for variant-only dialect label decisions.
+
+    All fields are computed by :func:`_scan_heading_context` via a single
+    forward + backward pass over the heading's children list.
+    """
+
+    following_greek_form_count: int  # Wide zone: number of Greek surface forms before next dialect gramGrp
+    has_following_form: bool  # Narrow zone: any surface form before the first gramGrp
+    has_following_surface_form: bool  # Wide zone: any orth/foreign/pron with lang=greek
+    has_following_gen_marker: bool  # Wide zone: any <gen lang=greek> marker
+    has_following_itype_marker: bool  # Wide zone: any <itype> inflectional marker
+    has_non_dialect_gramgrp_before_gen: bool  # Wide zone: a non-dialect gramGrp appeared before a gen marker
+    has_preceding_form: bool  # Backward scan: surface form before start_index
+    has_preceding_itype_marker: bool  # Backward scan: <itype> marker before start_index
+    has_prior_dialect_label: bool  # Backward scan: a dialect gramGrp exists before start_index
+    has_following_dialect_label: bool  # Full zone: any dialect gramGrp after start_index (before sense)
+    has_following_attic_label: bool  # Full zone: a dialect gramGrp with Attic label after start_index
+
+
+def _has_attic_dialect_label(gramgrp: Any) -> bool:
+    """Return True when a dialect ``<gramGrp>`` contains an Attic label."""
+    for descendant in gramgrp.iter():
+        if _local_name(descendant) != "gram":
+            continue
+        if descendant.get("type", "") != "dialect":
+            continue
+        if _DIALECT_MAP.get(_elem_text(descendant).strip()) == "attic":
+            return True
+    return False
+
+
+def _backward_scan_heading_context(
+    children: list[Any], start_index: int
+) -> tuple[bool, bool, bool]:
+    """Scan backward from *start_index* and return context flags.
+
+    Returns:
+        A tuple of ``(has_preceding_form, has_preceding_itype_marker,
+        has_prior_dialect_label)``.
+    """
+    has_preceding_form = False
+    has_preceding_itype_marker = False
+
+    for child in reversed(children[:start_index]):
+        if _is_heading_dialect_gramgrp(child):
+            return has_preceding_form, has_preceding_itype_marker, True
+        if _is_heading_surface_form(child):
+            has_preceding_form = True
+        if _is_heading_itype_marker(child):
+            has_preceding_itype_marker = True
+
+    return has_preceding_form, has_preceding_itype_marker, False
+
+
+def _scan_heading_context(children: list[Any], start_index: int) -> _HeadingContext:
+    """Compute all heading context predicates in a single forward + backward pass.
+
+    Three forward scan zones with progressively wider stopping conditions:
+
+    - **Narrow**: stops at any ``<gramGrp>`` or ``<sense>`` — feeds
+      ``has_following_form``.
+    - **Wide**: stops at dialect ``<gramGrp>`` or ``<sense>`` — feeds
+      ``following_greek_form_count``, ``has_following_surface_form``,
+      ``has_following_gen_marker``, ``has_following_itype_marker``, and
+      ``has_non_dialect_gramgrp_before_gen``.
+    - **Full**: stops only at ``<sense>`` — feeds ``has_following_dialect_label``
+      and ``has_following_attic_label``.
+
+    The backward scan uses two zones:
+
+    - **Narrow**: stops at dialect ``<gramGrp>`` — feeds ``has_preceding_form``
+      and ``has_preceding_itype_marker``.
+    - **Full**: stops at the first dialect ``<gramGrp>`` when computing
+      ``has_prior_dialect_label`` (an intentional optimization). Feeds
+      ``has_preceding_form``, ``has_preceding_itype_marker``, and
+      ``has_prior_dialect_label``.
+    """
+    # -- Forward scan --
+    following_greek_form_count = 0
+    has_following_form = False
+    has_following_surface_form = False
+    has_following_gen_marker = False
+    has_following_itype_marker = False
+    has_non_dialect_gramgrp_before_gen = False
+    has_following_dialect_label = False
+    has_following_attic_label = False
+
+    narrow_done = False
+    wide_done = False
+    wide_seen_non_dialect_gramgrp = False
+
     for child in children[start_index + 1 :]:
         local = _local_name(child)
         if local == "sense":
-            return False
-        if local == "gramGrp":
-            return False
-        if _is_heading_greek_form(child):
+            break
+
+        is_dialect_gramgrp = _is_heading_dialect_gramgrp(child)
+
+        # Narrow zone: stops at ANY gramGrp
+        if not narrow_done:
+            if local == "gramGrp":
+                narrow_done = True
+            elif _is_heading_surface_form(child):
+                has_following_form = True
+
+        # Wide zone: stops at dialect gramGrp only
+        if not wide_done:
+            if is_dialect_gramgrp:
+                wide_done = True
+            else:
+                if _is_heading_surface_form(child):
+                    following_greek_form_count += 1
+                    has_following_surface_form = True
+                if _is_heading_gen_marker(child):
+                    has_following_gen_marker = True
+                    # non_dialect_gramgrp_before_gen is only true if we saw
+                    # a non-dialect gramGrp BEFORE this gen marker
+                    if wide_seen_non_dialect_gramgrp:
+                        has_non_dialect_gramgrp_before_gen = True
+                if _is_heading_itype_marker(child):
+                    has_following_itype_marker = True
+                if local == "gramGrp":
+                    wide_seen_non_dialect_gramgrp = True
+
+        # Full zone: stops only at sense (handled at top of loop)
+        if is_dialect_gramgrp:
+            has_following_dialect_label = True
+            if _has_attic_dialect_label(child):
+                has_following_attic_label = True
+
+    # -- Backward scan --
+    has_preceding_form, has_preceding_itype_marker, has_prior_dialect_label = (
+        _backward_scan_heading_context(children, start_index)
+    )
+
+    return _HeadingContext(
+        following_greek_form_count=following_greek_form_count,
+        has_following_form=has_following_form,
+        has_following_surface_form=has_following_surface_form,
+        has_following_gen_marker=has_following_gen_marker,
+        has_following_itype_marker=has_following_itype_marker,
+        has_non_dialect_gramgrp_before_gen=has_non_dialect_gramgrp_before_gen,
+        has_preceding_form=has_preceding_form,
+        has_preceding_itype_marker=has_preceding_itype_marker,
+        has_prior_dialect_label=has_prior_dialect_label,
+        has_following_dialect_label=has_following_dialect_label,
+        has_following_attic_label=has_following_attic_label,
+    )
+
+
+def _has_prior_heading_headword_context(children: list[Any], start_index: int) -> bool:
+    """Return True when the heading already established the main headword context.
+
+    Counts explicit heading POS tags and only prose that looks like
+    grammatical/lexicographic context. Bare English glosses such as ``gift``
+    must not qualify because they would incorrectly mark entry-level dialect
+    labels as variant-only.
+    """
+    if start_index <= 0:
+        return False
+    prior_parts: list[str] = []
+    for child in children[:start_index]:
+        local = _local_name(child)
+        if local in _HEADING_HEADWORD_CONTEXT_TAGS and _elem_text(child):
+            return True
+        if local not in _HEADING_NONPROSE_CONTEXT_TAGS:
+            child_text = _elem_text(child)
+            if child_text:
+                prior_parts.append(child_text)
+        prior_parts.append(child.tail or "")
+    text = _normalize_intro_text(prior_parts)
+    return _has_heading_prose_headword_context(text)
+
+
+def _has_following_heading_headword_context(children: list[Any], start_index: int) -> bool:
+    """Return True when following heading content establishes the headword context.
+
+    Scans forward until the next dialect ``<gramGrp>`` or top-level ``<sense>``.
+    Explicit heading POS tags count immediately. Otherwise, only prose that
+    looks like grammatical/lexicographic context counts; bare gloss words do
+    not.
+    """
+    if start_index >= len(children) - 1:
+        return False
+    following_parts: list[str] = []
+    for child in children[start_index + 1 :]:
+        local = _local_name(child)
+        if local == "sense":
+            break
+        if _is_heading_dialect_gramgrp(child):
+            break
+        if local in _HEADING_HEADWORD_CONTEXT_TAGS and _elem_text(child):
+            return True
+        if local not in _HEADING_NONPROSE_CONTEXT_TAGS:
+            child_text = _elem_text(child)
+            if child_text:
+                following_parts.append(child_text)
+        following_parts.append(child.tail or "")
+    text = _normalize_intro_text(following_parts)
+    return _has_heading_prose_headword_context(text)
+
+
+def _has_heading_prose_headword_context(text: str) -> bool:
+    """Return True when heading prose carries grammatical or variant context."""
+    if not text:
+        return False
+    return bool(
+        _inline_pos_candidates(text) or _HEADING_LEXICOGRAPHIC_CONTEXT_RE.search(text)
+    )
+
+
+def _has_distinct_following_heading_surface_form(children: list[Any], start_index: int) -> bool:
+    """Return True when a following Greek spelling differs from prior heading forms."""
+    prior_forms = {
+        form
+        for child in children[:start_index]
+        if (form := _heading_spelling_form(child)) is not None
+    }
+    if not prior_forms:
+        return False
+    for child in children[start_index + 1 :]:
+        local = _local_name(child)
+        if local == "sense":
+            break
+        if _is_heading_dialect_gramgrp(child):
+            break
+        form = _heading_spelling_form(child)
+        if form and form not in prior_forms:
             return True
     return False
+
+
+def _has_nearby_variant_context(children: list[Any], start_index: int) -> bool:
+    """Return True when nearby heading prose marks a dialect label as variant-only.
+
+    Checks both the preceding sibling's tail (text after the previous element)
+    and the current element's own tail (text after this ``<gramGrp>``) for
+    variant context markers: "so in", "mostly", "rarely", "strengthd.",
+    "before vowels", and "before consonants".
+    """
+    if start_index > 0:
+        preceding_tail = children[start_index - 1].tail or ""
+        if _HEADING_NEARBY_VARIANT_CONTEXT_RE.search(preceding_tail):
+            return True
+    current_tail = children[start_index].tail or ""
+    return bool(_HEADING_NEARBY_VARIANT_CONTEXT_RE.search(current_tail))
 
 
 def _leading_dialect_labels(entry: Any) -> list[str]:
@@ -421,25 +825,107 @@ def _leading_dialect_labels(entry: Any) -> list[str]:
         if local == "sense":
             break
         if local == "gramGrp":
-            variant_only = _has_following_heading_greek_form(children, index)
+            variant_context = _has_nearby_variant_context(children, index)
+            entry_level_constraint = bool(
+                _HEADING_ENTRY_LEVEL_CONSTRAINT_RE.search(child.tail or "")
+            )
+            ctx = _scan_heading_context(children, index)
+            prior_headword_context = _has_prior_heading_headword_context(children, index)
+            following_headword_context = _has_following_heading_headword_context(
+                children, index
+            )
+            has_distinct_following_surface_form = _has_distinct_following_heading_surface_form(
+                children, index
+            )
             for descendant in child.iter():
                 if _local_name(descendant) != "gram":
                     continue
                 if descendant.get("type", "") != "dialect":
                     continue
+                text = _elem_text(descendant).strip()
+                if text not in _DIALECT_MAP:
+                    continue
+                mapped_dialect = _DIALECT_MAP[text]
+                # -- Named conditions for variant-only decision --
+                # Attic with no prior dialect heading: likely a primary entry, not a variant
+                is_attic_without_prior = mapped_dialect == "attic" and not ctx.has_prior_dialect_label
+                # A lone heading dialect label followed by one explicit surface form
+                # is usually a variant note attached to an Attic headword.
+                is_single_dialect_surface_variant = (
+                    not ctx.has_prior_dialect_label
+                    and not ctx.has_following_dialect_label
+                    and ctx.has_following_surface_form
+                    and (prior_headword_context or following_headword_context)
+                )
+                # More than one Greek form follows the dialect label
+                has_extra_following_forms = ctx.following_greek_form_count > 1
+                # A multi-dialect heading chain with explicit forms usually enumerates
+                # variants of the Attic headword rather than redefining the entry.
+                has_dialect_variant_chain = (
+                    ctx.has_following_dialect_label
+                    and not ctx.has_following_attic_label
+                    and ctx.has_following_form
+                    and (ctx.has_following_surface_form or ctx.has_following_gen_marker)
+                )
+                # Nominal variant notes often switch only the inflectional markers
+                # around a dialect label, e.g. ``Ion. ios, h(``.
+                has_nominal_morphology_continuation = (
+                    ctx.has_following_gen_marker
+                    and not ctx.has_following_surface_form
+                    and (ctx.has_preceding_itype_marker or ctx.has_following_itype_marker)
+                )
+                has_distinct_nominal_surface_variant = (
+                    not ctx.has_prior_dialect_label
+                    and not ctx.has_following_dialect_label
+                    and has_distinct_following_surface_form
+                    and ctx.has_following_gen_marker
+                )
+                # Surrounding context suggests this is a variant form
+                qualifies_by_context = (
+                    prior_headword_context
+                    or has_extra_following_forms
+                    or ctx.has_prior_dialect_label
+                    or has_dialect_variant_chain
+                    or has_distinct_nominal_surface_variant
+                    or is_single_dialect_surface_variant
+                    or (variant_context and ctx.has_following_surface_form)
+                )
+                # Nearby variant cues can also annotate an adjacent Greek form without
+                # placing it immediately after the dialect label.
+                qualifies_by_nearby_variant_note = variant_context and (
+                    (ctx.has_preceding_form and prior_headword_context)
+                    or ctx.has_following_surface_form
+                )
+                qualifies_by_gen_marker = (
+                    ctx.has_following_gen_marker
+                    and not ctx.has_following_surface_form
+                    and (
+                        has_nominal_morphology_continuation
+                        or (
+                            prior_headword_context
+                            and not ctx.has_non_dialect_gramgrp_before_gen
+                        )
+                    )
+                )
+
+                variant_only = (
+                    not is_attic_without_prior
+                    and not entry_level_constraint
+                    and (
+                        (ctx.has_following_form and qualifies_by_context)
+                        or qualifies_by_gen_marker
+                        or qualifies_by_nearby_variant_note
+                    )
+                )
                 if variant_only:
                     continue
-                text = _elem_text(descendant).strip()
-                if text in _DIALECT_MAP:
-                    labels.append(_DIALECT_MAP[text])
+                labels.append(mapped_dialect)
     return labels
 
 
 def _has_plural_neuter_article(entry: Any) -> bool:
     """Return True when the entry heading marks a neuter plural article."""
-    gen_text = _find_text(entry, "gen", lang="greek")
-    if not gen_text:
-        gen_text = _find_text(entry, "gen")
+    gen_text = _find_gen_text(entry)
     normalized = unicodedata.normalize("NFC", gen_text.strip())
     return normalized in {"ta/", "τὰ", "τά"}
 
@@ -513,7 +999,11 @@ def _extract_pos(entry: Any) -> str | None:
 
     # 3. Inline LSJ prose labels in the entry intro and first few sense headings.
     inline_candidates: list[tuple[int, int, int, str]] = []
-    for source_index, text in enumerate([entry_intro, *_sense_intro_texts(entry)]):
+    inline_texts = [
+        _entry_intro_text(entry, skip_mood_text=True),
+        *_sense_intro_texts(entry, skip_mood_text=True),
+    ]
+    for source_index, text in enumerate(inline_texts):
         for attic_priority, position, pos in _inline_pos_candidates(text):
             # 0 = Attic-priority (sorts first), 1 = non-Attic
             sort_priority = 0 if attic_priority else 1
@@ -528,9 +1018,7 @@ def _extract_pos(entry: Any) -> str | None:
         return "numeral"
 
     # 5. Gender-based inference: presence of <gen> → noun
-    gen_text = _find_text(entry, "gen", lang="greek")
-    if not gen_text:
-        gen_text = _find_text(entry, "gen")
+    gen_text = _find_gen_text(entry)
     if gen_text:
         if participial_candidate and _has_plural_neuter_article(entry):
             return "participle"
@@ -552,7 +1040,17 @@ def _extract_pos(entry: Any) -> str | None:
     if key and _looks_like_verb_key(key) and _has_descendant(entry, {"tns", "mood"}):
         return "verb"
 
-    # 9. Fall back to participial classification only when stronger signals failed.
+    # 9. Post-gloss POS notes are a last-resort fallback for otherwise unlabeled entries.
+    post_gloss_candidates: list[tuple[int, int, int, str]] = []
+    for source_index, text in enumerate(_sense_post_gloss_pos_texts(entry)):
+        for attic_priority, position, pos in _inline_pos_candidates(text):
+            sort_priority = 0 if attic_priority else 1
+            post_gloss_candidates.append((sort_priority, source_index, position, pos))
+    if post_gloss_candidates:
+        post_gloss_candidates.sort()
+        return post_gloss_candidates[0][3]
+
+    # 10. Fall back to participial classification only when stronger signals failed.
     if participial_candidate:
         return "participle"
 
@@ -561,10 +1059,7 @@ def _extract_pos(entry: Any) -> str | None:
 
 def _extract_gender(entry: Any) -> str | None:
     """Extract gender from <gen> element."""
-    gen_text = _find_text(entry, "gen", lang="greek")
-    if not gen_text:
-        # Try without lang attribute
-        gen_text = _find_text(entry, "gen")
+    gen_text = _find_gen_text(entry)
     if gen_text:
         gen_stripped = unicodedata.normalize("NFC", gen_text.strip())
         for code, gender in _GENDER_MAP.items():

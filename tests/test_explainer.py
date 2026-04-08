@@ -154,6 +154,32 @@ def test_explain_detects_single_token_substitution_with_japanese_description() -
     assert "/aː/ → /ɛː/" in application.description
 
 
+def test_explain_accepts_tuple_token_sequences() -> None:
+    """Verify explain accepts immutable token sequences for query and lemma inputs."""
+    rules = [
+        _rule(
+            rule_id="VSH-001",
+            input_phoneme="aː",
+            output_phoneme="ɛː",
+            name_ja="長母音 ā > ē 推移",
+        )
+    ]
+
+    applications = explain(
+        query_tokens=("k", "ɛː", "s"),
+        lemma_tokens=("k", "aː", "s"),
+        alignment=Alignment(
+            aligned_query=("k", "ɛː", "s"),
+            aligned_lemma=("k", "aː", "s"),
+        ),
+        rules=rules,
+    )
+
+    assert len(applications) == 1
+    assert applications[0].rule_id == "VSH-001"
+    assert applications[0].position == 1
+
+
 def test_explain_prefers_longest_multi_token_rule() -> None:
     """Verify explain prefers the longest matching multi-token rule over shorter overlaps."""
     rules = [
