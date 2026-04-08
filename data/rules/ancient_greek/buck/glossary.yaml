@@ -1,0 +1,126 @@
+# glossary.yaml - Carl Darling Buck "The Greek Dialects" に基づく実例語彙集
+
+words:
+  # --- ATTIC-IONIC 関連 ---
+  - word: "λεώς"
+    standard_form: "λαός"
+    dialect: attic
+    rule_id: grc_phon_41_4
+    definition: "people"
+    buck_ref: { section: 41.4, page: 130 }
+
+  # --- ARCADIAN 関連 ---
+  - word: "ἴν"
+    standard_form: "ἐν"
+    dialect: arcadian
+    rule_id: grc_phon_10
+    definition: "in"
+    inscription_no: [47]
+    buck_ref: { section: 10, page: 132 }
+
+  - word: "ἀπύ"
+    standard_form: "ἀπό"
+    dialect: arcadian
+    rule_id: grc_phon_22
+    definition: "from"
+    inscription_no: [47]
+    buck_ref: { section: 22, page: 132 }
+
+  - word: "κάς"
+    standard_form: "καί"
+    dialect: arcadian
+    rule_id: grc_morph_134_3
+    definition: "and"
+    inscription_no: [48]
+    buck_ref: { section: 134.3, page: 132 }
+
+  - word: "σίσ"
+    standard_form: "τίς"
+    dialect: arcadian
+    rule_id: grc_phon_68_3
+    definition: "who/any"
+    inscription_no: [48]
+    buck_ref: { section: 68.3, page: 132 }
+
+  # --- CYPRIAN 関連 ---
+  - word: "ἰατῆραν"
+    standard_form: "ἰατρόν"
+    dialect: cyprian
+    rule_id: grc_wf_164_5
+    definition: "physician (acc. sg.)"
+    inscription_no: [49]
+    buck_ref: { section: 164.5, page: 132 }
+
+  - word: "δώκοι"
+    standard_form: "δῷ"
+    dialect: cyprian
+    rule_id: grc_synt_175
+    definition: "should give (optative in prescriptions)"
+    inscription_no: [49]
+    buck_ref: { section: 175, page: 126 }
+
+  # --- AEOLIC (LESBIAN/THESSALIAN/BOEOTIAN) 関連 ---
+  - word: "ἔμμι"
+    standard_form: "εἰμί"
+    dialect: lesbian
+    rule_id: grc_phon_74
+    definition: "I am"
+    buck_ref: { section: 74, page: 135 }
+
+  - word: "στάλλα"
+    standard_form: "στήλη"
+    dialect: lesbian
+    rule_id: grc_phon_75
+    definition: "stele"
+    buck_ref: { section: 75, page: 135 }
+
+  - word: "βείλομαι"
+    standard_form: "βούλομαι"
+    dialect: boeotian
+    rule_id: grc_phon_25
+    definition: "I wish"
+    buck_ref: { section: 25, page: 140 }
+
+  - word: "ἰαρός"
+    standard_form: "ἱερός"
+    dialect: boeotian
+    rule_id: grc_phon_13
+    definition: "sacred"
+    buck_ref: { section: 13.1, page: 139 }
+
+  # --- ELEAN 関連 ---
+  - word: "φάρεν"
+    standard_form: "φέρειν"
+    dialect: elean
+    rule_id: grc_phon_12
+    definition: "to bear/carry"
+    buck_ref: { section: 12, page: 145 }
+
+  - word: "γράφος"
+    standard_form: "γραφή"
+    dialect: elean
+    rule_id: null
+    definition: "law/edict"
+    notes: "Semantic peculiarity only (no phonological rule); see Glossary"
+    buck_ref: { section: 240.15, page: 145 }
+
+  - word: "τίρ"
+    standard_form: "τίς"
+    dialect: elean
+    rule_id: grc_phon_60_1
+    definition: "who/any"
+    buck_ref: { section: 60.1, page: 145 }
+
+  # --- LACONIAN 関連 ---
+  - word: "Ποηοιδάν"
+    standard_form: "Ποσειδῶν"
+    dialect: laconian
+    rule_id: grc_phon_59_1
+    definition: "Poseidon"
+    buck_ref: { section: 59.1, page: 146 }
+
+meta:
+  source: "Carl Darling Buck, The Greek Dialects (Glossary & Summaries)"
+  total_entries_original: 1400
+  current_entries: 15
+  note: "Entries linked to rules (rule_id) for reverse-lookup tool functionality."
