@@ -26,7 +26,13 @@ from pydantic import AliasChoices, BaseModel, Field, StringConstraints, field_va
 from phonology import search as phonology_search
 from phonology._paths import resolve_repo_data_dir
 from phonology.distance import MatrixData, load_matrix
-from phonology.explainer import Explanation, explain_alignment, load_rules, to_prose
+from phonology.explainer import (
+    Explanation,
+    RuleApplication,
+    explain_alignment,
+    load_rules,
+    to_prose,
+)
 from phonology.ipa_converter import to_ipa
 
 logger = logging.getLogger(__name__)
@@ -270,6 +276,143 @@ def _distance_from_confidence(confidence: float) -> float:
     return max(0.0, min(1.0, 1.0 - confidence))
 
 
+_OBSERVED_RULE_PREFIX = "OBS-"
+# Gate for match_type classification: below this → "Low-confidence".
+_LOW_CONFIDENCE_THRESHOLD = 0.55
+_HIGH_SIMILARITY_THRESHOLD = 0.80
+# Gate for uncertainty buckets in _build_uncertainty().
+_MEDIUM_SIMILARITY_THRESHOLD = 0.70
+# Gate for user-facing similarity message in _similarity_line().
+# Same numeric value as _LOW_CONFIDENCE_THRESHOLD by design; kept
+# separate because the two thresholds may diverge independently.
+_MODERATE_SIMILARITY_THRESHOLD = 0.55
+
+
+def _is_observed_rule_step(step: RuleApplication) -> bool:
+    """Return whether a rule application is an observed uncatalogued change."""
+    return step.rule_id.startswith(_OBSERVED_RULE_PREFIX)
+
+
+def _count_explicit_and_observed_steps(
+    steps: list[RuleApplication],
+) -> tuple[int, int]:
+    """Return counts for explicit catalogued rules and observed changes."""
+    explicit_count = sum(1 for step in steps if not _is_observed_rule_step(step))
+    observed_count = len(steps) - explicit_count
+    return explicit_count, observed_count
+
+
+def _build_match_type(
+    *,
+    source_ipa: str,
+    query_ipa: str,
+    steps: list[RuleApplication],
+    applied_rule_count: int,
+    confidence: float,
+) -> Literal["Exact", "Rule-based", "Distance-only", "Low-confidence"]:
+    """Classify the search hit for UI display."""
+    # Check ``steps`` (not ``applied_rule_count``) so that entries whose
+    # IPA happens to match but still carry OBS-prefixed observed changes
+    # are not mis-classified as "Exact".
+    if source_ipa == query_ipa and not steps:
+        return "Exact"
+    if applied_rule_count > 0:
+        return "Rule-based"
+    if confidence < _LOW_CONFIDENCE_THRESHOLD:
+        return "Low-confidence"
+    return "Distance-only"
+
+
+def _build_uncertainty(
+    match_type: Literal["Exact", "Rule-based", "Distance-only", "Low-confidence"],
+    *,
+    applied_rule_count: int,
+    confidence: float,
+) -> Literal["Low", "Medium", "High"]:
+    """Return an uncertainty bucket for a search hit."""
+    if match_type == "Exact" or (
+        applied_rule_count > 0 and confidence >= _HIGH_SIMILARITY_THRESHOLD
+    ):
+        return "Low"
+    if confidence >= _MEDIUM_SIMILARITY_THRESHOLD:
+        return "Medium"
+    return "High"
+
+
+def _format_alignment_phone(phone: str) -> str:
+    """Format a phone for alignment summaries, preserving gaps explicitly."""
+    return phone if phone else "∅"
+
+
+def _build_alignment_summary(
+    *,
+    source_ipa: str,
+    query_ipa: str,
+    steps: list[RuleApplication],
+) -> str:
+    """Build a short alignment summary suitable for the result card body."""
+    if source_ipa == query_ipa and not steps:
+        return "No phonological difference"
+    if len(steps) == 1:
+        step = steps[0]
+        if step.position < 0:
+            return (
+                f"/{_format_alignment_phone(step.from_phone)}/ -> "
+                f"/{_format_alignment_phone(step.to_phone)}/ at unknown position"
+            )
+        return (
+            f"/{_format_alignment_phone(step.from_phone)}/ -> "
+            f"/{_format_alignment_phone(step.to_phone)}/ at position {step.position}"
+        )
+    elif len(steps) > 1:
+        distinct_positions = len({step.position for step in steps})
+        pos_noun = "position" if distinct_positions == 1 else "positions"
+        return f"{len(steps)} phonological changes across {distinct_positions} {pos_noun}"
+    return "Differences visible in full alignment"
+
+
+def _similarity_line(confidence: float) -> str:
+    """Return a short qualitative similarity statement."""
+    if confidence >= _HIGH_SIMILARITY_THRESHOLD:
+        return "High phonological similarity."
+    if confidence >= _MODERATE_SIMILARITY_THRESHOLD:
+        return "Moderate phonological similarity."
+    return "Weak phonological similarity."
+
+
+def _build_why_candidate(
+    match_type: Literal["Exact", "Rule-based", "Distance-only", "Low-confidence"],
+    *,
+    applied_rule_count: int,
+    observed_change_count: int,
+    confidence: float,
+) -> list[str]:
+    """Build stable short bullet points describing why this candidate ranked."""
+    if match_type == "Exact":
+        first_line = "Exact phonological match."
+    elif applied_rule_count > 0:
+        noun = "rule" if applied_rule_count == 1 else "rules"
+        verb = "explains" if applied_rule_count == 1 else "explain"
+        first_line = f"{applied_rule_count} explicit {noun} {verb} the match."
+    else:
+        first_line = "Ranked by phonological distance without explicit rule support."
+
+    if match_type == "Exact":
+        third_line = "No remaining unexplained differences."
+    elif observed_change_count > 0:
+        noun = "change" if observed_change_count == 1 else "changes"
+        verb = "remains" if observed_change_count == 1 else "remain"
+        third_line = f"{observed_change_count} observed {noun} {verb} uncatalogued."
+    else:
+        third_line = "See alignment for localized differences."
+
+    return [
+        first_line,
+        _similarity_line(confidence),
+        third_line,
+    ]
+
+
 def _build_search_hit(
     result: phonology_search.SearchResult,
     query_ipa: str,
@@ -299,6 +442,15 @@ def _build_search_hit(
             all_rules=rules_registry,
             distance=distance,
         )
+    steps = list(explanation.steps)
+    applied_rule_count, observed_change_count = _count_explicit_and_observed_steps(steps)
+    match_type = _build_match_type(
+        source_ipa=source_ipa,
+        query_ipa=query_ipa,
+        steps=steps,
+        applied_rule_count=applied_rule_count,
+        confidence=result.confidence,
+    )
     return SearchHit(
         headword=result.lemma,
         ipa=source_ipa,
@@ -306,6 +458,25 @@ def _build_search_hit(
         confidence=result.confidence,
         dialect_attribution=result.dialect_attribution or "",
         alignment_visualization=result.alignment_visualization or "",
+        match_type=match_type,
+        applied_rule_count=applied_rule_count,
+        observed_change_count=observed_change_count,
+        alignment_summary=_build_alignment_summary(
+            source_ipa=source_ipa,
+            query_ipa=query_ipa,
+            steps=steps,
+        ),
+        why_candidate=_build_why_candidate(
+            match_type,
+            applied_rule_count=applied_rule_count,
+            observed_change_count=observed_change_count,
+            confidence=result.confidence,
+        ),
+        uncertainty=_build_uncertainty(
+            match_type,
+            applied_rule_count=applied_rule_count,
+            confidence=result.confidence,
+        ),
         rules_applied=[
             RuleStep(
                 rule_id=step.rule_id,
@@ -315,7 +486,7 @@ def _build_search_hit(
                 to_phone=step.to_phone,
                 position=step.position,
             )
-            for step in explanation.steps
+            for step in steps
         ],
         explanation=to_prose(explanation),
     )
@@ -398,6 +569,32 @@ class SearchHit(BaseModel):
     alignment_visualization: str = Field(
         default="",
         description="Three-line ASCII alignment visualization.",
+    )
+    match_type: Literal["Exact", "Rule-based", "Distance-only", "Low-confidence"] = Field(
+        default="Distance-only",
+        description="High-level classification describing how the candidate matched.",
+    )
+    applied_rule_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of explicit catalogued rules applied to explain the match.",
+    )
+    observed_change_count: int = Field(
+        default=0,
+        ge=0,
+        description="Count of uncatalogued observed changes retained in the explanation.",
+    )
+    alignment_summary: str = Field(
+        default="",
+        description="Short one-line summary of the main phonological differences.",
+    )
+    why_candidate: list[str] = Field(
+        default_factory=list,
+        description="Short bullet points explaining why the candidate ranked highly.",
+    )
+    uncertainty: Literal["Low", "Medium", "High"] = Field(
+        default="High",
+        description="Qualitative uncertainty label for the ranked candidate.",
     )
     rules_applied: list[RuleStep] = Field(
         description="Ordered rule steps explaining the match."
