@@ -69,6 +69,17 @@ and `/search` return HTTP 503 until the lexicon is generated.
 wrapper on shell-friendly platforms, but the Python module command above is the
 canonical cross-platform workflow, including native Windows environments.
 
+Frontend styles are generated from `src/web/input.css` into
+`src/web/static/styles.css` by `scripts/build-css.sh`. The generated
+`styles.css` stays tracked because the packaged wheel serves it as a runtime
+asset under `web/static`, so builds and installs do not depend on fetching
+Tailwind at runtime.
+
+```bash
+# Regenerate the packaged frontend CSS after UI or utility class changes
+bash scripts/build-css.sh
+```
+
 ## Data Setup
 
 The lexicon is generated from Perseus LSJ XML and not stored in the repository.

@@ -121,6 +121,8 @@
     /* Result rendering                                                    */
     /* ------------------------------------------------------------------ */
 
+    const DETAILED_CARD_THRESHOLD = 3;
+
     function confidenceColor(c) {
       if (c >= 0.9) return ["bg-emerald-100 text-emerald-800", "bg-emerald-500"];
       if (c >= 0.7) return ["bg-amber-100 text-amber-800",     "bg-amber-500"];
@@ -152,6 +154,39 @@
       return wrapper;
     }
 
+    function matchTypeColor(matchType) {
+      switch (matchType) {
+        case "Exact":
+          return "bg-emerald-100 text-emerald-800";
+        case "Rule-based":
+          return "bg-blue-100 text-blue-800";
+        case "Distance-only":
+          return "bg-amber-100 text-amber-800";
+        case "Low-confidence":
+          return "bg-red-100 text-red-800";
+        default:
+          return "bg-parchment-200 text-ink";
+      }
+    }
+
+    function renderMetaBadge(label, value, tone = "neutral") {
+      const wrapper = document.createElement("div");
+      wrapper.className = "flex items-center gap-2 flex-wrap";
+
+      const labelEl = document.createElement("span");
+      labelEl.className = "text-xs uppercase tracking-wide text-ink-muted";
+      labelEl.textContent = label;
+
+      const valueEl = document.createElement("span");
+      valueEl.className = "text-xs font-medium px-2 py-0.5 rounded-full " +
+        (tone === "match" ? matchTypeColor(value) : "bg-parchment-100 text-ink");
+      valueEl.textContent = value;
+
+      wrapper.appendChild(labelEl);
+      wrapper.appendChild(valueEl);
+      return wrapper;
+    }
+
     function renderDialectBadges(attribution) {
       const container = document.createElement("div");
       container.className = "flex flex-wrap gap-1.5 mt-2";
@@ -169,6 +204,13 @@
       return container;
     }
 
+    function renderSectionTitle(text) {
+      const title = document.createElement("h4");
+      title.className = "text-sm font-medium text-ink mt-3";
+      title.textContent = text;
+      return title;
+    }
+
     function renderAlignmentBlock(text) {
       if (!text) return null;
       const pre = document.createElement("pre");
@@ -181,65 +223,241 @@
       return String(rule.rule_id ?? "");
     }
 
-    function renderRulesList(rules) {
-      if (!rules || !rules.length) return null;
+    function isObservedRule(rule) {
+      return normalizeRuleId(rule).startsWith("OBS-");
+    }
 
-      const rulesWithNormalizedId = rules.map((r) => ({ rule: r, ruleId: normalizeRuleId(r) }));
-      const cataloged = rulesWithNormalizedId.filter((r) => !r.ruleId.startsWith("OBS-"));
-      const observed = rulesWithNormalizedId.filter((r) => r.ruleId.startsWith("OBS-"));
+    function preferredRuleLabel(rule) {
+      return (rule.rule_name_en || rule.rule_name || normalizeRuleId(rule)).trim();
+    }
 
+    function renderRuleRows(rules) {
+      const list = document.createElement("div");
+      list.className = "mt-2 space-y-1.5";
+
+      rules.forEach((rule) => {
+        const row = document.createElement("div");
+        row.className = "text-sm text-ink";
+
+        const line = document.createElement("div");
+        line.className = "flex flex-wrap items-center gap-x-2";
+
+        const label = document.createElement("span");
+        label.className = "font-medium";
+        label.textContent = preferredRuleLabel(rule);
+
+        const phones = document.createElement("span");
+        phones.className = "font-mono text-ink-light";
+        phones.textContent = "/" + (rule.from_phone || "\u2205") + "/ \u2192 /" + (rule.to_phone || "\u2205") + "/";
+
+        const pos = document.createElement("span");
+        pos.className = "text-xs text-ink-muted";
+        pos.textContent = "position " + (rule.position ?? "-");
+
+        line.appendChild(label);
+        line.appendChild(phones);
+        line.appendChild(pos);
+        row.appendChild(line);
+        list.appendChild(row);
+      });
+
+      return list;
+    }
+
+    function renderWhyCandidate(items) {
+      const list = document.createElement("ul");
+      list.className = "mt-2 pl-4 text-sm text-ink-light leading-relaxed list-disc";
+      (items || []).forEach((item) => {
+        const li = document.createElement("li");
+        li.className = "mb-1";
+        li.textContent = item;
+        list.appendChild(li);
+      });
+      return list;
+    }
+
+    function renderAlignmentDetails(hit) {
+      const details = document.createElement("details");
+      details.className = "mt-2";
+
+      const summary = document.createElement("summary");
+      summary.className = "cursor-pointer text-sm font-medium text-accent select-none list-item hover:text-accent-hover";
+      summary.textContent = "Show full alignment";
+      details.appendChild(summary);
+
+      const pre = renderAlignmentBlock(hit.alignment_visualization);
+      if (pre) details.appendChild(pre);
+
+      return details;
+    }
+
+    function renderNotesDetails(hit) {
       const details = document.createElement("details");
       details.className = "mt-3";
 
       const summary = document.createElement("summary");
       summary.className = "cursor-pointer text-sm font-medium text-accent select-none list-item hover:text-accent-hover";
-      const parts = [];
-      if (cataloged.length) parts.push(cataloged.length + " rule" + (cataloged.length > 1 ? "s" : "") + " applied");
-      if (observed.length) parts.push(observed.length + " observed change" + (observed.length > 1 ? "s" : ""));
-      summary.textContent = parts.join(", ");
+      summary.textContent = "Notes";
       details.appendChild(summary);
 
-      const list = document.createElement("div");
-      list.className = "mt-2 pl-4 space-y-1.5";
+      const text = document.createElement("p");
+      text.className = "mt-2 text-sm text-ink-light leading-relaxed";
+      text.textContent = hit.explanation || "No additional notes.";
+      details.appendChild(text);
 
-      rulesWithNormalizedId.forEach(({ rule, ruleId }) => {
-        const isObs = ruleId.startsWith("OBS-");
-        const row = document.createElement("div");
-        row.className = "flex flex-wrap items-center gap-x-2 text-sm" + (isObs ? " text-ink-muted" : "");
-
-        const id = document.createElement("span");
-        id.className = "font-mono text-xs text-ink-muted";
-        id.textContent = "[" + ruleId + "]";
-
-        const name = document.createElement("span");
-        name.className = "font-serif";
-        // Show bilingual name: Japanese + English when both exist
-        const baseName = rule.rule_name ?? "";
-        let nameText = baseName;
-        if (rule.rule_name_en && rule.rule_name_en !== baseName) {
-          nameText = baseName ? `${baseName} / ${rule.rule_name_en}` : rule.rule_name_en;
-        }
-        name.textContent = nameText;
-
-        const phones = document.createElement("span");
-        phones.className = "font-mono text-ink-light";
-        const fromPhone = rule.from_phone ? rule.from_phone : "\u2205";
-        const toPhone = rule.to_phone ? rule.to_phone : "\u2205";
-        phones.textContent = "/" + fromPhone + "/ \u2192 /" + toPhone + "/";
-
-        const pos = document.createElement("span");
-        pos.className = "text-xs text-ink-muted";
-        pos.textContent = "pos " + (rule.position ?? "-");
-
-        row.appendChild(id);
-        row.appendChild(name);
-        row.appendChild(phones);
-        row.appendChild(pos);
-        list.appendChild(row);
-      });
-
-      details.appendChild(list);
       return details;
+    }
+
+    function splitRules(hit) {
+      const rules = Array.isArray(hit.rules_applied) ? hit.rules_applied : [];
+      return {
+        explicit: rules.filter((rule) => !isObservedRule(rule)),
+        observed: rules.filter((rule) => isObservedRule(rule)),
+      };
+    }
+
+    function appendCardBody(container, hit, { explicit, observed }) {
+      container.appendChild(renderSectionTitle("Applied rules (" + (hit.applied_rule_count ?? explicit.length) + ")"));
+      if (explicit.length) {
+        container.appendChild(renderRuleRows(explicit));
+      } else {
+        const empty = document.createElement("p");
+        empty.className = "mt-2 text-sm text-ink-light";
+        empty.textContent = "No explicit rule matched.";
+        container.appendChild(empty);
+      }
+
+      if ((hit.observed_change_count ?? observed.length) > 0 && observed.length) {
+        container.appendChild(renderSectionTitle("Observed changes (" + (hit.observed_change_count ?? observed.length) + ")"));
+        container.appendChild(renderRuleRows(observed));
+      }
+
+      container.appendChild(renderSectionTitle("Alignment"));
+      const summary = document.createElement("p");
+      summary.className = "mt-2 text-sm text-ink-light";
+      summary.textContent = hit.alignment_summary || "Differences visible in full alignment";
+      container.appendChild(summary);
+      if (hit.alignment_visualization) {
+        container.appendChild(renderAlignmentDetails(hit));
+      }
+
+      container.appendChild(renderSectionTitle("Why this candidate?"));
+      container.appendChild(renderWhyCandidate(hit.why_candidate));
+      container.appendChild(renderNotesDetails(hit));
+    }
+
+    function renderDetailedCard(hit, index) {
+      const { explicit, observed } = splitRules(hit);
+
+      const card = document.createElement("article");
+      card.className = "bg-white border border-parchment-200 rounded-xl p-5 mb-4 shadow-sm";
+
+      const topRow = document.createElement("div");
+      topRow.className = "flex items-start justify-between gap-4";
+
+      const leftCol = document.createElement("div");
+      leftCol.className = "flex-1";
+
+      const rank = document.createElement("div");
+      rank.className = "text-xs uppercase tracking-wide text-ink-muted mb-2";
+      rank.textContent = "Rank " + (index + 1);
+
+      const headword = document.createElement("div");
+      headword.className = "text-2xl font-serif font-bold";
+      headword.textContent = hit.headword || "N/A";
+
+      const ipa = document.createElement("div");
+      ipa.className = "text-ink-light text-sm italic mt-0.5";
+      ipa.textContent = hit.ipa ? "/" + hit.ipa + "/" : "";
+
+      leftCol.appendChild(rank);
+      leftCol.appendChild(headword);
+      leftCol.appendChild(ipa);
+      topRow.appendChild(leftCol);
+
+      if (typeof hit.confidence === "number") {
+        topRow.appendChild(renderConfidenceBadge(hit.confidence));
+      } else if (typeof hit.distance === "number") {
+        topRow.appendChild(renderConfidenceBadge(1 - hit.distance));
+      }
+
+      card.appendChild(topRow);
+
+      if (hit.dialect_attribution) {
+        card.appendChild(renderDialectBadges(hit.dialect_attribution));
+      }
+
+      const meta = document.createElement("div");
+      meta.className = "flex flex-wrap gap-3 mt-3";
+      meta.appendChild(renderMetaBadge("Match type", hit.match_type || "Distance-only", "match"));
+      meta.appendChild(renderMetaBadge("Uncertainty", hit.uncertainty || "High"));
+      card.appendChild(meta);
+
+      appendCardBody(card, hit, { explicit, observed });
+      return card;
+    }
+
+    function renderCompactCard(hit, index) {
+      const { explicit, observed } = splitRules(hit);
+      const card = document.createElement("details");
+      card.className = "bg-white border border-parchment-200 rounded-xl p-5 mb-4 shadow-sm";
+
+      const summaryEl = document.createElement("summary");
+      summaryEl.className = "cursor-pointer select-none list-item";
+
+      const row = document.createElement("div");
+      row.className = "flex items-start justify-between gap-4";
+
+      const left = document.createElement("div");
+      left.className = "flex-1";
+
+      const title = document.createElement("div");
+      title.className = "text-xl font-serif font-bold";
+      title.textContent = (index + 1) + ". " + (hit.headword || "N/A");
+
+      const metaParts = [];
+      if (typeof hit.confidence === "number" && Number.isFinite(hit.confidence)) {
+        metaParts.push("confidence " + hit.confidence.toFixed(2));
+      } else if (typeof hit.distance === "number" && Number.isFinite(hit.distance)) {
+        metaParts.push("confidence " + (1 - hit.distance).toFixed(2));
+      } else {
+        metaParts.push("confidence: unknown");
+      }
+      metaParts.push(hit.match_type || "Distance-only");
+      metaParts.push((hit.applied_rule_count ?? 0) + " rules");
+
+      const meta = document.createElement("p");
+      meta.className = "mt-1 text-sm text-ink-light";
+      meta.textContent = metaParts.join(" · ");
+
+      left.appendChild(title);
+      left.appendChild(meta);
+      row.appendChild(left);
+
+      row.appendChild(renderMetaBadge("Uncertainty", hit.uncertainty || "High"));
+      summaryEl.appendChild(row);
+      card.appendChild(summaryEl);
+
+      const body = document.createElement("div");
+      body.className = "pt-4";
+
+      const ipa = document.createElement("div");
+      ipa.className = "text-ink-light text-sm italic";
+      ipa.textContent = hit.ipa ? "/" + hit.ipa + "/" : "";
+      body.appendChild(ipa);
+
+      if (hit.dialect_attribution) {
+        body.appendChild(renderDialectBadges(hit.dialect_attribution));
+      }
+
+      const metaDetails = document.createElement("div");
+      metaDetails.className = "flex flex-wrap gap-3 mt-3";
+      metaDetails.appendChild(renderMetaBadge("Match type", hit.match_type || "Distance-only", "match"));
+      body.appendChild(metaDetails);
+
+      appendCardBody(body, hit, { explicit, observed });
+      card.appendChild(body);
+      return card;
     }
 
     function renderResults(data) {
@@ -266,59 +484,13 @@
         container.appendChild(info);
       }
 
-      data.hits.forEach((hit) => {
+      data.hits.forEach((hit, index) => {
         if (!hit || typeof hit !== "object") return;
-
-        const card = document.createElement("div");
-        card.className = "bg-white border border-parchment-200 rounded-xl p-5 mb-4 shadow-sm";
-
-        /* Top row: headword + confidence */
-        const topRow = document.createElement("div");
-        topRow.className = "flex items-start justify-between gap-4";
-
-        const leftCol = document.createElement("div");
-        const headword = document.createElement("div");
-        headword.className = "text-2xl font-serif font-bold";
-        headword.textContent = hit.headword || "N/A";
-
-        const ipa = document.createElement("div");
-        ipa.className = "text-ink-light text-sm italic mt-0.5";
-        ipa.textContent = hit.ipa ? "/" + hit.ipa + "/" : "";
-
-        leftCol.appendChild(headword);
-        leftCol.appendChild(ipa);
-        topRow.appendChild(leftCol);
-
-        if (typeof hit.confidence === "number") {
-          topRow.appendChild(renderConfidenceBadge(hit.confidence));
-        } else if (typeof hit.distance === "number") {
-          topRow.appendChild(renderConfidenceBadge(1 - hit.distance));
-        }
-
-        card.appendChild(topRow);
-
-        /* Dialect attribution */
-        if (hit.dialect_attribution) {
-          card.appendChild(renderDialectBadges(hit.dialect_attribution));
-        }
-
-        /* Alignment visualization */
-        const alignEl = renderAlignmentBlock(hit.alignment_visualization);
-        if (alignEl) card.appendChild(alignEl);
-
-        /* Rules */
-        const rulesEl = renderRulesList(hit.rules_applied);
-        if (rulesEl) card.appendChild(rulesEl);
-
-        /* Explanation */
-        if (hit.explanation) {
-          const explain = document.createElement("p");
-          explain.className = "mt-3 text-sm text-ink-light leading-relaxed";
-          explain.textContent = hit.explanation;
-          card.appendChild(explain);
-        }
-
-        container.appendChild(card);
+        container.appendChild(
+          index < DETAILED_CARD_THRESHOLD
+            ? renderDetailedCard(hit, index)
+            : renderCompactCard(hit, index)
+        );
       });
     }
 

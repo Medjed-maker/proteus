@@ -84,3 +84,7 @@ data/lexicon/greek_lemmas.meta.json
 
 # MCP
 .serena/
+.playwright-mcp/
+
+# Screenshots
+proteus-*.png

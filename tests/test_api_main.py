@@ -14,6 +14,13 @@ from phonology.explainer import RuleApplication
 from phonology.search import LexiconRecord, SearchResult
 
 
+class FakeExplanation:
+    """Minimal explanation stub for explain_alignment monkeypatches."""
+
+    def __init__(self, steps: list[RuleApplication] | None = None) -> None:
+        self.steps = list(steps or [])
+
+
 def _clear_loader_caches() -> None:
     """Reset cached API loader state."""
     for loader_name in (
@@ -102,6 +109,49 @@ class TestSearchHit:
 
         assert hit.confidence == confidence
 
+    @pytest.mark.parametrize("field_name", ["applied_rule_count", "observed_change_count"])
+    def test_rule_counts_must_be_non_negative(self, field_name: str) -> None:
+        payload = {
+            "headword": "λόγος",
+            "ipa": "loɡos",
+            "distance": 0.1,
+            "confidence": 0.5,
+            "rules_applied": [],
+            "explanation": "example",
+            field_name: -1,
+        }
+
+        with pytest.raises(ValidationError) as exc_info:
+            SearchHit(**payload)
+
+        assert field_name in str(exc_info.value)
+
+    @pytest.mark.parametrize(
+        ("field_name", "value"),
+        [
+            ("match_type", "Normalized"),
+            ("uncertainty", "Unknown"),
+            ("why_candidate", "not-a-list"),
+        ],
+    )
+    def test_new_structured_fields_validate_supported_values(
+        self, field_name: str, value: object
+    ) -> None:
+        payload = {
+            "headword": "λόγος",
+            "ipa": "loɡos",
+            "distance": 0.1,
+            "confidence": 0.5,
+            "rules_applied": [],
+            "explanation": "example",
+            field_name: value,
+        }
+
+        with pytest.raises(ValidationError) as exc_info:
+            SearchHit(**payload)
+
+        assert field_name in str(exc_info.value)
+
     def test_ipa_rejects_none(self) -> None:
         with pytest.raises(ValidationError) as exc_info:
             SearchHit(
@@ -177,9 +227,6 @@ class TestSearchHit:
     ) -> None:
         captured: dict[str, object] = {}
 
-        class FakeExplanation:
-            steps: list[object] = []
-
         def fake_explain_alignment(**kwargs: object) -> FakeExplanation:
             captured.update(kwargs)
             return FakeExplanation()
@@ -246,6 +293,16 @@ class TestSearchHit:
         ]
         assert "distance 0.275" in hit.explanation
         assert "position 1" in hit.explanation
+        assert hit.match_type == "Rule-based"
+        assert hit.applied_rule_count == 1
+        assert hit.observed_change_count == 0
+        assert hit.alignment_summary == "/ɛː/ -> /aː/ at position 1"
+        assert hit.why_candidate == [
+            "1 explicit rule explains the match.",
+            "Moderate phonological similarity.",
+            "See alignment for localized differences.",
+        ]
+        assert hit.uncertainty == "Medium"
 
     def test_build_search_hit_accepts_morphophonemic_rule_ids_without_schema_changes(
         self, monkeypatch: pytest.MonkeyPatch
@@ -290,12 +347,107 @@ class TestSearchHit:
             }
         ]
 
+    def test_build_search_hit_derives_exact_match_metadata(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(api_main, "explain_alignment", lambda **kwargs: FakeExplanation())
+        monkeypatch.setattr(api_main, "to_prose", lambda explanation: "exact explanation")
+
+        hit = api_main._build_search_hit(
+            SearchResult(
+                lemma="λόγος",
+                confidence=1.0,
+                dialect_attribution="lemma dialect: attic",
+                applied_rules=[],
+                ipa="loɡos",
+            ),
+            query_ipa="loɡos",
+            rules_registry={},
+        )
+
+        assert hit.match_type == "Exact"
+        assert hit.applied_rule_count == 0
+        assert hit.observed_change_count == 0
+        assert hit.alignment_summary == "No phonological difference"
+        assert hit.why_candidate == [
+            "Exact phonological match.",
+            "High phonological similarity.",
+            "No remaining unexplained differences.",
+        ]
+        assert hit.uncertainty == "Low"
+
+    def test_build_search_hit_derives_distance_only_metadata_from_observed_changes(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            api_main,
+            "explain_alignment",
+            lambda **kwargs: (_ for _ in ()).throw(AssertionError("should not use fallback")),
+        )
+
+        hit = api_main._build_search_hit(
+            SearchResult(
+                lemma="λόγος",
+                confidence=0.72,
+                dialect_attribution="lemma dialect: attic",
+                rule_applications=[
+                    RuleApplication(
+                        rule_id="OBS-SUB",
+                        rule_name="Observed substitution",
+                        from_phone="a",
+                        to_phone="x",
+                        position=0,
+                    )
+                ],
+                ipa="a",
+            ),
+            query_ipa="x",
+            rules_registry={},
+        )
+
+        assert hit.match_type == "Distance-only"
+        assert hit.applied_rule_count == 0
+        assert hit.observed_change_count == 1
+        assert hit.alignment_summary == "/a/ -> /x/ at position 0"
+        assert hit.why_candidate == [
+            "Ranked by phonological distance without explicit rule support.",
+            "Moderate phonological similarity.",
+            "1 observed change remains uncatalogued.",
+        ]
+        assert hit.uncertainty == "Medium"
+
+    def test_build_search_hit_derives_low_confidence_metadata_without_rules(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(api_main, "explain_alignment", lambda **kwargs: FakeExplanation())
+        monkeypatch.setattr(api_main, "to_prose", lambda explanation: "distance-only explanation")
+
+        hit = api_main._build_search_hit(
+            SearchResult(
+                lemma="λόγος",
+                confidence=0.4,
+                dialect_attribution="lemma dialect: attic",
+                applied_rules=[],
+                ipa="a",
+            ),
+            query_ipa="x",
+            rules_registry={},
+        )
+
+        assert hit.match_type == "Low-confidence"
+        assert hit.applied_rule_count == 0
+        assert hit.observed_change_count == 0
+        assert hit.alignment_summary == "Differences visible in full alignment"
+        assert hit.why_candidate == [
+            "Ranked by phonological distance without explicit rule support.",
+            "Weak phonological similarity.",
+            "See alignment for localized differences.",
+        ]
+        assert hit.uncertainty == "High"
+
     def test_build_search_hit_coalesces_missing_dialect_attribution_to_empty_string(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        class FakeExplanation:
-            steps: list[object] = []
-
         monkeypatch.setattr(api_main, "explain_alignment", lambda **kwargs: FakeExplanation())
         monkeypatch.setattr(api_main, "to_prose", lambda explanation: "example")
 
@@ -359,6 +511,15 @@ class TestFrontendHtml:
         assert response.status_code == 200
         assert 'addEventListener("submit", runSearch)' in response.text
         assert "onclick=" not in response.text
+
+    def test_root_html_contains_search_result_ui_labels(self, client: TestClient) -> None:
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert "Match type" in response.text
+        assert "Applied rules" in response.text
+        assert "Uncertainty" in response.text
+        assert "Show full alignment" in response.text
 
     def test_html_references_local_css_not_cdn(self, client: TestClient) -> None:
         response = client.get("/")
@@ -775,6 +936,16 @@ class TestSearchEndpoint:
         assert payload["hits"][0]["confidence"] == pytest.approx(0.75)
         assert payload["hits"][0]["dialect_attribution"] == "lemma dialect: attic"
         assert payload["hits"][0]["alignment_visualization"] == ""
+        assert payload["hits"][0]["match_type"] == "Rule-based"
+        assert payload["hits"][0]["applied_rule_count"] == 1
+        assert payload["hits"][0]["observed_change_count"] == 0
+        assert payload["hits"][0]["alignment_summary"] == "/s/ -> /h/ at position 2"
+        assert payload["hits"][0]["why_candidate"] == [
+            "1 explicit rule explains the match.",
+            "Moderate phonological similarity.",
+            "See alignment for localized differences.",
+        ]
+        assert payload["hits"][0]["uncertainty"] == "Medium"
         assert payload["hits"][0]["rules_applied"] == [
             {
                 "rule_id": "CCH-001",
@@ -848,6 +1019,9 @@ class TestSearchEndpoint:
         assert captured["dialect"] == "koine"
         payload = response.json()
         assert payload["query_ipa"] == "loɣos"
+        assert payload["hits"][0]["match_type"] == "Rule-based"
+        assert payload["hits"][0]["applied_rule_count"] == 1
+        assert payload["hits"][0]["uncertainty"] == "Low"
         assert payload["hits"][0]["rules_applied"][0]["rule_id"] == "CCH-009"
         assert payload["hits"][0]["dialect_attribution"] == (
             "lemma dialect: attic; query-compatible dialects: koine"
@@ -912,6 +1086,8 @@ class TestSearchEndpoint:
                 "position": 1,
             }
         ]
+        assert payload["hits"][0]["match_type"] == "Rule-based"
+        assert payload["hits"][0]["alignment_summary"] == "/ɛː/ -> /aː/ at position 1"
         assert payload["hits"][0]["distance"] == pytest.approx(0.275)
         assert "distance 0.275" in payload["hits"][0]["explanation"]
 
@@ -919,18 +1095,6 @@ class TestSearchEndpoint:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         captured: dict[str, object] = {}
-
-        class FakeExplanation:
-            def __init__(self) -> None:
-                self.steps = [
-                    RuleApplication(
-                        rule_id="CCH-001",
-                        rule_name="Fallback Rule",
-                        from_phone="s",
-                        to_phone="h",
-                        position=-1,
-                    )
-                ]
 
         monkeypatch.setattr(
             api_main,
@@ -964,7 +1128,17 @@ class TestSearchEndpoint:
 
         def fake_explain_alignment(**kwargs: object) -> FakeExplanation:
             captured.update(kwargs)
-            return FakeExplanation()
+            return FakeExplanation(
+                steps=[
+                    RuleApplication(
+                        rule_id="CCH-001",
+                        rule_name="Fallback Rule",
+                        from_phone="s",
+                        to_phone="h",
+                        position=-1,
+                    )
+                ]
+            )
 
         monkeypatch.setattr(api_main, "explain_alignment", fake_explain_alignment)
         monkeypatch.setattr(api_main, "to_prose", lambda explanation: "fallback explanation")
@@ -973,7 +1147,11 @@ class TestSearchEndpoint:
 
         assert response.status_code == 200
         assert captured["rule_ids"] == ["CCH-001"]
-        assert response.json()["hits"][0]["rules_applied"][0]["position"] == -1
+        payload = response.json()["hits"][0]
+        assert payload["rules_applied"][0]["position"] == -1
+        assert payload["match_type"] == "Rule-based"
+        assert payload["applied_rule_count"] == 1
+        assert payload["alignment_summary"] == "/s/ -> /h/ at unknown position"
 
     def test_search_hit_prefers_observed_rule_applications_over_fallback_ids(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -1026,7 +1204,8 @@ class TestSearchEndpoint:
         response = client.post("/search", json={"query_form": "λόγος"})
 
         assert response.status_code == 200
-        assert response.json()["hits"][0]["rules_applied"] == [
+        payload = response.json()["hits"][0]
+        assert payload["rules_applied"] == [
             {
                 "rule_id": "OBS-SUB",
                 "rule_name": "観測された置換",
@@ -1036,6 +1215,9 @@ class TestSearchEndpoint:
                 "position": 0,
             }
         ]
+        assert payload["match_type"] == "Low-confidence"
+        assert payload["applied_rule_count"] == 0
+        assert payload["observed_change_count"] == 1
 
     def test_search_accepts_legacy_request_shape(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -1310,3 +1492,78 @@ class TestSearchValidation:
 
         assert response.status_code == 200
         assert "max_candidates" not in response.text
+
+
+class TestMatchHelpers:
+    def test_is_observed_rule_step(self):
+        assert api_main._is_observed_rule_step(RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="", to_phone="", position=0)) is True
+        assert api_main._is_observed_rule_step(RuleApplication(rule_id="VSH-010", rule_name="", from_phone="", to_phone="", position=0)) is False
+
+    def test_count_explicit_and_observed_steps(self):
+        assert api_main._count_explicit_and_observed_steps([]) == (0, 0)
+        steps = [
+            RuleApplication(rule_id="VSH-010", rule_name="", from_phone="", to_phone="", position=0),
+            RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="", to_phone="", position=1)
+        ]
+        assert api_main._count_explicit_and_observed_steps(steps) == (1, 1)
+
+    def test_build_match_type(self):
+        assert api_main._build_match_type(source_ipa="a", query_ipa="a", steps=[], applied_rule_count=0, confidence=1.0) == "Exact"
+        steps = [RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="", to_phone="", position=0)]
+        assert api_main._build_match_type(source_ipa="a", query_ipa="a", steps=steps, applied_rule_count=0, confidence=1.0) == "Distance-only"
+        assert api_main._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=1, confidence=0.8) == "Rule-based"
+        assert api_main._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.80) == "Distance-only"
+        assert api_main._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.70) == "Distance-only"
+        assert api_main._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.55) == "Distance-only"
+        assert api_main._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.54) == "Low-confidence"
+
+    def test_build_uncertainty(self):
+        assert api_main._build_uncertainty("Exact", applied_rule_count=0, confidence=1.0) == "Low"
+        assert api_main._build_uncertainty("Rule-based", applied_rule_count=1, confidence=0.80) == "Low"
+        assert api_main._build_uncertainty("Rule-based", applied_rule_count=1, confidence=0.79) == "Medium"
+        assert api_main._build_uncertainty("Rule-based", applied_rule_count=1, confidence=0.69) == "High"
+        assert api_main._build_uncertainty("Distance-only", applied_rule_count=0, confidence=0.70) == "Medium"
+        assert api_main._build_uncertainty("Distance-only", applied_rule_count=0, confidence=0.69) == "High"
+
+    def test_build_alignment_summary(self):
+        assert api_main._build_alignment_summary(source_ipa="a", query_ipa="a", steps=[]) == "No phonological difference"
+        step = RuleApplication(rule_id="OBS", rule_name="", from_phone="a", to_phone="", position=0)
+        assert api_main._build_alignment_summary(source_ipa="a", query_ipa="b", steps=[step]) == "/a/ -> /∅/ at position 0"
+        unknown_position_step = RuleApplication(
+            rule_id="OBS",
+            rule_name="",
+            from_phone="a",
+            to_phone="b",
+            position=-1,
+        )
+        assert (
+            api_main._build_alignment_summary(
+                source_ipa="a",
+                query_ipa="b",
+                steps=[unknown_position_step],
+            )
+            == "/a/ -> /b/ at unknown position"
+        )
+        steps_repeated = [
+            RuleApplication(rule_id="OBS", rule_name="", from_phone="", to_phone="", position=0),
+            RuleApplication(rule_id="OBS", rule_name="", from_phone="", to_phone="", position=0),
+        ]
+        assert api_main._build_alignment_summary(source_ipa="a", query_ipa="b", steps=steps_repeated) == "2 phonological changes across 1 position"
+        steps_distinct = [
+            RuleApplication(rule_id="OBS", rule_name="", from_phone="", to_phone="", position=0),
+            RuleApplication(rule_id="OBS", rule_name="", from_phone="", to_phone="", position=1),
+        ]
+        assert api_main._build_alignment_summary(source_ipa="a", query_ipa="b", steps=steps_distinct) == "2 phonological changes across 2 positions"
+
+    def test_build_why_candidate(self):
+        exact = api_main._build_why_candidate("Exact", applied_rule_count=0, observed_change_count=0, confidence=1.0)
+        assert exact == ["Exact phonological match.", "High phonological similarity.", "No remaining unexplained differences."]
+
+        rule_based = api_main._build_why_candidate("Rule-based", applied_rule_count=1, observed_change_count=0, confidence=0.8)
+        assert rule_based == ["1 explicit rule explains the match.", "High phonological similarity.", "See alignment for localized differences."]
+
+        observed = api_main._build_why_candidate("Distance-only", applied_rule_count=0, observed_change_count=1, confidence=0.55)
+        assert observed == ["Ranked by phonological distance without explicit rule support.", "Moderate phonological similarity.", "1 observed change remains uncatalogued."]
+
+        weak = api_main._build_why_candidate("Low-confidence", applied_rule_count=0, observed_change_count=2, confidence=0.54)
+        assert weak == ["Ranked by phonological distance without explicit rule support.", "Weak phonological similarity.", "2 observed changes remain uncatalogued."]
