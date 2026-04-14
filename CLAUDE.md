@@ -54,7 +54,7 @@ The package uses `src/` layout with hatchling as the build backend.
 - **`_paths.py`** — Shared utility to locate `data/` directories by walking up from the module to find `pyproject.toml`.
 
 **`api/`** — FastAPI REST layer:
-- **`main.py`** — Endpoints: `GET /` (frontend HTML), `POST /search`, `GET /health`. Serves static assets from `web/static/`. Pydantic models define the full request/response schema including `RuleStep` and `SearchHit`.
+- **`main.py`** — Endpoints: `GET /` (frontend HTML), `POST /search`, `GET /health` (liveness — always OK), `GET /ready` (readiness — 503 until search dependencies load). Serves static assets from `web/static/`. Pydantic models define the full request/response schema including `RuleStep` and `SearchHit`.
 
 ### Data Files (`data/`)
 

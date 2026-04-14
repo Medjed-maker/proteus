@@ -13,7 +13,7 @@ import logging
 import os
 from pathlib import Path
 import threading
-from typing import Annotated, Any, AsyncIterator, Literal, NamedTuple
+from typing import Any, AsyncIterator, NamedTuple
 
 import yaml
 
@@ -21,26 +21,27 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import AliasChoices, BaseModel, Field, StringConstraints, field_validator
 
 from phonology import search as phonology_search
 from phonology._paths import resolve_repo_data_dir
 from phonology.distance import MatrixData, load_matrix
-from phonology.explainer import (
-    Explanation,
-    RuleApplication,
-    explain_alignment,
-    load_rules,
-    to_prose,
-)
+from phonology.explainer import load_rules
 from phonology.ipa_converter import to_ipa
+
+from ._models import QueryForm, SearchRequest, SearchResponse, SearchHit, RuleStep
+from ._hit_formatting import _build_search_hit
 
 logger = logging.getLogger(__name__)
 _ALLOWED_ORIGINS_ENV_VAR = "PROTEUS_ALLOWED_ORIGINS"
 _LOG_RAW_QUERY_ENV_VAR = "PROTEUS_LOG_RAW_SEARCH_QUERY"
 _LSJ_REPO_DIR_ENV_VAR = "PROTEUS_LSJ_REPO_DIR"
 _DISABLE_STARTUP_WARMUP_ATTR = "disable_startup_warmup"
-_API_UNIGRAM_FALLBACK_LIMIT = 2000
+# Upper bound for both the similarity fallback (stage 2 widening when the
+# seed set is too small) and the unigram fallback (k=1 recovery for short
+# queries). Kept in one place so the two caps stay coupled; 2000 mirrors
+# search._DEFAULT_FALLBACK_CANDIDATE_LIMIT, which was chosen to keep a hard
+# ceiling on the candidate set even for permissive partial queries.
+_API_FALLBACK_CANDIDATE_LIMIT = 2000
 _SEARCH_DEPENDENCY_LOAD_ERRORS = (ValueError, FileNotFoundError, OSError, yaml.YAMLError)
 _SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL = (
     "Search dependencies are not ready. Verify packaged matrices, rules, and lexicon assets "
@@ -60,6 +61,7 @@ class SearchDependencies(NamedTuple):
     search_index: phonology_search.KmerIndex
     unigram_index: phonology_search.KmerIndex
     lexicon_map: phonology_search.LexiconMap
+    ipa_index: phonology_search.IpaIndex
 
 
 class SearchDependenciesNotReadyError(RuntimeError):
@@ -136,7 +138,6 @@ app.add_middleware(
 
 _FRONTEND_PATH = Path(__file__).resolve().parents[1] / "web" / "index.html"
 _STATIC_DIR = Path(__file__).resolve().parents[1] / "web" / "static"
-QueryForm = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
 def _load_frontend_html() -> str | None:
@@ -212,6 +213,12 @@ def _load_lexicon_map() -> phonology_search.LexiconMap:
     return phonology_search.build_lexicon_map(load_lexicon_entries())
 
 
+@lru_cache(maxsize=1)
+def _load_ipa_index() -> phonology_search.IpaIndex:
+    """Build and cache the IPA-to-entry-id index for the packaged lexicon."""
+    return phonology_search.build_ipa_index(_load_lexicon_map())
+
+
 def _load_search_dependencies() -> SearchDependencies:
     """Load all cached search dependencies needed by /ready and /search."""
     try:
@@ -229,6 +236,7 @@ def _load_search_dependencies() -> SearchDependencies:
             search_index=_load_search_index(),
             unigram_index=_load_unigram_index(),
             lexicon_map=_load_lexicon_map(),
+            ipa_index=_load_ipa_index(),
         )
     except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
         raise SearchDependenciesNotReadyError(
@@ -271,345 +279,11 @@ def _warm_search_dependencies() -> None:
         )
 
 
-def _distance_from_confidence(confidence: float) -> float:
-    """Convert a normalized confidence score into normalized distance."""
-    return max(0.0, min(1.0, 1.0 - confidence))
-
-
-_OBSERVED_RULE_PREFIX = "OBS-"
-# Gate for match_type classification: below this → "Low-confidence".
-_LOW_CONFIDENCE_THRESHOLD = 0.55
-_HIGH_SIMILARITY_THRESHOLD = 0.80
-# Gate for uncertainty buckets in _build_uncertainty().
-_MEDIUM_SIMILARITY_THRESHOLD = 0.70
-# Gate for user-facing similarity message in _similarity_line().
-# Same numeric value as _LOW_CONFIDENCE_THRESHOLD by design; kept
-# separate because the two thresholds may diverge independently.
-_MODERATE_SIMILARITY_THRESHOLD = 0.55
-
-
-def _is_observed_rule_step(step: RuleApplication) -> bool:
-    """Return whether a rule application is an observed uncatalogued change."""
-    return step.rule_id.startswith(_OBSERVED_RULE_PREFIX)
-
-
-def _count_explicit_and_observed_steps(
-    steps: list[RuleApplication],
-) -> tuple[int, int]:
-    """Return counts for explicit catalogued rules and observed changes."""
-    explicit_count = sum(1 for step in steps if not _is_observed_rule_step(step))
-    observed_count = len(steps) - explicit_count
-    return explicit_count, observed_count
-
-
-def _build_match_type(
-    *,
-    source_ipa: str,
-    query_ipa: str,
-    steps: list[RuleApplication],
-    applied_rule_count: int,
-    confidence: float,
-) -> Literal["Exact", "Rule-based", "Distance-only", "Low-confidence"]:
-    """Classify the search hit for UI display."""
-    # Check ``steps`` (not ``applied_rule_count``) so that entries whose
-    # IPA happens to match but still carry OBS-prefixed observed changes
-    # are not mis-classified as "Exact".
-    if source_ipa == query_ipa and not steps:
-        return "Exact"
-    if applied_rule_count > 0:
-        return "Rule-based"
-    if confidence < _LOW_CONFIDENCE_THRESHOLD:
-        return "Low-confidence"
-    return "Distance-only"
-
-
-def _build_uncertainty(
-    match_type: Literal["Exact", "Rule-based", "Distance-only", "Low-confidence"],
-    *,
-    applied_rule_count: int,
-    confidence: float,
-) -> Literal["Low", "Medium", "High"]:
-    """Return an uncertainty bucket for a search hit."""
-    if match_type == "Exact" or (
-        applied_rule_count > 0 and confidence >= _HIGH_SIMILARITY_THRESHOLD
-    ):
-        return "Low"
-    if confidence >= _MEDIUM_SIMILARITY_THRESHOLD:
-        return "Medium"
-    return "High"
-
-
-def _format_alignment_phone(phone: str) -> str:
-    """Format a phone for alignment summaries, preserving gaps explicitly."""
-    return phone if phone else "∅"
-
-
-def _build_alignment_summary(
-    *,
-    source_ipa: str,
-    query_ipa: str,
-    steps: list[RuleApplication],
-) -> str:
-    """Build a short alignment summary suitable for the result card body."""
-    if source_ipa == query_ipa and not steps:
-        return "No phonological difference"
-    if len(steps) == 1:
-        step = steps[0]
-        if step.position < 0:
-            return (
-                f"/{_format_alignment_phone(step.from_phone)}/ -> "
-                f"/{_format_alignment_phone(step.to_phone)}/ at unknown position"
-            )
-        return (
-            f"/{_format_alignment_phone(step.from_phone)}/ -> "
-            f"/{_format_alignment_phone(step.to_phone)}/ at position {step.position}"
-        )
-    elif len(steps) > 1:
-        distinct_positions = len({step.position for step in steps})
-        pos_noun = "position" if distinct_positions == 1 else "positions"
-        return f"{len(steps)} phonological changes across {distinct_positions} {pos_noun}"
-    return "Differences visible in full alignment"
-
-
-def _similarity_line(confidence: float) -> str:
-    """Return a short qualitative similarity statement."""
-    if confidence >= _HIGH_SIMILARITY_THRESHOLD:
-        return "High phonological similarity."
-    if confidence >= _MODERATE_SIMILARITY_THRESHOLD:
-        return "Moderate phonological similarity."
-    return "Weak phonological similarity."
-
-
-def _build_why_candidate(
-    match_type: Literal["Exact", "Rule-based", "Distance-only", "Low-confidence"],
-    *,
-    applied_rule_count: int,
-    observed_change_count: int,
-    confidence: float,
-) -> list[str]:
-    """Build stable short bullet points describing why this candidate ranked."""
-    if match_type == "Exact":
-        first_line = "Exact phonological match."
-    elif applied_rule_count > 0:
-        noun = "rule" if applied_rule_count == 1 else "rules"
-        verb = "explains" if applied_rule_count == 1 else "explain"
-        first_line = f"{applied_rule_count} explicit {noun} {verb} the match."
-    else:
-        first_line = "Ranked by phonological distance without explicit rule support."
-
-    if match_type == "Exact":
-        third_line = "No remaining unexplained differences."
-    elif observed_change_count > 0:
-        noun = "change" if observed_change_count == 1 else "changes"
-        verb = "remains" if observed_change_count == 1 else "remain"
-        third_line = f"{observed_change_count} observed {noun} {verb} uncatalogued."
-    else:
-        third_line = "See alignment for localized differences."
-
-    return [
-        first_line,
-        _similarity_line(confidence),
-        third_line,
-    ]
-
-
-def _build_search_hit(
-    result: phonology_search.SearchResult,
-    query_ipa: str,
-    rules_registry: dict[str, dict[str, Any]],
-) -> SearchHit:
-    """Convert a core search result into the public API response shape."""
-    source_ipa = result.ipa or ""
-    # Both `distance` and `confidence` are included in the API response so
-    # that consumers can choose whichever convention they prefer (lower-is-
-    # better or higher-is-better).  They are strict inverses:
-    # confidence = 1.0 - distance.
-    distance = _distance_from_confidence(result.confidence)
-    if result.rule_applications:
-        explanation = Explanation(
-            source=source_ipa,
-            target=query_ipa,
-            source_ipa=source_ipa,
-            target_ipa=query_ipa,
-            distance=distance,
-            steps=list(result.rule_applications),
-        )
-    else:
-        explanation = explain_alignment(
-            source_ipa=source_ipa,
-            target_ipa=query_ipa,
-            rule_ids=result.applied_rules,
-            all_rules=rules_registry,
-            distance=distance,
-        )
-    steps = list(explanation.steps)
-    applied_rule_count, observed_change_count = _count_explicit_and_observed_steps(steps)
-    match_type = _build_match_type(
-        source_ipa=source_ipa,
-        query_ipa=query_ipa,
-        steps=steps,
-        applied_rule_count=applied_rule_count,
-        confidence=result.confidence,
-    )
-    return SearchHit(
-        headword=result.lemma,
-        ipa=source_ipa,
-        distance=distance,
-        confidence=result.confidence,
-        dialect_attribution=result.dialect_attribution or "",
-        alignment_visualization=result.alignment_visualization or "",
-        match_type=match_type,
-        applied_rule_count=applied_rule_count,
-        observed_change_count=observed_change_count,
-        alignment_summary=_build_alignment_summary(
-            source_ipa=source_ipa,
-            query_ipa=query_ipa,
-            steps=steps,
-        ),
-        why_candidate=_build_why_candidate(
-            match_type,
-            applied_rule_count=applied_rule_count,
-            observed_change_count=observed_change_count,
-            confidence=result.confidence,
-        ),
-        uncertainty=_build_uncertainty(
-            match_type,
-            applied_rule_count=applied_rule_count,
-            confidence=result.confidence,
-        ),
-        rules_applied=[
-            RuleStep(
-                rule_id=step.rule_id,
-                rule_name=step.rule_name,
-                rule_name_en=step.rule_name_en,
-                from_phone=step.from_phone,
-                to_phone=step.to_phone,
-                position=step.position,
-            )
-            for step in steps
-        ],
-        explanation=to_prose(explanation),
-    )
-
-
 # HTML is read once at import time and cached for the process lifetime;
 # dev-mode ``--reload`` (see main()) handles staleness during development.
 _FRONTEND_HTML = _load_frontend_html()
 if _FRONTEND_HTML is None:
     logger.warning("Frontend HTML asset not found at %s", _FRONTEND_PATH)
-
-
-class SearchRequest(BaseModel):
-    """Client request for a phonological search query."""
-
-    query_form: QueryForm = Field(
-        validation_alias=AliasChoices("query_form", "query"),
-        description="Greek word to search for (Unicode, polytonic or monotonic).",
-    )
-    dialect_hint: Literal["attic", "koine"] = Field(
-        default="attic",
-        validation_alias=AliasChoices("dialect_hint", "dialect"),
-        description="Dialect hint for IPA conversion. Supports 'attic' and query-side 'koine'.",
-    )
-    max_candidates: int = Field(
-        default=20,
-        ge=1,
-        le=100,
-        validation_alias=AliasChoices("max_candidates", "max_results"),
-        description="Maximum number of hits to return.",
-    )
-
-    @field_validator("dialect_hint", mode="before")
-    @classmethod
-    def _normalize_dialect_hint(cls, value: Any) -> Any:
-        if value is None:
-            return "attic"
-        if isinstance(value, str):
-            return value.strip().lower()
-        return value
-
-
-class RuleStep(BaseModel):
-    """Single applied rule step in a search explanation."""
-
-    rule_id: str = Field(description="Stable identifier for the phonological rule.")
-    rule_name: str = Field(description="Human-readable display name for the rule.")
-    rule_name_en: str = Field(default="", description="English display name for the rule.")
-    from_phone: str = Field(description="Source IPA phone before the rule applied.")
-    to_phone: str = Field(description="Target IPA phone after the rule applied.")
-    position: int = Field(description="Zero-based phone position in the alignment.")
-
-
-class SearchHit(BaseModel):
-    """A matched headword returned from phonological search."""
-
-    headword: str = Field(description="Matched lexicon entry in Greek script.")
-    ipa: str = Field(description="IPA transcription of the matched headword.")
-    distance: float = Field(
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Normalized phonological distance from the query in the 0.0-1.0 range "
-            "(0.0 = identical, lower is more similar)."
-        ),
-    )
-    confidence: float = Field(
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Normalized confidence score (0.0-1.0, higher is more similar). "
-            "Inverse of ``distance``: ``confidence = 1.0 - distance``. Both "
-            "fields are provided to support different consumer preferences."
-        ),
-    )
-    dialect_attribution: str = Field(
-        default="",
-        description="Dialect attribution for the match.",
-    )
-    alignment_visualization: str = Field(
-        default="",
-        description="Three-line ASCII alignment visualization.",
-    )
-    match_type: Literal["Exact", "Rule-based", "Distance-only", "Low-confidence"] = Field(
-        default="Distance-only",
-        description="High-level classification describing how the candidate matched.",
-    )
-    applied_rule_count: int = Field(
-        default=0,
-        ge=0,
-        description="Count of explicit catalogued rules applied to explain the match.",
-    )
-    observed_change_count: int = Field(
-        default=0,
-        ge=0,
-        description="Count of uncatalogued observed changes retained in the explanation.",
-    )
-    alignment_summary: str = Field(
-        default="",
-        description="Short one-line summary of the main phonological differences.",
-    )
-    why_candidate: list[str] = Field(
-        default_factory=list,
-        description="Short bullet points explaining why the candidate ranked highly.",
-    )
-    uncertainty: Literal["Low", "Medium", "High"] = Field(
-        default="High",
-        description="Qualitative uncertainty label for the ranked candidate.",
-    )
-    rules_applied: list[RuleStep] = Field(
-        description="Ordered rule steps explaining the match."
-    )
-    explanation: str = Field(
-        description="Human-readable prose summary of the derivation."
-    )
-
-
-class SearchResponse(BaseModel):
-    """Top-level response payload for a phonological search."""
-
-    query: str = Field(description="Original Greek query string.")
-    query_ipa: str = Field(description="IPA transcription computed for the query.")
-    hits: list[SearchHit] = Field(description="Ranked list of matched headwords.")
 
 
 def render_frontend() -> HTMLResponse:
@@ -642,7 +316,13 @@ async def search(request: SearchRequest) -> SearchResponse:
         raise _search_dependencies_not_ready_exception(err.detail) from err
 
     try:
-        query_ipa = to_ipa(request.query_form, dialect=request.dialect_hint)
+        prepared_query = phonology_search.prepare_query_ipa(
+            request.query_form,
+            dialect=request.dialect_hint,
+            converter=to_ipa,
+        )
+        query_mode = prepared_query.query_mode
+        query_ipa = prepared_query.query_ipa
         # The cached dependency bundle is reused across requests, so pass its
         # named fields directly into the core search implementation.
         results = phonology_search.search(
@@ -654,7 +334,10 @@ async def search(request: SearchRequest) -> SearchResponse:
             index=deps.search_index,
             unigram_index=deps.unigram_index,
             prebuilt_lexicon_map=deps.lexicon_map,
-            unigram_fallback_limit=_API_UNIGRAM_FALLBACK_LIMIT,
+            prepared_query=prepared_query,
+            prebuilt_ipa_index=deps.ipa_index,
+            similarity_fallback_limit=_API_FALLBACK_CANDIDATE_LIMIT,
+            unigram_fallback_limit=_API_FALLBACK_CANDIDATE_LIMIT,
         )
     except ValueError as err:
         logger.info("Rejected search query (%s): %s", query_log_label, err)
@@ -674,17 +357,23 @@ async def search(request: SearchRequest) -> SearchResponse:
             detail="Search failed due to an internal error.",
         ) from err
 
+    # Detect truncation from any result (set by search core for Short-query batch limits)
+    truncated = any(r.truncated for r in results)
+
     return SearchResponse(
         query=request.query_form,
         query_ipa=query_ipa,
+        query_mode=query_mode,
         hits=[
             _build_search_hit(
                 result,
                 query_ipa=query_ipa,
                 rules_registry=deps.rules_registry,
+                query_mode=query_mode,
             )
             for result in results
         ],
+        truncated=truncated,
     )
 
 

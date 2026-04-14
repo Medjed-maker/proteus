@@ -68,6 +68,25 @@
       document.getElementById("searchBtn").disabled = isLoading;
     }
 
+    // Wildcard marker characters accepted in partial-form queries. Kept in
+    // sync with _PARTIAL_QUERY_MARKERS in src/phonology/search.py so the
+    // frontend and server agree on when a query is a Partial-form. Includes
+    // ASCII hyphen/asterisk/tilde plus Unicode dashes that users commonly paste
+    // from word processors, locale keyboards, or copy-paste.
+    const WILDCARD_CHARS = "\\-*~\\u2010\\u2011\\u2012\\u2013\\u2014\\u2015\\u2212\\uFF0D";
+    function wildcardRegexGlobal() {
+      // Return a fresh RegExp each call to avoid shared lastIndex state on /g flag.
+      return new RegExp("[" + WILDCARD_CHARS + "]", "g");
+    }
+
+    function countWildcards(query) {
+      return (query.match(wildcardRegexGlobal()) || []).length;
+    }
+
+    function hasOnlyWildcardMarker(query) {
+      return countWildcards(query) === 1 && !query.replace(wildcardRegexGlobal(), "").trim();
+    }
+
     /* ------------------------------------------------------------------ */
     /* Search                                                              */
     /* ------------------------------------------------------------------ */
@@ -78,6 +97,16 @@
       const query = document.getElementById("query").value.trim();
       if (!query) {
         renderStatusMessage("Please enter a search term.");
+        return;
+      }
+
+      const wildcardCount = countWildcards(query);
+      if (wildcardCount > 1) {
+        renderStatusMessage("Only one wildcard marker (-, *, or ~) is allowed per query.");
+        return;
+      }
+      if (hasOnlyWildcardMarker(query)) {
+        renderStatusMessage("Please enter a search term alongside the wildcard marker.");
         return;
       }
 
@@ -122,6 +151,49 @@
     /* ------------------------------------------------------------------ */
 
     const DETAILED_CARD_THRESHOLD = 3;
+
+    // Client-side fallback for query-mode classification.  The server
+    // returns query_mode in the response, so this is only reached when
+    // data.query_mode is absent (e.g. older API versions).  The logic
+    // intentionally mirrors classify_query_mode() in search.py.
+    function classifyQueryMode(query) {
+      const normalized = String(query || "").trim().normalize("NFC");
+      if (!normalized) return "Short-query";
+      const wildcardCount = countWildcards(normalized);
+      if (wildcardCount === 1 && !hasOnlyWildcardMarker(normalized)) return "Partial-form";
+      // Strip whitespace/punctuation plus the full wildcard set so the short-
+      // query length check matches the server even when the query contains
+      // Unicode dashes that aren't valid wildcard markers on their own.
+      const stripRegex = new RegExp("[\\s._" + WILDCARD_CHARS + "]", "g");
+      const stripped = normalized.replace(stripRegex, "");
+      const charCount = Array.from(stripped).length;
+      if (charCount > 0 && charCount <= 3) return "Short-query";
+      return "Full-form";
+    }
+
+    function describeQueryMode(mode, query) {
+      const resolved = mode || classifyQueryMode(query);
+      switch (resolved) {
+        case "Partial-form":
+          return {
+            label: "Partial form mode",
+            detail: "Input includes a single wildcard; full wildcard and fragment matches are ranked before raw confidence.",
+            badgeClass: "bg-amber-100 text-amber-800"
+          };
+        case "Short-query":
+          return {
+            label: "Short query mode",
+            detail: "Very short inputs broaden the search space; exact and rule-supported matches can remain despite low confidence.",
+            badgeClass: "bg-orange-100 text-orange-800"
+          };
+        default:
+          return {
+            label: "Full form mode",
+            detail: "Results are ranked as full-form phonological candidates.",
+            badgeClass: "bg-emerald-100 text-emerald-800"
+          };
+      }
+    }
 
     function confidenceColor(c) {
       if (c >= 0.9) return ["bg-emerald-100 text-emerald-800", "bg-emerald-500"];
@@ -187,6 +259,19 @@
       return wrapper;
     }
 
+    function hasRuleSupport(hit) {
+      if (typeof hit.rule_support === "boolean") return hit.rule_support;
+      return (hit.applied_rule_count ?? 0) > 0;
+    }
+
+    function isSupportedCandidate(hit) {
+      if (hit.candidate_bucket === "Supported") return true;
+      if (hit.candidate_bucket === "Exploratory") return false;
+      const matchType = hit.match_type || "Distance-only";
+      const uncertainty = hit.uncertainty || "High";
+      return matchType === "Exact" || matchType === "Rule-based" || uncertainty === "Low";
+    }
+
     function renderDialectBadges(attribution) {
       const container = document.createElement("div");
       container.className = "flex flex-wrap gap-1.5 mt-2";
@@ -209,6 +294,91 @@
       title.className = "text-sm font-medium text-ink mt-3";
       title.textContent = text;
       return title;
+    }
+
+    function renderGroupHeader(title, description) {
+      const wrapper = document.createElement("section");
+      wrapper.className = "mb-4";
+
+      const heading = document.createElement("h3");
+      heading.className = "text-sm uppercase tracking-wide text-ink-muted";
+      heading.textContent = title;
+
+      const body = document.createElement("p");
+      body.className = "mt-1 text-sm text-ink-light leading-relaxed";
+      body.textContent = description;
+
+      wrapper.appendChild(heading);
+      wrapper.appendChild(body);
+      return wrapper;
+    }
+
+    function describeExploratoryGroup(queryMode) {
+      switch (queryMode) {
+        case "Short-query":
+          return "Very short inputs broaden the search space; exploratory candidates are shown for quick inspection.";
+        case "Partial-form":
+          return "Single-wildcard queries increase exploratory matches; these candidates are shown for review.";
+        default:
+          return "Exploratory candidates are shown for inspection.";
+      }
+    }
+
+    function renderExploratorySection(queryMode, items) {
+      const details = document.createElement("details");
+      details.className = "mb-4";
+      details.open = true;
+
+      const summary = document.createElement("summary");
+      summary.className = "cursor-pointer select-none list-item text-sm uppercase tracking-wide text-ink-muted";
+      summary.textContent = "Exploratory candidates (" + items.length + ")";
+      details.appendChild(summary);
+
+      const body = document.createElement("div");
+      body.className = "mt-3";
+
+      const hint = document.createElement("p");
+      hint.className = "mb-3 text-sm text-ink-light leading-relaxed";
+      hint.textContent = describeExploratoryGroup(queryMode);
+      body.appendChild(hint);
+
+      items.forEach(({ hit, index }, groupIndex) => {
+        body.appendChild(
+          groupIndex < DETAILED_CARD_THRESHOLD
+            ? renderDetailedCard(hit, index)
+            : renderCompactCard(hit, index)
+        );
+      });
+
+      details.appendChild(body);
+      return details;
+    }
+
+    function renderQueryModeBanner(query, queryMode) {
+      const mode = describeQueryMode(queryMode, query);
+      const banner = document.createElement("div");
+      banner.className = "mb-4 rounded-xl border border-parchment-200 bg-white p-3 shadow-sm";
+
+      const row = document.createElement("div");
+      row.className = "flex flex-wrap items-center gap-2";
+
+      const label = document.createElement("span");
+      label.className = "text-xs uppercase tracking-wide text-ink-muted";
+      label.textContent = "Query mode";
+
+      const badge = document.createElement("span");
+      badge.className = "text-xs font-medium px-2 py-0.5 rounded-full " + mode.badgeClass;
+      badge.textContent = mode.label;
+
+      const detail = document.createElement("p");
+      detail.className = "mt-2 text-sm text-ink-light leading-relaxed";
+      detail.textContent = mode.detail;
+
+      row.appendChild(label);
+      row.appendChild(badge);
+      banner.appendChild(row);
+      banner.appendChild(detail);
+      return banner;
     }
 
     function renderAlignmentBlock(text) {
@@ -317,25 +487,33 @@
     }
 
     function appendCardBody(container, hit, { explicit, observed }) {
-      container.appendChild(renderSectionTitle("Applied rules (" + (hit.applied_rule_count ?? explicit.length) + ")"));
+      container.appendChild(renderSectionTitle("Difference summary"));
+      const differenceSummary = document.createElement("p");
+      differenceSummary.className = "mt-2 text-sm text-ink-light";
+      differenceSummary.textContent = hit.alignment_summary || "Differences visible in full alignment.";
+      container.appendChild(differenceSummary);
+
+      container.appendChild(renderSectionTitle("Matched rules (" + (hit.applied_rule_count ?? explicit.length) + ")"));
       if (explicit.length) {
         container.appendChild(renderRuleRows(explicit));
       } else {
         const empty = document.createElement("p");
         empty.className = "mt-2 text-sm text-ink-light";
-        empty.textContent = "No explicit rule matched.";
+        empty.textContent = "No catalogued rule support matched.";
         container.appendChild(empty);
       }
 
       if ((hit.observed_change_count ?? observed.length) > 0 && observed.length) {
-        container.appendChild(renderSectionTitle("Observed changes (" + (hit.observed_change_count ?? observed.length) + ")"));
+        container.appendChild(renderSectionTitle("Uncatalogued differences (" + (hit.observed_change_count ?? observed.length) + ")"));
         container.appendChild(renderRuleRows(observed));
       }
 
       container.appendChild(renderSectionTitle("Alignment"));
       const summary = document.createElement("p");
       summary.className = "mt-2 text-sm text-ink-light";
-      summary.textContent = hit.alignment_summary || "Differences visible in full alignment";
+      summary.textContent = hit.alignment_visualization
+        ? "Inspect the full alignment for segment-by-segment detail."
+        : "Full alignment unavailable.";
       container.appendChild(summary);
       if (hit.alignment_visualization) {
         container.appendChild(renderAlignmentDetails(hit));
@@ -391,6 +569,9 @@
       meta.className = "flex flex-wrap gap-3 mt-3";
       meta.appendChild(renderMetaBadge("Match type", hit.match_type || "Distance-only", "match"));
       meta.appendChild(renderMetaBadge("Uncertainty", hit.uncertainty || "High"));
+      meta.appendChild(renderMetaBadge("Rule support", hasRuleSupport(hit) ? "Yes" : "No"));
+      meta.appendChild(renderMetaBadge("Matched rules", String(hit.applied_rule_count ?? explicit.length)));
+      meta.appendChild(renderMetaBadge("Fallback edits", String(hit.observed_change_count ?? observed.length)));
       card.appendChild(meta);
 
       appendCardBody(card, hit, { explicit, observed });
@@ -424,7 +605,8 @@
         metaParts.push("confidence: unknown");
       }
       metaParts.push(hit.match_type || "Distance-only");
-      metaParts.push((hit.applied_rule_count ?? 0) + " rules");
+      metaParts.push((hit.applied_rule_count ?? 0) + " matched rules");
+      metaParts.push((hit.observed_change_count ?? 0) + " fallback edits");
 
       const meta = document.createElement("p");
       meta.className = "mt-1 text-sm text-ink-light";
@@ -453,6 +635,9 @@
       const metaDetails = document.createElement("div");
       metaDetails.className = "flex flex-wrap gap-3 mt-3";
       metaDetails.appendChild(renderMetaBadge("Match type", hit.match_type || "Distance-only", "match"));
+      metaDetails.appendChild(renderMetaBadge("Rule support", hasRuleSupport(hit) ? "Yes" : "No"));
+      metaDetails.appendChild(renderMetaBadge("Matched rules", String(hit.applied_rule_count ?? explicit.length)));
+      metaDetails.appendChild(renderMetaBadge("Fallback edits", String(hit.observed_change_count ?? observed.length)));
       body.appendChild(metaDetails);
 
       appendCardBody(body, hit, { explicit, observed });
@@ -484,14 +669,36 @@
         container.appendChild(info);
       }
 
-      data.hits.forEach((hit, index) => {
-        if (!hit || typeof hit !== "object") return;
+      // Prefer server-supplied mode; fall back to client classification.
+      const queryMode = data.query_mode || classifyQueryMode(data.query || "");
+      container.appendChild(renderQueryModeBanner(data.query || "", queryMode));
+
+      const indexedHits = data.hits
+        .map((hit, index) => ({ hit, index }))
+        .filter(({ hit }) => hit && typeof hit === "object");
+
+      const supported = indexedHits.filter(({ hit }) => isSupportedCandidate(hit));
+      const exploratory = indexedHits.filter(({ hit }) => !isSupportedCandidate(hit));
+
+      if (supported.length) {
         container.appendChild(
-          index < DETAILED_CARD_THRESHOLD
-            ? renderDetailedCard(hit, index)
-            : renderCompactCard(hit, index)
+          renderGroupHeader(
+            "Supported candidates",
+            "Exact and rule-supported candidates are shown first."
+          )
         );
-      });
+        supported.forEach(({ hit, index }, groupIndex) => {
+          container.appendChild(
+            groupIndex < DETAILED_CARD_THRESHOLD
+              ? renderDetailedCard(hit, index)
+              : renderCompactCard(hit, index)
+          );
+        });
+      }
+
+      if (exploratory.length) {
+        container.appendChild(renderExploratorySection(queryMode, exploratory));
+      }
     }
 
     /* ------------------------------------------------------------------ */
