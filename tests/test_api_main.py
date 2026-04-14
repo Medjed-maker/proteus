@@ -1,7 +1,8 @@
 """Tests for api.main."""
 
 import logging
-from collections.abc import Generator
+import unicodedata
+from collections.abc import Callable, Generator
 
 import pytest
 import yaml
@@ -9,6 +10,8 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from api import main as api_main
+from api import _hit_formatting as api_hit_formatting
+from api._models import RuleStep
 from api.main import SearchHit
 from phonology.explainer import RuleApplication
 from phonology.search import LexiconRecord, SearchResult
@@ -30,6 +33,7 @@ def _clear_loader_caches() -> None:
         "_load_search_index",
         "_load_unigram_index",
         "_load_lexicon_map",
+        "_load_ipa_index",
     ):
         cache_clear = getattr(getattr(api_main, loader_name), "cache_clear", None)
         if cache_clear is not None:
@@ -46,6 +50,59 @@ def _install_invalid_query_to_ipa(monkeypatch: pytest.MonkeyPatch) -> None:
         raise ValueError("query must be a non-empty string")
 
     monkeypatch.setattr(api_main, "to_ipa", fake_to_ipa)
+
+
+def _make_fake_search(captured: dict[str, object]) -> Callable[..., list[SearchResult]]:
+    """Build a fake phonology search callable that records API arguments."""
+
+    def fake_search(
+        query: str,
+        lexicon: tuple[dict[str, object], ...],
+        matrix: dict[str, dict[str, float]],
+        max_results: int,
+        dialect: str,
+        index: dict[str, list[str]],
+        unigram_index: dict[str, list[str]] | None = None,
+        prebuilt_lexicon_map: dict[str, object] | None = None,
+        query_ipa: str | None = None,
+        prepared_query: object | None = None,
+        prebuilt_ipa_index: dict[str, list[str]] | None = None,
+        similarity_fallback_limit: int | None = None,
+        unigram_fallback_limit: int | None = None,
+    ) -> list[SearchResult]:
+        captured["query"] = query
+        captured["lexicon"] = lexicon
+        captured["matrix"] = matrix
+        captured["max_results"] = max_results
+        captured["dialect"] = dialect
+        captured["index"] = index
+        captured["unigram_index"] = unigram_index
+        captured["prebuilt_lexicon_map"] = prebuilt_lexicon_map
+        captured["query_ipa"] = getattr(prepared_query, "query_ipa", query_ipa)
+        captured["prepared_query"] = prepared_query
+        captured["prebuilt_ipa_index"] = prebuilt_ipa_index
+        captured["similarity_fallback_limit"] = similarity_fallback_limit
+        captured["unigram_fallback_limit"] = unigram_fallback_limit
+        return [
+            SearchResult(
+                lemma="λόγος",
+                confidence=0.75,
+                dialect_attribution="lemma dialect: attic",
+                applied_rules=["CCH-001"],
+                rule_applications=[
+                    RuleApplication(
+                        rule_id="CCH-001",
+                        rule_name="CCH-001",
+                        from_phone="s",
+                        to_phone="h",
+                        position=2,
+                    )
+                ],
+                ipa="lóɡos",
+            )
+        ]
+
+    return fake_search
 
 
 @pytest.fixture(autouse=True)
@@ -109,6 +166,43 @@ class TestSearchHit:
 
         assert hit.confidence == confidence
 
+    def test_rules_applied_defaults_to_empty_list(self) -> None:
+        hit = SearchHit(
+            headword="λόγος",
+            ipa="loɡos",
+            distance=0.5,
+            confidence=0.5,
+            explanation="example",
+        )
+
+        assert hit.rules_applied == []
+
+    @pytest.mark.parametrize("position", [-1, 0])
+    def test_rule_step_position_accepts_unknown_and_known_positions(
+        self, position: int
+    ) -> None:
+        step = RuleStep(
+            rule_id="OBS-SUB",
+            rule_name="Observed substitution",
+            from_phone="a",
+            to_phone="b",
+            position=position,
+        )
+
+        assert step.position == position
+
+    def test_rule_step_position_rejects_values_below_unknown_sentinel(self) -> None:
+        with pytest.raises(ValidationError) as exc_info:
+            RuleStep(
+                rule_id="OBS-SUB",
+                rule_name="Observed substitution",
+                from_phone="a",
+                to_phone="b",
+                position=-2,
+            )
+
+        assert "position" in str(exc_info.value)
+
     @pytest.mark.parametrize("field_name", ["applied_rule_count", "observed_change_count"])
     def test_rule_counts_must_be_non_negative(self, field_name: str) -> None:
         payload = {
@@ -131,6 +225,7 @@ class TestSearchHit:
         [
             ("match_type", "Normalized"),
             ("uncertainty", "Unknown"),
+            ("candidate_bucket", "Maybe"),
             ("why_candidate", "not-a-list"),
         ],
     )
@@ -231,8 +326,8 @@ class TestSearchHit:
             captured.update(kwargs)
             return FakeExplanation()
 
-        monkeypatch.setattr(api_main, "explain_alignment", fake_explain_alignment)
-        monkeypatch.setattr(api_main, "to_prose", lambda explanation: "example")
+        monkeypatch.setattr(api_hit_formatting, "explain_alignment", fake_explain_alignment)
+        monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "example")
 
         hit = api_main._build_search_hit(
             SearchResult(
@@ -244,6 +339,7 @@ class TestSearchHit:
             ),
             query_ipa="loɡos",
             rules_registry={},
+            query_mode="Full-form",
         )
 
         assert captured["source_ipa"] == ""
@@ -254,7 +350,7 @@ class TestSearchHit:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            api_main,
+            api_hit_formatting,
             "explain_alignment",
             lambda **kwargs: (_ for _ in ()).throw(AssertionError("should not use fallback")),
         )
@@ -279,6 +375,7 @@ class TestSearchHit:
             ),
             query_ipa="raː",
             rules_registry={},
+            query_mode="Full-form",
         )
 
         assert [step.model_dump() for step in hit.rules_applied] == [
@@ -294,21 +391,23 @@ class TestSearchHit:
         assert "distance 0.275" in hit.explanation
         assert "position 1" in hit.explanation
         assert hit.match_type == "Rule-based"
+        assert hit.rule_support is True
         assert hit.applied_rule_count == 1
         assert hit.observed_change_count == 0
-        assert hit.alignment_summary == "/ɛː/ -> /aː/ at position 1"
+        assert hit.alignment_summary == "1 matched rule across 1 position."
         assert hit.why_candidate == [
-            "1 explicit rule explains the match.",
+            "1 explicit rule supports the match.",
             "Moderate phonological similarity.",
-            "See alignment for localized differences.",
+            "No fallback edits required.",
         ]
         assert hit.uncertainty == "Medium"
+        assert hit.candidate_bucket == "Supported"
 
     def test_build_search_hit_accepts_morphophonemic_rule_ids_without_schema_changes(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            api_main,
+            api_hit_formatting,
             "explain_alignment",
             lambda **kwargs: (_ for _ in ()).throw(AssertionError("should not use fallback")),
         )
@@ -334,6 +433,7 @@ class TestSearchHit:
             ),
             query_ipa="damostʰenaːs",
             rules_registry={},
+            query_mode="Full-form",
         )
 
         assert [step.model_dump() for step in hit.rules_applied] == [
@@ -350,8 +450,8 @@ class TestSearchHit:
     def test_build_search_hit_derives_exact_match_metadata(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(api_main, "explain_alignment", lambda **kwargs: FakeExplanation())
-        monkeypatch.setattr(api_main, "to_prose", lambda explanation: "exact explanation")
+        monkeypatch.setattr(api_hit_formatting, "explain_alignment", lambda **kwargs: FakeExplanation())
+        monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "exact explanation")
 
         hit = api_main._build_search_hit(
             SearchResult(
@@ -363,24 +463,56 @@ class TestSearchHit:
             ),
             query_ipa="loɡos",
             rules_registry={},
+            query_mode="Full-form",
         )
 
         assert hit.match_type == "Exact"
+        assert hit.rule_support is False
         assert hit.applied_rule_count == 0
         assert hit.observed_change_count == 0
-        assert hit.alignment_summary == "No phonological difference"
+        assert hit.alignment_summary == "No phonological difference."
         assert hit.why_candidate == [
             "Exact phonological match.",
             "High phonological similarity.",
             "No remaining unexplained differences.",
         ]
         assert hit.uncertainty == "Low"
+        assert hit.candidate_bucket == "Supported"
+
+    def test_build_search_hit_derives_exact_match_metadata_ignoring_ipa_accents(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(api_hit_formatting, "explain_alignment", lambda **kwargs: FakeExplanation())
+        monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "exact explanation")
+
+        hit = api_main._build_search_hit(
+            SearchResult(
+                lemma="νῦν",
+                confidence=1.0,
+                dialect_attribution="lemma dialect: attic",
+                applied_rules=[],
+                ipa="nýn",
+            ),
+            query_ipa="nyn",
+            rules_registry={},
+            query_mode="Short-query",
+        )
+
+        assert hit.match_type == "Exact"
+        assert hit.alignment_summary == "No phonological difference."
+        assert hit.why_candidate == [
+            "Exact phonological match.",
+            "High phonological similarity.",
+            "No remaining unexplained differences.",
+        ]
+        assert hit.uncertainty == "Low"
+        assert hit.candidate_bucket == "Supported"
 
     def test_build_search_hit_derives_distance_only_metadata_from_observed_changes(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            api_main,
+            api_hit_formatting,
             "explain_alignment",
             lambda **kwargs: (_ for _ in ()).throw(AssertionError("should not use fallback")),
         )
@@ -403,24 +535,27 @@ class TestSearchHit:
             ),
             query_ipa="x",
             rules_registry={},
+            query_mode="Full-form",
         )
 
         assert hit.match_type == "Distance-only"
+        assert hit.rule_support is False
         assert hit.applied_rule_count == 0
         assert hit.observed_change_count == 1
-        assert hit.alignment_summary == "/a/ -> /x/ at position 0"
+        assert hit.alignment_summary == "1 fallback edit across 1 position."
         assert hit.why_candidate == [
             "Ranked by phonological distance without explicit rule support.",
             "Moderate phonological similarity.",
-            "1 observed change remains uncatalogued.",
+            "1 fallback edit remains uncatalogued.",
         ]
         assert hit.uncertainty == "Medium"
+        assert hit.candidate_bucket == "Exploratory"
 
     def test_build_search_hit_derives_low_confidence_metadata_without_rules(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(api_main, "explain_alignment", lambda **kwargs: FakeExplanation())
-        monkeypatch.setattr(api_main, "to_prose", lambda explanation: "distance-only explanation")
+        monkeypatch.setattr(api_hit_formatting, "explain_alignment", lambda **kwargs: FakeExplanation())
+        monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "distance-only explanation")
 
         hit = api_main._build_search_hit(
             SearchResult(
@@ -432,24 +567,27 @@ class TestSearchHit:
             ),
             query_ipa="x",
             rules_registry={},
+            query_mode="Full-form",
         )
 
         assert hit.match_type == "Low-confidence"
+        assert hit.rule_support is False
         assert hit.applied_rule_count == 0
         assert hit.observed_change_count == 0
-        assert hit.alignment_summary == "Differences visible in full alignment"
+        assert hit.alignment_summary == "Differences visible in full alignment."
         assert hit.why_candidate == [
             "Ranked by phonological distance without explicit rule support.",
             "Weak phonological similarity.",
             "See alignment for localized differences.",
         ]
         assert hit.uncertainty == "High"
+        assert hit.candidate_bucket == "Exploratory"
 
     def test_build_search_hit_coalesces_missing_dialect_attribution_to_empty_string(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(api_main, "explain_alignment", lambda **kwargs: FakeExplanation())
-        monkeypatch.setattr(api_main, "to_prose", lambda explanation: "example")
+        monkeypatch.setattr(api_hit_formatting, "explain_alignment", lambda **kwargs: FakeExplanation())
+        monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "example")
 
         hit = api_main._build_search_hit(
             SearchResult(
@@ -461,6 +599,7 @@ class TestSearchHit:
             ),
             query_ipa="loɡos",
             rules_registry={},
+            query_mode="Full-form",
         )
 
         assert hit.dialect_attribution == ""
@@ -517,8 +656,19 @@ class TestFrontendHtml:
 
         assert response.status_code == 200
         assert "Match type" in response.text
-        assert "Applied rules" in response.text
+        assert "Matched rules" in response.text
+        assert "Fallback edits" in response.text
+        assert "Rule support" in response.text
+        assert "Uncatalogued differences" in response.text
         assert "Uncertainty" in response.text
+        assert "Supported candidates" in response.text
+        assert "Exploratory candidates" in response.text
+        assert "Exploratory candidates (" in response.text
+        assert "details.open = true;" in response.text
+        assert "collapsed by default" not in response.text
+        assert "Query mode" in response.text
+        assert "full wildcard and fragment matches" in response.text
+        assert "Only one wildcard marker" in response.text
         assert "Show full alignment" in response.text
 
     def test_html_references_local_css_not_cdn(self, client: TestClient) -> None:
@@ -671,6 +821,7 @@ def _make_test_dependencies() -> dict[str, object]:
                 token_count=4,
             )
         },
+        "ipa_index": {"lóɡos": ["L1"]},
     }
 
 
@@ -686,6 +837,7 @@ class TestSearchDependenciesLoader:
         monkeypatch.setattr(api_main, "_load_search_index", lambda: td["search_index"])
         monkeypatch.setattr(api_main, "_load_unigram_index", lambda: td["unigram_index"])
         monkeypatch.setattr(api_main, "_load_lexicon_map", lambda: td["lexicon_map"])
+        monkeypatch.setattr(api_main, "_load_ipa_index", lambda: td["ipa_index"])
 
         deps = api_main._load_search_dependencies()
 
@@ -696,6 +848,7 @@ class TestSearchDependenciesLoader:
         assert deps.search_index == td["search_index"]
         assert deps.unigram_index == td["unigram_index"]
         assert deps.lexicon_map == td["lexicon_map"]
+        assert deps.ipa_index == td["ipa_index"]
 
     def test_warm_search_dependencies_logs_info_without_traceback_when_not_ready(
         self,
@@ -771,45 +924,6 @@ def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, objec
     td = _make_test_dependencies()
     captured: dict[str, object] = {}
 
-    def fake_search(
-        query: str,
-        lexicon: tuple[dict[str, object], ...],
-        matrix: dict[str, dict[str, float]],
-        max_results: int,
-        dialect: str,
-        index: dict[str, list[str]],
-        unigram_index: dict[str, list[str]] | None = None,
-        prebuilt_lexicon_map: dict[str, object] | None = None,
-        unigram_fallback_limit: int | None = None,
-    ) -> list[SearchResult]:
-        captured["query"] = query
-        captured["lexicon"] = lexicon
-        captured["matrix"] = matrix
-        captured["max_results"] = max_results
-        captured["dialect"] = dialect
-        captured["index"] = index
-        captured["unigram_index"] = unigram_index
-        captured["prebuilt_lexicon_map"] = prebuilt_lexicon_map
-        captured["unigram_fallback_limit"] = unigram_fallback_limit
-        return [
-            SearchResult(
-                lemma="λόγος",
-                confidence=0.75,
-                dialect_attribution="lemma dialect: attic",
-                applied_rules=["CCH-001"],
-                rule_applications=[
-                    RuleApplication(
-                        rule_id="CCH-001",
-                        rule_name="CCH-001",
-                        from_phone="s",
-                        to_phone="h",
-                        position=2,
-                    )
-                ],
-                ipa="lóɡos",
-            )
-        ]
-
     monkeypatch.setattr(api_main, "_load_lexicon_entries", lambda: td["lexicon"])
     monkeypatch.setattr(api_main, "_load_distance_matrix", lambda: td["matrix"])
     monkeypatch.setattr(api_main, "_load_rules_registry", lambda: td["rules_registry"])
@@ -817,7 +931,8 @@ def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, objec
     monkeypatch.setattr(api_main, "_load_search_index", lambda: td["search_index"])
     monkeypatch.setattr(api_main, "_load_unigram_index", lambda: td["unigram_index"])
     monkeypatch.setattr(api_main, "_load_lexicon_map", lambda: td["lexicon_map"])
-    monkeypatch.setattr(api_main.phonology_search, "search", fake_search)
+    monkeypatch.setattr(api_main, "_load_ipa_index", lambda: td["ipa_index"])
+    monkeypatch.setattr(api_main.phonology_search, "search", _make_fake_search(captured))
     return captured
 
 
@@ -838,50 +953,12 @@ class TestSearchEndpoint:
                 search_index=td["search_index"],
                 unigram_index=td["unigram_index"],
                 lexicon_map=td["lexicon_map"],
+                ipa_index=td["ipa_index"],
             ),
         )
         monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "loɡos")
 
-        def fake_search(
-            query: str,
-            lexicon: tuple[dict[str, object], ...],
-            matrix: dict[str, dict[str, float]],
-            max_results: int,
-            dialect: str,
-            index: dict[str, list[str]],
-            unigram_index: dict[str, list[str]] | None = None,
-            prebuilt_lexicon_map: dict[str, object] | None = None,
-            unigram_fallback_limit: int | None = None,
-        ) -> list[SearchResult]:
-            captured["query"] = query
-            captured["lexicon"] = lexicon
-            captured["matrix"] = matrix
-            captured["max_results"] = max_results
-            captured["dialect"] = dialect
-            captured["index"] = index
-            captured["unigram_index"] = unigram_index
-            captured["prebuilt_lexicon_map"] = prebuilt_lexicon_map
-            captured["unigram_fallback_limit"] = unigram_fallback_limit
-            return [
-                SearchResult(
-                    lemma="λόγος",
-                    confidence=0.75,
-                    dialect_attribution="lemma dialect: attic",
-                    applied_rules=["CCH-001"],
-                    rule_applications=[
-                        RuleApplication(
-                            rule_id="CCH-001",
-                            rule_name="CCH-001",
-                            from_phone="s",
-                            to_phone="h",
-                            position=2,
-                        )
-                    ],
-                    ipa="lóɡos",
-                )
-            ]
-
-        monkeypatch.setattr(api_main.phonology_search, "search", fake_search)
+        monkeypatch.setattr(api_main.phonology_search, "search", _make_fake_search(captured))
 
         response = client.post(
             "/search",
@@ -897,7 +974,10 @@ class TestSearchEndpoint:
         assert captured["index"] is td["search_index"]
         assert captured["unigram_index"] is td["unigram_index"]
         assert captured["prebuilt_lexicon_map"] is td["lexicon_map"]
-        assert captured["unigram_fallback_limit"] == api_main._API_UNIGRAM_FALLBACK_LIMIT
+        assert captured["query_ipa"] == "loɡos"
+        assert captured["similarity_fallback_limit"] == 2000
+        assert captured["unigram_fallback_limit"] == 2000
+        assert captured["prebuilt_ipa_index"] is td["ipa_index"]
         assert response.json()["hits"][0]["rules_applied"][0]["rule_id"] == "CCH-001"
 
     def test_search_accepts_public_request_shape_and_returns_hits(
@@ -916,7 +996,9 @@ class TestSearchEndpoint:
         assert captured["dialect"] == "attic"
         assert captured["index"] == {"l ɡ": ["L1"]}
         assert captured["unigram_index"] == {"l": ["L1"]}
-        assert captured["unigram_fallback_limit"] == api_main._API_UNIGRAM_FALLBACK_LIMIT
+        assert captured["prebuilt_ipa_index"] == {"lóɡos": ["L1"]}
+        assert captured["similarity_fallback_limit"] == 2000
+        assert captured["unigram_fallback_limit"] == 2000
         assert captured["prebuilt_lexicon_map"] == {
             "L1": LexiconRecord(
                 entry={"id": "L1", "headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},
@@ -929,6 +1011,7 @@ class TestSearchEndpoint:
         payload = response.json()
         assert payload["query"] == "λόγος"
         assert payload["query_ipa"] == "loɡos"
+        assert payload["query_mode"] == "Full-form"
         assert len(payload["hits"]) == 1
         assert payload["hits"][0]["headword"] == "λόγος"
         assert payload["hits"][0]["ipa"] == "lóɡos"
@@ -937,15 +1020,17 @@ class TestSearchEndpoint:
         assert payload["hits"][0]["dialect_attribution"] == "lemma dialect: attic"
         assert payload["hits"][0]["alignment_visualization"] == ""
         assert payload["hits"][0]["match_type"] == "Rule-based"
+        assert payload["hits"][0]["rule_support"] is True
         assert payload["hits"][0]["applied_rule_count"] == 1
         assert payload["hits"][0]["observed_change_count"] == 0
-        assert payload["hits"][0]["alignment_summary"] == "/s/ -> /h/ at position 2"
+        assert payload["hits"][0]["alignment_summary"] == "1 matched rule across 1 position."
         assert payload["hits"][0]["why_candidate"] == [
-            "1 explicit rule explains the match.",
+            "1 explicit rule supports the match.",
             "Moderate phonological similarity.",
-            "See alignment for localized differences.",
+            "No fallback edits required.",
         ]
         assert payload["hits"][0]["uncertainty"] == "Medium"
+        assert payload["hits"][0]["candidate_bucket"] == "Supported"
         assert payload["hits"][0]["rules_applied"] == [
             {
                 "rule_id": "CCH-001",
@@ -959,6 +1044,241 @@ class TestSearchEndpoint:
         assert "Applied rules:" in payload["hits"][0]["explanation"]
         assert "CCH-001" in payload["hits"][0]["explanation"]
         assert "distance 0.250" in payload["hits"][0]["explanation"]
+
+    def test_search_marks_short_query_distance_only_hits_as_exploratory(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "nyn")
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search",
+            lambda *args, **kwargs: [
+                SearchResult(
+                    lemma="ἄγνυον",
+                    confidence=0.72,
+                    dialect_attribution="lemma dialect: attic",
+                    applied_rules=[],
+                    ipa="aɡnyon",
+                )
+            ],
+        )
+        monkeypatch.setattr(api_hit_formatting, "explain_alignment", lambda **kwargs: FakeExplanation())
+        monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "short-query exploratory")
+
+        response = client.post("/search", json={"query_form": "νυν"})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["query_mode"] == "Short-query"
+        assert payload["hits"][0]["match_type"] == "Distance-only"
+        assert payload["hits"][0]["candidate_bucket"] == "Exploratory"
+
+    def test_search_sets_api_fallback_caps_for_short_queries(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured = mock_search_dependencies(monkeypatch)
+
+        response = client.post("/search", json={"query_form": "νυν"})
+
+        assert response.status_code == 200
+        assert response.json()["query_mode"] == "Short-query"
+        assert captured["similarity_fallback_limit"] == 2000
+        assert captured["unigram_fallback_limit"] == 2000
+
+    def test_search_sets_short_query_caps_for_decomposed_unicode(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured = mock_search_dependencies(monkeypatch)
+        query_form = unicodedata.normalize("NFD", "νῦν")
+
+        response = client.post("/search", json={"query_form": query_form})
+
+        assert response.status_code == 200
+        assert response.json()["query_mode"] == "Short-query"
+        assert captured["similarity_fallback_limit"] == 2000
+        assert captured["unigram_fallback_limit"] == 2000
+
+    def test_search_sets_api_fallback_caps_for_partial_queries(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured = mock_search_dependencies(monkeypatch)
+
+        response = client.post("/search", json={"query_form": "ζηταω-"})
+
+        assert response.status_code == 200
+        assert response.json()["query_mode"] == "Partial-form"
+        assert captured["similarity_fallback_limit"] == 2000
+        assert captured["unigram_fallback_limit"] == 2000
+
+    def test_search_sets_api_fallback_caps_for_fullform_queries(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured = mock_search_dependencies(monkeypatch)
+
+        response = client.post("/search", json={"query_form": "λόγος"})
+
+        assert response.status_code == 200
+        assert response.json()["query_mode"] == "Full-form"
+        assert captured["similarity_fallback_limit"] == 2000
+        assert captured["unigram_fallback_limit"] == 2000
+
+    def test_search_marks_partial_query_distance_only_hits_as_exploratory(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+        captured: dict[str, object] = {}
+
+        def fake_to_ipa(query: str, dialect: str = "attic") -> str:
+            captured["query"] = query
+            return "zɛːtaɔ"
+
+        monkeypatch.setattr(api_main, "to_ipa", fake_to_ipa)
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search",
+            lambda *args, **kwargs: [
+                SearchResult(
+                    lemma="ζητέω",
+                    confidence=0.72,
+                    dialect_attribution="lemma dialect: attic",
+                    applied_rules=[],
+                    ipa="zɛːtɛɔ",
+                )
+            ],
+        )
+        monkeypatch.setattr(api_hit_formatting, "explain_alignment", lambda **kwargs: FakeExplanation())
+        monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "partial-query exploratory")
+
+        response = client.post("/search", json={"query_form": "ζηταω-"})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert captured["query"] == "ζηταω"
+        assert payload["query_ipa"] == "zɛːtaɔ"
+        assert payload["query_mode"] == "Partial-form"
+        assert payload["hits"][0]["match_type"] == "Distance-only"
+        assert payload["hits"][0]["candidate_bucket"] == "Exploratory"
+
+    @pytest.mark.parametrize(
+        ("query_form", "expected_queries", "expected_ipa"),
+        [
+            ("*λόγ", ["λόγ"], "loɡ"),
+            ("λ*γ", ["λ", "γ"], "l ɡ"),
+            ("α*ι", ["α", "ι"], "a i"),
+            # Unicode dash suffix markers (en dash, em dash, fullwidth hyphen)
+            # must be treated identically to ASCII hyphen — users often paste
+            # these from word processors or type them via locale keyboards.
+            ("λόγ\u2013", ["λόγ"], "loɡ"),  # U+2013 EN DASH
+            ("λόγ\u2014", ["λόγ"], "loɡ"),  # U+2014 EM DASH
+            ("λόγ\uFF0D", ["λόγ"], "loɡ"),  # U+FF0D FULLWIDTH HYPHEN-MINUS
+        ],
+    )
+    def test_search_normalizes_suffix_and_infix_partial_queries(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+        query_form: str,
+        expected_queries: list[str],
+        expected_ipa: str,
+    ) -> None:
+        captured_search = mock_search_dependencies(monkeypatch)
+        captured: list[str] = []
+
+        def fake_to_ipa(query: str, dialect: str = "attic") -> str:
+            captured.append(query)
+            return {
+                "λόγ": "loɡ",
+                "λ": "l",
+                "γ": "ɡ",
+                "α": "a",
+                "ι": "i",
+            }.get(query, query)
+
+        monkeypatch.setattr(api_main, "to_ipa", fake_to_ipa)
+        monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "partial-query exploratory")
+
+        response = client.post("/search", json={"query_form": query_form})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["query_mode"] == "Partial-form"
+        assert payload["query_ipa"] == expected_ipa
+        assert captured == expected_queries
+        assert captured_search["query_ipa"] == expected_ipa
+
+    @pytest.mark.parametrize("query_form", ["*", "-", "-*", "a*b*c"])
+    def test_search_rejects_invalid_partial_query_syntax(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch, query_form: str
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+        monkeypatch.setattr(
+            api_main,
+            "to_ipa",
+            lambda *_args, **_kwargs: pytest.fail("to_ipa should not run"),
+        )
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search",
+            lambda *_args, **_kwargs: pytest.fail("search should not run"),
+        )
+
+        response = client.post("/search", json={"query_form": query_form})
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Invalid search query"
+
+    def test_search_returns_empty_hits_when_short_query_quality_filter_drops_candidates(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "nyn")
+        monkeypatch.setattr(api_main.phonology_search, "search", lambda *args, **kwargs: [])
+
+        response = client.post("/search", json={"query_form": "νυν"})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["query_mode"] == "Short-query"
+        assert payload["query_ipa"] == "nyn"
+        assert payload["hits"] == []
+
+    def test_search_short_query_keeps_exact_or_rule_supported_candidates(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "nyn")
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search",
+            lambda *args, **kwargs: [
+                SearchResult(
+                    lemma="νυν",
+                    confidence=0.40,
+                    dialect_attribution="lemma dialect: attic",
+                    applied_rules=["RULE-001"],
+                    rule_applications=[
+                        RuleApplication(
+                            rule_id="RULE-001",
+                            rule_name="Rule 001",
+                            from_phone="y",
+                            to_phone="u",
+                            position=1,
+                        )
+                    ],
+                    ipa="nyn",
+                )
+            ],
+        )
+        monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "short-query supported")
+
+        response = client.post("/search", json={"query_form": "νυν"})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["query_mode"] == "Short-query"
+        assert payload["hits"][0]["headword"] == "νυν"
+        assert payload["hits"][0]["candidate_bucket"] == "Supported"
 
     def test_search_accepts_koine_dialect_hint_and_returns_koine_rule(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -1019,9 +1339,12 @@ class TestSearchEndpoint:
         assert captured["dialect"] == "koine"
         payload = response.json()
         assert payload["query_ipa"] == "loɣos"
+        assert payload["query_mode"] == "Full-form"
         assert payload["hits"][0]["match_type"] == "Rule-based"
+        assert payload["hits"][0]["rule_support"] is True
         assert payload["hits"][0]["applied_rule_count"] == 1
         assert payload["hits"][0]["uncertainty"] == "Low"
+        assert payload["hits"][0]["candidate_bucket"] == "Supported"
         assert payload["hits"][0]["rules_applied"][0]["rule_id"] == "CCH-009"
         assert payload["hits"][0]["dialect_attribution"] == (
             "lemma dialect: attic; query-compatible dialects: koine"
@@ -1076,6 +1399,7 @@ class TestSearchEndpoint:
 
         assert response.status_code == 200
         payload = response.json()
+        assert payload["query_mode"] == "Full-form"
         assert payload["hits"][0]["rules_applied"] == [
             {
                 "rule_id": "VSH-010",
@@ -1087,7 +1411,7 @@ class TestSearchEndpoint:
             }
         ]
         assert payload["hits"][0]["match_type"] == "Rule-based"
-        assert payload["hits"][0]["alignment_summary"] == "/ɛː/ -> /aː/ at position 1"
+        assert payload["hits"][0]["alignment_summary"] == "1 matched rule across 1 position."
         assert payload["hits"][0]["distance"] == pytest.approx(0.275)
         assert "distance 0.275" in payload["hits"][0]["explanation"]
 
@@ -1140,8 +1464,8 @@ class TestSearchEndpoint:
                 ]
             )
 
-        monkeypatch.setattr(api_main, "explain_alignment", fake_explain_alignment)
-        monkeypatch.setattr(api_main, "to_prose", lambda explanation: "fallback explanation")
+        monkeypatch.setattr(api_hit_formatting, "explain_alignment", fake_explain_alignment)
+        monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "fallback explanation")
 
         response = client.post("/search", json={"query_form": "λόγος"})
 
@@ -1150,8 +1474,10 @@ class TestSearchEndpoint:
         payload = response.json()["hits"][0]
         assert payload["rules_applied"][0]["position"] == -1
         assert payload["match_type"] == "Rule-based"
+        assert payload["rule_support"] is True
         assert payload["applied_rule_count"] == 1
-        assert payload["alignment_summary"] == "/s/ -> /h/ at unknown position"
+        assert payload["candidate_bucket"] == "Supported"
+        assert payload["alignment_summary"] == "1 matched rule at an unknown position."
 
     def test_search_hit_prefers_observed_rule_applications_over_fallback_ids(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -1199,7 +1525,7 @@ class TestSearchEndpoint:
         def fail_explain_alignment(**_kwargs: object) -> object:
             raise AssertionError("explain_alignment should not run when rule_applications are present")
 
-        monkeypatch.setattr(api_main, "explain_alignment", fail_explain_alignment)
+        monkeypatch.setattr(api_hit_formatting, "explain_alignment", fail_explain_alignment)
 
         response = client.post("/search", json={"query_form": "λόγος"})
 
@@ -1216,8 +1542,10 @@ class TestSearchEndpoint:
             }
         ]
         assert payload["match_type"] == "Low-confidence"
+        assert payload["rule_support"] is False
         assert payload["applied_rule_count"] == 0
         assert payload["observed_change_count"] == 1
+        assert payload["candidate_bucket"] == "Exploratory"
 
     def test_search_accepts_legacy_request_shape(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -1233,6 +1561,7 @@ class TestSearchEndpoint:
         assert captured["query"] == "λόγος"
         assert captured["max_results"] == 2
         assert response.json()["query"] == "λόγος"
+        assert response.json()["query_mode"] == "Full-form"
 
     def test_search_returns_bad_request_for_invalid_query_runtime(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -1442,6 +1771,10 @@ class TestSearchValidation:
 
         assert api_main.SearchRequest._normalize_dialect_hint(marker) is marker
 
+    def test_normalize_dialect_hint_rejects_unsupported_string(self) -> None:
+        with pytest.raises(ValueError, match="dialect_hint"):
+            api_main.SearchRequest._normalize_dialect_hint(" ionic ")
+
     def test_search_rejects_blank_query_form(self, client: TestClient) -> None:
         response = client.post("/search", json={"query_form": "   "})
 
@@ -1496,74 +1829,125 @@ class TestSearchValidation:
 
 class TestMatchHelpers:
     def test_is_observed_rule_step(self):
-        assert api_main._is_observed_rule_step(RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="", to_phone="", position=0)) is True
-        assert api_main._is_observed_rule_step(RuleApplication(rule_id="VSH-010", rule_name="", from_phone="", to_phone="", position=0)) is False
+        assert api_hit_formatting._is_observed_rule_step(RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="", to_phone="", position=0)) is True
+        assert api_hit_formatting._is_observed_rule_step(RuleApplication(rule_id="VSH-010", rule_name="", from_phone="", to_phone="", position=0)) is False
 
     def test_count_explicit_and_observed_steps(self):
-        assert api_main._count_explicit_and_observed_steps([]) == (0, 0)
+        assert api_hit_formatting._count_explicit_and_observed_steps([]) == (0, 0)
         steps = [
             RuleApplication(rule_id="VSH-010", rule_name="", from_phone="", to_phone="", position=0),
             RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="", to_phone="", position=1)
         ]
-        assert api_main._count_explicit_and_observed_steps(steps) == (1, 1)
+        assert api_hit_formatting._count_explicit_and_observed_steps(steps) == (1, 1)
 
     def test_build_match_type(self):
-        assert api_main._build_match_type(source_ipa="a", query_ipa="a", steps=[], applied_rule_count=0, confidence=1.0) == "Exact"
+        assert api_hit_formatting._build_match_type(source_ipa="a", query_ipa="a", steps=[], applied_rule_count=0, confidence=1.0) == "Exact"
+        assert api_hit_formatting._build_match_type(source_ipa="nýn", query_ipa="nyn", steps=[], applied_rule_count=0, confidence=1.0) == "Exact"
         steps = [RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="", to_phone="", position=0)]
-        assert api_main._build_match_type(source_ipa="a", query_ipa="a", steps=steps, applied_rule_count=0, confidence=1.0) == "Distance-only"
-        assert api_main._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=1, confidence=0.8) == "Rule-based"
-        assert api_main._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.80) == "Distance-only"
-        assert api_main._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.70) == "Distance-only"
-        assert api_main._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.55) == "Distance-only"
-        assert api_main._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.54) == "Low-confidence"
+        assert api_hit_formatting._build_match_type(source_ipa="a", query_ipa="a", steps=steps, applied_rule_count=0, confidence=1.0) == "Distance-only"
+        assert api_hit_formatting._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=1, confidence=0.8) == "Rule-based"
+        assert api_hit_formatting._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.80) == "Distance-only"
+        assert api_hit_formatting._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.70) == "Distance-only"
+        assert api_hit_formatting._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.55) == "Distance-only"
+        assert api_hit_formatting._build_match_type(source_ipa="a", query_ipa="b", steps=[], applied_rule_count=0, confidence=0.54) == "Low-confidence"
 
     def test_build_uncertainty(self):
-        assert api_main._build_uncertainty("Exact", applied_rule_count=0, confidence=1.0) == "Low"
-        assert api_main._build_uncertainty("Rule-based", applied_rule_count=1, confidence=0.80) == "Low"
-        assert api_main._build_uncertainty("Rule-based", applied_rule_count=1, confidence=0.79) == "Medium"
-        assert api_main._build_uncertainty("Rule-based", applied_rule_count=1, confidence=0.69) == "High"
-        assert api_main._build_uncertainty("Distance-only", applied_rule_count=0, confidence=0.70) == "Medium"
-        assert api_main._build_uncertainty("Distance-only", applied_rule_count=0, confidence=0.69) == "High"
+        assert api_hit_formatting._build_uncertainty("Exact", applied_rule_count=0, confidence=1.0) == "Low"
+        assert api_hit_formatting._build_uncertainty("Rule-based", applied_rule_count=1, confidence=0.80) == "Low"
+        assert api_hit_formatting._build_uncertainty("Rule-based", applied_rule_count=1, confidence=0.79) == "Medium"
+        assert api_hit_formatting._build_uncertainty("Rule-based", applied_rule_count=1, confidence=0.69) == "High"
+        assert api_hit_formatting._build_uncertainty("Distance-only", applied_rule_count=0, confidence=0.70) == "Medium"
+        assert api_hit_formatting._build_uncertainty("Distance-only", applied_rule_count=0, confidence=0.69) == "High"
+
+    @pytest.mark.parametrize(
+        ("match_type", "query_mode", "uncertainty", "expected"),
+        [
+            ("Exact", "Full-form", "Low", "Supported"),
+            ("Rule-based", "Full-form", "Medium", "Supported"),
+            ("Distance-only", "Full-form", "Low", "Supported"),
+            ("Distance-only", "Full-form", "Medium", "Exploratory"),
+            ("Distance-only", "Short-query", "Low", "Exploratory"),
+            ("Distance-only", "Partial-form", "Low", "Exploratory"),
+            ("Rule-based", "Short-query", "Medium", "Supported"),
+            ("Low-confidence", "Partial-form", "High", "Exploratory"),
+            ("Low-confidence", "Full-form", "Low", "Supported"),
+            ("Low-confidence", "Full-form", "High", "Exploratory"),
+        ],
+    )
+    def test_build_candidate_bucket(
+        self,
+        match_type: str,
+        query_mode: str,
+        uncertainty: str,
+        expected: str,
+    ) -> None:
+        assert (
+            api_hit_formatting._build_candidate_bucket(
+                match_type,
+                query_mode=query_mode,
+                uncertainty=uncertainty,
+            )
+            == expected
+        )
 
     def test_build_alignment_summary(self):
-        assert api_main._build_alignment_summary(source_ipa="a", query_ipa="a", steps=[]) == "No phonological difference"
-        step = RuleApplication(rule_id="OBS", rule_name="", from_phone="a", to_phone="", position=0)
-        assert api_main._build_alignment_summary(source_ipa="a", query_ipa="b", steps=[step]) == "/a/ -> /∅/ at position 0"
-        unknown_position_step = RuleApplication(
-            rule_id="OBS",
-            rule_name="",
-            from_phone="a",
-            to_phone="b",
-            position=-1,
-        )
-        assert (
-            api_main._build_alignment_summary(
-                source_ipa="a",
-                query_ipa="b",
-                steps=[unknown_position_step],
-            )
-            == "/a/ -> /b/ at unknown position"
-        )
+        assert api_hit_formatting._build_alignment_summary(source_ipa="a", query_ipa="a", steps=[]) == "No phonological difference."
+        assert api_hit_formatting._build_alignment_summary(source_ipa="a", query_ipa="b", steps=[]) == "Differences visible in full alignment."
+        explicit_step = RuleApplication(rule_id="VSH-010", rule_name="", from_phone="a", to_phone="b", position=0)
+        assert api_hit_formatting._build_alignment_summary(source_ipa="a", query_ipa="b", steps=[explicit_step]) == "1 matched rule across 1 position."
+        step = RuleApplication(rule_id="OBS-DEL", rule_name="", from_phone="a", to_phone="", position=0)
+        assert api_hit_formatting._build_alignment_summary(source_ipa="a", query_ipa="b", steps=[step]) == "1 fallback edit across 1 position."
         steps_repeated = [
-            RuleApplication(rule_id="OBS", rule_name="", from_phone="", to_phone="", position=0),
-            RuleApplication(rule_id="OBS", rule_name="", from_phone="", to_phone="", position=0),
+            RuleApplication(rule_id="OBS-DEL", rule_name="", from_phone="a", to_phone="", position=0),
+            RuleApplication(rule_id="OBS-DEL", rule_name="", from_phone="b", to_phone="", position=0),
         ]
-        assert api_main._build_alignment_summary(source_ipa="a", query_ipa="b", steps=steps_repeated) == "2 phonological changes across 1 position"
+        assert api_hit_formatting._build_alignment_summary(source_ipa="a", query_ipa="b", steps=steps_repeated) == "2 deletions across 1 position."
         steps_distinct = [
-            RuleApplication(rule_id="OBS", rule_name="", from_phone="", to_phone="", position=0),
-            RuleApplication(rule_id="OBS", rule_name="", from_phone="", to_phone="", position=1),
+            RuleApplication(rule_id="OBS-DEL", rule_name="", from_phone="a", to_phone="", position=0),
+            RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="b", to_phone="c", position=1),
         ]
-        assert api_main._build_alignment_summary(source_ipa="a", query_ipa="b", steps=steps_distinct) == "2 phonological changes across 2 positions"
+        assert api_hit_formatting._build_alignment_summary(source_ipa="a", query_ipa="b", steps=steps_distinct) == "1 deletion, 1 substitution across 2 positions."
+        steps_mixed = [
+            RuleApplication(rule_id="VSH-010", rule_name="", from_phone="a", to_phone="b", position=0),
+            RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="c", to_phone="d", position=1),
+        ]
+        assert api_hit_formatting._build_alignment_summary(source_ipa="a", query_ipa="b", steps=steps_mixed) == "1 matched rule and 1 fallback edit across 2 positions."
+
+    def test_count_distinct_positions_excludes_unknown_sentinel(self):
+        step_unknown = RuleApplication(rule_id="OBS-DEL", rule_name="", from_phone="a", to_phone="", position=-1)
+        assert api_hit_formatting._count_distinct_positions([step_unknown]) is None
+
+        step_known = RuleApplication(rule_id="OBS-DEL", rule_name="", from_phone="a", to_phone="", position=0)
+        assert api_hit_formatting._count_distinct_positions([step_known, step_unknown]) == 1
+
+        assert api_hit_formatting._count_distinct_positions([]) == 0
+
+    def test_build_alignment_summary_with_unknown_position(self):
+        step_unknown = RuleApplication(rule_id="OBS-DEL", rule_name="", from_phone="a", to_phone="", position=-1)
+        assert api_hit_formatting._build_alignment_summary(source_ipa="a", query_ipa="b", steps=[step_unknown]) == "1 fallback edit at an unknown position."
+
+        unknown_pair = [
+            RuleApplication(rule_id="OBS-DEL", rule_name="", from_phone="a", to_phone="", position=-1),
+            RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="b", to_phone="c", position=-1),
+        ]
+        assert api_hit_formatting._build_alignment_summary(
+            source_ipa="a", query_ipa="b", steps=unknown_pair
+        ) == "1 deletion, 1 substitution at 2 unknown positions."
+
+        step_known = RuleApplication(rule_id="VSH-010", rule_name="", from_phone="a", to_phone="b", position=0)
+        assert api_hit_formatting._build_alignment_summary(
+            source_ipa="a", query_ipa="b", steps=[step_known, step_unknown]
+        ) == "1 matched rule and 1 fallback edit across 1 known position and 1 unknown position."
 
     def test_build_why_candidate(self):
-        exact = api_main._build_why_candidate("Exact", applied_rule_count=0, observed_change_count=0, confidence=1.0)
+        exact = api_hit_formatting._build_why_candidate("Exact", applied_rule_count=0, observed_change_count=0, confidence=1.0)
         assert exact == ["Exact phonological match.", "High phonological similarity.", "No remaining unexplained differences."]
 
-        rule_based = api_main._build_why_candidate("Rule-based", applied_rule_count=1, observed_change_count=0, confidence=0.8)
-        assert rule_based == ["1 explicit rule explains the match.", "High phonological similarity.", "See alignment for localized differences."]
+        rule_based = api_hit_formatting._build_why_candidate("Rule-based", applied_rule_count=1, observed_change_count=0, confidence=0.8)
+        assert rule_based == ["1 explicit rule supports the match.", "High phonological similarity.", "No fallback edits required."]
 
-        observed = api_main._build_why_candidate("Distance-only", applied_rule_count=0, observed_change_count=1, confidence=0.55)
-        assert observed == ["Ranked by phonological distance without explicit rule support.", "Moderate phonological similarity.", "1 observed change remains uncatalogued."]
+        observed = api_hit_formatting._build_why_candidate("Distance-only", applied_rule_count=0, observed_change_count=1, confidence=0.55)
+        assert observed == ["Ranked by phonological distance without explicit rule support.", "Moderate phonological similarity.", "1 fallback edit remains uncatalogued."]
 
-        weak = api_main._build_why_candidate("Low-confidence", applied_rule_count=0, observed_change_count=2, confidence=0.54)
-        assert weak == ["Ranked by phonological distance without explicit rule support.", "Weak phonological similarity.", "2 observed changes remain uncatalogued."]
+        weak = api_hit_formatting._build_why_candidate("Low-confidence", applied_rule_count=0, observed_change_count=2, confidence=0.54)
+        assert weak == ["Ranked by phonological distance without explicit rule support.", "Weak phonological similarity.", "2 fallback edits remain uncatalogued."]

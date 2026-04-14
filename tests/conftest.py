@@ -9,6 +9,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api.main import app
+from phonology import search as search_module
+from phonology.search import SearchResult
 
 
 @pytest.fixture
@@ -42,3 +44,42 @@ def reset_pos_overrides_cache() -> Generator[None, None, None]:
     _clear_pos_overrides(sys.modules.get("phonology.lsj_extractor"))
     yield
     _clear_pos_overrides(sys.modules.get("phonology.lsj_extractor"))
+
+
+@pytest.fixture(autouse=True)
+def clear_rule_cache() -> Generator[None, None, None]:
+    """Reset cached rule registry state between tests.
+
+    Autouse scoped at ``tests/`` because ``phonology.search._get_rules_registry``
+    and ``_get_tokenized_rules`` are shared module-level ``lru_cache`` wrappers.
+    Clearing before every test guarantees test isolation for any suite that
+    exercises rule loading, and is a no-op (double-clear is harmless) for
+    suites that do not.
+    """
+    search_module._get_rules_registry.cache_clear()
+    search_module._get_tokenized_rules.cache_clear()
+
+    yield
+
+    search_module._get_rules_registry.cache_clear()
+    search_module._get_tokenized_rules.cache_clear()
+
+
+@pytest.fixture
+def sample_search_results() -> list[SearchResult]:
+    """Return a small unsorted result list for ranking tests."""
+    return [
+        SearchResult(lemma="γ", confidence=0.5, dialect_attribution="lemma dialect: attic"),
+        SearchResult(lemma="α", confidence=0.9, dialect_attribution="lemma dialect: attic"),
+        SearchResult(lemma="β", confidence=0.9, dialect_attribution="lemma dialect: attic"),
+    ]
+
+
+@pytest.fixture
+def sample_lexicon() -> list[dict[str, str]]:
+    """Return a compact lexicon fixture with deterministic ids and IPA."""
+    return [
+        {"id": "L1", "headword": "πτην", "ipa": "pten", "dialect": "attic"},
+        {"id": "L2", "headword": "πτω", "ipa": "pto", "dialect": "attic"},
+        {"id": "L3", "headword": "κτην", "ipa": "kten", "dialect": "doric"},
+    ]
