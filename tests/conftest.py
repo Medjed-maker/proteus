@@ -1,8 +1,11 @@
 """Shared pytest fixtures for the test suite."""
 
 from collections.abc import Generator
+import json
+from pathlib import Path
 import sys
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -83,3 +86,16 @@ def sample_lexicon() -> list[dict[str, str]]:
         {"id": "L2", "headword": "πτω", "ipa": "pto", "dialect": "attic"},
         {"id": "L3", "headword": "κτην", "ipa": "kten", "dialect": "doric"},
     ]
+
+
+@pytest.fixture(scope="session")
+def translations_data() -> dict[str, Any]:
+    """Load and return translations.json data for tests."""
+    path = Path(__file__).resolve().parent.parent / "src/web/static/translations.json"
+    if not path.exists():
+        pytest.fail(f"translations.json not found at {path}")
+    with path.open(encoding="utf-8") as f:
+        try:
+            return json.load(f)
+        except json.JSONDecodeError as e:
+            pytest.fail(f"Failed to parse translations.json: {e}")

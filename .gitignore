@@ -45,6 +45,7 @@ htmlcov/
 .dmypy.json
 dmypy.json
 .pyre/
+.ruff_cache/
 
 # IDEs
 .vscode/

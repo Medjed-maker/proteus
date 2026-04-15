@@ -653,23 +653,30 @@ class TestFrontendHtml:
 
     def test_root_html_contains_search_result_ui_labels(self, client: TestClient) -> None:
         response = client.get("/")
+        translations_response = client.get("/static/translations.json")
 
         assert response.status_code == 200
-        assert "Match type" in response.text
-        assert "Matched rules" in response.text
-        assert "Fallback edits" in response.text
-        assert "Rule support" in response.text
-        assert "Uncatalogued differences" in response.text
-        assert "Uncertainty" in response.text
-        assert "Supported candidates" in response.text
-        assert "Exploratory candidates" in response.text
-        assert "Exploratory candidates (" in response.text
+        assert translations_response.status_code == 200
+        data = translations_response.json()
+        assert "en" in data, "translations.json should contain 'en' key"
+        translations = data["en"]
+        assert translations["badgeMatchType"] == "Match type"
+        assert translations["badgeMatchedRules"] == "Matched rules"
+        assert translations["badgeFallbackEdits"] == "Fallback edits"
+        assert translations["badgeRuleSupport"] == "Rule support"
+        assert translations["sectionUncatalogued"] == "Uncatalogued differences"
+        assert translations["badgeUncertainty"] == "Uncertainty"
+        assert translations["supportedGroupTitle"] == "Supported candidates"
+        assert translations["exploratoryGroupTitle"] == "Exploratory candidates"
+        # "Exploratory candidates (" is now built dynamically via t() + count suffix;
+        # verify the translation key and the details.open render pattern instead.
+        assert 'exploratoryGroupTitle' in response.text
         assert "details.open = true;" in response.text
         assert "collapsed by default" not in response.text
-        assert "Query mode" in response.text
-        assert "full wildcard and fragment matches" in response.text
-        assert "Only one wildcard marker" in response.text
-        assert "Show full alignment" in response.text
+        assert translations["queryModeLabel"] == "Query mode"
+        assert "full wildcard and fragment matches" in translations["queryModePartialDetail"]
+        assert translations["errTooManyWildcards"].startswith("Only one wildcard marker")
+        assert translations["showAlignment"] == "Show full alignment"
 
     def test_html_references_local_css_not_cdn(self, client: TestClient) -> None:
         response = client.get("/")
@@ -1774,6 +1781,28 @@ class TestSearchValidation:
     def test_normalize_dialect_hint_rejects_unsupported_string(self) -> None:
         with pytest.raises(ValueError, match="dialect_hint"):
             api_main.SearchRequest._normalize_dialect_hint(" ionic ")
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (None, "en"),
+            (" EN ", "en"),
+            (" ja ", "ja"),
+        ],
+    )
+    def test_normalize_lang_handles_none_and_str_values(
+        self, value: object, expected: str
+    ) -> None:
+        assert api_main.SearchRequest._normalize_lang(value) == expected
+
+    def test_normalize_lang_preserves_non_string_values(self) -> None:
+        marker = object()
+
+        assert api_main.SearchRequest._normalize_lang(marker) is marker
+
+    def test_normalize_lang_rejects_unsupported_string(self) -> None:
+        with pytest.raises(ValueError, match="lang"):
+            api_main.SearchRequest._normalize_lang(" fr ")
 
     def test_search_rejects_blank_query_form(self, client: TestClient) -> None:
         response = client.post("/search", json={"query_form": "   "})

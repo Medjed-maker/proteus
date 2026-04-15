@@ -370,6 +370,7 @@ async def search(request: SearchRequest) -> SearchResponse:
                 query_ipa=query_ipa,
                 rules_registry=deps.rules_registry,
                 query_mode=query_mode,
+                lang=request.lang,
             )
             for result in results
         ],

@@ -10,8 +10,18 @@
 
   <header class="text-center mb-10">
     <h1 class="text-4xl tracking-wide font-bold">Πρωτεύς · Proteus</h1>
-    <p class="text-ink-light text-base mt-1">Ancient Greek phonological search engine</p>
+    <p class="text-ink-light text-base mt-1" data-i18n="subtitle">Ancient Greek phonological search engine</p>
+    <button id="langToggle" type="button"
+      class="mt-3 text-xs font-medium px-3 py-1 rounded-full border border-parchment-200
+             bg-white text-ink-light hover:text-ink hover:border-ink-light transition-colors"
+      aria-label="日本語に切り替え">
+      EN | JA
+    </button>
   </header>
+
+  <div id="initError" class="hidden w-full max-w-3xl mb-4 p-3 rounded-lg bg-red-100 text-red-800 text-sm" role="alert">
+    Initialization failed. Some features may be limited. Please try refreshing the page.
+  </div>
 
   <main class="w-full max-w-3xl">
     <form id="searchForm" class="flex gap-3 max-w-xl mx-auto">
@@ -33,17 +43,171 @@
   </main>
 
   <footer class="mt-auto text-center text-xs text-ink-light">
-    Lexicon data from
+    <span data-i18n="footerLexiconLabel">Lexicon data from:</span>
     <a href="https://www.perseus.tufts.edu/" class="underline hover:text-ink"
        target="_blank" rel="noopener noreferrer">Perseus Digital Library<span class="sr-only"> (opens in a new tab)</span></a>
     (LSJ XML in
     <a href="https://github.com/PerseusDL/lexica" class="underline hover:text-ink"
-       target="_blank" rel="noopener noreferrer">PerseusDL/lexica<span class="sr-only"> (opens in a new tab)</span></a>), licensed
+       target="_blank" rel="noopener noreferrer">PerseusDL/lexica<span class="sr-only"> (opens in a new tab)</span></a>),
+    <span data-i18n="footerLicensedLabel">licensed</span>
     <a href="https://creativecommons.org/licenses/by-sa/4.0/" class="underline hover:text-ink"
        target="_blank" rel="noopener noreferrer">CC BY-SA 4.0<span class="sr-only"> (opens in a new tab)</span></a>.
   </footer>
 
   <script>
+    /* ------------------------------------------------------------------ */
+    /* Translations                                                        */
+    /* ------------------------------------------------------------------ */
+
+    let TRANSLATIONS = {
+      en: {
+        subtitle: "Ancient Greek phonological search engine",
+        searchBtn: "Search",
+        searchLabel: "Search query",
+        errEmpty: "Please enter a search term.",
+        errTooManyWildcards: "Only one wildcard marker (-, *, or ~) is allowed per query.",
+        errWildcardOnly: "Please enter a search term alongside the wildcard marker.",
+        searching: "Searching…",
+        errTimeout: "Request timed out.",
+        noResults: "No results found.",
+        errPrefix: "Error: ",
+        queryLabel: "Query: ",
+        queryModeLabel: "Query mode",
+        queryModePartialLabel: "Partial form mode",
+        queryModePartialDetail: "Input includes a single wildcard; full wildcard and fragment matches are ranked before raw confidence.",
+        queryModeShortLabel: "Short query mode",
+        queryModeShortDetail: "Very short inputs broaden the search space; exact and rule-supported matches can remain despite low confidence.",
+        queryModeFullLabel: "Full form mode",
+        queryModeFullDetail: "Results are ranked as full-form phonological candidates.",
+        supportedGroupTitle: "Supported candidates",
+        supportedGroupDesc: "Exact and rule-supported candidates are shown first.",
+        exploratoryGroupTitle: "Exploratory candidates",
+        exploratoryShortDesc: "Very short inputs broaden the search space; exploratory candidates are shown for quick inspection.",
+        exploratoryPartialDesc: "Single-wildcard queries increase exploratory matches; these candidates are shown for review.",
+        exploratoryDefaultDesc: "Exploratory candidates are shown for inspection.",
+        sectionDiffSummary: "Difference summary",
+        sectionMatchedRules: "Matched rules",
+        sectionUncatalogued: "Uncatalogued differences",
+        sectionAlignment: "Alignment",
+        sectionWhyCandidate: "Why this candidate?",
+        diffVisible: "Differences visible in full alignment.",
+        noCatalogued: "No catalogued rule support matched.",
+        inspectAlignment: "Inspect the full alignment for segment-by-segment detail.",
+        alignmentUnavailable: "Full alignment unavailable.",
+        showAlignment: "Show full alignment",
+        notes: "Notes",
+        noNotes: "No additional notes.",
+        badgeMatchType: "Match type",
+        badgeUncertainty: "Uncertainty",
+        badgeRuleSupport: "Rule support",
+        badgeMatchedRules: "Matched rules",
+        badgeFallbackEdits: "Fallback edits",
+        matchExact: "Exact",
+        matchRuleBased: "Rule-based",
+        matchDistanceOnly: "Distance-only",
+        matchLowConfidence: "Low-confidence",
+        uncertaintyLow: "Low",
+        uncertaintyMedium: "Medium",
+        uncertaintyHigh: "High",
+        ruleSupportYes: "Yes",
+        ruleSupportNo: "No",
+        confidenceLabel: "confidence",
+        confidenceUnknown: "confidence: unknown",
+        matchedRulesLabel: "matched rules",
+        fallbackEditsLabel: "fallback edits",
+        rankLabel: "Rank ",
+        positionLabel: "position ",
+        footerLexiconLabel: "Lexicon data from:",
+        footerLicensedLabel: "licensed",
+      },
+    };
+
+    async function loadTranslations() {
+      try {
+        const response = await fetch("/static/translations.json");
+        if (!response.ok) {
+          console.warn("Proteus: failed to load translations (" + response.status + " " + response.statusText + ")");
+          return;
+        }
+        TRANSLATIONS = await response.json();
+      } catch (_) {
+        // Keep the minimal English fallback above if translations cannot load.
+      }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Language management                                                 */
+    /* ------------------------------------------------------------------ */
+
+    let _currentLang = "en";
+    try {
+      _currentLang = localStorage.getItem("proteus-lang") || "en";
+    } catch (_) {
+      // Ignore storage isolation exceptions (e.g. private browsing)
+    }
+
+    // Set initial aria-label for langToggle based on stored language
+    (function setInitialLangToggleAria() {
+      const langToggle = document.getElementById("langToggle");
+      if (langToggle) {
+        langToggle.setAttribute(
+          "aria-label",
+          _currentLang === "ja" ? "Switch to English" : "日本語に切り替え"
+        );
+      }
+    })();
+
+    function t(key) {
+      return (TRANSLATIONS[_currentLang] || TRANSLATIONS["en"])[key]
+        ?? (TRANSLATIONS["en"][key] ?? key);
+    }
+
+    function setLang(lang) {
+      _currentLang = (lang === "ja") ? "ja" : "en";
+      try {
+        localStorage.setItem("proteus-lang", _currentLang);
+      } catch (_) {
+        // Ignore storage isolation exceptions
+      }
+      document.documentElement.lang = _currentLang;
+      applyStaticTranslations();
+      refreshLastSearchForLanguage();
+    }
+
+    function applyStaticTranslations() {
+      document.querySelector("title").textContent =
+        "Πρωτεύς · Proteus \u2014 " + t("subtitle");
+      document.getElementById("searchBtn").textContent = t("searchBtn");
+      document.querySelector("label[for='query']").textContent = t("searchLabel");
+      // Update toggle button aria-label to reflect the action (switch to the other language).
+      document.getElementById("langToggle").setAttribute(
+        "aria-label",
+        _currentLang === "ja" ? "Switch to English" : "日本語に切り替え"
+      );
+      document.querySelectorAll("[data-i18n]").forEach(function(el) {
+        el.textContent = t(el.dataset.i18n);
+      });
+    }
+
+    function translateMatchType(val) {
+      const map = {
+        "Exact": t("matchExact"),
+        "Rule-based": t("matchRuleBased"),
+        "Distance-only": t("matchDistanceOnly"),
+        "Low-confidence": t("matchLowConfidence"),
+      };
+      return map[val] ?? val;
+    }
+
+    function translateUncertainty(val) {
+      const map = {
+        "Low": t("uncertaintyLow"),
+        "Medium": t("uncertaintyMedium"),
+        "High": t("uncertaintyHigh"),
+      };
+      return map[val] ?? val;
+    }
+
     /* ------------------------------------------------------------------ */
     /* Status & loading helpers                                            */
     /* ------------------------------------------------------------------ */
@@ -91,27 +255,18 @@
     /* Search                                                              */
     /* ------------------------------------------------------------------ */
 
-    async function runSearch(event) {
-      if (event) event.preventDefault();
+    let lastSuccessfulSearch = null;
+    let searchRequestSeq = 0;
 
-      const query = document.getElementById("query").value.trim();
-      if (!query) {
-        renderStatusMessage("Please enter a search term.");
-        return;
-      }
+    function buildSearchPayload(query) {
+      return { query, dialect: "attic", max_results: 20 };
+    }
 
-      const wildcardCount = countWildcards(query);
-      if (wildcardCount > 1) {
-        renderStatusMessage("Only one wildcard marker (-, *, or ~) is allowed per query.");
-        return;
-      }
-      if (hasOnlyWildcardMarker(query)) {
-        renderStatusMessage("Please enter a search term alongside the wildcard marker.");
-        return;
-      }
-
+    async function executeSearch(payload, { remember = false } = {}) {
+      const requestedLang = _currentLang;
+      const requestSeq = ++searchRequestSeq;
       setLoadingState(true);
-      renderStatusMessage("Searching\u2026", "accent");
+      renderStatusMessage(t("searching"), "accent");
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -120,30 +275,73 @@
         const res = await fetch("/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query, dialect: "attic", max_results: 20 }),
+          body: JSON.stringify({ ...payload, lang: requestedLang }),
           signal: controller.signal,
         });
 
         clearTimeout(timeoutId);
 
-        if (!res.ok) {
-          let body = "";
-          try { body = (await res.text()).trim(); } catch (_) {}
-          renderStatusMessage("Error: " + res.status + " " + res.statusText + (body ? ": " + body : ""), "red");
+        if (requestedLang !== _currentLang || requestSeq !== searchRequestSeq) {
           return;
         }
 
-        renderResults(await res.json());
+        if (!res.ok) {
+          let body = "";
+          try { body = (await res.text()).trim(); } catch (_) {}
+          renderStatusMessage(t("errPrefix") + res.status + " " + res.statusText + (body ? ": " + body : ""), "red");
+          return;
+        }
+
+        const data = await res.json();
+        if (requestedLang !== _currentLang || requestSeq !== searchRequestSeq) {
+          return;
+        }
+        if (remember) {
+          lastSuccessfulSearch = { ...payload };
+        }
+        renderResults(data);
       } catch (err) {
         clearTimeout(timeoutId);
+        if (requestedLang !== _currentLang || requestSeq !== searchRequestSeq) {
+          return;
+        }
         if (err.name === "AbortError") {
-          renderStatusMessage("Request timed out.", "red");
+          renderStatusMessage(t("errTimeout"), "red");
         } else {
-          renderStatusMessage("Error: " + (err instanceof Error ? err.message : String(err)), "red");
+          renderStatusMessage(t("errPrefix") + (err instanceof Error ? err.message : String(err)), "red");
         }
       } finally {
-        setLoadingState(false);
+        if (requestSeq === searchRequestSeq) {
+          setLoadingState(false);
+        }
       }
+    }
+
+    function refreshLastSearchForLanguage() {
+      if (!lastSuccessfulSearch) return;
+      executeSearch(lastSuccessfulSearch);
+    }
+
+    async function runSearch(event) {
+      if (event) event.preventDefault();
+
+      const query = document.getElementById("query").value.trim();
+      if (!query) {
+        renderStatusMessage(t("errEmpty"));
+        return;
+      }
+
+      const wildcardCount = countWildcards(query);
+      if (wildcardCount > 1) {
+        renderStatusMessage(t("errTooManyWildcards"));
+        return;
+      }
+      if (hasOnlyWildcardMarker(query)) {
+        renderStatusMessage(t("errWildcardOnly"));
+        return;
+      }
+
+      executeSearch(buildSearchPayload(query), { remember: true });
     }
 
     /* ------------------------------------------------------------------ */
@@ -176,20 +374,20 @@
       switch (resolved) {
         case "Partial-form":
           return {
-            label: "Partial form mode",
-            detail: "Input includes a single wildcard; full wildcard and fragment matches are ranked before raw confidence.",
+            label: t("queryModePartialLabel"),
+            detail: t("queryModePartialDetail"),
             badgeClass: "bg-amber-100 text-amber-800"
           };
         case "Short-query":
           return {
-            label: "Short query mode",
-            detail: "Very short inputs broaden the search space; exact and rule-supported matches can remain despite low confidence.",
+            label: t("queryModeShortLabel"),
+            detail: t("queryModeShortDetail"),
             badgeClass: "bg-orange-100 text-orange-800"
           };
         default:
           return {
-            label: "Full form mode",
-            detail: "Results are ranked as full-form phonological candidates.",
+            label: t("queryModeFullLabel"),
+            detail: t("queryModeFullDetail"),
             badgeClass: "bg-emerald-100 text-emerald-800"
           };
       }
@@ -227,6 +425,7 @@
     }
 
     function matchTypeColor(matchType) {
+      // Uses raw English enum values from server data — NOT translated strings.
       switch (matchType) {
         case "Exact":
           return "bg-emerald-100 text-emerald-800";
@@ -252,7 +451,8 @@
       const valueEl = document.createElement("span");
       valueEl.className = "text-xs font-medium px-2 py-0.5 rounded-full " +
         (tone === "match" ? matchTypeColor(value) : "bg-parchment-100 text-ink");
-      valueEl.textContent = value;
+      // For match type, use raw value for color class but display translated text.
+      valueEl.textContent = tone === "match" ? translateMatchType(value) : value;
 
       wrapper.appendChild(labelEl);
       wrapper.appendChild(valueEl);
@@ -316,11 +516,11 @@
     function describeExploratoryGroup(queryMode) {
       switch (queryMode) {
         case "Short-query":
-          return "Very short inputs broaden the search space; exploratory candidates are shown for quick inspection.";
+          return t("exploratoryShortDesc");
         case "Partial-form":
-          return "Single-wildcard queries increase exploratory matches; these candidates are shown for review.";
+          return t("exploratoryPartialDesc");
         default:
-          return "Exploratory candidates are shown for inspection.";
+          return t("exploratoryDefaultDesc");
       }
     }
 
@@ -331,7 +531,7 @@
 
       const summary = document.createElement("summary");
       summary.className = "cursor-pointer select-none list-item text-sm uppercase tracking-wide text-ink-muted";
-      summary.textContent = "Exploratory candidates (" + items.length + ")";
+      summary.textContent = t("exploratoryGroupTitle") + " (" + items.length + ")";
       details.appendChild(summary);
 
       const body = document.createElement("div");
@@ -364,7 +564,7 @@
 
       const label = document.createElement("span");
       label.className = "text-xs uppercase tracking-wide text-ink-muted";
-      label.textContent = "Query mode";
+      label.textContent = t("queryModeLabel");
 
       const badge = document.createElement("span");
       badge.className = "text-xs font-medium px-2 py-0.5 rounded-full " + mode.badgeClass;
@@ -422,7 +622,7 @@
 
         const pos = document.createElement("span");
         pos.className = "text-xs text-ink-muted";
-        pos.textContent = "position " + (rule.position ?? "-");
+        pos.textContent = t("positionLabel") + (rule.position ?? "-");
 
         line.appendChild(label);
         line.appendChild(phones);
@@ -452,7 +652,7 @@
 
       const summary = document.createElement("summary");
       summary.className = "cursor-pointer text-sm font-medium text-accent select-none list-item hover:text-accent-hover";
-      summary.textContent = "Show full alignment";
+      summary.textContent = t("showAlignment");
       details.appendChild(summary);
 
       const pre = renderAlignmentBlock(hit.alignment_visualization);
@@ -467,12 +667,12 @@
 
       const summary = document.createElement("summary");
       summary.className = "cursor-pointer text-sm font-medium text-accent select-none list-item hover:text-accent-hover";
-      summary.textContent = "Notes";
+      summary.textContent = t("notes");
       details.appendChild(summary);
 
       const text = document.createElement("p");
       text.className = "mt-2 text-sm text-ink-light leading-relaxed";
-      text.textContent = hit.explanation || "No additional notes.";
+      text.textContent = hit.explanation || t("noNotes");
       details.appendChild(text);
 
       return details;
@@ -487,39 +687,39 @@
     }
 
     function appendCardBody(container, hit, { explicit, observed }) {
-      container.appendChild(renderSectionTitle("Difference summary"));
+      container.appendChild(renderSectionTitle(t("sectionDiffSummary")));
       const differenceSummary = document.createElement("p");
       differenceSummary.className = "mt-2 text-sm text-ink-light";
-      differenceSummary.textContent = hit.alignment_summary || "Differences visible in full alignment.";
+      differenceSummary.textContent = hit.alignment_summary || t("diffVisible");
       container.appendChild(differenceSummary);
 
-      container.appendChild(renderSectionTitle("Matched rules (" + (hit.applied_rule_count ?? explicit.length) + ")"));
+      container.appendChild(renderSectionTitle(t("sectionMatchedRules") + " (" + (hit.applied_rule_count ?? explicit.length) + ")"));
       if (explicit.length) {
         container.appendChild(renderRuleRows(explicit));
       } else {
         const empty = document.createElement("p");
         empty.className = "mt-2 text-sm text-ink-light";
-        empty.textContent = "No catalogued rule support matched.";
+        empty.textContent = t("noCatalogued");
         container.appendChild(empty);
       }
 
       if ((hit.observed_change_count ?? observed.length) > 0 && observed.length) {
-        container.appendChild(renderSectionTitle("Uncatalogued differences (" + (hit.observed_change_count ?? observed.length) + ")"));
+        container.appendChild(renderSectionTitle(t("sectionUncatalogued") + " (" + (hit.observed_change_count ?? observed.length) + ")"));
         container.appendChild(renderRuleRows(observed));
       }
 
-      container.appendChild(renderSectionTitle("Alignment"));
+      container.appendChild(renderSectionTitle(t("sectionAlignment")));
       const summary = document.createElement("p");
       summary.className = "mt-2 text-sm text-ink-light";
       summary.textContent = hit.alignment_visualization
-        ? "Inspect the full alignment for segment-by-segment detail."
-        : "Full alignment unavailable.";
+        ? t("inspectAlignment")
+        : t("alignmentUnavailable");
       container.appendChild(summary);
       if (hit.alignment_visualization) {
         container.appendChild(renderAlignmentDetails(hit));
       }
 
-      container.appendChild(renderSectionTitle("Why this candidate?"));
+      container.appendChild(renderSectionTitle(t("sectionWhyCandidate")));
       container.appendChild(renderWhyCandidate(hit.why_candidate));
       container.appendChild(renderNotesDetails(hit));
     }
@@ -538,7 +738,7 @@
 
       const rank = document.createElement("div");
       rank.className = "text-xs uppercase tracking-wide text-ink-muted mb-2";
-      rank.textContent = "Rank " + (index + 1);
+      rank.textContent = t("rankLabel") + (index + 1);
 
       const headword = document.createElement("div");
       headword.className = "text-2xl font-serif font-bold";
@@ -567,11 +767,11 @@
 
       const meta = document.createElement("div");
       meta.className = "flex flex-wrap gap-3 mt-3";
-      meta.appendChild(renderMetaBadge("Match type", hit.match_type || "Distance-only", "match"));
-      meta.appendChild(renderMetaBadge("Uncertainty", hit.uncertainty || "High"));
-      meta.appendChild(renderMetaBadge("Rule support", hasRuleSupport(hit) ? "Yes" : "No"));
-      meta.appendChild(renderMetaBadge("Matched rules", String(hit.applied_rule_count ?? explicit.length)));
-      meta.appendChild(renderMetaBadge("Fallback edits", String(hit.observed_change_count ?? observed.length)));
+      meta.appendChild(renderMetaBadge(t("badgeMatchType"), hit.match_type || "Distance-only", "match"));
+      meta.appendChild(renderMetaBadge(t("badgeUncertainty"), translateUncertainty(hit.uncertainty || "High")));
+      meta.appendChild(renderMetaBadge(t("badgeRuleSupport"), hasRuleSupport(hit) ? t("ruleSupportYes") : t("ruleSupportNo")));
+      meta.appendChild(renderMetaBadge(t("badgeMatchedRules"), String(hit.applied_rule_count ?? explicit.length)));
+      meta.appendChild(renderMetaBadge(t("badgeFallbackEdits"), String(hit.observed_change_count ?? observed.length)));
       card.appendChild(meta);
 
       appendCardBody(card, hit, { explicit, observed });
@@ -598,15 +798,15 @@
 
       const metaParts = [];
       if (typeof hit.confidence === "number" && Number.isFinite(hit.confidence)) {
-        metaParts.push("confidence " + hit.confidence.toFixed(2));
+        metaParts.push(t("confidenceLabel") + " " + hit.confidence.toFixed(2));
       } else if (typeof hit.distance === "number" && Number.isFinite(hit.distance)) {
-        metaParts.push("confidence " + (1 - hit.distance).toFixed(2));
+        metaParts.push(t("confidenceLabel") + " " + (1 - hit.distance).toFixed(2));
       } else {
-        metaParts.push("confidence: unknown");
+        metaParts.push(t("confidenceUnknown"));
       }
-      metaParts.push(hit.match_type || "Distance-only");
-      metaParts.push((hit.applied_rule_count ?? 0) + " matched rules");
-      metaParts.push((hit.observed_change_count ?? 0) + " fallback edits");
+      metaParts.push(translateMatchType(hit.match_type || "Distance-only"));
+      metaParts.push((hit.applied_rule_count ?? 0) + " " + t("matchedRulesLabel"));
+      metaParts.push((hit.observed_change_count ?? 0) + " " + t("fallbackEditsLabel"));
 
       const meta = document.createElement("p");
       meta.className = "mt-1 text-sm text-ink-light";
@@ -616,7 +816,7 @@
       left.appendChild(meta);
       row.appendChild(left);
 
-      row.appendChild(renderMetaBadge("Uncertainty", hit.uncertainty || "High"));
+      row.appendChild(renderMetaBadge(t("badgeUncertainty"), translateUncertainty(hit.uncertainty || "High")));
       summaryEl.appendChild(row);
       card.appendChild(summaryEl);
 
@@ -634,10 +834,10 @@
 
       const metaDetails = document.createElement("div");
       metaDetails.className = "flex flex-wrap gap-3 mt-3";
-      metaDetails.appendChild(renderMetaBadge("Match type", hit.match_type || "Distance-only", "match"));
-      metaDetails.appendChild(renderMetaBadge("Rule support", hasRuleSupport(hit) ? "Yes" : "No"));
-      metaDetails.appendChild(renderMetaBadge("Matched rules", String(hit.applied_rule_count ?? explicit.length)));
-      metaDetails.appendChild(renderMetaBadge("Fallback edits", String(hit.observed_change_count ?? observed.length)));
+      metaDetails.appendChild(renderMetaBadge(t("badgeMatchType"), hit.match_type || "Distance-only", "match"));
+      metaDetails.appendChild(renderMetaBadge(t("badgeRuleSupport"), hasRuleSupport(hit) ? t("ruleSupportYes") : t("ruleSupportNo")));
+      metaDetails.appendChild(renderMetaBadge(t("badgeMatchedRules"), String(hit.applied_rule_count ?? explicit.length)));
+      metaDetails.appendChild(renderMetaBadge(t("badgeFallbackEdits"), String(hit.observed_change_count ?? observed.length)));
       body.appendChild(metaDetails);
 
       appendCardBody(body, hit, { explicit, observed });
@@ -650,11 +850,11 @@
       container.replaceChildren();
 
       if (!data || !Array.isArray(data.hits)) {
-        renderStatusMessage("No results found.");
+        renderStatusMessage(t("noResults"));
         return;
       }
       if (!data.hits.length) {
-        renderStatusMessage("No results found.");
+        renderStatusMessage(t("noResults"));
         return;
       }
 
@@ -663,7 +863,7 @@
         const info = document.createElement("div");
         info.className = "text-sm text-ink-muted mb-4 text-center";
         const infoParts = [];
-        if (data.query) infoParts.push("Query: " + data.query);
+        if (data.query) infoParts.push(t("queryLabel") + data.query);
         if (data.query_ipa) infoParts.push("/" + data.query_ipa + "/");
         info.textContent = infoParts.join(" ");
         container.appendChild(info);
@@ -683,8 +883,8 @@
       if (supported.length) {
         container.appendChild(
           renderGroupHeader(
-            "Supported candidates",
-            "Exact and rule-supported candidates are shown first."
+            t("supportedGroupTitle"),
+            t("supportedGroupDesc")
           )
         );
         supported.forEach(({ hit, index }, groupIndex) => {
@@ -705,7 +905,40 @@
     /* Init                                                                */
     /* ------------------------------------------------------------------ */
 
-    document.getElementById("searchForm").addEventListener("submit", runSearch);
+    async function init() {
+      await loadTranslations();
+      document.documentElement.lang = _currentLang;
+      applyStaticTranslations();
+      document.getElementById("searchForm").addEventListener("submit", runSearch);
+      document.getElementById("langToggle").addEventListener("click", function() {
+        setLang(_currentLang === "en" ? "ja" : "en");
+      });
+    }
+
+    init().catch(err => {
+      console.error("Proteus init failed:", err);
+
+      // Show visible error banner
+      const errorBanner = document.getElementById("initError");
+      if (errorBanner) {
+        errorBanner.classList.remove("hidden");
+      }
+
+      // Register minimal fallback event listeners for basic functionality
+      const searchForm = document.getElementById("searchForm");
+      if (searchForm) {
+        searchForm.addEventListener("submit", runSearch);
+      }
+      const langToggle = document.getElementById("langToggle");
+      if (langToggle) {
+        langToggle.addEventListener("click", function() {
+          setLang(_currentLang === "en" ? "ja" : "en");
+        });
+      }
+
+      // Apply basic document language setting
+      document.documentElement.lang = _currentLang;
+    });
   </script>
 </body>
 </html>

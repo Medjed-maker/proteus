@@ -33,6 +33,7 @@ EXPECTED_WHEEL_ASSETS = {
     "phonology/data/rules/ancient_greek/vowel_shifts.yaml",
     "web/index.html",
     "web/static/styles.css",
+    "web/static/translations.json",
 }
 
 EXPECTED_BUCK_RULE_ASSETS = {

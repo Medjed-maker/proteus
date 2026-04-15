@@ -28,6 +28,11 @@ class SearchRequest(BaseModel):
         validation_alias=AliasChoices("max_candidates", "max_results"),
         description="Maximum number of hits to return.",
     )
+    lang: Literal["en", "ja"] = Field(
+        default="en",
+        validation_alias=AliasChoices("lang", "language"),
+        description="Response language for generated prose text ('en' or 'ja').",
+    )
 
     @field_validator("dialect_hint", mode="before")
     @classmethod
@@ -38,6 +43,18 @@ class SearchRequest(BaseModel):
             normalized = value.strip().lower()
             if normalized not in {"attic", "koine"}:
                 raise ValueError("dialect_hint must be either 'attic' or 'koine'")
+            return normalized
+        return value
+
+    @field_validator("lang", mode="before")
+    @classmethod
+    def _normalize_lang(cls, value: Any) -> Any:
+        if value is None:
+            return "en"
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized not in {"en", "ja"}:
+                raise ValueError(f"invalid lang: {value}; expected one of {{'en', 'ja'}}")
             return normalized
         return value
 

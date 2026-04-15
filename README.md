@@ -115,7 +115,6 @@ arguments to that module, while `PROTEUS_LSJ_REPO_DIR` is read by both
 }
 ```
 
-`/search` is not implemented yet and currently returns HTTP 501. The example below documents the response model shape that the API advertises once the search backend is wired in.
 
 **Response Model Example**
 
