@@ -193,3 +193,16 @@ rules:
     examples:
       - { standard: "βασιλεύς", dialect: "βασιλέος", meaning: "king" }
     note: "Models a nominative vs genitive (inflectional alternation) in the runtime IPA suffix slice rather than a single unconditional segment change."
+
+  - id: MPH-014
+    name_en: "Movable nu absence in esti(n)"
+    name_ja: "ἐστί(ν) における可動 ν 不在"
+    input: "stin"
+    output: "sti"
+    context: "_#"
+    dialects: [attic, ionic]
+    period: "archaic and classical periods"
+    references: ["Buck §102", "Smyth §134"]
+    examples:
+      - { standard: "ἐστίν", dialect: "ἐστί", meaning: "is" }
+    note: "Models absence of word-final movable nu in ἐστί(ν) as a runtime search-explanation convenience using the suffix slice -stin -> -sti, not a general final -ιν deletion rule; Buck §102 and Smyth §134 treat movable nu in Attic-Ionic."

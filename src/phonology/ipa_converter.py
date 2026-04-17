@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import unicodedata
+from typing import NamedTuple
 
 from ._phones import VOWEL_PHONES
 
@@ -56,6 +57,7 @@ _DIAERESIS = "\u0308"
 _ROUGH_BREATHING = "\u0314"
 _YPOGEGRAMMENI = "\u0345"
 _ACCENT_MARKS = frozenset({"\u0301", "\u0300", "\u0342"})  # acute, grave, circumflex
+_LONG_ALPHA_MARKS = frozenset({"\u0304", "\u0342"})  # macron, circumflex
 _COMBINING_ACUTE = "\u0301"
 _DIPHTHONG_BOUNDARY = "|"
 _EXTRA_IPA_PHONES: frozenset[str] = frozenset(
@@ -86,6 +88,15 @@ _IPA_PHONE_INVENTORY = tuple(
 logger = logging.getLogger(__name__)
 _KOINE_INTERVOCALIC_MAP: dict[str, str] = {"ɡ": "ɣ", "d": "ð"}
 _KOINE_DIRECT_MAP: dict[str, str] = {"pʰ": "f", "tʰ": "θ", "kʰ": "x"}
+
+
+class NormalizationResult(NamedTuple):
+    """Greek normalization data needed for IPA conversion."""
+
+    text: str
+    accent_positions: set[int]
+    rough_h_positions: set[int]
+    long_alpha_positions: set[int]
 
 
 def _strip_ignored_ipa_combining_marks(
@@ -127,22 +138,27 @@ def _should_keep_rough_breathed_diphthong(
     )
 
 
-def _normalize_greek_for_ipa(greek_text: str) -> tuple[str, set[int], set[int]]:
+def _normalize_greek_for_ipa(
+    greek_text: str,
+) -> NormalizationResult:
     """Normalize Greek text for phone conversion without losing boundaries.
 
     Args:
         greek_text: NFC-encoded Greek text to normalize before IPA conversion.
 
     Returns:
-        A tuple of ``(normalized_text, accent_positions, rough_h_positions)``.
+        Normalized text and position metadata for IPA conversion.
         ``accent_positions`` contains the indices of accented Greek letters in
         the normalized text, while ``rough_h_positions`` records only the
         inserted ``h`` markers that originate from Greek rough breathing.
+        ``long_alpha_positions`` records Greek alpha letters marked long by
+        macron or circumflex.
     """
     nfd = unicodedata.normalize("NFD", greek_text)
     normalized: list[str] = []
     accent_positions: set[int] = set()
     rough_h_positions: set[int] = set()
+    long_alpha_positions: set[int] = set()
     index = 0
 
     while index < len(nfd):
@@ -175,11 +191,18 @@ def _normalize_greek_for_ipa(greek_text: str) -> tuple[str, set[int], set[int]]:
         normalized.append(base.lower())
         if has_accent:
             accent_positions.add(accent_pos)
+        if base.lower() == "α" and _LONG_ALPHA_MARKS & marks_set:
+            long_alpha_positions.add(accent_pos)
 
         if _YPOGEGRAMMENI in marks_set:
             normalized.append("ι")
 
-    return "".join(normalized), accent_positions, rough_h_positions
+    return NormalizationResult(
+        text="".join(normalized),
+        accent_positions=accent_positions,
+        rough_h_positions=rough_h_positions,
+        long_alpha_positions=long_alpha_positions,
+    )
 
 
 def _apply_accent(phone: str) -> str:
@@ -293,38 +316,48 @@ def greek_to_ipa(text: str) -> list[str]:
     Returns:
         List of IPA phone strings.
     """
-    normalized, accent_positions, rough_h_positions = _normalize_greek_for_ipa(text)
+    normalization = _normalize_greek_for_ipa(text)
     result: list[str] = []
     i = 0
-    while i < len(normalized):
-        if normalized[i] == _DIPHTHONG_BOUNDARY:
+    while i < len(normalization.text):
+        if normalization.text[i] == _DIPHTHONG_BOUNDARY:
             i += 1
             continue
-        if normalized[i] == "h" and i in rough_h_positions:
+        if normalization.text[i] == "h" and i in normalization.rough_h_positions:
             phone = "h"
-            if i in accent_positions:
+            if i in normalization.accent_positions:
                 phone = _apply_accent(phone)
             result.append(phone)
             i += 1
             continue
-        pair = normalized[i : i + 2]
-        if len(pair) == 2 and pair in _DIPHTHONG_MAP:
+        pair = normalization.text[i : i + 2]
+        if (
+            len(pair) == 2
+            and pair in _DIPHTHONG_MAP
+            and i not in normalization.long_alpha_positions
+        ):
             phone = _DIPHTHONG_MAP[pair]
-            if i in accent_positions or (i + 1) in accent_positions:
+            if (
+                i in normalization.accent_positions
+                or (i + 1) in normalization.accent_positions
+            ):
                 phone = _apply_accent(phone)
             result.append(phone)
             i += 2
-        elif normalized[i] in _LETTER_MAP:
-            phone = _LETTER_MAP[normalized[i]]
-            if i in accent_positions:
+        elif normalization.text[i] in _LETTER_MAP:
+            if normalization.text[i] == "α" and i in normalization.long_alpha_positions:
+                phone = "aː"
+            else:
+                phone = _LETTER_MAP[normalization.text[i]]
+            if i in normalization.accent_positions:
                 phone = _apply_accent(phone)
             result.append(phone)
             i += 1
         else:
             logger.debug(
                 "Skipping unknown Greek character %r (ord=%s) at index %s",
-                normalized[i],
-                ord(normalized[i]),
+                normalization.text[i],
+                ord(normalization.text[i]),
                 i,
             )
             i += 1

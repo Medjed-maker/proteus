@@ -106,6 +106,10 @@ class TestGreekToIpa:
     def test_iota_subscript_is_expanded_instead_of_dropped(self) -> None:
         assert "".join(greek_to_ipa("τῇ")) == "tɛ́ːi"
 
+    @pytest.mark.parametrize("text", ["ᾱ", unicodedata.normalize("NFD", "ᾱ")])
+    def test_macron_alpha_maps_to_long_alpha(self, text: str) -> None:
+        assert greek_to_ipa(text) == ["aː"]
+
     @pytest.mark.parametrize(
         ("text", "expected"),
         [
@@ -205,6 +209,11 @@ class TestApplyKoineConsonantShifts:
 
 
 class TestTokenizeIpa:
+    def test_circumflex_alpha_maps_to_long_alpha_token(self) -> None:
+        ipa = to_ipa("δᾶμος")
+
+        assert tokenize_ipa(ipa) == ["d", "aː", "m", "o", "s"]
+
     def test_ignored_accent_marks_are_removed_and_recomposed_to_nfc(self) -> None:
         normalized = _strip_ignored_ipa_combining_marks("éu")
 
