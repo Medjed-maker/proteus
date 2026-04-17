@@ -625,6 +625,14 @@ class TestLoadFrontendHtml:
 
 
 class TestFrontendHtml:
+    def test_root_head_returns_success_for_uptime_probes(
+        self, client: TestClient
+    ) -> None:
+        response = client.head("/")
+
+        assert response.status_code == 200
+        assert response.content == b""
+
     def test_root_html_accessibility(self, client: TestClient) -> None:
         response = client.get("/")
 
@@ -721,6 +729,13 @@ class TestHealthEndpoint:
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
+
+    def test_api_health_head_returns_success(self, client: TestClient) -> None:
+        """Health endpoint supports HEAD probes."""
+        response = client.head("/health")
+
+        assert response.status_code == 204
+        assert response.content == b""
 
 
 class TestReadyEndpoint:
