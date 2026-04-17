@@ -19,7 +19,7 @@ import yaml
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from phonology import search as phonology_search
@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 _ALLOWED_ORIGINS_ENV_VAR = "PROTEUS_ALLOWED_ORIGINS"
 _LOG_RAW_QUERY_ENV_VAR = "PROTEUS_LOG_RAW_SEARCH_QUERY"
 _LSJ_REPO_DIR_ENV_VAR = "PROTEUS_LSJ_REPO_DIR"
+_DISABLE_STARTUP_WARMUP_ENV_VAR = "PROTEUS_DISABLE_STARTUP_WARMUP"
 _DISABLE_STARTUP_WARMUP_ATTR = "disable_startup_warmup"
 # Upper bound for both the similarity fallback (stage 2 widening when the
 # seed set is too small) and the unigram fallback (k=1 recovery for short
@@ -77,7 +78,10 @@ class SearchDependenciesNotReadyError(RuntimeError):
 @asynccontextmanager
 async def _app_lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Run best-effort startup warmup while keeping app startup non-blocking."""
-    if not getattr(app.state, _DISABLE_STARTUP_WARMUP_ATTR, False):
+    startup_warmup_disabled = getattr(app.state, _DISABLE_STARTUP_WARMUP_ATTR, False)
+    if not startup_warmup_disabled and not _env_flag_enabled(
+        _DISABLE_STARTUP_WARMUP_ENV_VAR,
+    ):
         warmup_thread = threading.Thread(
             target=_warm_search_dependencies,
             name="proteus-search-warmup",
@@ -86,6 +90,11 @@ async def _app_lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.search_warmup_thread = warmup_thread
         warmup_thread.start()
     yield
+
+
+def _env_flag_enabled(name: str) -> bool:
+    """Return True when an environment flag is set to an affirmative value."""
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _get_allowed_origins() -> list[str]:
@@ -112,13 +121,7 @@ def _summarize_query_for_logs(query: str) -> str:
 
 def _should_log_raw_search_query() -> bool:
     """Return True only when raw search queries may appear in debug logs."""
-    raw_value = os.environ.get(_LOG_RAW_QUERY_ENV_VAR, "")
-    return logger.isEnabledFor(logging.DEBUG) and raw_value.strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
+    return logger.isEnabledFor(logging.DEBUG) and _env_flag_enabled(_LOG_RAW_QUERY_ENV_VAR)
 
 
 app = FastAPI(
@@ -293,6 +296,12 @@ def render_frontend() -> HTMLResponse:
     return HTMLResponse(_FRONTEND_HTML)
 
 
+@app.head("/")
+async def root_head() -> Response:
+    """Return a lightweight success response for uptime probes."""
+    return Response(status_code=200)
+
+
 @app.get("/", response_class=HTMLResponse)
 async def root() -> HTMLResponse:
     """Serve the frontend."""
@@ -382,6 +391,12 @@ async def search(request: SearchRequest) -> SearchResponse:
 async def health() -> dict[str, str]:
     """Liveness probe."""
     return {"status": "ok"}
+
+
+@app.head("/health")
+async def health_head() -> Response:
+    """Liveness probe for HEAD-based health checks."""
+    return Response(status_code=204)
 
 
 @app.get("/ready")
