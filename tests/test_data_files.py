@@ -782,14 +782,14 @@ def test_rule_directory_contains_expected_three_yaml_files(
     }
 
 
-def test_all_rule_files_flatten_to_exactly_fifty_unique_rules(
+def test_all_rule_files_flatten_to_exactly_fifty_one_unique_rules(
     all_rules: list[dict[str, object]],
 ) -> None:
     rule_ids = [rule["id"] for rule in all_rules]
 
-    # expected 50 rules = VSH 22 + CCH 15 + MPH 13
+    # expected 51 rules = VSH 22 + CCH 15 + MPH 14
     assert len(rule_ids) == len(set(rule_ids))
-    assert len(all_rules) == 50
+    assert len(all_rules) == 51
 
 
 def test_phonology_rules_doc_defines_context_notation_examples() -> None:
@@ -1005,6 +1005,25 @@ def test_runtime_velar_assimilation_rule_matches_current_ipa_conversion(
     assert assimilated_tokens[1] == rule["output"]
 
 
+def test_word_final_nu_absence_rule_matches_current_ipa_conversion(
+    morphophonemic_rules: list[dict[str, object]],
+) -> None:
+    rule = _find_rule(morphophonemic_rules, "MPH-014")
+    with_nu_tokens = tokenize_ipa(to_ipa("ἐστίν"))
+    without_nu_tokens = tokenize_ipa(to_ipa("ἐστί"))
+
+    assert rule["input"] == "stin"
+    assert rule["output"] == "sti"
+    assert rule["context"] == "_#"
+    assert rule["references"] == ["Buck §102", "Smyth §134"]
+    assert rule["examples"][0]["standard"] == "ἐστίν"
+    assert rule["examples"][0]["dialect"] == "ἐστί"
+    assert "movable nu" in rule["note"]
+    assert "not a general final -ιν deletion rule" in rule["note"]
+    assert "".join(with_nu_tokens[-4:]) == rule["input"]
+    assert "".join(without_nu_tokens[-3:]) == rule["output"]
+
+
 def test_attic_omicron_alpha_contraction_example_uses_oa_pair(
     vowel_rules: list[dict[str, object]],
 ) -> None:
@@ -1038,7 +1057,7 @@ def test_morphophonemic_rules_use_new_schema_and_define_expected_rules(
 ) -> None:
     _assert_rule_schema(
         morphophonemic_rules,
-        expected_ids={f"MPH-{n:03d}" for n in range(1, 14)},
+        expected_ids={f"MPH-{n:03d}" for n in range(1, 15)},
     )
 
 

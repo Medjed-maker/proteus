@@ -264,6 +264,13 @@ class _MismatchBlock:
     query_start_position: int
 
 
+@dataclass(frozen=True)
+class _WordFinalSuffixMatch:
+    """Metadata captured when a `_#` suffix rule matches."""
+
+    lemma_start_position: int
+
+
 def _tokenize_rule_side(raw_value: object) -> tuple[str, ...]:
     """Tokenize a YAML rule side into comparable IPA tokens."""
     if not isinstance(raw_value, str) or not raw_value:
@@ -796,12 +803,12 @@ def _matches_word_final_suffix(
     candidate: TokenizedRule,
     block: _MismatchBlock,
     *,
+    lemma_tokens: Sequence[str],
+    query_tokens: Sequence[str],
     lemma_index: int,
     query_index: int,
-    lemma_suffix_tokens: tuple[str, ...],
-    query_suffix_tokens: tuple[str, ...],
-) -> bool:
-    """Return True when a `_#` rule matches the remaining word-final suffixes.
+) -> _WordFinalSuffixMatch | None:
+    """Return match metadata when a `_#` rule matches the word-final suffix.
 
     Args:
         candidate: Pre-tokenized rule candidate whose ``input_tokens`` and
@@ -811,43 +818,58 @@ def _matches_word_final_suffix(
             remaining mismatched portion of the suffix is fully contained in
             this block; any suffix tail after the block must therefore be an
             exact token-for-token match on both sides.
+        lemma_tokens: Full lemma-side token sequence.
+        query_tokens: Full query-side token sequence.
         lemma_index: Offset into ``block.lemma_tokens`` where the candidate's
             lemma-side suffix should start.
         query_index: Offset into ``block.query_tokens`` where the candidate's
             query-side suffix should start.
-        lemma_suffix_tokens: Pre-computed ``tuple(lemma_tokens[lemma_start:])``
-            for the current outer-loop position, cached by the caller to
-            avoid redundant tuple conversions across candidate rules.
-        query_suffix_tokens: Pre-computed ``tuple(query_tokens[query_start:])``
-            for the current outer-loop position.
 
     Returns:
-        ``bool``: ``True`` only when the candidate rule's context is ``"_#"``,
-        the remaining lemma/query suffixes match the candidate exactly, the
-        portion still inside the current mismatch block matches the block's
-        remaining token sequences, the remaining aligned block columns do not
-        contain crossing gaps, and any candidate tail beyond this block is
-        identical on both sides (so no later mismatch block remains).
-        Otherwise returns ``False``.
+        Match metadata only when the candidate rule's context is ``"_#"``, the
+        word-final lemma/query suffixes match the candidate exactly, the current
+        mismatch cursor falls within that suffix, the portion still inside the
+        current mismatch block matches the block's remaining token sequences,
+        the remaining aligned block columns do not contain crossing gaps, and
+        any candidate tail beyond this block is identical on both sides (so no
+        later mismatch block remains). Otherwise returns ``None``.
     """
     context = candidate.rule.get("context")
     if not isinstance(context, str) or context.strip().lower() != "_#":
-        return False
-    if (
-        lemma_suffix_tokens != candidate.input_tokens
-        or query_suffix_tokens != candidate.output_tokens
-    ):
-        return False
+        return None
+
+    lemma_candidate_start = len(lemma_tokens) - len(candidate.input_tokens)
+    query_candidate_start = len(query_tokens) - len(candidate.output_tokens)
+    if lemma_candidate_start < 0 or query_candidate_start < 0:
+        return None
+    if tuple(lemma_tokens[lemma_candidate_start:]) != candidate.input_tokens:
+        return None
+    if tuple(query_tokens[query_candidate_start:]) != candidate.output_tokens:
+        return None
+
+    global_lemma_start = block.lemma_start_position + lemma_index
+    global_query_start = block.query_start_position + query_index
+    if lemma_candidate_start > global_lemma_start:
+        return None
+    if query_candidate_start > global_query_start:
+        return None
+
+    input_offset = global_lemma_start - lemma_candidate_start
+    output_offset = global_query_start - query_candidate_start
+    if candidate.input_tokens[:input_offset] != candidate.output_tokens[:output_offset]:
+        return None
 
     block_input_length = len(block.lemma_tokens) - lemma_index
     block_output_length = len(block.query_tokens) - query_index
     if block_input_length < 0 or block_output_length < 0:
-        return False
+        return None
     if (
-        candidate.input_tokens[:block_input_length] != block.lemma_tokens[lemma_index:]
-        or candidate.output_tokens[:block_output_length] != block.query_tokens[query_index:]
+        candidate.input_tokens[input_offset : input_offset + block_input_length]
+        != block.lemma_tokens[lemma_index:]
+        or candidate.output_tokens[output_offset : output_offset + block_output_length]
+        != block.query_tokens[query_index:]
     ):
-        return False
+        return None
 
     column_index = _block_column_index(
         block,
@@ -855,15 +877,17 @@ def _matches_word_final_suffix(
         query_index=query_index,
     )
     if column_index is None:
-        return False
+        return None
 
     if _has_crossing_gaps(block.aligned_query, block.aligned_lemma, column_index):
-        return False
+        return None
 
-    return (
-        candidate.input_tokens[block_input_length:]
-        == candidate.output_tokens[block_output_length:]
-    )
+    if (
+        candidate.input_tokens[input_offset + block_input_length :]
+        == candidate.output_tokens[output_offset + block_output_length :]
+    ):
+        return _WordFinalSuffixMatch(lemma_start_position=lemma_candidate_start)
+    return None
 
 
 def _collect_block_applications(
@@ -879,7 +903,7 @@ def _collect_block_applications(
 
     while lemma_index < len(block.lemma_tokens) or query_index < len(block.query_tokens):
         matched_rule: TokenizedRule | None = None
-        matched_word_final_suffix = False
+        word_final_suffix_match: _WordFinalSuffixMatch | None = None
         # Word-final suffix rules (_# context) are checked before normal block
         # matching so that longer suffix-level rules take priority over
         # individual-segment rules that would otherwise consume the first
@@ -891,24 +915,21 @@ def _collect_block_applications(
         # with both _matches_word_final_suffix and _matches_context.
         global_lemma_start = block.lemma_start_position + lemma_index
         global_query_start = block.query_start_position + query_index
-        # Cache suffix tuples once per outer-loop position so that the inner
-        # candidate loop avoids redundant list→tuple conversions.
-        lemma_suffix_tokens = tuple(lemma_tokens[global_lemma_start:])
-        query_suffix_tokens = tuple(query_tokens[global_query_start:])
         for candidate in tokenized_rules:
             input_length = len(candidate.input_tokens)
             output_length = len(candidate.output_tokens)
 
-            if _matches_word_final_suffix(
+            suffix_match = _matches_word_final_suffix(
                 candidate,
                 block,
+                lemma_tokens=lemma_tokens,
+                query_tokens=query_tokens,
                 lemma_index=lemma_index,
                 query_index=query_index,
-                lemma_suffix_tokens=lemma_suffix_tokens,
-                query_suffix_tokens=query_suffix_tokens,
-            ):
+            )
+            if suffix_match is not None:
                 matched_rule = candidate
-                matched_word_final_suffix = True
+                word_final_suffix_match = suffix_match
                 break
 
             if block.lemma_tokens[lemma_index : lemma_index + input_length] != candidate.input_tokens:
@@ -1000,11 +1021,15 @@ def _collect_block_applications(
                 rule_name_en=rule_name_en,
                 input_phoneme=input_phoneme,
                 output_phoneme=output_phoneme,
-                position=block.lemma_start_position + lemma_index,
+                position=(
+                    word_final_suffix_match.lemma_start_position
+                    if word_final_suffix_match is not None
+                    else block.lemma_start_position + lemma_index
+                ),
                 dialects=dialects,
             )
         )
-        if matched_word_final_suffix:
+        if word_final_suffix_match is not None:
             lemma_index = len(block.lemma_tokens)
             query_index = len(block.query_tokens)
         else:

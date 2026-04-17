@@ -44,6 +44,30 @@ def _rule(
     }
 
 
+def make_ipa_alignment(
+    query_word: str,
+    lemma_word: str,
+) -> tuple[list[str], list[str], Alignment]:
+    """Build runtime IPA tokens and alignment for orthographic test forms."""
+    matrix = load_matrix(MATRIX_FILE)
+    query_tokens = tokenize_ipa(to_ipa(query_word))
+    lemma_tokens = tokenize_ipa(to_ipa(lemma_word))
+    _, aligned_query, aligned_lemma = _smith_waterman_alignment(
+        query_tokens,
+        lemma_tokens,
+        matrix,
+    )
+
+    return (
+        query_tokens,
+        lemma_tokens,
+        Alignment(
+            aligned_query=tuple(aligned_query),
+            aligned_lemma=tuple(aligned_lemma),
+        ),
+    )
+
+
 def test_to_prose_returns_canonical_prose_without_mutating_explanation() -> None:
     """to_prose returns prose while leaving Explanation.prose unchanged for callers."""
     explanation = Explanation(
@@ -515,6 +539,32 @@ def test_explain_supports_word_final_context_with_exact_tail_inside_suffix() -> 
     assert [application.rule_id for application in applications] == ["CTX-FINAL"]
 
 
+def test_explain_reports_word_final_suffix_rule_position_from_suffix_start() -> None:
+    """Verify `_#` suffix rules report the full suffix's lemma-side start."""
+    applications = explain(
+        query_tokens=["e", "s", "t", "i"],
+        lemma_tokens=["e", "s", "t", "i", "n"],
+        alignment=Alignment(
+            aligned_query=("e", "s", "t", "i", None),
+            aligned_lemma=("e", "s", "t", "i", "n"),
+        ),
+        rules=[
+            _rule(
+                rule_id="MPH-014",
+                input_phoneme="stin",
+                output_phoneme="sti",
+                context="_#",
+                name_ja="ἐστί(ν) における可動 ν 不在",
+            )
+        ],
+    )
+
+    assert [application.rule_id for application in applications] == ["MPH-014"]
+    assert applications[0].input_phoneme == "stin"
+    assert applications[0].output_phoneme == "sti"
+    assert applications[0].position == 1
+
+
 def test_explain_rejects_word_final_context_when_tokens_remain_after_suffix() -> None:
     """Reject CTX-FINAL when tokens remain after the candidate word-final suffix."""
     applications = explain(
@@ -870,10 +920,11 @@ def test_load_rules_reads_all_three_packaged_rule_files() -> None:
     """
     rules = load_rules("ancient_greek")
 
-    assert len(rules) >= 50
+    assert len(rules) >= 51
     assert "CCH-015" in rules
     assert "VSH-022" in rules
     assert "MPH-013" in rules
+    assert "MPH-014" in rules
 
 
 @pytest.mark.parametrize(
@@ -895,26 +946,81 @@ def test_packaged_morphophonemic_rules_match_runtime_ipa_examples(
     building the alignment via ``_smith_waterman_alignment`` before ``explain()``.
     """
     rules = list(load_rules("ancient_greek").values())
-    matrix = load_matrix(MATRIX_FILE)
-    query_tokens = tokenize_ipa(to_ipa(query_word))
-    lemma_tokens = tokenize_ipa(to_ipa(lemma_word))
-    _, aligned_query, aligned_lemma = _smith_waterman_alignment(
-        query_tokens,
-        lemma_tokens,
-        matrix,
-    )
+    query_tokens, lemma_tokens, alignment = make_ipa_alignment(query_word, lemma_word)
 
     applications = explain(
         query_tokens=query_tokens,
         lemma_tokens=lemma_tokens,
-        alignment=Alignment(
-            aligned_query=tuple(aligned_query),
-            aligned_lemma=tuple(aligned_lemma),
-        ),
+        alignment=alignment,
         rules=rules,
     )
 
     assert expected_rule_id in [application.rule_id for application in applications]
+
+
+@pytest.mark.parametrize(
+    ("query_word", "lemma_word", "expected_rule_ids"),
+    [
+        ("ἐστί", "ἐστίν", {"MPH-014"}),
+        ("δᾶμος", "δῆμος", {"VSH-002"}),
+    ],
+)
+def test_packaged_rules_match_runtime_ipa_regressions(
+    query_word: str,
+    lemma_word: str,
+    expected_rule_ids: set[str],
+) -> None:
+    """Verify recent packaged-rule regressions match runtime IPA alignments."""
+    rules = list(load_rules("ancient_greek").values())
+    query_tokens, lemma_tokens, alignment = make_ipa_alignment(query_word, lemma_word)
+
+    applications = explain(
+        query_tokens=query_tokens,
+        lemma_tokens=lemma_tokens,
+        alignment=alignment,
+        rules=rules,
+    )
+
+    actual_rule_ids = {application.rule_id for application in applications}
+    assert expected_rule_ids <= actual_rule_ids
+    # OBS-SUB / OBS-DEL はパッケージルールが一致しなかった場合のフォールバック。
+    # 期待ルールが正しく検出されているなら、フォールバックは現れないはず。
+    assert actual_rule_ids.isdisjoint({"OBS-SUB", "OBS-DEL"})
+    if "MPH-014" in expected_rule_ids:
+        mph_014 = next(
+            application for application in applications if application.rule_id == "MPH-014"
+        )
+        assert mph_014.position == 1
+
+
+@pytest.mark.parametrize(
+    ("query_word", "lemma_word", "expected_rule_ids"),
+    [
+        ("ἄλλο", "ἄλλον", {"OBS-DEL"}),
+        ("τιμᾶ", "τιμήν", {"VSH-002", "OBS-DEL"}),
+        ("πόλι", "πόλιν", {"OBS-DEL"}),
+        ("τι", "τιν", {"OBS-DEL"}),
+    ],
+)
+def test_movable_nu_rule_does_not_match_general_final_n_deletion(
+    query_word: str,
+    lemma_word: str,
+    expected_rule_ids: set[str],
+) -> None:
+    """Verify MPH-014 does not explain every missing word-final nu."""
+    rules = list(load_rules("ancient_greek").values())
+    query_tokens, lemma_tokens, alignment = make_ipa_alignment(query_word, lemma_word)
+
+    applications = explain(
+        query_tokens=query_tokens,
+        lemma_tokens=lemma_tokens,
+        alignment=alignment,
+        rules=rules,
+    )
+
+    actual_rule_ids = {application.rule_id for application in applications}
+    assert "MPH-014" not in actual_rule_ids
+    assert expected_rule_ids <= actual_rule_ids
 
 
 def test_load_rules_rejects_directories_outside_rules_base(tmp_path: Path) -> None:
