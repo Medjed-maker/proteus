@@ -16,6 +16,7 @@
 # Optional fields:
 #   change_type: "retention" marks reverse-mapped conservative patterns
 #   note:        clarification for overlap with broader vowel-shift rules
+#   lemma_constraints: dictionary of constraints (e.g., lemma gender) to restrict rule applicability
 #
 # Notes:
 #   These rules intentionally encode suffix-sized patterns. Some overlap the
@@ -232,3 +233,20 @@ rules:
     examples:
       - { standard: "μνημεῖον", dialect: "μνημεῖο", meaning: "memorial, monument" }
     note: "Models absence of word-final nu in neuter -εῖον forms as a runtime search-explanation convenience using the suffix slice -eːon -> -eːo. This is not a general final -ν deletion rule; broader final -ν mismatches should remain observed deletions unless a more specific suffix rule applies."
+
+  - id: MPH-017
+    name_en: "Final nu absence in neuter -on"
+    name_ja: "中性語尾 -ον における語末 ν 不在"
+    input: "on"
+    output: "o"
+    context: "_#"
+    dialects: [attic, ionic, koine]
+    period: "archaic, classical, and hellenistic periods"
+    references: ["Smyth §134", "Buck §102"]
+    lemma_constraints:
+      gender: [neuter]
+    examples:
+      - { standard: "τέκνον", dialect: "τέκνο", meaning: "child" }
+      - { standard: "ἔργον", dialect: "ἔργο", meaning: "work, deed" }
+      - { standard: "θέατρον", dialect: "θέατρο", meaning: "theater" }
+    note: "Models absence of word-final nu in neuter -ον forms as a runtime search-explanation convenience using the suffix slice -on -> -o. The lemma gender constraint keeps this as not a general final -ν deletion rule."

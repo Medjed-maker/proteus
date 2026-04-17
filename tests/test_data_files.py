@@ -782,14 +782,14 @@ def test_rule_directory_contains_expected_three_yaml_files(
     }
 
 
-def test_all_rule_files_flatten_to_exactly_fifty_three_unique_rules(
+def test_all_rule_files_flatten_to_exactly_fifty_four_unique_rules(
     all_rules: list[dict[str, object]],
 ) -> None:
     rule_ids = [rule["id"] for rule in all_rules]
 
-    # expected 53 rules = VSH 22 + CCH 15 + MPH 16
+    # expected 54 rules = VSH 22 + CCH 15 + MPH 17
     assert len(rule_ids) == len(set(rule_ids))
-    assert len(all_rules) == 53
+    assert len(all_rules) == 54
 
 
 def test_phonology_rules_doc_defines_context_notation_examples() -> None:
@@ -1060,6 +1060,33 @@ def test_neuter_eion_final_nu_absence_rule_matches_current_ipa_conversion(
     assert "".join(without_nu_tokens[-2:]) == rule["output"]
 
 
+def test_neuter_on_final_nu_absence_rule_matches_current_ipa_conversion(
+    morphophonemic_rules: list[dict[str, object]],
+) -> None:
+    rule = _find_rule(morphophonemic_rules, "MPH-017")
+    with_nu_tokens = tokenize_ipa(to_ipa("τέκνον"))
+    without_nu_tokens = tokenize_ipa(to_ipa("τέκνο"))
+
+    assert rule["input"] == "on"
+    assert rule["output"] == "o"
+    assert rule["context"] == "_#"
+    assert rule["references"] == ["Smyth §134", "Buck §102"]
+    assert rule["lemma_constraints"] == {"gender": ["neuter"]}
+    assert [example["standard"] for example in rule["examples"]] == [
+        "τέκνον",
+        "ἔργον",
+        "θέατρον",
+    ]
+    assert [example["dialect"] for example in rule["examples"]] == [
+        "τέκνο",
+        "ἔργο",
+        "θέατρο",
+    ]
+    assert "not a general final -ν deletion rule" in rule["note"]
+    assert "".join(with_nu_tokens[-2:]) == rule["input"]
+    assert "".join(without_nu_tokens[-1:]) == rule["output"]
+
+
 def test_attic_omicron_alpha_contraction_example_uses_oa_pair(
     vowel_rules: list[dict[str, object]],
 ) -> None:
@@ -1093,7 +1120,7 @@ def test_morphophonemic_rules_use_new_schema_and_define_expected_rules(
 ) -> None:
     _assert_rule_schema(
         morphophonemic_rules,
-        expected_ids={f"MPH-{n:03d}" for n in range(1, 17)},
+        expected_ids={f"MPH-{n:03d}" for n in range(1, 18)},
     )
 
 

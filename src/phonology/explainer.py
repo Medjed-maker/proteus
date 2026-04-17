@@ -7,6 +7,7 @@ descriptions suitable for APIs and UI consumers.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 import math
 from pathlib import Path
@@ -35,6 +36,7 @@ __all__ = [
 ]
 
 Rule: TypeAlias = dict[str, Any]
+RuleMetadata: TypeAlias = Mapping[str, Any]
 _RULES_BASE_DIR_OVERRIDE: Path | None = None
 _NASAL_PHONES = frozenset({"m", "n"})
 _AFTER_E_I_R_PHONES = frozenset({"e", "i", "r"})
@@ -327,6 +329,29 @@ def _rule_specificity(rule: Rule) -> int:
     if not isinstance(context, str):
         return 0
     return 0 if context.strip().lower() in _ALWAYS_MATCH_CONTEXTS else 1
+
+
+def _matches_lemma_constraints(
+    rule: Rule,
+    lemma_metadata: RuleMetadata | None,
+) -> bool:
+    """Return whether lemma metadata satisfies optional rule constraints."""
+    constraints = rule.get("lemma_constraints")
+    if constraints is None:
+        return True
+    if not isinstance(constraints, Mapping) or lemma_metadata is None:
+        return False
+
+    for key, expected in constraints.items():
+        if not isinstance(key, str):
+            return False
+        actual = lemma_metadata.get(key)
+        if isinstance(expected, list):
+            if actual not in expected:
+                return False
+        elif actual != expected:
+            return False
+    return True
 
 
 def _is_exact_match(query_token: str | None, lemma_token: str | None) -> bool:
@@ -895,6 +920,7 @@ def _collect_block_applications(
     query_tokens: Sequence[str],
     lemma_tokens: Sequence[str],
     tokenized_rules: Sequence[TokenizedRule],
+    lemma_metadata: RuleMetadata | None = None,
 ) -> list[RuleApplication]:
     """Match longest rules against a mismatch block."""
     applications: list[RuleApplication] = []
@@ -916,6 +942,9 @@ def _collect_block_applications(
         global_lemma_start = block.lemma_start_position + lemma_index
         global_query_start = block.query_start_position + query_index
         for candidate in tokenized_rules:
+            if not _matches_lemma_constraints(candidate.rule, lemma_metadata):
+                continue
+
             input_length = len(candidate.input_tokens)
             output_length = len(candidate.output_tokens)
 
@@ -1044,6 +1073,7 @@ def explain_with_tokenized_rules(
     lemma_tokens: Sequence[str],
     alignment: Alignment,
     tokenized_rules: Sequence[TokenizedRule],
+    lemma_metadata: RuleMetadata | None = None,
 ) -> list[RuleApplication]:
     """Explain aligned IPA mismatches using pre-tokenized phonological rules.
 
@@ -1053,6 +1083,7 @@ def explain_with_tokenized_rules(
         alignment: Alignment of aligned query/lemma token columns.
         tokenized_rules: Pre-tokenized phonological rules to match against
             mismatches.
+        lemma_metadata: Optional lexicon metadata used by constrained rules.
 
     Returns:
         A list[RuleApplication] describing which rules account for aligned
@@ -1066,6 +1097,7 @@ def explain_with_tokenized_rules(
                 query_tokens=query_tokens,
                 lemma_tokens=lemma_tokens,
                 tokenized_rules=tokenized_rules,
+                lemma_metadata=lemma_metadata,
             )
         )
     return applications
@@ -1076,13 +1108,27 @@ def explain(
     lemma_tokens: Sequence[str],
     alignment: Alignment,
     rules: list[Rule],
+    lemma_metadata: RuleMetadata | None = None,
 ) -> list[RuleApplication]:
-    """Explain which phonological rules account for aligned IPA mismatches."""
+    """Explain which phonological rules account for aligned IPA mismatches.
+
+    Args:
+        query_tokens: Tokenized IPA phones for the query form.
+        lemma_tokens: Tokenized IPA phones for the lemma form.
+        alignment: Alignment of aligned query/lemma token columns.
+        rules: Phonological rules to match against mismatches.
+        lemma_metadata: Optional lexicon metadata used by constrained rules.
+
+    Returns:
+        A list[RuleApplication] describing which rules account for aligned
+        query/lemma mismatches.
+    """
     return explain_with_tokenized_rules(
         query_tokens=query_tokens,
         lemma_tokens=lemma_tokens,
         alignment=alignment,
         tokenized_rules=tokenize_rules_for_matching(rules),
+        lemma_metadata=lemma_metadata,
     )
 
 

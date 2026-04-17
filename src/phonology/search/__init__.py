@@ -522,6 +522,7 @@ def _annotate_search_results(
             lemma_tokens=lemma_tokens,
             alignment=alignment,
             tokenized_rules=tokenized_rules,
+            lemma_metadata=entry,
         )
         matched_dialects = _collect_application_dialects(applications)
         markers = _apply_rule_markers(
