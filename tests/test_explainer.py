@@ -927,6 +927,7 @@ def test_load_rules_reads_all_three_packaged_rule_files() -> None:
     assert "MPH-014" in rules
     assert "MPH-015" in rules
     assert "MPH-016" in rules
+    assert "MPH-017" in rules
 
 
 @pytest.mark.parametrize(
@@ -998,6 +999,66 @@ def test_packaged_rules_match_runtime_ipa_regressions(
 
 
 @pytest.mark.parametrize(
+    ("query_word", "lemma_word"),
+    [
+        ("τέκνο", "τέκνον"),
+        ("ἔργο", "ἔργον"),
+        ("θέατρο", "θέατρον"),
+    ],
+)
+def test_neuter_on_final_nu_absence_requires_neuter_lemma_metadata(
+    query_word: str,
+    lemma_word: str,
+) -> None:
+    """Verify MPH-017 explains neuter -ον final nu absence only with metadata."""
+    rules = list(load_rules("ancient_greek").values())
+    query_tokens, lemma_tokens, alignment = make_ipa_alignment(query_word, lemma_word)
+
+    without_metadata = explain(
+        query_tokens=query_tokens,
+        lemma_tokens=lemma_tokens,
+        alignment=alignment,
+        rules=rules,
+    )
+    with_non_neuter_metadata = explain(
+        query_tokens=query_tokens,
+        lemma_tokens=lemma_tokens,
+        alignment=alignment,
+        rules=rules,
+        lemma_metadata={"gender": "common"},
+    )
+    with_neuter_metadata = explain(
+        query_tokens=query_tokens,
+        lemma_tokens=lemma_tokens,
+        alignment=alignment,
+        rules=rules,
+        lemma_metadata={"gender": "neuter"},
+    )
+
+    assert {application.rule_id for application in without_metadata} == {"OBS-DEL"}
+    assert {application.rule_id for application in with_non_neuter_metadata} == {"OBS-DEL"}
+    assert [application.rule_id for application in with_neuter_metadata] == ["MPH-017"]
+    assert with_neuter_metadata[0].input_phoneme == "on"
+    assert with_neuter_metadata[0].output_phoneme == "o"
+
+
+def test_neuter_on_final_nu_absence_does_not_beat_specific_longer_rules() -> None:
+    """Verify longer final nu absence suffix rules still win before MPH-017."""
+    rules = list(load_rules("ancient_greek").values())
+    query_tokens, lemma_tokens, alignment = make_ipa_alignment("παιδίο", "παιδίον")
+
+    applications = explain(
+        query_tokens=query_tokens,
+        lemma_tokens=lemma_tokens,
+        alignment=alignment,
+        rules=rules,
+        lemma_metadata={"gender": "neuter"},
+    )
+
+    assert [application.rule_id for application in applications] == ["MPH-015"]
+
+
+@pytest.mark.parametrize(
     ("query_word", "lemma_word", "expected_rule_ids"),
     [
         ("ἄλλο", "ἄλλον", {"OBS-DEL"}),
@@ -1026,6 +1087,7 @@ def test_movable_nu_rule_does_not_match_general_final_n_deletion(
     assert "MPH-014" not in actual_rule_ids
     assert "MPH-015" not in actual_rule_ids
     assert "MPH-016" not in actual_rule_ids
+    assert "MPH-017" not in actual_rule_ids
     assert expected_rule_ids <= actual_rule_ids
 
 

@@ -380,6 +380,57 @@ class TestExtendStage:
         )
         assert ":" in results[0].alignment_visualization.splitlines()[1]
 
+    def test_extend_stage_uses_packaged_neuter_on_final_nu_absence_rule(self) -> None:
+        lexicon_map = {
+            "L1": LexiconRecord(entry={
+                "headword": "τέκνον",
+                "ipa": to_ipa("τέκνον"),
+                "dialect": "attic",
+                "gender": "neuter",
+            }, token_count=6)
+        }
+
+        results = extend_stage(
+            to_ipa("τέκνο"),
+            ["L1"],
+            lexicon_map,
+            matrix=load_matrix(MATRIX_FILE),
+        )
+
+        assert len(results) == 1
+        assert results[0].applied_rules == ["MPH-017"]
+        assert [application.rule_id for application in results[0].rule_applications] == ["MPH-017"]
+        assert results[0].rule_applications[0].input_phoneme == "on"
+        assert results[0].rule_applications[0].output_phoneme == "o"
+        assert results[0].dialect_attribution == (
+            "lemma dialect: attic; query-compatible dialects: attic, ionic, koine"
+        )
+        assert ":" in results[0].alignment_visualization.splitlines()[1]
+
+    def test_extend_stage_does_not_use_neuter_on_rule_for_common_gender(self) -> None:
+        lexicon_map = {
+            "L1": LexiconRecord(entry={
+                "headword": "ἄλλον",
+                "ipa": to_ipa("ἄλλον"),
+                "dialect": "attic",
+                "gender": "common",
+            }, token_count=5)
+        }
+
+        results = extend_stage(
+            to_ipa("ἄλλο"),
+            ["L1"],
+            lexicon_map,
+            matrix=load_matrix(MATRIX_FILE),
+        )
+
+        assert len(results) == 1
+        assert results[0].applied_rules == []
+        assert [application.rule_id for application in results[0].rule_applications] == ["OBS-DEL"]
+        assert results[0].dialect_attribution == "lemma dialect: attic"
+        marker_line = results[0].alignment_visualization.splitlines()[1]
+        assert ":" not in marker_line
+
     def test_extend_stage_uses_packaged_runtime_velar_assimilation_rule(self) -> None:
         lexicon_map = {
             "L1": LexiconRecord(entry={
