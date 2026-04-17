@@ -925,6 +925,8 @@ def test_load_rules_reads_all_three_packaged_rule_files() -> None:
     assert "VSH-022" in rules
     assert "MPH-013" in rules
     assert "MPH-014" in rules
+    assert "MPH-015" in rules
+    assert "MPH-016" in rules
 
 
 @pytest.mark.parametrize(
@@ -962,6 +964,8 @@ def test_packaged_morphophonemic_rules_match_runtime_ipa_examples(
     ("query_word", "lemma_word", "expected_rule_ids"),
     [
         ("ἐστί", "ἐστίν", {"MPH-014"}),
+        ("παιδίο", "παιδίον", {"MPH-015"}),
+        ("μνημεῖο", "μνημεῖον", {"MPH-016"}),
         ("δᾶμος", "δῆμος", {"VSH-002"}),
     ],
 )
@@ -1020,6 +1024,8 @@ def test_movable_nu_rule_does_not_match_general_final_n_deletion(
 
     actual_rule_ids = {application.rule_id for application in applications}
     assert "MPH-014" not in actual_rule_ids
+    assert "MPH-015" not in actual_rule_ids
+    assert "MPH-016" not in actual_rule_ids
     assert expected_rule_ids <= actual_rule_ids
 
 

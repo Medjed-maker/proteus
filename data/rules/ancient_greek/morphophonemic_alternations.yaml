@@ -206,3 +206,29 @@ rules:
     examples:
       - { standard: "ἐστίν", dialect: "ἐστί", meaning: "is" }
     note: "Models absence of word-final movable nu in ἐστί(ν) as a runtime search-explanation convenience using the suffix slice -stin -> -sti, not a general final -ιν deletion rule; Buck §102 and Smyth §134 treat movable nu in Attic-Ionic."
+
+  - id: MPH-015
+    name_en: "Final nu absence in neuter -ion"
+    name_ja: "中性語尾 -ιον における語末 ν 不在"
+    input: "ion"
+    output: "io"
+    context: "_#"
+    dialects: [attic, ionic, koine]
+    period: "archaic, classical, and hellenistic periods"
+    references: ["Smyth §134", "Buck §102"]
+    examples:
+      - { standard: "παιδίον", dialect: "παιδίο", meaning: "child, little child" }
+    note: "Models absence of word-final nu in neuter -ιον forms as a runtime search-explanation convenience using the suffix slice -ion -> -io. This is not a general final -ν deletion rule; broader final -ν mismatches should remain observed deletions unless a more specific suffix rule applies."
+
+  - id: MPH-016
+    name_en: "Final nu absence in neuter -eion"
+    name_ja: "中性語尾 -εῖον における語末 ν 不在"
+    input: "eːon"
+    output: "eːo"
+    context: "_#"
+    dialects: [attic, ionic, koine]
+    period: "archaic, classical, and hellenistic periods"
+    references: ["Smyth §134", "Buck §102"]
+    examples:
+      - { standard: "μνημεῖον", dialect: "μνημεῖο", meaning: "memorial, monument" }
+    note: "Models absence of word-final nu in neuter -εῖον forms as a runtime search-explanation convenience using the suffix slice -eːon -> -eːo. This is not a general final -ν deletion rule; broader final -ν mismatches should remain observed deletions unless a more specific suffix rule applies."

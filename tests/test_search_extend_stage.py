@@ -328,6 +328,58 @@ class TestExtendStage:
         )
         assert ":" in results[0].alignment_visualization.splitlines()[1]
 
+    def test_extend_stage_uses_packaged_neuter_ion_final_nu_absence_rule(self) -> None:
+        lexicon_map = {
+            "L1": LexiconRecord(entry={
+                "headword": "παιδίον",
+                "ipa": to_ipa("παιδίον"),
+                "dialect": "attic",
+            }, token_count=6)
+        }
+
+        results = extend_stage(
+            to_ipa("παιδίο"),
+            ["L1"],
+            lexicon_map,
+            matrix=load_matrix(MATRIX_FILE),
+        )
+
+        assert len(results) == 1
+        assert results[0].applied_rules == ["MPH-015"]
+        assert [application.rule_id for application in results[0].rule_applications] == ["MPH-015"]
+        assert results[0].rule_applications[0].input_phoneme == "ion"
+        assert results[0].rule_applications[0].output_phoneme == "io"
+        assert results[0].dialect_attribution == (
+            "lemma dialect: attic; query-compatible dialects: attic, ionic, koine"
+        )
+        assert ":" in results[0].alignment_visualization.splitlines()[1]
+
+    def test_extend_stage_uses_packaged_neuter_eion_final_nu_absence_rule(self) -> None:
+        lexicon_map = {
+            "L1": LexiconRecord(entry={
+                "headword": "μνημεῖον",
+                "ipa": to_ipa("μνημεῖον"),
+                "dialect": "attic",
+            }, token_count=7)
+        }
+
+        results = extend_stage(
+            to_ipa("μνημεῖο"),
+            ["L1"],
+            lexicon_map,
+            matrix=load_matrix(MATRIX_FILE),
+        )
+
+        assert len(results) == 1
+        assert results[0].applied_rules == ["MPH-016"]
+        assert [application.rule_id for application in results[0].rule_applications] == ["MPH-016"]
+        assert results[0].rule_applications[0].input_phoneme == "eːon"
+        assert results[0].rule_applications[0].output_phoneme == "eːo"
+        assert results[0].dialect_attribution == (
+            "lemma dialect: attic; query-compatible dialects: attic, ionic, koine"
+        )
+        assert ":" in results[0].alignment_visualization.splitlines()[1]
+
     def test_extend_stage_uses_packaged_runtime_velar_assimilation_rule(self) -> None:
         lexicon_map = {
             "L1": LexiconRecord(entry={
