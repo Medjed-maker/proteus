@@ -154,6 +154,26 @@ Typical `explanation` content is a short 1-2 sentence summary of why the hit is 
 
 Liveness probe — returns `{"status": "ok"}`.
 
+## Deployment & Operations
+
+- **Rate limiting**: Proteus intentionally does not ship an in-process rate
+  limiter. When exposing the API publicly, enforce rate limits at the fronting
+  proxy (nginx, Cloudflare, Vercel, etc.). A conservative starting point is
+  `10 req/min/IP` on `/search`. `/health` and `/ready` should remain uncapped
+  for orchestration probes. The `query` field is already length-bounded
+  (≤64 chars) so the edit-distance cost is worst-case constant, but request
+  volume still needs to be controlled upstream.
+- **Interactive docs (`/docs`)**: Disabled by default. Set
+  `PROTEUS_ENABLE_API_DOCS=1` in development or behind authenticated staging
+  to enable the Swagger UI and the OpenAPI schema at `/openapi.json`.
+  The env var is read at import time, so export it before starting the server.
+  For production deployments, ensure these endpoints remain disabled or are
+  blocked at the fronting proxy.
+- **Security headers**: The app emits `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy`, and a restrictive `Permissions-Policy`
+  on every response. HSTS and CSP are intentionally delegated to the fronting
+  proxy that terminates TLS and knows the deployment's asset origins.
+
 ## Data Sources
 
 - **Lexicon**: [LSJ — Liddell-Scott-Jones Greek-English Lexicon](http://stephanus.tlg.uci.edu/lsj/)

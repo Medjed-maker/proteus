@@ -413,11 +413,11 @@ def tokenize_ipa(ipa_text: str) -> list[str]:
     return tokens
 
 
-def to_ipa(greek_text: str, dialect: str = "attic") -> str:
+def to_ipa(text: str, *, dialect: str = "attic") -> str:
     """Convert a Greek string to IPA.
 
     Args:
-        greek_text: NFC-encoded Greek Unicode string.
+        text: NFC-encoded Greek Unicode string.
         dialect: Pronunciation variety. Supports ``"attic"`` and a
             query-side ``"koine"`` normalization that applies the committed
             Koine consonant shifts after Attic conversion.
@@ -430,7 +430,7 @@ def to_ipa(greek_text: str, dialect: str = "attic") -> str:
     """
     if dialect not in {"attic", "koine"}:
         raise NotImplementedError(f"Dialect {dialect!r} not yet supported")
-    phones = greek_to_ipa(greek_text)
+    phones = greek_to_ipa(text)
     if dialect == "koine":
         phones = apply_koine_consonant_shifts(phones)
     return "".join(phones)

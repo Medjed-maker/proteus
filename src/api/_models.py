@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Annotated, Any, Literal
 
 from pydantic import AliasChoices, BaseModel, Field, StringConstraints, field_validator
 
-QueryForm = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+# Ancient Greek headwords rarely exceed ~25 graphemes; 64 gives headroom for
+# partial-form patterns with wildcards while bounding the Needleman-Wunsch
+# quadratic cost for the /search endpoint.
+_MAX_QUERY_LENGTH = 64
+
+QueryForm = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1),
+]
 
 
 class SearchRequest(BaseModel):
@@ -33,6 +42,16 @@ class SearchRequest(BaseModel):
         validation_alias=AliasChoices("lang", "language"),
         description="Response language for generated prose text ('en' or 'ja').",
     )
+
+    @field_validator("query_form", mode="after")
+    @classmethod
+    def _validate_query_form_length(cls, value: str) -> str:
+        normalized = unicodedata.normalize("NFC", value)
+        if len(normalized) > _MAX_QUERY_LENGTH:
+            raise ValueError(
+                f"query_form must be at most {_MAX_QUERY_LENGTH} characters after NFC normalization"
+            )
+        return normalized
 
     @field_validator("dialect_hint", mode="before")
     @classmethod

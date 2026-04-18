@@ -90,3 +90,6 @@ data/lexicon/greek_lemmas.meta.json
 # Screenshots
 proteus-*.png
 screenshots/
+
+# Local scratch scripts
+scratch/

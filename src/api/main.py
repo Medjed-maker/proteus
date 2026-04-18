@@ -5,6 +5,7 @@ Exposes the Proteus phonological search engine as a REST API.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 import hashlib
 from functools import lru_cache
@@ -17,7 +18,7 @@ from typing import Any, AsyncIterator, NamedTuple
 
 import yaml
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -25,10 +26,9 @@ from fastapi.staticfiles import StaticFiles
 from phonology import search as phonology_search
 from phonology._paths import resolve_repo_data_dir
 from phonology.distance import MatrixData, load_matrix
-from phonology.explainer import load_rules
 from phonology.ipa_converter import to_ipa
 
-from ._models import QueryForm, SearchRequest, SearchResponse, SearchHit, RuleStep
+from ._models import SearchRequest, SearchResponse
 from ._hit_formatting import _build_search_hit
 
 logger = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ _LOG_RAW_QUERY_ENV_VAR = "PROTEUS_LOG_RAW_SEARCH_QUERY"
 _LSJ_REPO_DIR_ENV_VAR = "PROTEUS_LSJ_REPO_DIR"
 _DISABLE_STARTUP_WARMUP_ENV_VAR = "PROTEUS_DISABLE_STARTUP_WARMUP"
 _DISABLE_STARTUP_WARMUP_ATTR = "disable_startup_warmup"
+_ENABLE_API_DOCS_ENV_VAR = "PROTEUS_ENABLE_API_DOCS"
 # Upper bound for both the similarity fallback (stage 2 widening when the
 # seed set is too small) and the unigram fallback (k=1 recovery for short
 # queries). Kept in one place so the two caps stay coupled; 2000 mirrors
@@ -124,11 +125,15 @@ def _should_log_raw_search_query() -> bool:
     return logger.isEnabledFor(logging.DEBUG) and _env_flag_enabled(_LOG_RAW_QUERY_ENV_VAR)
 
 
+# _env_flag_enabled is evaluated at import time here, not per-request.
+# Export PROTEUS_ENABLE_API_DOCS=1 before starting uvicorn to enable /docs.
 app = FastAPI(
     title="Proteus",
     description="Ancient Greek phonological search engine",
     version="0.1.0",
-    docs_url="/docs",
+    docs_url="/docs" if _env_flag_enabled(_ENABLE_API_DOCS_ENV_VAR) else None,
+    openapi_url="/openapi.json" if _env_flag_enabled(_ENABLE_API_DOCS_ENV_VAR) else None,
+    redoc_url=None,
     lifespan=_app_lifespan,
 )
 app.add_middleware(
@@ -138,6 +143,26 @@ app.add_middleware(
     allow_headers=["Content-Type"],
     allow_credentials=False,
 )
+
+
+@app.middleware("http")
+async def _add_security_headers(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Attach conservative security headers to every response.
+
+    Strict-Transport-Security and CSP are deliberately deferred to the fronting
+    proxy, which terminates TLS and knows the deployment's asset origins.
+    """
+    response: Response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
+    )
+    return response
+
 
 _FRONTEND_PATH = Path(__file__).resolve().parents[1] / "web" / "index.html"
 _STATIC_DIR = Path(__file__).resolve().parents[1] / "web" / "static"
@@ -192,10 +217,13 @@ def _load_distance_matrix() -> MatrixData:
     return load_matrix("attic_doric.json")
 
 
-@lru_cache(maxsize=1)
 def _load_rules_registry() -> dict[str, dict[str, Any]]:
-    """Load the packaged phonological rule registry once per process."""
-    return load_rules("ancient_greek")
+    """Return the ``lru_cache``-backed registry owned by ``phonology_search.get_rules_registry``.
+
+    The returned dict is shared process-wide with the phonology search layer.
+    Callers must not mutate it.
+    """
+    return phonology_search.get_rules_registry("ancient_greek")
 
 
 @lru_cache(maxsize=1)
