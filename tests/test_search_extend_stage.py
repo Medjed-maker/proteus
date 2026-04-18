@@ -44,7 +44,7 @@ class TestExtendStage:
 
         monkeypatch.setattr(search_module, "load_rules", fake_load_rules)
 
-        assert search_module._get_rules_registry("test_language") == {
+        assert search_module.get_rules_registry("test_language") == {
             "RULE": {"id": "RULE"}
         }
         assert captured == {"language": "test_language"}
@@ -64,9 +64,9 @@ class TestExtendStage:
 
         with pytest.raises(
             ValueError,
-            match="_get_rules_registry failed to load rules for language 'missing_language'",
+            match="get_rules_registry failed to load rules for language 'missing_language'",
         ):
-            search_module._get_rules_registry("missing_language")
+            search_module.get_rules_registry("missing_language")
 
     def test_get_rules_registry_wraps_yaml_parse_errors(
         self, monkeypatch: pytest.MonkeyPatch
@@ -83,9 +83,9 @@ class TestExtendStage:
 
         with pytest.raises(
             ValueError,
-            match="_get_rules_registry failed to load rules for language 'broken_language'",
+            match="get_rules_registry failed to load rules for language 'broken_language'",
         ):
-            search_module._get_rules_registry("broken_language")
+            search_module.get_rules_registry("broken_language")
 
     def test_apply_rule_markers_does_not_mutate_input_markers(self) -> None:
         baseline_markers = [".", ".", "."]
@@ -250,7 +250,7 @@ class TestExtendStage:
             captured["language"] = language
             return {}
 
-        monkeypatch.setattr(search_module, "_get_rules_registry", fake_get_rules_registry)
+        monkeypatch.setattr(search_module, "get_rules_registry", fake_get_rules_registry)
 
         extend_stage(
             "aː",

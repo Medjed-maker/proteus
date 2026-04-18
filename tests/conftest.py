@@ -53,18 +53,18 @@ def reset_pos_overrides_cache() -> Generator[None, None, None]:
 def clear_rule_cache() -> Generator[None, None, None]:
     """Reset cached rule registry state between tests.
 
-    Autouse scoped at ``tests/`` because ``phonology.search._get_rules_registry``
+    Autouse scoped at ``tests/`` because ``phonology.search.get_rules_registry``
     and ``_get_tokenized_rules`` are shared module-level ``lru_cache`` wrappers.
     Clearing before every test guarantees test isolation for any suite that
     exercises rule loading, and is a no-op (double-clear is harmless) for
     suites that do not.
     """
-    search_module._get_rules_registry.cache_clear()
+    search_module.get_rules_registry.cache_clear()
     search_module._get_tokenized_rules.cache_clear()
 
     yield
 
-    search_module._get_rules_registry.cache_clear()
+    search_module.get_rules_registry.cache_clear()
     search_module._get_tokenized_rules.cache_clear()
 
 

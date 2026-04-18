@@ -1229,8 +1229,17 @@ def iter_xml_entries(xml_path: Path) -> Iterator[dict[str, Any]]:
     """Yield lemma dicts from a single LSJ XML file using streaming parse."""
     from lxml import etree  # type: ignore[import-untyped]
 
+    # Harden iterparse against XXE and billion-laughs style attacks. LSJ
+    # sources are normally trusted offline inputs, but disabling entity
+    # resolution, DTD loading, and network access removes the attack surface.
     context = etree.iterparse(
-        str(xml_path), events=("end",), tag="entryFree", recover=True
+        str(xml_path),
+        events=("end",),
+        tag="entryFree",
+        recover=True,
+        resolve_entities=False,
+        load_dtd=False,
+        no_network=True,
     )
     for _event, element in context:
         entry = extract_entry(element)

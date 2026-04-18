@@ -11,8 +11,8 @@ from pydantic import ValidationError
 
 from api import main as api_main
 from api import _hit_formatting as api_hit_formatting
-from api._models import RuleStep
-from api.main import SearchHit
+from api._models import RuleStep, SearchHit, SearchRequest
+from phonology import search as search_module
 from phonology.explainer import RuleApplication
 from phonology.search import LexiconRecord, SearchResult
 
@@ -38,7 +38,7 @@ def _clear_loader_caches() -> None:
         cache_clear = getattr(getattr(api_main, loader_name), "cache_clear", None)
         if cache_clear is not None:
             cache_clear()
-    search_cache_clear = getattr(api_main.phonology_search._get_rules_registry, "cache_clear", None)
+    search_cache_clear = getattr(api_main.phonology_search.get_rules_registry, "cache_clear", None)
     if search_cache_clear is not None:
         search_cache_clear()
 
@@ -893,11 +893,32 @@ class TestSearchDependenciesLoader:
 
 
 class TestDocumentationAndCors:
-    def test_docs_route_is_available(self, client: TestClient) -> None:
+    def test_docs_route_is_gated_off_by_default(self, client: TestClient) -> None:
+        """/docs must stay hidden unless the operator opts in."""
         response = client.get("/docs")
 
-        assert response.status_code == 200
-        assert "Swagger UI" in response.text
+        assert response.status_code == 404
+
+    def test_openapi_schema_route_is_gated_off_by_default(
+        self, client: TestClient
+    ) -> None:
+        """/openapi.json must stay hidden unless the operator opts in."""
+        response = client.get("/openapi.json")
+
+        assert response.status_code == 404
+
+    def test_env_flag_enabled_reads_docs_env_variable(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The docs env var is parsed by the shared flag helper."""
+        # The FastAPI app is instantiated at import time, so route-level docs
+        # exposure cannot be changed here; this only verifies _env_flag_enabled
+        # reads _ENABLE_API_DOCS_ENV_VAR correctly.
+        monkeypatch.setenv(api_main._ENABLE_API_DOCS_ENV_VAR, "1")
+        assert api_main._env_flag_enabled(api_main._ENABLE_API_DOCS_ENV_VAR) is True
+
+        monkeypatch.delenv(api_main._ENABLE_API_DOCS_ENV_VAR, raising=False)
+        assert api_main._env_flag_enabled(api_main._ENABLE_API_DOCS_ENV_VAR) is False
 
     def test_allowed_origins_warns_when_env_is_unset(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
@@ -1995,3 +2016,144 @@ class TestMatchHelpers:
 
         weak = api_hit_formatting._build_why_candidate("Low-confidence", applied_rule_count=0, observed_change_count=2, confidence=0.54)
         assert weak == ["Ranked by phonological distance without explicit rule support.", "Weak phonological similarity.", "2 fallback edits remain uncatalogued."]
+
+    def test_fallback_edit_label_order_en(self) -> None:
+        """_FALLBACK_EDIT_LABELS order governs the summary output in EN; catch tuple regressions."""
+        # deletion: from_phone set, to_phone empty
+        # insertion: to_phone set, from_phone empty
+        # substitution: both set
+        deletion_step = RuleApplication(rule_id="OBS-DEL", rule_name="", from_phone="a", to_phone="", position=0)
+        insertion_step = RuleApplication(rule_id="OBS-INS", rule_name="", from_phone="", to_phone="b", position=1)
+        substitution_step = RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="c", to_phone="d", position=2)
+
+        summary = api_hit_formatting._build_alignment_summary(
+            source_ipa="a", query_ipa="bd", steps=[deletion_step, insertion_step, substitution_step], lang="en"
+        )
+
+        # deletion must come before insertion, insertion before substitution
+        assert summary.index("deletion") < summary.index("insertion")
+        assert summary.index("insertion") < summary.index("substitution")
+
+    def test_fallback_edit_label_order_ja(self) -> None:
+        """_FALLBACK_EDIT_LABELS order governs the summary output in JA; catch tuple regressions."""
+        deletion_step = RuleApplication(rule_id="OBS-DEL", rule_name="", from_phone="a", to_phone="", position=0)
+        insertion_step = RuleApplication(rule_id="OBS-INS", rule_name="", from_phone="", to_phone="b", position=1)
+        substitution_step = RuleApplication(rule_id="OBS-SUB", rule_name="", from_phone="c", to_phone="d", position=2)
+
+        summary = api_hit_formatting._build_alignment_summary(
+            source_ipa="a", query_ipa="bd", steps=[deletion_step, insertion_step, substitution_step], lang="ja"
+        )
+
+        # The JA summary joins with "・" — verify the string contains all three labels in order
+        deletion_label = api_hit_formatting._p("ja", "deletion_s")
+        insertion_label = api_hit_formatting._p("ja", "insertion_s")
+        substitution_label = api_hit_formatting._p("ja", "substitution_s")
+
+        assert summary.index(deletion_label) < summary.index(insertion_label)
+        assert summary.index(insertion_label) < summary.index(substitution_label)
+
+
+class TestQueryLengthBound:
+    def test_query_form_returns_nfc_normalized_value(self) -> None:
+        query = unicodedata.normalize("NFD", "νῦν")
+
+        request = SearchRequest(query_form=query)
+
+        assert request.query_form == unicodedata.normalize("NFC", query)
+
+    def test_query_form_rejects_payload_above_64_characters(
+        self, client: TestClient
+    ) -> None:
+        """Unbounded queries would blow up the Needleman-Wunsch O(n^2) table."""
+        payload = {"query_form": "α" * 65, "dialect_hint": "attic"}
+
+        response = client.post("/search", json=payload)
+
+        assert response.status_code == 422
+
+    def test_query_form_accepts_payload_at_the_limit(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """64-character queries must still pass validation."""
+        mock_search_dependencies(monkeypatch)
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search",
+            _make_fake_search({}),
+        )
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "prepare_query_ipa",
+            lambda *args, **kwargs: api_main.phonology_search.PreparedQueryIpa(
+                query_mode="Full-form",
+                normalized_query="",
+                partial_query=None,
+                query_ipa="",
+                partial_query_tokens=None,
+            ),
+        )
+
+        payload = {"query_form": "α" * 64, "dialect_hint": "attic"}
+
+        response = client.post("/search", json=payload)
+
+        assert response.status_code == 200
+
+    def test_query_form_accepts_nfd_payload_at_nfc_limit(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """NFD combining marks must not make a 64-character NFC query invalid."""
+        mock_search_dependencies(monkeypatch)
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search",
+            _make_fake_search({}),
+        )
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "prepare_query_ipa",
+            lambda *args, **kwargs: api_main.phonology_search.PreparedQueryIpa(
+                query_mode="Full-form",
+                normalized_query="",
+                partial_query=None,
+                query_ipa="",
+                partial_query_tokens=None,
+            ),
+        )
+        query = unicodedata.normalize("NFD", "ά" * 64)
+        assert len(query) > 64
+        assert len(unicodedata.normalize("NFC", query)) == 64
+
+        response = client.post(
+            "/search",
+            json={"query_form": query, "dialect_hint": "attic"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["query"] == unicodedata.normalize("NFC", query)
+
+
+class TestSecurityHeaders:
+    def test_security_headers_present_on_every_response(
+        self, client: TestClient
+    ) -> None:
+        """Minimum hardening set flows through the custom middleware."""
+        response = client.get("/health")
+
+        assert response.status_code == 200
+        assert response.headers.get("x-content-type-options") == "nosniff"
+        assert response.headers.get("x-frame-options") == "DENY"
+        assert (
+            response.headers.get("referrer-policy")
+            == "strict-origin-when-cross-origin"
+        )
+        assert "camera=()" in response.headers.get("permissions-policy", "")
+
+
+class TestRuleRegistrySingleSource:
+    def test_api_loader_delegates_to_search_registry(self) -> None:
+        """The API's rule loader must share a single cached dict with search."""
+        api_registry = api_main._load_rules_registry()
+        search_registry = search_module.get_rules_registry("ancient_greek")
+
+        assert api_registry is search_registry

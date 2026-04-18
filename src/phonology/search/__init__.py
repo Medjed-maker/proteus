@@ -14,7 +14,6 @@ import yaml  # type: ignore[import-untyped]
 
 from ..explainer import (
     Alignment,
-    RuleApplication,
     TokenizedRule,
     explain,
     explain_with_tokenized_rules,
@@ -33,6 +32,7 @@ from ._constants import (
     _SEED_MULTIPLIER,
     _SHORT_QUERY_CONFIDENCE_THRESHOLD,
     _SHORT_QUERY_MAX_ANNOTATION_BATCHES,
+    OBSERVED_PREFIX,
 )
 from ._lookup import (
     _build_entry_lookup,
@@ -105,11 +105,14 @@ from ._types import (
 
 logger = logging.getLogger(__name__)
 
+# Private tuning attributes remain available for internal tests but are
+# intentionally excluded from the public star-import surface.
 __all__ = [
     "LexiconEntry",
     "LexiconMap",
     "LexiconRecord",
     "IpaIndex",
+    "OBSERVED_PREFIX",
     "QueryMode",
     "SearchResult",
     "build_ipa_index",
@@ -117,6 +120,7 @@ __all__ = [
     "build_lexicon_map",
     "classify_query_mode",
     "explain",  # re-exported from .explainer for test/consumer access
+    "get_rules_registry",
     "seed_stage",
     "extend_stage",
     "filter_stage",
@@ -455,20 +459,39 @@ def seed_stage(
 
 
 @lru_cache(maxsize=8)
-def _get_rules_registry(language: str = "ancient_greek") -> dict[str, dict[str, Any]]:
-    """Load the packaged rule registry once per process."""
+def get_rules_registry(language: str = "ancient_greek") -> dict[str, dict[str, Any]]:
+    """Load the packaged rule registry for the specified language.
+
+    Loads packaged phonological rules via ``load_rules`` and caches the result
+    once per process. Subsequent calls with the same language return the
+    cached registry.
+
+    Args:
+        language: The language identifier for which to load rules.
+            Defaults to "ancient_greek".
+
+    Returns:
+        A dictionary mapping rule IDs to rule definitions. Each rule definition
+        is a dict[str, Any] containing the rule's metadata and patterns.
+
+    Raises:
+        OSError: Propagated from ``load_rules`` if file system errors occur.
+        ValueError: Propagated from ``load_rules`` if rule validation fails,
+            or raised if the registry cannot be loaded for the given language.
+        yaml.YAMLError: Propagated from ``load_rules`` if YAML parsing fails.
+    """
     try:
         return load_rules(language)
     except (OSError, ValueError, yaml.YAMLError) as err:
         raise ValueError(
-            f"_get_rules_registry failed to load rules for language {language!r}: {err}"
+            f"get_rules_registry failed to load rules for language {language!r}: {err}"
         ) from err
 
 
 @lru_cache(maxsize=8)
 def _get_tokenized_rules(language: str = "ancient_greek") -> tuple[TokenizedRule, ...]:
     """Get tokenized rules from the registry for matching."""
-    rules_registry = _get_rules_registry(language)
+    rules_registry = get_rules_registry(language)
     return tuple(tokenize_rules_for_matching(list(rules_registry.values())))
 
 

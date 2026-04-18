@@ -618,7 +618,7 @@ class TestSearchAnnotation:
             tokenize_calls.append(len(rules))
             return []
 
-        monkeypatch.setattr(search_module, "_get_rules_registry", lambda language="ancient_greek": {})
+        monkeypatch.setattr(search_module, "get_rules_registry", lambda language="ancient_greek": {})
         monkeypatch.setattr(
             search_module,
             "tokenize_rules_for_matching",
@@ -665,7 +665,7 @@ class TestSearchAnnotation:
             return 2.0, list(query_tokens), list(lemma_tokens)
 
         monkeypatch.setattr(scoring_module, "_smith_waterman_alignment", fake_alignment)
-        monkeypatch.setattr(search_module, "_get_rules_registry", lambda language="ancient_greek": {})
+        monkeypatch.setattr(search_module, "get_rules_registry", lambda language="ancient_greek": {})
         monkeypatch.setattr(search_module, "tokenize_rules_for_matching", lambda rules: [])
 
         lexicon_map = {

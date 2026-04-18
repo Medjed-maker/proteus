@@ -8,13 +8,12 @@ from typing import Any, Literal
 from phonology.explainer import Explanation, RuleApplication, explain_alignment, to_prose
 from phonology.ipa_converter import strip_ignored_ipa_combining_marks
 from phonology import search as phonology_search
-from phonology.search._constants import OBSERVED_PREFIX
 
 from ._models import RuleStep, SearchHit
 
 logger = logging.getLogger(__name__)
 
-_OBSERVED_RULE_PREFIX = OBSERVED_PREFIX
+_OBSERVED_RULE_PREFIX: str = phonology_search.OBSERVED_PREFIX
 
 # ---------------------------------------------------------------------------
 # Localization: prose string templates keyed by language code.
@@ -145,6 +144,11 @@ _MEDIUM_SIMILARITY_THRESHOLD = 0.70
 _MODERATE_SIMILARITY_THRESHOLD = 0.55
 
 FallbackEditLabel = Literal["substitution", "deletion", "insertion"]
+_FALLBACK_EDIT_LABELS: tuple[FallbackEditLabel, ...] = (
+    "deletion",
+    "insertion",
+    "substitution",
+)
 
 
 def _distance_from_confidence(confidence: float) -> float:
@@ -344,16 +348,12 @@ def _build_alignment_summary(
             return _p(lang, "summary_rules_only").format(rules=rules_phrase, pos=position_summary)
         if len(observed_steps) == 1:
             return _p(lang, "summary_one_edit").format(pos=position_summary)
-        operation_counts_ja: dict[FallbackEditLabel, int] = {
-            "deletion": 0,
-            "insertion": 0,
-            "substitution": 0,
-        }
+        operation_counts_ja: dict[FallbackEditLabel, int] = dict.fromkeys(_FALLBACK_EDIT_LABELS, 0)
         for step in observed_steps:
             operation_counts_ja[_fallback_edit_label(step)] += 1
         ops = "・".join(
             f"{operation_counts_ja[label]}{_p(lang, label + '_s')}"
-            for label in ("deletion", "insertion", "substitution")
+            for label in _FALLBACK_EDIT_LABELS
             if operation_counts_ja[label] > 0
         )
         return _p(lang, "summary_multi_edit").format(ops=ops, pos=position_summary)
@@ -379,11 +379,7 @@ def _build_alignment_summary(
     if len(observed_steps) == 1:
         return _p(lang, "summary_one_edit").format(pos=position_summary)
 
-    operation_counts: dict[FallbackEditLabel, int] = {
-        "deletion": 0,
-        "insertion": 0,
-        "substitution": 0,
-    }
+    operation_counts: dict[FallbackEditLabel, int] = dict.fromkeys(_FALLBACK_EDIT_LABELS, 0)
     for step in observed_steps:
         operation_counts[_fallback_edit_label(step)] += 1
 
@@ -391,7 +387,7 @@ def _build_alignment_summary(
         _format_counted_noun(
             operation_counts[label], _p(lang, label + "_s"), _p(lang, label + "_p"), lang=lang
         )
-        for label in ("deletion", "insertion", "substitution")
+        for label in _FALLBACK_EDIT_LABELS
         if operation_counts[label] > 0
     )
     return _p(lang, "summary_multi_edit").format(ops=operation_summary, pos=position_summary)
