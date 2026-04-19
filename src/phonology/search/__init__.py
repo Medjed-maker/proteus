@@ -25,6 +25,7 @@ from ._constants import (
     _annotation_candidate_limit,
     _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
     _DEFAULT_KMER_SIZE,
+    _LENGTH_PROXIMATE_LIMIT_MULTIPLIER,
     _MIN_PARTIAL_STAGE2_CANDIDATES,
     _MIN_STAGE2_CANDIDATES,
     _partial_candidate_limit,
@@ -40,6 +41,7 @@ from ._lookup import (
     _inject_exact_ipa_matches,
     _lemma_label,
     _lookup_entry,
+    _normalize_ipa_lookup_key,
     build_ipa_index,
     IpaIndex,
 )
@@ -157,6 +159,50 @@ def _lookup_entry_tokens(record_or_entry: LexiconLookupValue) -> tuple[str, ...]
     if isinstance(record_or_entry, LexiconRecord) and len(record_or_entry.ipa_tokens) > 0:
         return record_or_entry.ipa_tokens
     return tuple(tokenize_ipa(_entry_ipa(_lookup_entry(record_or_entry))))
+
+
+def _inject_length_proximate_candidates(
+    *,
+    query_token_count: int,
+    seed_candidates: Sequence[str],
+    candidate_ids: list[str],
+    lexicon_lookup: LexiconLookup,
+    limit: int,
+    max_delta: int = 2,
+) -> list[str]:
+    """Append seed candidates whose IPA token count is close to the query's.
+
+    This preserves the caller's existing Stage 2 window first, then draws a
+    bounded supplement from the original seed order so tied k-mer groups do not
+    drop short, length-near full-form candidates before scoring.
+    """
+    if limit <= 0:
+        return []
+
+    merged_ids = list(candidate_ids[:limit])
+    seen = set(merged_ids)
+    if len(merged_ids) >= limit:
+        return merged_ids
+
+    for entry_id in seed_candidates:
+        if entry_id in seen:
+            continue
+        record_or_entry = lexicon_lookup.get(entry_id)
+        if record_or_entry is None:
+            continue
+        if isinstance(record_or_entry, LexiconRecord):
+            token_count = record_or_entry.token_count
+        else:
+            token_count = len(_lookup_entry_tokens(record_or_entry))
+        if abs(token_count - query_token_count) > max_delta:
+            continue
+
+        merged_ids.append(entry_id)
+        seen.add(entry_id)
+        if len(merged_ids) >= limit:
+            break
+
+    return merged_ids
 
 
 def build_lexicon_map(lexicon: Sequence[LexiconEntry]) -> LexiconMap:
@@ -855,13 +901,27 @@ def search(
         else:
             candidate_ids = seed_candidates[:stage2_limit]
             lexicon_lookup = _get_lexicon_lookup()
+            ipa_index_lookup = _get_ipa_index()
+            normalized_query_ipa = _normalize_ipa_lookup_key(query_ipa)
+            has_exact_ipa_match = (
+                query_mode == "Full-form"
+                and normalized_query_ipa in ipa_index_lookup
+            )
             candidate_ids = _inject_exact_ipa_matches(
                 query_ipa,
                 candidate_ids,
                 lexicon_lookup,
-                ipa_index=_get_ipa_index(),
+                ipa_index=ipa_index_lookup,
                 limit=stage2_limit,
             )
+            if query_mode == "Full-form" and not has_exact_ipa_match:
+                candidate_ids = _inject_length_proximate_candidates(
+                    query_token_count=len(query_tokens),
+                    seed_candidates=seed_candidates,
+                    candidate_ids=candidate_ids,
+                    lexicon_lookup=lexicon_lookup,
+                    limit=stage2_limit * _LENGTH_PROXIMATE_LIMIT_MULTIPLIER,
+                )
     else:
         unigram_candidates: list[str] = []
         if query_skeleton:

@@ -33,6 +33,7 @@ _PARTIAL_QUERY_MARKERS = frozenset(
 )
 _DEFAULT_FALLBACK_CANDIDATE_LIMIT = 2000
 _SHORT_QUERY_MAX_ANNOTATION_BATCHES = 3
+_LENGTH_PROXIMATE_LIMIT_MULTIPLIER = 2
 
 # Prefix for synthetic observed-difference annotations generated during alignment.
 # These pseudo-rules mark raw phoneme mismatches that were not explained by any
