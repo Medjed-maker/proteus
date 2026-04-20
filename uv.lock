@@ -835,6 +835,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "lingpy" },
+    { name = "packaging" },
     { name = "pyyaml" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -860,6 +861,7 @@ requires-dist = [
     { name = "jsonschema", marker = "extra == 'extract'", specifier = ">=4.26.0" },
     { name = "lingpy", specifier = ">=2.6.13" },
     { name = "lxml", marker = "extra == 'extract'", specifier = ">=4.9.1" },
+    { name = "packaging", specifier = ">=26.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },

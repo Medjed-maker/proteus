@@ -9,8 +9,10 @@ import pytest
 from phonology import distance as distance_module
 from phonology.distance import (
     DEFAULT_COST,
+    MatrixMeta,
     UNKNOWN_SUBSTITUTION_COST,
     load_matrix,
+    load_matrix_document,
     normalized_phonological_distance,
     normalized_sequence_distance,
     normalized_word_distance,
@@ -235,8 +237,10 @@ class TestPublicApi:
     def test_declares_explicit_public_api(self) -> None:
         assert distance_module.__all__ == [
             "MatrixData",
+            "MatrixMeta",
             "DEFAULT_COST",
             "load_matrix",
+            "load_matrix_document",
             "phone_distance",
             "phonological_distance",
             "normalized_phonological_distance",
@@ -638,3 +642,107 @@ class TestRealMatrix:
             "pa",
             matrix,
         )
+
+
+class TestMatrixMeta:
+    def test_matrix_meta_is_dict_type_alias(self) -> None:
+        meta: MatrixMeta = {"version": "1.0.0", "description": "test"}
+
+        assert isinstance(meta, dict)
+        assert meta["version"] == "1.0.0"
+
+    def test_matrix_meta_accepts_arbitrary_value_types(self) -> None:
+        meta: MatrixMeta = {"version": 1, "nested": {"key": True}, "items": [1, 2]}
+
+        assert meta["version"] == 1
+        assert meta["nested"]["key"] is True
+
+
+class TestLoadMatrixDocument:
+    def test_returns_matrix_data_and_meta_dict(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        matrix_file = trusted_dir / "test.json"
+        matrix_file.write_text(
+            json.dumps(
+                {
+                    "_meta": {"version": "1.0.0", "generated_at": "2026-04-20T00:00:00+00:00"},
+                    "sound_classes": {
+                        "vowels": {"a": {"a": 0.0, "e": 0.3}, "e": {"a": 0.3, "e": 0.0}},
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        matrix, meta = load_matrix_document(matrix_file)
+
+        assert isinstance(matrix, dict)
+        assert isinstance(meta, dict)
+        assert "a" in matrix
+        assert matrix["a"]["e"] == pytest.approx(0.3)
+        assert meta["version"] == "1.0.0"
+        assert meta["generated_at"] == "2026-04-20T00:00:00+00:00"
+
+    def test_returns_empty_meta_when_meta_key_is_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        matrix_file = trusted_dir / "no_meta.json"
+        matrix_file.write_text(
+            json.dumps({"vowels": {"a": {"e": 0.5}}}),
+            encoding="utf-8",
+        )
+
+        matrix, meta = load_matrix_document(matrix_file)
+
+        assert isinstance(matrix, dict)
+        assert meta == {}
+        assert matrix["a"]["e"] == pytest.approx(0.5)
+
+    def test_returns_empty_meta_when_meta_is_not_a_dict(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        matrix_file = trusted_dir / "bad_meta.json"
+        matrix_file.write_text(
+            json.dumps({"_meta": "not-a-dict", "a": {"b": 0.5}}),
+            encoding="utf-8",
+        )
+
+        matrix, meta = load_matrix_document(matrix_file)
+
+        assert meta == {}
+        assert matrix == {"a": {"b": 0.5}}
+
+    def test_raises_for_nonexistent_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        with pytest.raises(FileNotFoundError):
+            load_matrix_document(trusted_dir / "missing.json")
+
+    def test_committed_matrix_returns_version_and_generated_at(
+        self, committed_matrix_copy: Path
+    ) -> None:
+        matrix, meta = load_matrix_document(committed_matrix_copy)
+
+        assert isinstance(matrix, dict)
+        assert len(matrix) > 0
+        assert isinstance(meta, dict)
+        assert "version" in meta
+        assert "generated_at" in meta
+

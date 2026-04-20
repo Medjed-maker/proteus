@@ -43,15 +43,21 @@
   </main>
 
   <footer class="mt-auto text-center text-xs text-ink-light">
-    <span data-i18n="footerLexiconLabel">Lexicon data from:</span>
-    <a href="https://www.perseus.tufts.edu/" class="underline hover:text-ink"
-       target="_blank" rel="noopener noreferrer">Perseus Digital Library<span class="sr-only"> (opens in a new tab)</span></a>
-    (LSJ XML in
-    <a href="https://github.com/PerseusDL/lexica" class="underline hover:text-ink"
-       target="_blank" rel="noopener noreferrer">PerseusDL/lexica<span class="sr-only"> (opens in a new tab)</span></a>),
-    <span data-i18n="footerLicensedLabel">licensed</span>
-    <a href="https://creativecommons.org/licenses/by-sa/4.0/" class="underline hover:text-ink"
-       target="_blank" rel="noopener noreferrer">CC BY-SA 4.0<span class="sr-only"> (opens in a new tab)</span></a>.
+    <div>
+      <span data-i18n="footerLexiconLabel">Lexicon data from:</span>
+      <a href="https://www.perseus.tufts.edu/" class="underline hover:text-ink"
+         target="_blank" rel="noopener noreferrer">Perseus Digital Library<span class="sr-only"> (opens in a new tab)</span></a>
+      (LSJ XML in
+      <a href="https://github.com/PerseusDL/lexica" class="underline hover:text-ink"
+         target="_blank" rel="noopener noreferrer">PerseusDL/lexica<span class="sr-only"> (opens in a new tab)</span></a>),
+      <span data-i18n="footerLicensedLabel">licensed</span>
+      <a href="https://creativecommons.org/licenses/by-sa/4.0/" class="underline hover:text-ink"
+         target="_blank" rel="noopener noreferrer">CC BY-SA 4.0<span class="sr-only"> (opens in a new tab)</span></a>.
+    </div>
+    <div class="mt-2">
+      <span data-i18n="versionLabel">Version</span> {{APP_VERSION}} ·
+      <a href="/changelog" class="underline hover:text-ink" data-i18n="changelogLink">Changelog</a>
+    </div>
   </footer>
 
   <script>
@@ -119,6 +125,8 @@
         positionLabel: "position ",
         footerLexiconLabel: "Lexicon data from:",
         footerLicensedLabel: "licensed",
+        versionLabel: "Version",
+        changelogLink: "Changelog",
       },
     };
 

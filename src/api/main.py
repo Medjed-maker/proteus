@@ -8,12 +8,15 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 import hashlib
+import html
+from importlib import metadata
 from functools import lru_cache
 import json
 import logging
 import os
 from pathlib import Path
 import threading
+import tomllib
 from typing import Any, AsyncIterator, NamedTuple
 
 import yaml
@@ -22,13 +25,15 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
+from packaging.version import InvalidVersion, Version
 
 from phonology import search as phonology_search
 from phonology._paths import resolve_repo_data_dir
-from phonology.distance import MatrixData, load_matrix
+from phonology.distance import MatrixData, load_matrix_document
+from phonology.explainer import get_rules_version
 from phonology.ipa_converter import to_ipa
 
-from ._models import SearchRequest, SearchResponse
+from ._models import DataVersions, SearchRequest, SearchResponse
 from ._hit_formatting import _build_search_hit
 
 logger = logging.getLogger(__name__)
@@ -38,6 +43,7 @@ _LSJ_REPO_DIR_ENV_VAR = "PROTEUS_LSJ_REPO_DIR"
 _DISABLE_STARTUP_WARMUP_ENV_VAR = "PROTEUS_DISABLE_STARTUP_WARMUP"
 _DISABLE_STARTUP_WARMUP_ATTR = "disable_startup_warmup"
 _ENABLE_API_DOCS_ENV_VAR = "PROTEUS_ENABLE_API_DOCS"
+_APP_VERSION_ENV_VAR = "PROTEUS_APP_VERSION"
 # Upper bound for both the similarity fallback (stage 2 widening when the
 # seed set is too small) and the unigram fallback (k=1 recovery for short
 # queries). Kept in one place so the two caps stay coupled; 2000 mirrors
@@ -55,6 +61,40 @@ _SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL = (
     "to generate the lexicon. If you use a non-default LSJ checkout, set "
     f"{_LSJ_REPO_DIR_ENV_VAR} before extraction."
 )
+
+
+def _load_app_version() -> str:
+    """Return the application version from env, package metadata, or pyproject."""
+    env_version = os.environ.get(_APP_VERSION_ENV_VAR, "").strip().lstrip("v")
+    if env_version:
+        return env_version
+
+    try:
+        return metadata.version("proteus")
+    except metadata.PackageNotFoundError:
+        pass
+
+    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    try:
+        with pyproject_path.open("rb") as pyproject_file:
+            pyproject = tomllib.load(pyproject_file)
+    except (OSError, tomllib.TOMLDecodeError):
+        logger.exception("Failed to read application version from %s", pyproject_path)
+        return "unknown"
+
+    project = pyproject.get("project", {})
+    if isinstance(project, dict):
+        version = project.get("version")
+        if isinstance(version, str) and version.strip():
+            return version.strip()
+
+    logger.error("Application version is missing from %s", pyproject_path)
+    return "unknown"
+
+
+_APP_VERSION = _load_app_version()
+
+
 class SearchDependencies(NamedTuple):
     """Search dependencies loaded at startup."""
     lexicon: tuple[dict[str, Any], ...]
@@ -64,6 +104,7 @@ class SearchDependencies(NamedTuple):
     unigram_index: phonology_search.KmerIndex
     lexicon_map: phonology_search.LexiconMap
     ipa_index: phonology_search.IpaIndex
+    data_versions: DataVersions
 
 
 class SearchDependenciesNotReadyError(RuntimeError):
@@ -130,7 +171,7 @@ def _should_log_raw_search_query() -> bool:
 app = FastAPI(
     title="Proteus",
     description="Ancient Greek phonological search engine",
-    version="0.1.0",
+    version=_APP_VERSION,
     docs_url="/docs" if _env_flag_enabled(_ENABLE_API_DOCS_ENV_VAR) else None,
     openapi_url="/openapi.json" if _env_flag_enabled(_ENABLE_API_DOCS_ENV_VAR) else None,
     redoc_url=None,
@@ -165,6 +206,7 @@ async def _add_security_headers(
 
 
 _FRONTEND_PATH = Path(__file__).resolve().parents[1] / "web" / "index.html"
+_CHANGELOG_PATH = Path(__file__).resolve().parents[1] / "web" / "changelog.html"
 _STATIC_DIR = Path(__file__).resolve().parents[1] / "web" / "static"
 
 
@@ -179,9 +221,20 @@ def _load_frontend_html() -> str | None:
         return None
 
 
+def _load_changelog_html() -> str | None:
+    """Load and cache the packaged changelog HTML document."""
+    if not _CHANGELOG_PATH.exists():
+        return None
+    try:
+        return _CHANGELOG_PATH.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        logger.exception("Failed to read changelog HTML from %s", _CHANGELOG_PATH)
+        return None
+
+
 @lru_cache(maxsize=1)
-def _load_lexicon_entries() -> tuple[dict[str, Any], ...]:
-    """Load the packaged Greek lemma lexicon once per process."""
+def _load_lexicon_document() -> dict[str, Any]:
+    """Load the packaged Greek lemma lexicon document once per process."""
     lexicon_path = resolve_repo_data_dir("lexicon") / "greek_lemmas.json"
     try:
         raw_text = lexicon_path.read_text(encoding="utf-8")
@@ -193,15 +246,22 @@ def _load_lexicon_entries() -> tuple[dict[str, Any], ...]:
         raise ValueError(f"Failed to parse JSON in {lexicon_path}: {err}") from err
     if not isinstance(document, dict):
         raise ValueError(f"Lexicon file {lexicon_path} must contain a top-level object")
+    return document
+
+
+@lru_cache(maxsize=1)
+def _load_lexicon_entries() -> tuple[dict[str, Any], ...]:
+    """Load the packaged Greek lemma lexicon once per process."""
+    document = _load_lexicon_document()
 
     raw_entries = document.get("lemmas")
     if not isinstance(raw_entries, list):
-        raise ValueError(f"Lexicon file {lexicon_path} must define a list under 'lemmas'")
+        raise ValueError("Lexicon document must define a list under 'lemmas'")
 
     entries: list[dict[str, Any]] = []
     for index, entry in enumerate(raw_entries):
         if not isinstance(entry, dict):
-            raise ValueError(f"Lexicon entry {index} in {lexicon_path} must be an object")
+            raise ValueError(f"Lexicon entry {index} must be an object")
         entries.append(dict(entry))
     return tuple(entries)
 
@@ -212,9 +272,15 @@ def load_lexicon_entries() -> tuple[dict[str, Any], ...]:
 
 
 @lru_cache(maxsize=1)
+def _load_distance_matrix_with_meta() -> tuple[MatrixData, dict[str, Any]]:
+    """Load the packaged search distance matrix and its metadata once per process."""
+    return load_matrix_document("attic_doric.json")
+
+
 def _load_distance_matrix() -> MatrixData:
     """Load the packaged search distance matrix once per process."""
-    return load_matrix("attic_doric.json")
+    matrix, _ = _load_distance_matrix_with_meta()
+    return matrix
 
 
 def _load_rules_registry() -> dict[str, dict[str, Any]]:
@@ -250,6 +316,48 @@ def _load_ipa_index() -> phonology_search.IpaIndex:
     return phonology_search.build_ipa_index(_load_lexicon_map())
 
 
+def _build_data_versions() -> DataVersions:
+    """Build DataVersions from loaded data sources.
+
+    Collects version metadata from lexicon, matrix, and rules.
+    """
+    fields: dict[str, str] = {}
+
+    try:
+        document = _load_lexicon_document()
+        schema_version = document.get("schema_version")
+        if isinstance(schema_version, str) and schema_version.strip():
+            fields["lexicon"] = schema_version
+        meta = document.get("_meta", {})
+        if isinstance(meta, dict):
+            last_updated = meta.get("last_updated")
+            if isinstance(last_updated, str):
+                fields["lexicon_updated_at"] = last_updated
+    except (OSError, ValueError) as err:
+        logger.exception("Failed to load lexicon data version metadata: %s", err)
+
+    try:
+        _, matrix_meta = _load_distance_matrix_with_meta()
+        matrix_version = matrix_meta.get("version")
+        if isinstance(matrix_version, str) and matrix_version.strip():
+            fields["matrix"] = matrix_version
+        generated_at = matrix_meta.get("generated_at")
+        if isinstance(generated_at, str):
+            fields["matrix_generated_at"] = generated_at
+    except (OSError, ValueError, json.JSONDecodeError) as err:
+        logger.exception("Failed to load matrix data version metadata: %s", err)
+
+    try:
+        rules_versions = get_rules_version("ancient_greek")
+        if rules_versions:
+            max_version = max(Version(version) for version in rules_versions.values())
+            fields["rules"] = str(max_version)
+    except (OSError, ValueError, yaml.YAMLError, InvalidVersion) as err:
+        logger.exception("Failed to load rules data version metadata: %s", err)
+
+    return DataVersions(**fields)
+
+
 def _load_search_dependencies() -> SearchDependencies:
     """Load all cached search dependencies needed by /ready and /search."""
     try:
@@ -260,6 +368,7 @@ def _load_search_dependencies() -> SearchDependencies:
         ) from err
 
     try:
+        data_versions = _build_data_versions()
         return SearchDependencies(
             lexicon=lexicon,
             matrix=_load_distance_matrix(),
@@ -268,6 +377,7 @@ def _load_search_dependencies() -> SearchDependencies:
             unigram_index=_load_unigram_index(),
             lexicon_map=_load_lexicon_map(),
             ipa_index=_load_ipa_index(),
+            data_versions=data_versions,
         )
     except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
         raise SearchDependenciesNotReadyError(
@@ -315,18 +425,32 @@ def _warm_search_dependencies() -> None:
 _FRONTEND_HTML = _load_frontend_html()
 if _FRONTEND_HTML is None:
     logger.warning("Frontend HTML asset not found at %s", _FRONTEND_PATH)
+_CHANGELOG_HTML = _load_changelog_html()
+if _CHANGELOG_HTML is None:
+    logger.warning("Changelog HTML asset not found at %s", _CHANGELOG_PATH)
 
 
 def render_frontend() -> HTMLResponse:
     """Return the packaged frontend HTML document."""
     if _FRONTEND_HTML is None:
         raise HTTPException(status_code=404, detail="Frontend asset not found")
-    return HTMLResponse(_FRONTEND_HTML)
+    escaped_version = html.escape(_APP_VERSION)
+    return HTMLResponse(_FRONTEND_HTML.replace("{{APP_VERSION}}", escaped_version))
+
+
+def render_changelog() -> HTMLResponse:
+    """Return the packaged changelog HTML document."""
+    if _CHANGELOG_HTML is None:
+        raise HTTPException(status_code=404, detail="Changelog asset not found")
+    escaped_version = html.escape(_APP_VERSION)
+    return HTMLResponse(_CHANGELOG_HTML.replace("{{APP_VERSION}}", escaped_version))
 
 
 @app.head("/")
 async def root_head() -> Response:
-    """Return a lightweight success response for uptime probes."""
+    """Return a lightweight response for uptime probes."""
+    if _FRONTEND_HTML is None:
+        return Response(status_code=404)
     return Response(status_code=200)
 
 
@@ -334,6 +458,20 @@ async def root_head() -> Response:
 async def root() -> HTMLResponse:
     """Serve the frontend."""
     return render_frontend()
+
+
+@app.get("/changelog", response_class=HTMLResponse)
+async def changelog() -> HTMLResponse:
+    """Serve the changelog page."""
+    return render_changelog()
+
+
+@app.head("/changelog")
+async def changelog_head() -> Response:
+    """Return a lightweight response for changelog preflight checks."""
+    if _CHANGELOG_HTML is None:
+        return Response(status_code=404)
+    return Response(status_code=200)
 
 
 @app.post("/search", response_model=SearchResponse)
@@ -412,6 +550,7 @@ async def search(request: SearchRequest) -> SearchResponse:
             for result in results
         ],
         truncated=truncated,
+        data_versions=deps.data_versions,
     )
 
 

@@ -57,7 +57,9 @@
     "rankLabel": "Rank ",
     "positionLabel": "position ",
     "footerLexiconLabel": "Lexicon data from:",
-    "footerLicensedLabel": "licensed"
+    "footerLicensedLabel": "licensed",
+    "versionLabel": "Version",
+    "changelogLink": "Changelog"
   },
   "ja": {
     "subtitle": "古代ギリシャ語音韻検索エンジン",
@@ -117,6 +119,8 @@
     "rankLabel": "ランク ",
     "positionLabel": "位置 ",
     "footerLexiconLabel": "語彙データ出典:",
-    "footerLicensedLabel": "ライセンス"
+    "footerLicensedLabel": "ライセンス",
+    "versionLabel": "バージョン",
+    "changelogLink": "更新履歴"
   }
 }

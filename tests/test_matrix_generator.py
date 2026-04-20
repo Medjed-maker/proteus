@@ -1,7 +1,9 @@
 """Tests for phonology.matrix_generator."""
 
 from collections.abc import Generator
+from datetime import datetime, timedelta, timezone
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -221,6 +223,71 @@ class TestValidateDialectPairs:
         )
 
         assert validated == {"attic_doric": {"ɛː_aː": distance}}
+
+
+class TestBuildAtticDoricMatrix:
+    def test_returns_expected_document_structure(self) -> None:
+        document = matrix_generator.build_attic_doric_matrix()
+
+        assert set(document) == {"_meta", "sound_classes"}
+
+        meta = document["_meta"]
+        assert isinstance(meta, dict)
+        assert isinstance(meta["generated_at"], str)
+
+        sound_classes = document["sound_classes"]
+        assert isinstance(sound_classes, dict)
+        assert isinstance(sound_classes["vowels"], dict)
+        assert isinstance(sound_classes["stops"], dict)
+        assert isinstance(sound_classes["dialect_pairs"], dict)
+
+    def test_generated_at_includes_timezone_offset_and_milliseconds(self) -> None:
+        document = matrix_generator.build_attic_doric_matrix(
+            generated_at="2026-04-20T09:10:11.123456Z"
+        )
+
+        generated_at = document["_meta"]["generated_at"]
+
+        parsed = datetime.fromisoformat(generated_at)
+        assert parsed.tzinfo is not None
+        assert parsed.utcoffset() == timedelta(0)
+        assert generated_at == "2026-04-20T09:10:11.123+00:00"
+        assert re.fullmatch(
+            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+00:00",
+            generated_at,
+        ), f"generated_at format mismatch: {generated_at}"
+
+    def test_normalizes_explicit_generated_at(self) -> None:
+        document = matrix_generator.build_attic_doric_matrix(
+            generated_at="2026-04-20T09:10:11Z"
+        )
+
+        assert document["_meta"]["generated_at"] == "2026-04-20T09:10:11.000+00:00"
+
+    def test_rejects_invalid_generated_at(self) -> None:
+        invalid_generated_at = "not-a-date"
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "generated_at must be a valid ISO-8601 timestamp: "
+                f"{invalid_generated_at!r}"
+            ),
+        ):
+            matrix_generator.build_attic_doric_matrix(
+                generated_at=invalid_generated_at
+            )
+
+    def test_rejects_non_string_generated_at(self) -> None:
+        invalid_generated_at = 123
+
+        with pytest.raises(
+            ValueError,
+            match=f"generated_at must be a string or None: {invalid_generated_at!r}",
+        ):
+            matrix_generator.build_attic_doric_matrix(
+                generated_at=invalid_generated_at  # type: ignore[arg-type]
+            )
 
 
 class TestRunCli:

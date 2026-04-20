@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from decimal import Decimal
+import logging
 import math
 from pathlib import Path
 import re
@@ -20,6 +22,8 @@ from ._paths import resolve_repo_data_dir
 from ._phones import VOWEL_PHONES
 from .ipa_converter import tokenize_ipa
 
+logger = logging.getLogger(__name__)
+
 __all__ = [
     "Rule",
     "Alignment",
@@ -30,6 +34,7 @@ __all__ = [
     "tokenize_rules_for_matching",
     "explain_with_tokenized_rules",
     "load_rules",
+    "get_rules_version",
     "explain",
     "explain_alignment",
     "to_prose",
@@ -92,6 +97,35 @@ def _resolve_rules_dir(rules_dir: Path | str, rules_base_dir: Path) -> Path:
         candidate_rules_dir = Path(*parts[2:])
 
     return rules_base_dir / candidate_rules_dir
+
+
+def _resolve_and_validate_rules_dir(rules_dir: Path | str, caller_name: str) -> Path:
+    """Resolve a rules directory and verify it stays within the rules base."""
+    rules_base_dir = _get_rules_base_dir()
+    try:
+        rules_base_dir = rules_base_dir.resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise ValueError(
+            f"Configured rules base directory is missing: {exc}. "
+            f"Create the {rules_base_dir} directory before calling {caller_name}()."
+        ) from exc
+
+    candidate_rules_dir = _resolve_rules_dir(rules_dir, rules_base_dir)
+    try:
+        resolved_rules_dir = candidate_rules_dir.resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise ValueError(
+            f"{caller_name} could not find rules directory {candidate_rules_dir}. "
+            f"Expected an existing directory within {rules_base_dir}."
+        ) from exc
+    if not resolved_rules_dir.is_relative_to(rules_base_dir):
+        raise ValueError(
+            f"{caller_name} path must stay within {rules_base_dir}, got {resolved_rules_dir}"
+        )
+    if not resolved_rules_dir.is_dir():
+        raise ValueError(f"{caller_name} expected a directory, got {resolved_rules_dir}")
+
+    return resolved_rules_dir
 
 
 @dataclass
@@ -187,29 +221,7 @@ def load_rules(rules_dir: Path | str) -> dict[str, dict]:
     Returns:
         Dict mapping rule_id -> rule dict.
     """
-    rules_base_dir = _get_rules_base_dir()
-    try:
-        rules_base_dir = rules_base_dir.resolve(strict=True)
-    except FileNotFoundError as exc:
-        raise ValueError(
-            f"Configured rules base directory is missing: {exc}. "
-            f"Create the {rules_base_dir} directory before calling load_rules()."
-        ) from exc
-
-    candidate_rules_dir = _resolve_rules_dir(rules_dir, rules_base_dir)
-    try:
-        resolved_rules_dir = candidate_rules_dir.resolve(strict=True)
-    except FileNotFoundError as exc:
-        raise ValueError(
-            f"load_rules could not find rules directory {candidate_rules_dir}. "
-            f"Expected an existing directory within {rules_base_dir}."
-        ) from exc
-    if not resolved_rules_dir.is_relative_to(rules_base_dir):
-        raise ValueError(
-            f"load_rules path must stay within {rules_base_dir}, got {resolved_rules_dir}"
-        )
-    if not resolved_rules_dir.is_dir():
-        raise ValueError(f"load_rules expected a directory, got {resolved_rules_dir}")
+    resolved_rules_dir = _resolve_and_validate_rules_dir(rules_dir, "load_rules")
 
     rules: dict[str, dict] = {}
     rule_sources: dict[str, Path] = {}
@@ -242,6 +254,58 @@ def load_rules(rules_dir: Path | str) -> dict[str, dict]:
             rule_sources[rule_id] = rule_file
 
     return rules
+
+
+def get_rules_version(rules_dir: Path | str) -> dict[str, str]:
+    """Load version metadata from all YAML rule files in a directory.
+
+    Args:
+        rules_dir: Path to the rules directory. Relative inputs are resolved
+            from the packaged rules base.
+
+    Returns:
+        Dict mapping rule file stem -> version string.
+        Example: {"vowel_shifts": "1.0.0", "consonant_changes": "1.0.0"}
+
+    Raises:
+        Same exceptions as load_rules().
+    """
+    resolved_rules_dir = _resolve_and_validate_rules_dir(rules_dir, "get_rules_version")
+
+    versions: dict[str, str] = {}
+    for rule_file in sorted(resolved_rules_dir.iterdir()):
+        if not rule_file.is_file() or rule_file.suffix.lower() not in {".yaml", ".yml"}:
+            continue
+
+        document = yaml.safe_load(rule_file.read_text(encoding="utf-8"))
+        if not isinstance(document, dict):
+            logger.debug(
+                "Skipping rule version metadata in %s: top-level YAML is not a mapping",
+                rule_file,
+            )
+            continue
+
+        version = document.get("version")
+        if isinstance(version, str) and version.strip():
+            versions[rule_file.stem] = version.strip()
+        elif isinstance(version, int):
+            versions[rule_file.stem] = str(version)
+        elif isinstance(version, float):
+            if not math.isfinite(version):
+                logger.debug(
+                    "Skipping rule version metadata in %s: version is non-finite (%s)",
+                    rule_file,
+                    version,
+                )
+                continue
+            versions[rule_file.stem] = str(Decimal(str(version)))
+        else:
+            logger.debug(
+                "Skipping rule version metadata in %s: version is missing or invalid",
+                rule_file,
+            )
+
+    return versions
 
 
 @dataclass(frozen=True)

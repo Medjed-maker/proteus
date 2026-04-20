@@ -1146,6 +1146,48 @@ def test_load_rules_duplicate_error_includes_both_files(
     assert "second.yaml" in message
 
 
+def test_get_rules_version_logs_skipped_invalid_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Invalid version metadata is skipped with debug context."""
+    import logging
+
+    rules_base = tmp_path / "rules"
+    rules_dir = rules_base / "ancient_greek"
+    rules_dir.mkdir(parents=True)
+    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
+
+    (rules_dir / "valid.yaml").write_text('version: "1.2.3"\nrules: []\n', encoding="utf-8")
+    (rules_dir / "missing.yaml").write_text("rules: []\n", encoding="utf-8")
+    (rules_dir / "scalar.yaml").write_text("- not-a-mapping\n", encoding="utf-8")
+
+    caplog.set_level(logging.DEBUG, logger="phonology.explainer")
+
+    versions = explainer_module.get_rules_version("ancient_greek")
+
+    assert versions == {"valid": "1.2.3"}
+
+    not_mapping_records = [
+        record
+        for record in caplog.records
+        if record.name == "phonology.explainer"
+        and record.levelno == logging.DEBUG
+        and "top-level YAML is not a mapping" in record.getMessage()
+    ]
+    assert len(not_mapping_records) >= 1
+
+    missing_version_records = [
+        record
+        for record in caplog.records
+        if record.name == "phonology.explainer"
+        and record.levelno == logging.DEBUG
+        and "version is missing or invalid" in record.getMessage()
+    ]
+    assert len(missing_version_records) >= 1
+
+
 def test_explain_generates_observed_deletion() -> None:
     """Verify a gap-aligned mismatch (deletion) produces OBS-DEL."""
     applications = explain(
