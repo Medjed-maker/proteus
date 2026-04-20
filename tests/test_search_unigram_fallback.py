@@ -205,6 +205,7 @@ class TestSearchUnigramFallback:
 
     def test_fullform_unigram_fallback_applies_default_cap_when_none(
         self,
+        caplog: pytest.LogCaptureFixture,
         monkeypatch: pytest.MonkeyPatch,
         mock_common_search_stages: dict[str, object],
     ) -> None:
@@ -228,6 +229,7 @@ class TestSearchUnigramFallback:
             for index in range(2500)
         ]
 
+        caplog.set_level("WARNING", logger="phonology.search")
         search(
             "λόγος",
             lexicon,
@@ -239,6 +241,11 @@ class TestSearchUnigramFallback:
         )
 
         assert len(captured["candidate_ids"]) == search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT
+        assert "unigram_fallback_limit=None for query IPA" in caplog.text
+        assert (
+            f"applying default cap {search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT}."
+            in caplog.text
+        )
 
     def test_unigram_fallback_limit_uses_token_count_proximity_to_keep_best_match(
         self, monkeypatch: pytest.MonkeyPatch

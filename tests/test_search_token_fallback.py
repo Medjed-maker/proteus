@@ -78,6 +78,148 @@ def _make_fake_score_stage(
 class TestSearchTokenFallback:
     """Tests for token-count proximity fallback behavior."""
 
+    def test_token_proximity_helper_returns_capped_fullform_selection(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The extracted helper should preserve full-form cap and metadata."""
+        captured: dict[str, object] = {}
+        tokenized_map = {
+            "L1": LexiconRecord(
+                entry={"id": "L1", "headword": "one", "ipa": "a", "dialect": "attic"},
+                token_count=1,
+                ipa_tokens=("a",),
+            ),
+            "L2": LexiconRecord(
+                entry={"id": "L2", "headword": "two", "ipa": "a b", "dialect": "attic"},
+                token_count=2,
+                ipa_tokens=("a", "b"),
+            ),
+        }
+        dependencies = search_module._LazySearchDependencies(
+            lexicon=[],
+            prebuilt_lexicon_map=tokenized_map,
+            prebuilt_ipa_index=None,
+        )
+
+        def fake_rank_by_token_count_proximity(
+            query_ipa: str,
+            lexicon_map: dict[str, LexiconRecord],
+            *,
+            max_candidates: int | None = None,
+            query_token_count: int | None = None,
+        ) -> list[str]:
+            captured["query_ipa"] = query_ipa
+            captured["lexicon_lookup"] = lexicon_map
+            captured["max_candidates"] = max_candidates
+            captured["query_token_count"] = query_token_count
+            return ["L2"]
+
+        monkeypatch.setattr(
+            search_module,
+            "_rank_by_token_count_proximity",
+            fake_rank_by_token_count_proximity,
+        )
+
+        query_tokens = ["a", "b"]
+        selection = search_module._select_token_proximity_fallback_candidates(
+            query_ipa="a b",
+            query_mode="Full-form",
+            query_tokens=query_tokens,
+            partial_query_tokens=None,
+            dependencies=dependencies,
+            max_results=1,
+            effective_similarity_fallback_limit=7,
+        )
+
+        assert captured == {
+            "query_ipa": "a b",
+            "lexicon_lookup": tokenized_map,
+            "max_candidates": 7,
+            "query_token_count": 2,
+        }
+        assert selection.candidate_ids == ["L2"]
+        assert selection.lexicon_lookup is tokenized_map
+        assert selection.query_mode == "Full-form"
+        assert selection.query_tokens is query_tokens
+        assert selection.selection_path == "token-proximity-fallback"
+        assert selection.seed_candidate_count == 0
+        assert selection.unigram_candidate_count == 0
+        assert selection.fallback_limit == 7
+
+    def test_token_proximity_helper_routes_partial_form_through_partial_selector(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Partial-form token fallback should keep the partial selector path."""
+        captured: dict[str, object] = {}
+        tokenized_map = {
+            "L1": LexiconRecord(
+                entry={"id": "L1", "headword": "one", "ipa": "a b", "dialect": "attic"},
+                token_count=2,
+                ipa_tokens=("a", "b"),
+            ),
+        }
+        dependencies = search_module._LazySearchDependencies(
+            lexicon=[],
+            prebuilt_lexicon_map=tokenized_map,
+            prebuilt_ipa_index=None,
+        )
+        partial_query = search_module.PartialQueryTokens(
+            shape="suffix",
+            left_tokens=(),
+            right_tokens=("b",),
+        )
+
+        def fake_select_partial_token_fallback_candidates(
+            partial_query_arg: search_module.PartialQueryTokens,
+            query_ipa: str,
+            query_token_count: int,
+            lexicon_map: dict[str, LexiconRecord],
+            *,
+            max_results: int,
+            explicit_limit: int,
+        ) -> list[str]:
+            captured["partial_query"] = partial_query_arg
+            captured["query_ipa"] = query_ipa
+            captured["query_token_count"] = query_token_count
+            captured["lexicon_lookup"] = lexicon_map
+            captured["max_results"] = max_results
+            captured["explicit_limit"] = explicit_limit
+            return ["L1"]
+
+        monkeypatch.setattr(
+            search_module,
+            "_select_partial_token_fallback_candidates",
+            fake_select_partial_token_fallback_candidates,
+        )
+
+        query_tokens = ["a", "b"]
+        selection = search_module._select_token_proximity_fallback_candidates(
+            query_ipa="a b",
+            query_mode="Partial-form",
+            query_tokens=query_tokens,
+            partial_query_tokens=partial_query,
+            dependencies=dependencies,
+            max_results=3,
+            effective_similarity_fallback_limit=11,
+        )
+
+        assert captured == {
+            "partial_query": partial_query,
+            "query_ipa": "a b",
+            "query_token_count": 2,
+            "lexicon_lookup": tokenized_map,
+            "max_results": 3,
+            "explicit_limit": 11,
+        }
+        assert selection.candidate_ids == ["L1"]
+        assert selection.lexicon_lookup is tokenized_map
+        assert selection.query_mode == "Partial-form"
+        assert selection.query_tokens is query_tokens
+        assert selection.selection_path == "partial-token-proximity-fallback"
+        assert selection.seed_candidate_count == 0
+        assert selection.unigram_candidate_count == 0
+        assert selection.fallback_limit == 11
+
     def test_uses_token_proximity_when_query_has_no_seedable_skeleton(
         self,
         mock_load_rules: None,
@@ -265,6 +407,7 @@ class TestSearchTokenFallback:
 
     def test_fullform_token_proximity_fallback_applies_default_cap_when_none(
         self,
+        caplog: pytest.LogCaptureFixture,
         monkeypatch: pytest.MonkeyPatch,
         mock_to_ipa_factory: Callable[[str], None],
     ) -> None:
@@ -291,6 +434,7 @@ class TestSearchTokenFallback:
             for index in range(2500)
         ]
 
+        caplog.set_level("WARNING", logger="phonology.search")
         search(
             "λόγος",
             lexicon,
@@ -302,6 +446,11 @@ class TestSearchTokenFallback:
         )
 
         assert len(captured["candidate_ids"]) == search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT
+        assert "similarity_fallback_limit=None for query IPA" in caplog.text
+        assert (
+            f"applying default cap {search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT}."
+            in caplog.text
+        )
 
     def test_search_accepts_explicit_similarity_fallback_limit(
         self,

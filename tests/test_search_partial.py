@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import replace
 
 import pytest
@@ -295,6 +295,71 @@ class TestSearchPartial:
         )
 
         assert captured["candidate_ids"] == ["ADJACENT", "GAPPED"]
+
+    def test_partial_seeded_selection_bounded_merges_supplemental_unigrams(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Partial seeded selection should merge k=1 supplements within the annotation cap."""
+        captured: dict[str, object] = {}
+        annotation_limit = search_module._annotation_candidate_limit(1)
+        primary_seed_ids = [f"P{index:02d}" for index in range(annotation_limit - 1)]
+        supplemental_seed_ids = ["SUPP", "TAIL"]
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
+
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+            return primary_seed_ids if k == 2 else supplemental_seed_ids
+
+        def fake_select_partial_seed_candidates(
+            partial_query: search_module.PartialQueryTokens,
+            seed_candidates: Sequence[str],
+            lexicon_map: dict[str, object],
+            stage2_limit: int,
+        ) -> list[str]:
+            captured["partial_query"] = partial_query
+            captured["seed_candidates"] = list(seed_candidates)
+            captured["stage2_limit"] = stage2_limit
+            return list(seed_candidates)
+
+        def fake_score_stage(
+            query_ipa: str,
+            candidates: Iterable[str],
+            lexicon_map: dict[str, object],
+            matrix: object,
+        ) -> list[SearchResult]:
+            captured["candidate_ids"] = list(candidates)
+            return []
+
+        monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
+        monkeypatch.setattr(
+            search_module,
+            "_select_partial_seed_candidates",
+            fake_select_partial_seed_candidates,
+        )
+        monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
+        monkeypatch.setattr(
+            search_module,
+            "_annotate_search_results",
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+        )
+
+        lexicon = [
+            {"id": candidate_id, "headword": candidate_id, "ipa": "a c", "dialect": "attic"}
+            for candidate_id in [*primary_seed_ids, *supplemental_seed_ids]
+        ]
+
+        search("a*c", lexicon, matrix={}, max_results=1, index={}, unigram_index={})
+
+        assert captured["partial_query"] == search_module.PartialQueryTokens(
+            "infix",
+            ("a",),
+            ("c",),
+        )
+        assert captured["seed_candidates"] == [*primary_seed_ids, "SUPP"]
+        assert len(captured["seed_candidates"]) == annotation_limit
+        assert "TAIL" not in captured["seed_candidates"]
+        assert captured["stage2_limit"] == search_module._MIN_STAGE2_CANDIDATES
+        assert captured["candidate_ids"] == captured["seed_candidates"]
 
     def test_partial_query_k2_seed_path_does_not_append_full_lexicon_tail(
         self, monkeypatch: pytest.MonkeyPatch

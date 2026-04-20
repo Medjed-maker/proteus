@@ -85,6 +85,41 @@ class TestSearch:
         with pytest.raises(ValueError, match="query must be a non-empty string"):
             search("   ", [], matrix={})
 
+    @pytest.mark.parametrize("max_results", [0, -1])
+    def test_rejects_non_positive_max_results(self, max_results: int) -> None:
+        with pytest.raises(ValueError, match="max_results must be a positive integer"):
+            search("λόγος", [], matrix={}, max_results=max_results)
+
+    @pytest.mark.parametrize("similarity_fallback_limit", [0, -1])
+    def test_rejects_non_positive_similarity_fallback_limit(
+        self, similarity_fallback_limit: int
+    ) -> None:
+        with pytest.raises(
+            ValueError,
+            match="similarity_fallback_limit must be a positive integer",
+        ):
+            search(
+                "λόγος",
+                [],
+                matrix={},
+                similarity_fallback_limit=similarity_fallback_limit,
+            )
+
+    @pytest.mark.parametrize("unigram_fallback_limit", [0, -1])
+    def test_rejects_non_positive_unigram_fallback_limit(
+        self, unigram_fallback_limit: int
+    ) -> None:
+        with pytest.raises(
+            ValueError,
+            match="unigram_fallback_limit must be a positive integer",
+        ):
+            search(
+                "λόγος",
+                [],
+                matrix={},
+                unigram_fallback_limit=unigram_fallback_limit,
+            )
+
     @pytest.mark.parametrize("query", ["*", "-"])
     def test_rejects_wildcard_only_query(self, query: str) -> None:
         with pytest.raises(ValueError, match="query must be a non-empty string"):
@@ -225,6 +260,131 @@ class TestSearch:
 
         assert token_calls == ["query-ipa"]
 
+    def test_prebuilt_lexicon_map_reuses_token_fallback_lookup_without_rebuilding(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Token fallback should use a provided lexicon_map without rebuilding it."""
+        captured: dict[str, object] = {}
+
+        def fail_build_lexicon_map(lexicon: object) -> search_module.LexiconMap:
+            raise AssertionError("should not rebuild lexicon map")
+
+        def fake_rank_by_token_count_proximity(
+            query_ipa: str,
+            lexicon_map: dict[str, LexiconRecord],
+            *,
+            max_candidates: int | None = None,
+            query_token_count: int | None = None,
+        ) -> list[str]:
+            captured["rank_lookup_is_prebuilt"] = lexicon_map is prebuilt_lexicon_map
+            return ["L1"]
+
+        def fake_score_stage(
+            query_ipa: str,
+            candidates: Iterable[str],
+            lexicon_map: dict[str, object],
+            matrix: object,
+        ) -> list[SearchResult]:
+            captured["score_lookup_is_prebuilt"] = lexicon_map is prebuilt_lexicon_map
+            return [
+                SearchResult(
+                    lemma="alpha",
+                    confidence=1.0,
+                    dialect_attribution="lemma dialect: attic",
+                    entry_id="L1",
+                )
+            ]
+
+        def fake_annotate_search_results(
+            query_ipa: str,
+            results: list[SearchResult],
+            lexicon_map: dict[str, object],
+            matrix: object,
+            language: str = "ancient_greek",
+        ) -> list[SearchResult]:
+            captured["annotate_lookup_is_prebuilt"] = lexicon_map is prebuilt_lexicon_map
+            return results
+
+        lexicon = [
+            {"id": "L1", "headword": "alpha", "ipa": "aː", "dialect": "attic"},
+        ]
+        prebuilt_lexicon_map = {
+            "L1": LexiconRecord(entry=lexicon[0], token_count=1, ipa_tokens=("aː",)),
+        }
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "aː")
+        monkeypatch.setattr(search_module, "tokenize_ipa", lambda ipa_text: ["a"])
+        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(search_module, "build_lexicon_map", fail_build_lexicon_map)
+        monkeypatch.setattr(
+            search_module,
+            "_rank_by_token_count_proximity",
+            fake_rank_by_token_count_proximity,
+        )
+        monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
+        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_search_results)
+
+        search(
+            "query",
+            lexicon,
+            matrix={},
+            max_results=1,
+            index={},
+            prebuilt_lexicon_map=prebuilt_lexicon_map,
+        )
+
+        assert captured == {
+            "rank_lookup_is_prebuilt": True,
+            "score_lookup_is_prebuilt": True,
+            "annotate_lookup_is_prebuilt": True,
+        }
+
+    def test_fullform_finalization_annotates_only_visible_deduplicated_hits(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Full-form finalization should annotate only top-N hits after deduplication."""
+        captured: dict[str, object] = {}
+
+        def fake_score_stage(
+            query_ipa: str,
+            candidates: Iterable[str],
+            lexicon_map: dict[str, object],
+            matrix: object,
+        ) -> list[SearchResult]:
+            return [
+                SearchResult(lemma="alpha", confidence=0.99, entry_id="L1"),
+                SearchResult(lemma="alpha", confidence=0.95, entry_id="L2"),
+                SearchResult(lemma="beta", confidence=0.90, entry_id="L3"),
+                SearchResult(lemma="gamma", confidence=0.80, entry_id="L4"),
+            ]
+
+        def fake_annotate_search_results(
+            query_ipa: str,
+            results: list[SearchResult],
+            lexicon_map: dict[str, object],
+            matrix: object,
+            language: str = "ancient_greek",
+        ) -> list[SearchResult]:
+            captured["annotated_entry_ids"] = [result.entry_id for result in results]
+            return results
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pten")
+        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2", "L3", "L4"])
+        monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
+        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_search_results)
+
+        lexicon = [
+            {"id": "L1", "headword": "alpha", "ipa": "pten", "dialect": "attic"},
+            {"id": "L2", "headword": "alpha", "ipa": "pten", "dialect": "attic"},
+            {"id": "L3", "headword": "beta", "ipa": "pten", "dialect": "attic"},
+            {"id": "L4", "headword": "gamma", "ipa": "pten", "dialect": "attic"},
+        ]
+
+        results = search("λόγος", lexicon, matrix={}, max_results=2, index={})
+
+        assert captured["annotated_entry_ids"] == ["L1", "L3"]
+        assert [result.entry_id for result in results] == ["L1", "L3"]
+
     def test_search_does_not_tokenize_full_lexicon_when_k2_seed_hits(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -246,9 +406,13 @@ class TestSearch:
             captured["lookup_keys"] = list(lexicon_map)
             return []
 
+        def fail_build_lexicon_map(lexicon: object) -> search_module.LexiconMap:
+            raise AssertionError("should not build tokenized lexicon map")
+
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "query-ipa")
         monkeypatch.setattr(search_module, "tokenize_ipa", fake_tokenize_ipa)
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"])
+        monkeypatch.setattr(search_module, "build_lexicon_map", fail_build_lexicon_map)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
@@ -267,6 +431,255 @@ class TestSearch:
         assert token_calls == ["query-ipa"]
         assert captured["candidate_ids"] == ["L1"]
         assert captured["lookup_keys"] == ["L1", "L2"]
+
+    def test_seeded_fullform_applies_initial_stage2_cap(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Seeded full-form selection should keep Stage 2 bounded."""
+        captured_candidates: list[str] = []
+        lexicon = [
+            {
+                "id": f"L{index:02d}",
+                "headword": f"lemma-{index:02d}",
+                "ipa": "query-ipa",
+                "dialect": "attic",
+            }
+            for index in range(30)
+        ]
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "query-ipa")
+        monkeypatch.setattr(
+            search_module,
+            "seed_stage",
+            lambda *_args, **_kwargs: [entry["id"] for entry in lexicon],
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage",
+            self._make_capturing_score_stage(captured_candidates),
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_annotate_search_results",
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+        )
+
+        search("query", lexicon, matrix={}, max_results=1)
+
+        assert len(captured_candidates) == search_module._MIN_STAGE2_CANDIDATES
+
+    def test_seeded_fullform_injects_exact_match_beyond_initial_window(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An exact IPA hit outside the initial seed window should survive selection."""
+        captured_candidates: list[str] = []
+        lexicon = [
+            {
+                "id": f"N{index:02d}",
+                "headword": f"noise-{index:02d}",
+                "ipa": "noise-ipa",
+                "dialect": "attic",
+            }
+            for index in range(30)
+        ]
+        lexicon.append(
+            {"id": "TARGET", "headword": "target", "ipa": "query-ipa", "dialect": "attic"}
+        )
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "query-ipa")
+        monkeypatch.setattr(
+            search_module,
+            "seed_stage",
+            lambda *_args, **_kwargs: [entry["id"] for entry in lexicon],
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage",
+            self._make_capturing_score_stage(captured_candidates),
+        )
+        monkeypatch.setattr(search_module, "_annotate_search_results", lambda **kwargs: kwargs["results"])
+
+        search("query", lexicon, matrix={}, max_results=1)
+
+        assert "TARGET" in captured_candidates
+        assert len(captured_candidates) == search_module._MIN_STAGE2_CANDIDATES
+
+    def test_seeded_fullform_adds_length_proximate_candidates_without_exact_match(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Length-proximate full-form seeds should supplement the initial window."""
+        captured_candidates: list[str] = []
+        lexicon = [
+            {
+                "id": f"L{index:02d}",
+                "headword": f"lemma-{index:02d}",
+                "ipa": f"candidate-{index:02d}",
+                "dialect": "attic",
+            }
+            for index in range(30)
+        ]
+        prebuilt_lexicon_map = {
+            entry["id"]: LexiconRecord(
+                entry=entry,
+                token_count=8 if index < search_module._MIN_STAGE2_CANDIDATES else 3,
+                ipa_tokens=("x",) * (8 if index < search_module._MIN_STAGE2_CANDIDATES else 3),
+            )
+            for index, entry in enumerate(lexicon)
+        }
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "query-ipa")
+        monkeypatch.setattr(search_module, "tokenize_ipa", lambda ipa_text: ["q", "u", "e"])
+        monkeypatch.setattr(
+            search_module,
+            "seed_stage",
+            lambda *_args, **_kwargs: [entry["id"] for entry in lexicon],
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage",
+            self._make_capturing_score_stage(captured_candidates),
+        )
+        monkeypatch.setattr(search_module, "_annotate_search_results", lambda **kwargs: kwargs["results"])
+
+        search(
+            "query",
+            lexicon,
+            matrix={},
+            max_results=1,
+            prebuilt_lexicon_map=prebuilt_lexicon_map,
+        )
+
+        assert captured_candidates[: search_module._MIN_STAGE2_CANDIDATES] == [
+            f"L{index:02d}" for index in range(search_module._MIN_STAGE2_CANDIDATES)
+        ]
+        assert "L25" in captured_candidates
+        assert len(captured_candidates) == 30
+
+    def test_seeded_fullform_skips_length_proximate_candidates_when_exact_exists(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exact IPA presence should keep seeded full-form selection at the hard cap."""
+        captured_candidates: list[str] = []
+        lexicon = [
+            {
+                "id": f"L{index:02d}",
+                "headword": f"lemma-{index:02d}",
+                "ipa": "query-ipa" if index == 0 else f"candidate-{index:02d}",
+                "dialect": "attic",
+            }
+            for index in range(30)
+        ]
+        prebuilt_lexicon_map = {
+            entry["id"]: LexiconRecord(
+                entry=entry,
+                token_count=3,
+                ipa_tokens=("q", "u", "e"),
+            )
+            for entry in lexicon
+        }
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "query-ipa")
+        monkeypatch.setattr(search_module, "tokenize_ipa", lambda ipa_text: ["q", "u", "e"])
+        monkeypatch.setattr(
+            search_module,
+            "seed_stage",
+            lambda *_args, **_kwargs: [entry["id"] for entry in lexicon],
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage",
+            self._make_capturing_score_stage(captured_candidates),
+        )
+        monkeypatch.setattr(search_module, "_annotate_search_results", lambda **kwargs: kwargs["results"])
+
+        search(
+            "query",
+            lexicon,
+            matrix={},
+            max_results=1,
+            prebuilt_lexicon_map=prebuilt_lexicon_map,
+        )
+
+        assert len(captured_candidates) == search_module._MIN_STAGE2_CANDIDATES
+        assert "L25" not in captured_candidates
+
+    def test_token_fallback_builds_tokenized_lexicon_map_once_and_reuses_it(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A lazy tokenized map should be built once and reused through finalization."""
+        captured: dict[str, object] = {}
+        build_calls = 0
+
+        lexicon = [
+            {"id": "L1", "headword": "alpha", "ipa": "aː", "dialect": "attic"},
+        ]
+        built_lexicon_map = {
+            "L1": LexiconRecord(entry=lexicon[0], token_count=1, ipa_tokens=("aː",)),
+        }
+
+        def fake_build_lexicon_map(
+            lexicon_arg: list[dict[str, str]],
+        ) -> dict[str, LexiconRecord]:
+            nonlocal build_calls
+            build_calls += 1
+            return built_lexicon_map
+
+        def fake_rank_by_token_count_proximity(
+            query_ipa: str,
+            lexicon_map: dict[str, LexiconRecord],
+            *,
+            max_candidates: int | None = None,
+            query_token_count: int | None = None,
+        ) -> list[str]:
+            captured["rank_lookup_is_built"] = lexicon_map is built_lexicon_map
+            return ["L1"]
+
+        def fake_score_stage(
+            query_ipa: str,
+            candidates: Iterable[str],
+            lexicon_map: dict[str, object],
+            matrix: object,
+        ) -> list[SearchResult]:
+            captured["score_lookup_is_built"] = lexicon_map is built_lexicon_map
+            return [
+                SearchResult(
+                    lemma="alpha",
+                    confidence=1.0,
+                    dialect_attribution="lemma dialect: attic",
+                    entry_id="L1",
+                )
+            ]
+
+        def fake_annotate_search_results(
+            query_ipa: str,
+            results: list[SearchResult],
+            lexicon_map: dict[str, object],
+            matrix: object,
+            language: str = "ancient_greek",
+        ) -> list[SearchResult]:
+            captured["annotate_lookup_is_built"] = lexicon_map is built_lexicon_map
+            return results
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "aː")
+        monkeypatch.setattr(search_module, "tokenize_ipa", lambda ipa_text: ["a"])
+        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(search_module, "build_lexicon_map", fake_build_lexicon_map)
+        monkeypatch.setattr(
+            search_module,
+            "_rank_by_token_count_proximity",
+            fake_rank_by_token_count_proximity,
+        )
+        monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
+        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_search_results)
+
+        search("query", lexicon, matrix={}, max_results=1, index={})
+
+        assert build_calls == 1
+        assert captured == {
+            "rank_lookup_is_built": True,
+            "score_lookup_is_built": True,
+            "annotate_lookup_is_built": True,
+        }
 
     def test_search_uses_only_unigram_hits_for_fullform_unigram_fallback(
         self, monkeypatch: pytest.MonkeyPatch
@@ -735,9 +1148,13 @@ class TestSearch:
         """A matching prebuilt IPA index key should be used without rebuilding."""
         captured_candidates: list[str] = []
 
+        def fail_build_lexicon_map(lexicon: object) -> search_module.LexiconMap:
+            raise AssertionError("should not build tokenized lexicon map")
+
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pten")
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
         monkeypatch.setattr(search_module, "build_ipa_index", self._raise_should_not_rebuild_ipa_index)
+        monkeypatch.setattr(search_module, "build_lexicon_map", fail_build_lexicon_map)
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L2"])
 
         monkeypatch.setattr(
