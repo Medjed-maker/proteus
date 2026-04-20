@@ -9,6 +9,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from phonology import search as search_module
@@ -297,6 +299,65 @@ class TestSearchShortQuery:
         # _SHORT_QUERY_MAX_ANNOTATION_BATCHES times, not ceil(400/100) = 4.
         assert annotation_call_count >= 1, "Batch loop should process at least one batch"
         assert annotation_call_count <= _SHORT_QUERY_MAX_ANNOTATION_BATCHES
+
+    def test_short_query_finalization_continues_into_later_annotation_batches(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Short-query finalization should keep scanning batches until enough hits survive."""
+        threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
+        scored_count = 150
+        entry_ids = [f"E{i:03d}" for i in range(scored_count)]
+        annotated_batches: list[list[str]] = []
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "zz")
+        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: entry_ids)
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage",
+            lambda query_ipa, candidates, lexicon_map, matrix: [
+                SearchResult(
+                    lemma=f"word-{index:03d}",
+                    confidence=threshold - 0.10,
+                    dialect_attribution="lemma dialect: attic",
+                    entry_id=entry_id,
+                )
+                for index, entry_id in enumerate(entry_ids)
+            ],
+        )
+
+        def fake_annotate_results(
+            query_ipa: str,
+            results: list[SearchResult],
+            lexicon_map: dict[str, object],
+            matrix: object,
+            language: str = "ancient_greek",
+        ) -> list[SearchResult]:
+            batch_entry_ids: list[str] = []
+            for result in results:
+                assert result.entry_id is not None
+                batch_entry_ids.append(result.entry_id)
+            annotated_batches.append(batch_entry_ids)
+            return [
+                replace(result, applied_rules=["RULE-KEEP"])
+                if result.entry_id in {"E100", "E101"}
+                else result
+                for result in results
+            ]
+
+        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+
+        lexicon = [
+            {"id": entry_id, "headword": f"word-{index:03d}", "ipa": "x", "dialect": "attic"}
+            for index, entry_id in enumerate(entry_ids)
+        ]
+
+        results = search("ααα", lexicon, matrix={}, max_results=2, index={})
+
+        assert len(annotated_batches) == 2
+        assert annotated_batches[0][0] == "E000"
+        assert annotated_batches[1][0] == "E100"
+        assert [result.entry_id for result in results] == ["E100", "E101"]
+        assert all(result.applied_rules == ["RULE-KEEP"] for result in results)
 
     def test_short_query_truncated_flag_set_when_batch_cap_reached(
         self, monkeypatch: pytest.MonkeyPatch

@@ -103,6 +103,8 @@ from ._types import (
     PartialQueryTokens,
     QueryMode,
     SearchResult,
+    _CandidateSelectionPath,
+    _CandidateSelectionResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -147,6 +149,116 @@ class PreparedQueryIpa(NamedTuple):
     partial_query: PartialQueryPattern | None
     query_ipa: str
     partial_query_tokens: PartialQueryTokens | None
+
+
+class _FallbackLimits(NamedTuple):
+    """Effective fallback exploration caps for one search."""
+
+    similarity: int
+    unigram: int
+
+
+class _LazySearchDependencies:
+    """Lazily construct search lookups needed by specific candidate paths."""
+
+    def __init__(
+        self,
+        *,
+        lexicon: Sequence[LexiconEntry],
+        prebuilt_lexicon_map: LexiconMap | None,
+        prebuilt_ipa_index: IpaIndex | None,
+    ) -> None:
+        self._lexicon = lexicon
+        self._lexicon_map = prebuilt_lexicon_map
+        self._prebuilt_ipa_index = prebuilt_ipa_index
+        self._entry_lookup: dict[str, LexiconEntry] | None = None
+        self._ipa_index: IpaIndex | None = None
+
+    def entry_lookup(self) -> dict[str, LexiconEntry]:
+        """Return an id-to-entry lookup, building it only when needed."""
+        if self._entry_lookup is None:
+            self._entry_lookup = _build_entry_lookup(self._lexicon)
+        return self._entry_lookup
+
+    def lexicon_lookup(self) -> LexiconLookup:
+        """Return the cheapest lookup available for scoring or exact matching."""
+        if self._lexicon_map is not None:
+            return self._lexicon_map
+        return self.entry_lookup()
+
+    def tokenized_lexicon_map(self) -> LexiconMap:
+        """Return the tokenized lexicon map, building it only when needed."""
+        if self._lexicon_map is None:
+            self._lexicon_map = build_lexicon_map(self._lexicon)
+        return self._lexicon_map
+
+    def ipa_index(self) -> IpaIndex:
+        """Return the exact IPA index, building it only when needed."""
+        if self._prebuilt_ipa_index is not None:
+            return self._prebuilt_ipa_index
+        if self._ipa_index is None:
+            self._ipa_index = build_ipa_index(self.lexicon_lookup())
+        return self._ipa_index
+
+
+def _validate_search_arguments(
+    *,
+    query: str,
+    max_results: int,
+    similarity_fallback_limit: int | None,
+    unigram_fallback_limit: int | None,
+    prepared_query: PreparedQueryIpa | None,
+    query_ipa: str | None,
+) -> None:
+    """Validate search arguments before query preparation and candidate selection."""
+    if not query.strip():
+        raise ValueError("query must be a non-empty string")
+    if max_results <= 0:
+        raise ValueError("max_results must be a positive integer")
+    if similarity_fallback_limit is not None and similarity_fallback_limit <= 0:
+        raise ValueError("similarity_fallback_limit must be a positive integer")
+    if unigram_fallback_limit is not None and unigram_fallback_limit <= 0:
+        raise ValueError("unigram_fallback_limit must be a positive integer")
+    if prepared_query is not None and query_ipa is not None:
+        raise ValueError(
+            "Pass either prepared_query or query_ipa, not both; "
+            "prepared_query already carries the query IPA."
+        )
+
+
+def _resolve_fallback_limits(
+    *,
+    query_ipa: str,
+    similarity_fallback_limit: int | None,
+    unigram_fallback_limit: int | None,
+) -> _FallbackLimits:
+    """Return effective fallback caps, warning when callers pass ``None``."""
+    if similarity_fallback_limit is None:
+        effective_similarity_fallback_limit = _DEFAULT_FALLBACK_CANDIDATE_LIMIT
+        logger.warning(
+            "similarity_fallback_limit=None for query IPA %r; applying default cap %d. "
+            "Pass an explicit positive integer to silence this warning.",
+            query_ipa,
+            _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
+        )
+    else:
+        effective_similarity_fallback_limit = similarity_fallback_limit
+
+    if unigram_fallback_limit is None:
+        effective_unigram_fallback_limit = _DEFAULT_FALLBACK_CANDIDATE_LIMIT
+        logger.warning(
+            "unigram_fallback_limit=None for query IPA %r; applying default cap %d. "
+            "Pass an explicit positive integer to silence this warning.",
+            query_ipa,
+            _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
+        )
+    else:
+        effective_unigram_fallback_limit = unigram_fallback_limit
+
+    return _FallbackLimits(
+        similarity=effective_similarity_fallback_limit,
+        unigram=effective_unigram_fallback_limit,
+    )
 
 
 def _lookup_entry_tokens(record_or_entry: LexiconLookupValue) -> tuple[str, ...]:
@@ -203,6 +315,275 @@ def _inject_length_proximate_candidates(
             break
 
     return merged_ids
+
+
+def _select_seeded_candidates(
+    *,
+    query_ipa: str,
+    query_mode: QueryMode,
+    query_tokens: list[str],
+    query_skeleton: list[str],
+    partial_query_tokens: PartialQueryTokens | None,
+    seed_candidates: list[str],
+    lexicon: Sequence[LexiconEntry],
+    dependencies: _LazySearchDependencies,
+    unigram_index: KmerIndex | None,
+    max_results: int,
+    stage2_limit: int,
+) -> _CandidateSelectionResult:
+    """Select stage-2 candidates when the primary k=2 seed stage has hits."""
+    if query_mode == "Partial-form":
+        if partial_query_tokens is None:
+            raise ValueError("partial_query_tokens must not be None when query_mode == 'Partial-form'")
+        tokenized_map = dependencies.tokenized_lexicon_map()
+        partial_candidate_window = _annotation_candidate_limit(max_results)
+        supplemental_unigram_candidates: list[str] = []
+        if query_skeleton:
+            fallback_unigram_index = (
+                unigram_index if unigram_index is not None else build_kmer_index(lexicon, k=1)
+            )
+            supplemental_unigram_candidates = seed_stage(
+                query_ipa,
+                fallback_unigram_index,
+                k=1,
+            )
+        partial_candidates = _merge_bounded_candidate_ids(
+            seed_candidates,
+            supplemental_unigram_candidates,
+            limit=partial_candidate_window,
+        )
+        candidate_ids = _select_partial_seed_candidates(
+            partial_query_tokens,
+            partial_candidates,
+            tokenized_map,
+            stage2_limit,
+        )
+        logger.info(
+            "k=2 seed hit for query IPA %r (mode=%s); selected %d stage-2 candidates "
+            "from %d seeds (+%d unigram supplements)",
+            query_ipa,
+            query_mode,
+            len(candidate_ids),
+            len(seed_candidates),
+            len(supplemental_unigram_candidates),
+        )
+        return _CandidateSelectionResult(
+            candidate_ids=candidate_ids,
+            lexicon_lookup=tokenized_map,
+            query_mode=query_mode,
+            query_tokens=query_tokens,
+            selection_path="partial-seed",
+            seed_candidate_count=len(seed_candidates),
+            unigram_candidate_count=len(supplemental_unigram_candidates),
+            fallback_limit=None,
+        )
+
+    candidate_ids = seed_candidates[:stage2_limit]
+    lexicon_lookup = dependencies.lexicon_lookup()
+    ipa_index_lookup = dependencies.ipa_index()
+    normalized_query_ipa = _normalize_ipa_lookup_key(query_ipa)
+    has_exact_ipa_match = (
+        query_mode == "Full-form"
+        and normalized_query_ipa in ipa_index_lookup
+    )
+    candidate_ids = _inject_exact_ipa_matches(
+        query_ipa,
+        candidate_ids,
+        lexicon_lookup,
+        ipa_index=ipa_index_lookup,
+        limit=stage2_limit,
+    )
+    if query_mode == "Full-form" and not has_exact_ipa_match:
+        candidate_ids = _inject_length_proximate_candidates(
+            query_token_count=len(query_tokens),
+            seed_candidates=seed_candidates,
+            candidate_ids=candidate_ids,
+            lexicon_lookup=lexicon_lookup,
+            limit=stage2_limit * _LENGTH_PROXIMATE_LIMIT_MULTIPLIER,
+        )
+
+    logger.info(
+        "k=2 seed hit for query IPA %r (mode=%s); selected %d stage-2 candidates from %d seeds",
+        query_ipa,
+        query_mode,
+        len(candidate_ids),
+        len(seed_candidates),
+    )
+    return _CandidateSelectionResult(
+        candidate_ids=candidate_ids,
+        lexicon_lookup=lexicon_lookup,
+        query_mode=query_mode,
+        query_tokens=query_tokens,
+        selection_path="seed",
+        seed_candidate_count=len(seed_candidates),
+        unigram_candidate_count=0,
+        fallback_limit=None,
+    )
+
+
+def _select_unigram_fallback_candidates(
+    *,
+    query_ipa: str,
+    query_mode: QueryMode,
+    query_tokens: list[str],
+    partial_query_tokens: PartialQueryTokens | None,
+    unigram_candidates: list[str],
+    dependencies: _LazySearchDependencies,
+    max_results: int,
+    effective_unigram_fallback_limit: int,
+) -> _CandidateSelectionResult:
+    """Select stage-2 candidates from k=1 fallback hits."""
+    if query_mode == "Partial-form":
+        if partial_query_tokens is None:
+            raise ValueError("partial_query_tokens must not be None for Partial-form query")
+        tokenized_map = dependencies.tokenized_lexicon_map()
+        ranked_candidates = _rank_by_token_count_proximity(
+            query_ipa,
+            {
+                entry_id: tokenized_map[entry_id]
+                for entry_id in unigram_candidates
+                if entry_id in tokenized_map
+            },
+            max_candidates=effective_unigram_fallback_limit,
+            query_token_count=len(query_tokens),
+        )
+        # Partial-form follow-up work is always narrowed again inside
+        # _select_partial_fallback_candidates().
+        candidate_ids = _select_partial_fallback_candidates(
+            partial_query_tokens,
+            ranked_candidates,
+            tokenized_map,
+            max_results=max_results,
+            explicit_limit=effective_unigram_fallback_limit,
+        )
+        logger.info(
+            "k=2 seed empty for query IPA %r; partial k=1 fallback selected %d "
+            "stage-2 candidates from %d unigram hits (cap=%s)",
+            query_ipa,
+            len(candidate_ids),
+            len(unigram_candidates),
+            effective_unigram_fallback_limit,
+        )
+        return _CandidateSelectionResult(
+            candidate_ids=candidate_ids,
+            lexicon_lookup=tokenized_map,
+            query_mode=query_mode,
+            query_tokens=query_tokens,
+            selection_path="partial-unigram-fallback",
+            seed_candidate_count=0,
+            unigram_candidate_count=len(unigram_candidates),
+            fallback_limit=effective_unigram_fallback_limit,
+        )
+
+    tokenized_map = dependencies.tokenized_lexicon_map()
+    missing_unigram_candidates = list(
+        dict.fromkeys(
+            entry_id
+            for entry_id in unigram_candidates
+            if entry_id not in tokenized_map
+        )
+    )
+    if missing_unigram_candidates:
+        _truncated = missing_unigram_candidates[:10]
+        _remaining = len(missing_unigram_candidates) - 10
+        if _remaining > 0:
+            _msg = f"{_truncated} (+{_remaining} more)"
+        else:
+            _msg = str(_truncated)
+        logger.warning(
+            "k=2 seed empty for query IPA %r; ignoring unigram fallback "
+            "candidates missing from tokenized lexicon map: %s",
+            query_ipa,
+            _msg,
+        )
+    unigram_candidate_map = {
+        entry_id: tokenized_map[entry_id]
+        for entry_id in unigram_candidates
+        if entry_id in tokenized_map
+    }
+    candidate_ids = _rank_by_token_count_proximity(
+        query_ipa,
+        unigram_candidate_map,
+        max_candidates=effective_unigram_fallback_limit,
+        query_token_count=len(query_tokens),
+    )
+    logger.info(
+        "k=2 seed empty for query IPA %r; capped k=1 fallback evaluating %d of %d "
+        "unigram candidates ranked by token-count proximity",
+        query_ipa,
+        len(candidate_ids),
+        len(unigram_candidates),
+    )
+    return _CandidateSelectionResult(
+        candidate_ids=candidate_ids,
+        lexicon_lookup=tokenized_map,
+        query_mode=query_mode,
+        query_tokens=query_tokens,
+        selection_path="unigram-fallback",
+        seed_candidate_count=0,
+        unigram_candidate_count=len(unigram_candidates),
+        fallback_limit=effective_unigram_fallback_limit,
+    )
+
+
+def _select_token_proximity_fallback_candidates(
+    *,
+    query_ipa: str,
+    query_mode: QueryMode,
+    query_tokens: list[str],
+    partial_query_tokens: PartialQueryTokens | None,
+    dependencies: _LazySearchDependencies,
+    max_results: int,
+    effective_similarity_fallback_limit: int,
+) -> _CandidateSelectionResult:
+    """Select stage-2 candidates when both k=2 and k=1 seeds are empty."""
+    tokenized_map = dependencies.tokenized_lexicon_map()
+    if query_mode == "Partial-form":
+        if partial_query_tokens is None:
+            raise ValueError("partial_query_tokens must not be None for Partial-form query")
+        candidate_ids = _select_partial_token_fallback_candidates(
+            partial_query_tokens,
+            query_ipa,
+            len(query_tokens),
+            tokenized_map,
+            max_results=max_results,
+            explicit_limit=effective_similarity_fallback_limit,
+        )
+        logger.info(
+            "k=2 and k=1 seeds empty for query IPA %r; partial token fallback "
+            "selected %d stage-2 candidates from %d tokenized entries (cap=%s)",
+            query_ipa,
+            len(candidate_ids),
+            len(tokenized_map),
+            effective_similarity_fallback_limit,
+        )
+        selection_path: _CandidateSelectionPath = "partial-token-proximity-fallback"
+    else:
+        candidate_ids = _rank_by_token_count_proximity(
+            query_ipa,
+            tokenized_map,
+            max_candidates=effective_similarity_fallback_limit,
+            query_token_count=len(query_tokens),
+        )
+        logger.info(
+            "k=2 and k=1 seeds empty for query IPA %r; capped fallback evaluating %d of %d candidates "
+            "ranked by token-count proximity",
+            query_ipa,
+            len(candidate_ids),
+            len(tokenized_map),
+        )
+        selection_path = "token-proximity-fallback"
+
+    return _CandidateSelectionResult(
+        candidate_ids=candidate_ids,
+        lexicon_lookup=tokenized_map,
+        query_mode=query_mode,
+        query_tokens=query_tokens,
+        selection_path=selection_path,
+        seed_candidate_count=0,
+        unigram_candidate_count=0,
+        fallback_limit=effective_similarity_fallback_limit,
+    )
 
 
 def build_lexicon_map(lexicon: Sequence[LexiconEntry]) -> LexiconMap:
@@ -681,6 +1062,135 @@ def filter_stage(results: list[SearchResult], max_results: int) -> list[SearchRe
     return sorted(results, key=lambda result: (-result.confidence, result.lemma))[:max_results]
 
 
+def _finalize_full_form_results(
+    *,
+    query_ipa: str,
+    ranked_scored: list[SearchResult],
+    selection: _CandidateSelectionResult,
+    matrix: DistanceMatrix,
+    max_results: int,
+    language: str,
+) -> list[SearchResult]:
+    """Finalize Full-form results by annotating only visible deduplicated hits."""
+    unique_scored = _deduplicate_by_headword(ranked_scored, check_sorted=False)
+    return _annotate_search_results(
+        query_ipa=query_ipa,
+        results=unique_scored[:max_results],
+        lexicon_map=selection.lexicon_lookup,
+        matrix=matrix,
+        language=language,
+    )
+
+
+def _finalize_short_query_results(
+    *,
+    query_ipa: str,
+    ranked_scored: list[SearchResult],
+    selection: _CandidateSelectionResult,
+    partial_query_tokens: PartialQueryTokens | None,
+    matrix: DistanceMatrix,
+    max_results: int,
+    language: str,
+) -> list[SearchResult]:
+    """Finalize Short-query results with batched annotation and quality filtering."""
+    annotation_limit = _annotation_candidate_limit(max_results)
+    ordered_annotation_candidates = _rank_short_query_annotation_candidates(
+        selection.query_tokens,
+        ranked_scored,
+        selection.lexicon_lookup,
+    )
+    annotated_results: list[SearchResult] = []
+    deduplicated_results: list[SearchResult] = []
+    truncated_by_batch_cap = False
+    for batch_index, offset in enumerate(
+        range(0, len(ordered_annotation_candidates), annotation_limit)
+    ):
+        if batch_index >= _SHORT_QUERY_MAX_ANNOTATION_BATCHES:
+            truncated_by_batch_cap = True
+            break
+        batch = ordered_annotation_candidates[offset : offset + annotation_limit]
+        if not batch:
+            break
+        batch_annotated = _annotate_search_results(
+            query_ipa=query_ipa,
+            results=batch,
+            lexicon_map=selection.lexicon_lookup,
+            matrix=matrix,
+            language=language,
+        )
+        batch_filtered = _apply_mode_quality_filter(
+            selection.query_mode,
+            selection.query_tokens,
+            partial_query_tokens,
+            batch_annotated,
+            selection.lexicon_lookup,
+        )
+        batch_filtered = _rank_short_query_results(
+            selection.query_tokens,
+            batch_filtered,
+            selection.lexicon_lookup,
+            _lookup_entry_tokens,
+        )
+        annotated_results.extend(batch_filtered)
+        deduplicated_results = _deduplicate_by_headword_common(annotated_results)
+        if len(deduplicated_results) >= max_results:
+            return deduplicated_results[:max_results]
+
+    if truncated_by_batch_cap and len(deduplicated_results) < max_results:
+        logger.warning(
+            "Short-query search for query IPA %r returned %d/%d results; "
+            "annotation batches capped at %d (query_mode=%s). "
+            "Remaining %d candidates were not annotated.",
+            query_ipa,
+            len(deduplicated_results),
+            max_results,
+            _SHORT_QUERY_MAX_ANNOTATION_BATCHES,
+            selection.query_mode,
+            max(
+                0,
+                len(ordered_annotation_candidates)
+                - _SHORT_QUERY_MAX_ANNOTATION_BATCHES * annotation_limit,
+            ),
+        )
+        return [replace(r, truncated=True) for r in deduplicated_results[:max_results]]
+    return deduplicated_results[:max_results]
+
+
+def _finalize_partial_form_results(
+    *,
+    query_ipa: str,
+    ranked_scored: list[SearchResult],
+    selection: _CandidateSelectionResult,
+    partial_query_tokens: PartialQueryTokens | None,
+    matrix: DistanceMatrix,
+    max_results: int,
+    language: str,
+) -> list[SearchResult]:
+    """Finalize Partial-form results after bounded annotation and filtering."""
+    annotation_candidates = _select_annotation_candidates(
+        selection.query_mode,
+        selection.query_tokens,
+        partial_query_tokens,
+        ranked_scored,
+        selection.lexicon_lookup,
+        _annotation_candidate_limit(max_results),
+    )
+    annotated_results = _annotate_search_results(
+        query_ipa=query_ipa,
+        results=annotation_candidates,
+        lexicon_map=selection.lexicon_lookup,
+        matrix=matrix,
+        language=language,
+    )
+    filtered_results = _apply_mode_quality_filter(
+        selection.query_mode,
+        selection.query_tokens,
+        partial_query_tokens,
+        annotated_results,
+        selection.lexicon_lookup,
+    )
+    deduplicated_results = _deduplicate_by_headword_common(filtered_results)
+    return deduplicated_results[:max_results]
 
 
 def search(
@@ -709,7 +1219,7 @@ def search(
     This categorization influences intermediate candidate filtering and fallback logic:
       - similarity_fallback_limit and unigram_fallback_limit default to a
         conservative fallback exploration cap for every mode. Passing ``None``
-        explicitly leaves the corresponding fallback path uncapped.
+        falls back to the default cap with a warning.
       - Short queries restrict unfiltered candidates to those exceeding
         _SHORT_QUERY_CONFIDENCE_THRESHOLD or exact/supported rules.
       - Partial queries prioritize full wildcard matches and candidates above
@@ -722,10 +1232,9 @@ def search(
       1. Default seed stage (k=2) returns candidates if found.
       2. If empty, a unigram fallback seed (k=1) is applied when the query
          has a consonant skeleton. The unigram fallback limit truncates the
-         unigram-hit set before scoring unless callers explicitly pass ``None``.
+         unigram-hit set before scoring.
       3. If still empty, a token-count similarity fallback ranks candidates
-         by length proximity. The similarity fallback limit bounds this scan
-         unless callers explicitly pass ``None``.
+         by length proximity. The similarity fallback limit bounds this scan.
     After seeding, full-form queries preserve the lightweight top-N annotation
     path, while short and partial queries annotate a bounded ranked subset
     before applying mode-specific quality filters and final deduplication.
@@ -782,19 +1291,14 @@ def search(
             ``"headword"`` (raised by ``_entry_id`` during lexicon map
             construction).
     """
-    if not query.strip():
-        raise ValueError("query must be a non-empty string")
-    if max_results <= 0:
-        raise ValueError("max_results must be a positive integer")
-    if similarity_fallback_limit is not None and similarity_fallback_limit <= 0:
-        raise ValueError("similarity_fallback_limit must be a positive integer")
-    if unigram_fallback_limit is not None and unigram_fallback_limit <= 0:
-        raise ValueError("unigram_fallback_limit must be a positive integer")
-    if prepared_query is not None and query_ipa is not None:
-        raise ValueError(
-            "Pass either prepared_query or query_ipa, not both; "
-            "prepared_query already carries the query IPA."
-        )
+    _validate_search_arguments(
+        query=query,
+        max_results=max_results,
+        similarity_fallback_limit=similarity_fallback_limit,
+        unigram_fallback_limit=unigram_fallback_limit,
+        prepared_query=prepared_query,
+        query_ipa=query_ipa,
+    )
 
     if prepared_query is None:
         prepared_query = prepare_query_ipa(
@@ -808,59 +1312,18 @@ def search(
     query_tokens = tokenize_ipa(query_ipa)
     query_skeleton = _extract_consonant_skeleton(query_tokens)
     partial_query_tokens = prepared_query.partial_query_tokens
-    # Keep the two fallback caps distinct in local naming: the unigram cap only
-    # applies to the k=1 rescue path, while the similarity cap only applies
-    # after both k=2 and k=1 seeds are empty. ``None`` is not an uncapped
-    # escape hatch — it falls back to ``_DEFAULT_FALLBACK_CANDIDATE_LIMIT`` so
-    # that every mode enforces a predictable ceiling on candidate exploration.
-    if similarity_fallback_limit is None:
-        effective_similarity_fallback_limit = _DEFAULT_FALLBACK_CANDIDATE_LIMIT
-        logger.warning(
-            "similarity_fallback_limit=None for query IPA %r; applying default cap %d. "
-            "Pass an explicit positive integer to silence this warning.",
-            query_ipa,
-            _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
-        )
-    else:
-        effective_similarity_fallback_limit = similarity_fallback_limit
-    if unigram_fallback_limit is None:
-        effective_unigram_fallback_limit = _DEFAULT_FALLBACK_CANDIDATE_LIMIT
-        logger.warning(
-            "unigram_fallback_limit=None for query IPA %r; applying default cap %d. "
-            "Pass an explicit positive integer to silence this warning.",
-            query_ipa,
-            _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
-        )
-    else:
-        effective_unigram_fallback_limit = unigram_fallback_limit
-    entry_lookup: dict[str, LexiconEntry] | None = None
-    ipa_index: IpaIndex | None = None
-    lexicon_map = prebuilt_lexicon_map
-
-    def _get_entry_lookup() -> dict[str, LexiconEntry]:
-        nonlocal entry_lookup
-        if entry_lookup is None:
-            entry_lookup = _build_entry_lookup(lexicon)
-        return entry_lookup
-
-    def _get_lexicon_lookup() -> LexiconLookup:
-        if lexicon_map is not None:
-            return lexicon_map
-        return _get_entry_lookup()
-
-    def _get_tokenized_lexicon_map() -> LexiconMap:
-        nonlocal lexicon_map
-        if lexicon_map is None:
-            lexicon_map = build_lexicon_map(lexicon)
-        return lexicon_map
-
-    def _get_ipa_index() -> IpaIndex:
-        nonlocal ipa_index
-        if prebuilt_ipa_index is not None:
-            return prebuilt_ipa_index
-        if ipa_index is None:
-            ipa_index = build_ipa_index(_get_lexicon_lookup())
-        return ipa_index
+    fallback_limits = _resolve_fallback_limits(
+        query_ipa=query_ipa,
+        similarity_fallback_limit=similarity_fallback_limit,
+        unigram_fallback_limit=unigram_fallback_limit,
+    )
+    effective_similarity_fallback_limit = fallback_limits.similarity
+    effective_unigram_fallback_limit = fallback_limits.unigram
+    dependencies = _LazySearchDependencies(
+        lexicon=lexicon,
+        prebuilt_lexicon_map=prebuilt_lexicon_map,
+        prebuilt_ipa_index=prebuilt_ipa_index,
+    )
 
     search_index = (
         index if index is not None else build_kmer_index(lexicon, k=_DEFAULT_KMER_SIZE)
@@ -868,60 +1331,20 @@ def search(
     seed_candidates = seed_stage(query_ipa, search_index, k=_DEFAULT_KMER_SIZE)
     stage2_limit = max(_MIN_STAGE2_CANDIDATES, max_results * _SEED_MULTIPLIER)
 
-    candidate_ids: list[str]
-    lexicon_lookup: LexiconLookup
     if seed_candidates:
-        if query_mode == "Partial-form":
-            if partial_query_tokens is None:
-                raise ValueError("partial_query_tokens must not be None when query_mode == 'Partial-form'")
-            tokenized_map = _get_tokenized_lexicon_map()
-            partial_candidate_window = _annotation_candidate_limit(max_results)
-            supplemental_unigram_candidates: list[str] = []
-            if query_skeleton:
-                fallback_unigram_index = (
-                    unigram_index if unigram_index is not None else build_kmer_index(lexicon, k=1)
-                )
-                supplemental_unigram_candidates = seed_stage(
-                    query_ipa,
-                    fallback_unigram_index,
-                    k=1,
-                )
-            partial_candidates = _merge_bounded_candidate_ids(
-                seed_candidates,
-                supplemental_unigram_candidates,
-                limit=partial_candidate_window,
-            )
-            candidate_ids = _select_partial_seed_candidates(
-                partial_query_tokens,
-                partial_candidates,
-                tokenized_map,
-                stage2_limit,
-            )
-            lexicon_lookup = tokenized_map
-        else:
-            candidate_ids = seed_candidates[:stage2_limit]
-            lexicon_lookup = _get_lexicon_lookup()
-            ipa_index_lookup = _get_ipa_index()
-            normalized_query_ipa = _normalize_ipa_lookup_key(query_ipa)
-            has_exact_ipa_match = (
-                query_mode == "Full-form"
-                and normalized_query_ipa in ipa_index_lookup
-            )
-            candidate_ids = _inject_exact_ipa_matches(
-                query_ipa,
-                candidate_ids,
-                lexicon_lookup,
-                ipa_index=ipa_index_lookup,
-                limit=stage2_limit,
-            )
-            if query_mode == "Full-form" and not has_exact_ipa_match:
-                candidate_ids = _inject_length_proximate_candidates(
-                    query_token_count=len(query_tokens),
-                    seed_candidates=seed_candidates,
-                    candidate_ids=candidate_ids,
-                    lexicon_lookup=lexicon_lookup,
-                    limit=stage2_limit * _LENGTH_PROXIMATE_LIMIT_MULTIPLIER,
-                )
+        selection = _select_seeded_candidates(
+            query_ipa=query_ipa,
+            query_mode=query_mode,
+            query_tokens=query_tokens,
+            query_skeleton=query_skeleton,
+            partial_query_tokens=partial_query_tokens,
+            seed_candidates=seed_candidates,
+            lexicon=lexicon,
+            dependencies=dependencies,
+            unigram_index=unigram_index,
+            max_results=max_results,
+            stage2_limit=stage2_limit,
+        )
     else:
         unigram_candidates: list[str] = []
         if query_skeleton:
@@ -930,233 +1353,61 @@ def search(
             )
             unigram_candidates = seed_stage(query_ipa, fallback_unigram_index, k=1)
         if unigram_candidates:
-            if query_mode == "Partial-form":
-                if partial_query_tokens is None:
-                    raise ValueError("partial_query_tokens must not be None for Partial-form query")
-                tokenized_map = _get_tokenized_lexicon_map()
-                ranked_candidates = _rank_by_token_count_proximity(
-                    query_ipa,
-                    {
-                        entry_id: tokenized_map[entry_id]
-                        for entry_id in unigram_candidates
-                        if entry_id in tokenized_map
-                    },
-                    max_candidates=effective_unigram_fallback_limit,
-                    query_token_count=len(query_tokens),
-                )
-                # Partial-form follow-up work is always narrowed again inside
-                # _select_partial_fallback_candidates().
-                candidate_ids = _select_partial_fallback_candidates(
-                    partial_query_tokens,
-                    ranked_candidates,
-                    tokenized_map,
-                    max_results=max_results,
-                    explicit_limit=effective_unigram_fallback_limit,
-                )
-                lexicon_lookup = tokenized_map
-                logger.info(
-                    "k=2 seed empty for query IPA %r; partial k=1 fallback selected %d "
-                    "stage-2 candidates from %d unigram hits (cap=%s)",
-                    query_ipa,
-                    len(candidate_ids),
-                    len(unigram_candidates),
-                    effective_unigram_fallback_limit,
-                )
-            else:
-                tokenized_map = _get_tokenized_lexicon_map()
-                missing_unigram_candidates = list(
-                    dict.fromkeys(
-                        entry_id
-                        for entry_id in unigram_candidates
-                        if entry_id not in tokenized_map
-                    )
-                )
-                if missing_unigram_candidates:
-                    _truncated = missing_unigram_candidates[:10]
-                    _remaining = len(missing_unigram_candidates) - 10
-                    if _remaining > 0:
-                        _msg = f"{_truncated} (+{_remaining} more)"
-                    else:
-                        _msg = str(_truncated)
-                    logger.warning(
-                        "k=2 seed empty for query IPA %r; ignoring unigram fallback "
-                        "candidates missing from tokenized lexicon map: %s",
-                        query_ipa,
-                        _msg,
-                    )
-                unigram_candidate_map = {
-                    entry_id: tokenized_map[entry_id]
-                    for entry_id in unigram_candidates
-                    if entry_id in tokenized_map
-                }
-                candidate_ids = _rank_by_token_count_proximity(
-                    query_ipa,
-                    unigram_candidate_map,
-                    max_candidates=effective_unigram_fallback_limit,
-                    query_token_count=len(query_tokens),
-                )
-                lexicon_lookup = tokenized_map
-                logger.info(
-                    "k=2 seed empty for query IPA %r; capped k=1 fallback evaluating %d of %d "
-                    "unigram candidates ranked by token-count proximity",
-                    query_ipa,
-                    len(candidate_ids),
-                    len(unigram_candidates),
-                )
+            selection = _select_unigram_fallback_candidates(
+                query_ipa=query_ipa,
+                query_mode=query_mode,
+                query_tokens=query_tokens,
+                partial_query_tokens=partial_query_tokens,
+                unigram_candidates=unigram_candidates,
+                dependencies=dependencies,
+                max_results=max_results,
+                effective_unigram_fallback_limit=effective_unigram_fallback_limit,
+            )
         else:
-            tokenized_map = _get_tokenized_lexicon_map()
-            lexicon_lookup = tokenized_map
-            if query_mode == "Partial-form":
-                if partial_query_tokens is None:
-                    raise ValueError("partial_query_tokens must not be None for Partial-form query")
-                candidate_ids = _select_partial_token_fallback_candidates(
-                    partial_query_tokens,
-                    query_ipa,
-                    len(query_tokens),
-                    tokenized_map,
-                    max_results=max_results,
-                    explicit_limit=effective_similarity_fallback_limit,
-                )
-                logger.info(
-                    "k=2 and k=1 seeds empty for query IPA %r; partial token fallback "
-                    "selected %d stage-2 candidates from %d tokenized entries (cap=%s)",
-                    query_ipa,
-                    len(candidate_ids),
-                    len(tokenized_map),
-                    effective_similarity_fallback_limit,
-                )
-            else:
-                candidate_ids = _rank_by_token_count_proximity(
-                    query_ipa,
-                    tokenized_map,
-                    max_candidates=effective_similarity_fallback_limit,
-                    query_token_count=len(query_tokens),
-                )
-                logger.info(
-                    "k=2 and k=1 seeds empty for query IPA %r; capped fallback evaluating %d of %d candidates "
-                    "ranked by token-count proximity",
-                    query_ipa,
-                    len(candidate_ids),
-                    len(tokenized_map),
-                )
+            selection = _select_token_proximity_fallback_candidates(
+                query_ipa=query_ipa,
+                query_mode=query_mode,
+                query_tokens=query_tokens,
+                partial_query_tokens=partial_query_tokens,
+                dependencies=dependencies,
+                max_results=max_results,
+                effective_similarity_fallback_limit=effective_similarity_fallback_limit,
+            )
 
     scored_results = _score_stage(
         query_ipa=query_ipa,
-        candidates=candidate_ids,
-        lexicon_map=lexicon_lookup,
+        candidates=selection.candidate_ids,
+        lexicon_map=selection.lexicon_lookup,
         matrix=matrix,
     )
     ranked_scored = sorted(scored_results, key=lambda r: (-r.confidence, r.lemma))
-    if query_mode == "Full-form":
-        # Keep the lightweight full-form path: deduplicate and truncate before
-        # rule explanation/visualization work so only the final visible hits
-        # are annotated.
-        unique_scored = _deduplicate_by_headword(ranked_scored, check_sorted=False)
-        return _annotate_search_results(
+    if selection.query_mode == "Full-form":
+        return _finalize_full_form_results(
             query_ipa=query_ipa,
-            results=unique_scored[:max_results],
-            lexicon_map=lexicon_lookup,
+            ranked_scored=ranked_scored,
+            selection=selection,
             matrix=matrix,
+            max_results=max_results,
             language=language,
         )
 
-    # Non-full-form modes apply post-annotation quality filtering, so annotate
-    # a broader mode-aware window first and let the mode-specific filter decide
-    # which supported/exact candidates survive into the visible results.
-    annotation_limit = _annotation_candidate_limit(max_results)
-    if query_mode == "Short-query":
-        ordered_annotation_candidates = _rank_short_query_annotation_candidates(
-            query_tokens,
-            ranked_scored,
-            lexicon_lookup,
+    if selection.query_mode == "Short-query":
+        return _finalize_short_query_results(
+            query_ipa=query_ipa,
+            ranked_scored=ranked_scored,
+            selection=selection,
+            partial_query_tokens=partial_query_tokens,
+            matrix=matrix,
+            max_results=max_results,
+            language=language,
         )
-        annotated_results: list[SearchResult] = []
-        deduplicated_results: list[SearchResult] = []
-        # Cap the number of annotation batches to bound worst-case work when
-        # most candidates are filtered out (e.g. vowel-only short queries
-        # where the confidence floor drops nearly every hit).
-        truncated_by_batch_cap = False
-        for batch_index, offset in enumerate(
-            range(0, len(ordered_annotation_candidates), annotation_limit)
-        ):
-            if batch_index >= _SHORT_QUERY_MAX_ANNOTATION_BATCHES:
-                truncated_by_batch_cap = True
-                break
-            batch = ordered_annotation_candidates[offset : offset + annotation_limit]
-            if not batch:
-                break
-            batch_annotated = _annotate_search_results(
-                query_ipa=query_ipa,
-                results=batch,
-                lexicon_map=lexicon_lookup,
-                matrix=matrix,
-                language=language,
-            )
-            batch_filtered = _apply_mode_quality_filter(
-                query_mode,
-                query_tokens,
-                partial_query_tokens,
-                batch_annotated,
-                lexicon_lookup,
-            )
-            batch_filtered = _rank_short_query_results(
-                query_tokens,
-                batch_filtered,
-                lexicon_lookup,
-                _lookup_entry_tokens,
-            )
-            annotated_results.extend(batch_filtered)
-            deduplicated_results = _deduplicate_by_headword_common(
-                annotated_results
-            )
-            if len(deduplicated_results) >= max_results:
-                return deduplicated_results[:max_results]
-        # Loop exited without finding enough results; the last iteration's
-        # deduplicated_results, or the initial empty list when no candidates
-        # survived filtering, is the best we have.
-        if truncated_by_batch_cap and len(deduplicated_results) < max_results:
-            logger.warning(
-                "Short-query search for query IPA %r returned %d/%d results; "
-                "annotation batches capped at %d (query_mode=%s). "
-                "Remaining %d candidates were not annotated.",
-                query_ipa,
-                len(deduplicated_results),
-                max_results,
-                _SHORT_QUERY_MAX_ANNOTATION_BATCHES,
-                query_mode,
-                max(
-                    0,
-                    len(ordered_annotation_candidates)
-                    - _SHORT_QUERY_MAX_ANNOTATION_BATCHES * annotation_limit,
-                ),
-            )
-            # Propagate truncation warning to the response
-            return [
-                replace(r, truncated=True) for r in deduplicated_results[:max_results]
-            ]
-        return deduplicated_results[:max_results]
 
-    annotation_candidates = _select_annotation_candidates(
-        query_mode,
-        query_tokens,
-        partial_query_tokens,
-        ranked_scored,
-        lexicon_lookup,
-        annotation_limit,
-    )
-    annotated_results = _annotate_search_results(
+    return _finalize_partial_form_results(
         query_ipa=query_ipa,
-        results=annotation_candidates,
-        lexicon_map=lexicon_lookup,
+        ranked_scored=ranked_scored,
+        selection=selection,
+        partial_query_tokens=partial_query_tokens,
         matrix=matrix,
+        max_results=max_results,
         language=language,
     )
-    filtered_results = _apply_mode_quality_filter(
-        query_mode,
-        query_tokens,
-        partial_query_tokens,
-        annotated_results,
-        lexicon_lookup,
-    )
-    deduplicated_results = _deduplicate_by_headword_common(filtered_results)
-    return deduplicated_results[:max_results]

@@ -34,6 +34,56 @@ LexiconMap: TypeAlias = dict[str, LexiconRecord]
 LexiconLookupValue: TypeAlias = LexiconEntry | LexiconRecord
 LexiconLookup: TypeAlias = Mapping[str, LexiconLookupValue]
 
+# Candidate selection paths describe which ordered source produced the IDs
+# sent to scoring. ``seed`` uses primary k=2 seeds for full/short queries;
+# ``partial-seed`` uses those seeds plus bounded k=1 supplements before
+# wildcard filtering. ``unigram-fallback`` and ``partial-unigram-fallback``
+# are chosen when no primary seeds survive and k=1 matches are available.
+# ``token-proximity-fallback`` and ``partial-token-proximity-fallback`` are the
+# final similarity/token-count windows used when seed and unigram paths cannot
+# provide candidates. Earlier paths take precedence over later fallbacks.
+_CandidateSelectionPath: TypeAlias = Literal[
+    "seed",
+    "partial-seed",
+    "unigram-fallback",
+    "partial-unigram-fallback",
+    "token-proximity-fallback",
+    "partial-token-proximity-fallback",
+]
+
+
+@dataclass(slots=True)
+class _CandidateSelectionResult:
+    """Internal handoff from candidate selection into scoring/finalization.
+
+    Attributes:
+        candidate_ids: Ordered candidate entry IDs selected for scoring.
+        lexicon_lookup: Lookup used by scoring and later result annotation.
+        query_mode: Effective query mode after parsing and query preparation.
+        query_tokens: Tokenized IPA query used for selection and fallback
+            scoring context.
+        selection_path: Source path that produced ``candidate_ids``; used by
+            finalization to apply path-specific filtering and truncation.
+        seed_candidate_count: Number of primary k=2 seed candidates observed
+            before stage-2 windowing or partial wildcard filtering. Non-zero
+            only on seeded paths.
+        unigram_candidate_count: Number of k=1 candidates collected either as
+            partial-query supplements or as the selected unigram fallback pool.
+        fallback_limit: Explicit exploration cap used for unigram or
+            token-proximity fallback paths. ``None`` on seeded paths; fallback
+            finalization uses it to decide when candidate exploration may have
+            been truncated.
+    """
+
+    candidate_ids: list[str]
+    lexicon_lookup: LexiconLookup
+    query_mode: QueryMode
+    query_tokens: list[str]
+    selection_path: _CandidateSelectionPath
+    seed_candidate_count: int = 0
+    unigram_candidate_count: int = 0
+    fallback_limit: int | None = None
+
 
 @dataclass
 class SearchResult:
