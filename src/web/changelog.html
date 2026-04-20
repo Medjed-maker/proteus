@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Proteus Changelog</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body class="font-serif bg-parchment-50 text-ink min-h-screen flex flex-col items-center py-12 px-4">
+  <main class="w-full max-w-3xl">
+    <nav class="mb-8 text-sm">
+      <a href="/" class="underline hover:text-ink">Back to search</a>
+    </nav>
+
+    <header class="mb-8">
+      <h1 class="text-4xl tracking-wide font-bold">Changelog</h1>
+      <p class="text-ink-light text-base mt-2">Current version: {{APP_VERSION}}</p>
+    </header>
+
+    <section class="bg-white border border-parchment-200 rounded-lg p-5 shadow-sm">
+      <h2 class="text-xl font-bold">v{{APP_VERSION}}</h2>
+      <ul class="mt-3 text-sm text-ink-light leading-relaxed list-disc list-inside space-y-1">
+        <li>Search responses now include lexicon, distance matrix, and rule version metadata in <code>data_versions</code>.</li>
+        <li>Footer now reports the running application version with a link to this page.</li>
+        <li>Added this changelog page at <code>/changelog</code>.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

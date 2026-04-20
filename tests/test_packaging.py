@@ -31,6 +31,7 @@ EXPECTED_WHEEL_ASSETS = {
     "phonology/data/rules/ancient_greek/buck/grammar_rules.yaml",
     "phonology/data/rules/ancient_greek/morphophonemic_alternations.yaml",
     "phonology/data/rules/ancient_greek/vowel_shifts.yaml",
+    "web/changelog.html",
     "web/index.html",
     "web/static/styles.css",
     "web/static/translations.json",
@@ -319,6 +320,7 @@ def test_wheel_force_include_config_and_packaged_layout_support_runtime_loaders(
         "data/matrices": "phonology/data/matrices",
         "data/rules": "phonology/data/rules",
         "src/web/index.html": "web/index.html",
+        "src/web/changelog.html": "web/changelog.html",
         "src/web/static": "web/static",
     }
 

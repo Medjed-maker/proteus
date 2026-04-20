@@ -108,6 +108,16 @@ def _load_yaml(path: Path) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+def remove_generated_at(container: dict[str, Any]) -> dict[str, Any]:
+    """Return a shallow copy without volatile matrix generation metadata."""
+    copied = dict(container)
+    meta = copied.get("_meta")
+    if isinstance(meta, dict):
+        copied["_meta"] = dict(meta)
+        copied["_meta"].pop("generated_at", None)
+    return copied
+
+
 def _find_rule(rules: list[dict], rule_id: str) -> dict:
     rule = next((candidate for candidate in rules if candidate["id"] == rule_id), None)
     if rule is None:
@@ -743,8 +753,9 @@ def test_attic_doric_matrix_is_complete_symmetric_and_normalized() -> None:
 
 def test_attic_doric_matrix_matches_generator_output() -> None:
     committed = _load_json(MATRIX_PATH)
+    generated = build_attic_doric_matrix()
 
-    assert_dicts_close(build_attic_doric_matrix(), committed)
+    assert_dicts_close(remove_generated_at(committed), remove_generated_at(generated))
 
 
 def test_consonant_rule_overlap_is_resolved_for_attic_before_e() -> None:

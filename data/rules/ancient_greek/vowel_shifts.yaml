@@ -1,5 +1,13 @@
+version: "1.0.0"
+updated_at: "2026-04-02"
+
 # Ancient Greek Vowel Shift Rules
 # Format: each rule records a historically significant vowel development.
+#
+# Top-level metadata fields:
+#   version:    rule semantic version (e.g., "1.0.0" as MAJOR.MINOR.PATCH),
+#               used by API data-version aggregation to track rule content changes
+#   updated_at: ISO-8601 date/time string for the last rule change; documentation only
 #
 # Fields:
 #   id:         unique rule identifier
@@ -18,6 +26,10 @@
 #   note:        clarification for overlapping environments or example orientation
 #
 # Schema history:
+#   v1.0.0 added top-level `version` (rule semantic version, used by API
+#   data-version aggregation) and `updated_at` (ISO date for the last rule
+#   change in this file; documentation metadata only, not a runtime dependency).
+#   Compared with v0.1, the new top-level fields are `version` and `updated_at`.
 #   v0.1 fields `name`, `from`, `to`, `dialect`, `weight` were renamed/removed.
 #   `weight` (0.0-1.0 rule penalty) was removed because phonological distance
 #   is computed entirely from the substitution matrix in distance.py, making

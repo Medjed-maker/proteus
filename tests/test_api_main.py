@@ -3,6 +3,7 @@
 import logging
 import unicodedata
 from collections.abc import Callable, Generator
+from pathlib import Path
 
 import pytest
 import yaml
@@ -27,7 +28,9 @@ class FakeExplanation:
 def _clear_loader_caches() -> None:
     """Reset cached API loader state."""
     for loader_name in (
+        "_load_lexicon_document",
         "_load_lexicon_entries",
+        "_load_distance_matrix_with_meta",
         "_load_distance_matrix",
         "_load_rules_registry",
         "_load_search_index",
@@ -103,6 +106,28 @@ def _make_fake_search(captured: dict[str, object]) -> Callable[..., list[SearchR
         ]
 
     return fake_search
+
+
+class TestDataVersionsModel:
+    def test_accepts_empty_and_iso_timestamps(self) -> None:
+        versions = api_main.DataVersions(
+            lexicon_updated_at="",
+            matrix_generated_at="2026-04-20T09:10:11.123+00:00",
+        )
+
+        assert versions.lexicon_updated_at == ""
+        assert versions.matrix_generated_at == "2026-04-20T09:10:11.123+00:00"
+
+        normalized = api_main.DataVersions(lexicon_updated_at="2026-04-20T09:10:11Z")
+
+        assert normalized.lexicon_updated_at == "2026-04-20T09:10:11+00:00"
+
+    def test_rejects_invalid_timestamps(self) -> None:
+        with pytest.raises(ValidationError):
+            api_main.DataVersions(lexicon_updated_at="not-a-timestamp")
+
+        with pytest.raises(ValidationError):
+            api_main.DataVersions(matrix_generated_at="2026/04/20")
 
 
 @pytest.fixture(autouse=True)
@@ -624,6 +649,25 @@ class TestLoadFrontendHtml:
         assert api_main._load_frontend_html() is None
 
 
+class TestLoadChangelogHtml:
+    def test_returns_none_when_changelog_read_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class BrokenChangelogPath:
+            def exists(self) -> bool:
+                return True
+
+            def read_text(self, *, encoding: str) -> str:
+                raise OSError("permission denied")
+
+            def __str__(self) -> str:
+                return "broken/changelog.html"
+
+        monkeypatch.setattr(api_main, "_CHANGELOG_PATH", BrokenChangelogPath())
+
+        assert api_main._load_changelog_html() is None
+
+
 class TestFrontendHtml:
     def test_root_head_returns_success_for_uptime_probes(
         self, client: TestClient
@@ -631,6 +675,16 @@ class TestFrontendHtml:
         response = client.head("/")
 
         assert response.status_code == 200
+        assert response.content == b""
+
+    def test_root_head_returns_404_when_asset_is_missing(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(api_main, "_FRONTEND_HTML", None)
+
+        response = client.head("/")
+
+        assert response.status_code == 404
         assert response.content == b""
 
     def test_root_html_accessibility(self, client: TestClient) -> None:
@@ -659,6 +713,56 @@ class TestFrontendHtml:
         assert 'addEventListener("submit", runSearch)' in response.text
         assert "onclick=" not in response.text
 
+    def test_root_html_injects_application_version(self, client: TestClient) -> None:
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert "{{APP_VERSION}}" not in response.text
+        assert f"Version</span> {api_main._APP_VERSION}" in response.text
+
+    def test_changelog_html_injects_application_version(
+        self, client: TestClient
+    ) -> None:
+        response = client.get("/changelog")
+
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "{{APP_VERSION}}" not in response.text
+        assert f"Current version: {api_main._APP_VERSION}" in response.text
+        assert "<h1" in response.text
+        assert "Changelog" in response.text
+        assert 'href="/"' in response.text
+        assert "/static/styles.css" in response.text
+        assert "cdn.tailwindcss.com" not in response.text
+
+    def test_changelog_returns_404_when_asset_is_missing(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(api_main, "_CHANGELOG_HTML", None)
+
+        response = client.get("/changelog")
+
+        assert response.status_code == 404
+        assert response.json() == {"detail": "Changelog asset not found"}
+
+    def test_changelog_head_returns_success_for_preflight(
+        self, client: TestClient
+    ) -> None:
+        response = client.head("/changelog")
+
+        assert response.status_code == 200
+        assert response.content == b""
+
+    def test_changelog_head_returns_404_when_asset_is_missing(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(api_main, "_CHANGELOG_HTML", None)
+
+        response = client.head("/changelog")
+
+        assert response.status_code == 404
+        assert response.content == b""
+
     def test_root_html_contains_search_result_ui_labels(self, client: TestClient) -> None:
         response = client.get("/")
         translations_response = client.get("/static/translations.json")
@@ -685,6 +789,11 @@ class TestFrontendHtml:
         assert "full wildcard and fragment matches" in translations["queryModePartialDetail"]
         assert translations["errTooManyWildcards"].startswith("Only one wildcard marker")
         assert translations["showAlignment"] == "Show full alignment"
+        assert translations["versionLabel"] == "Version"
+        assert translations["changelogLink"] == "Changelog"
+        assert 'versionLabel: "Version"' in response.text
+        assert 'changelogLink: "Changelog"' in response.text
+        assert 'href="/changelog"' in response.text
 
     def test_html_references_local_css_not_cdn(self, client: TestClient) -> None:
         response = client.get("/")
@@ -848,6 +957,77 @@ def _make_test_dependencies() -> dict[str, object]:
 
 
 class TestSearchDependenciesLoader:
+    def test_build_data_versions_uses_cached_loaders_and_semantic_rule_max(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        lexicon_calls = 0
+
+        def fake_lexicon_document() -> dict[str, object]:
+            nonlocal lexicon_calls
+            lexicon_calls += 1
+            return {
+                "schema_version": "2.0.0",
+                "_meta": {"last_updated": "2026-04-20T09:10:11Z"},
+                "lemmas": [],
+            }
+
+        monkeypatch.setattr(api_main, "_load_lexicon_document", fake_lexicon_document)
+        monkeypatch.setattr(
+            api_main,
+            "_load_distance_matrix_with_meta",
+            lambda: (
+                {},
+                {
+                    "version": "1.0.0",
+                    "generated_at": "2026-04-20T09:10:11.123+00:00",
+                },
+            ),
+        )
+        monkeypatch.setattr(
+            api_main,
+            "get_rules_version",
+            lambda _: {"older": "9.9.9", "newer": "10.0.0"},
+        )
+
+        versions = api_main._build_data_versions()
+
+        assert lexicon_calls == 1
+        assert versions.lexicon == "2.0.0"
+        assert versions.lexicon_updated_at == "2026-04-20T09:10:11+00:00"
+        assert versions.matrix == "1.0.0"
+        assert versions.matrix_generated_at == "2026-04-20T09:10:11.123+00:00"
+        assert versions.rules == "10.0.0"
+
+    def test_build_data_versions_logs_expected_metadata_errors(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(
+            api_main,
+            "_load_lexicon_document",
+            lambda: (_ for _ in ()).throw(ValueError("bad lexicon")),
+        )
+        monkeypatch.setattr(
+            api_main,
+            "_load_distance_matrix_with_meta",
+            lambda: (_ for _ in ()).throw(ValueError("bad matrix")),
+        )
+        monkeypatch.setattr(
+            api_main,
+            "get_rules_version",
+            lambda _: {"bad": "not-semver"},
+        )
+        caplog.set_level(logging.ERROR, logger="api.main")
+
+        versions = api_main._build_data_versions()
+
+        assert versions == api_main.DataVersions()
+        assert "Failed to load lexicon data version metadata" in caplog.text
+        assert "Failed to load matrix data version metadata" in caplog.text
+        assert "Failed to load rules data version metadata" in caplog.text
+
     def test_load_search_dependencies_returns_named_tuple_with_named_fields(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -860,6 +1040,11 @@ class TestSearchDependenciesLoader:
         monkeypatch.setattr(api_main, "_load_unigram_index", lambda: td["unigram_index"])
         monkeypatch.setattr(api_main, "_load_lexicon_map", lambda: td["lexicon_map"])
         monkeypatch.setattr(api_main, "_load_ipa_index", lambda: td["ipa_index"])
+        monkeypatch.setattr(
+            api_main,
+            "_build_data_versions",
+            lambda: api_main.DataVersions(rules="10.0.0"),
+        )
 
         deps = api_main._load_search_dependencies()
 
@@ -871,6 +1056,7 @@ class TestSearchDependenciesLoader:
         assert deps.unigram_index == td["unigram_index"]
         assert deps.lexicon_map == td["lexicon_map"]
         assert deps.ipa_index == td["ipa_index"]
+        assert deps.data_versions.rules == "10.0.0"
 
     def test_warm_search_dependencies_logs_info_without_traceback_when_not_ready(
         self,
@@ -997,6 +1183,7 @@ class TestSearchEndpoint:
                 unigram_index=td["unigram_index"],
                 lexicon_map=td["lexicon_map"],
                 ipa_index=td["ipa_index"],
+                data_versions=api_main.DataVersions(),
             ),
         )
         monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "loɡos")
@@ -2157,3 +2344,205 @@ class TestRuleRegistrySingleSource:
         search_registry = search_module.get_rules_registry("ancient_greek")
 
         assert api_registry is search_registry
+
+
+class TestLoadAppVersion:
+    def test_returns_env_var_value_when_set(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(api_main._APP_VERSION_ENV_VAR, "1.2.3-env")
+
+        result = api_main._load_app_version()
+
+        assert result == "1.2.3-env"
+
+    def test_strips_whitespace_from_env_var(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(api_main._APP_VERSION_ENV_VAR, "  1.2.3  ")
+
+        result = api_main._load_app_version()
+
+        assert result == "1.2.3"
+
+    def test_strips_leading_v_prefix_from_env_var(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(api_main._APP_VERSION_ENV_VAR, "v1.2.3")
+
+        result = api_main._load_app_version()
+
+        assert result == "1.2.3"
+
+    def test_falls_back_to_metadata_version(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from importlib import metadata
+
+        monkeypatch.delenv(api_main._APP_VERSION_ENV_VAR, raising=False)
+        monkeypatch.setattr(metadata, "version", lambda _pkg: "2.0.0-meta")
+
+        result = api_main._load_app_version()
+
+        assert result == "2.0.0-meta"
+
+    def test_falls_back_to_pyproject_toml(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from importlib import metadata
+        import tomllib
+
+        monkeypatch.delenv(api_main._APP_VERSION_ENV_VAR, raising=False)
+        monkeypatch.setattr(
+            metadata,
+            "version",
+            lambda _pkg: (_ for _ in ()).throw(metadata.PackageNotFoundError()),
+        )
+
+        pyproject_path = tmp_path / "pyproject.toml"
+        pyproject_path.write_text(
+            '[project]\nversion = "3.0.0-toml"\n',
+            encoding="utf-8",
+        )
+        # Patch __file__ resolution to point to our tmp_path
+        # _load_app_version resolves Path(__file__).resolve().parents[2] / "pyproject.toml"
+        # We need to make that resolve to our tmp pyproject
+        fake_file = tmp_path / "src" / "api" / "main.py"
+        fake_file.parent.mkdir(parents=True, exist_ok=True)
+        fake_file.touch()
+        monkeypatch.setattr(api_main, "__file__", str(fake_file))
+
+        result = api_main._load_app_version()
+
+        assert result == "3.0.0-toml"
+
+    def test_returns_unknown_when_all_sources_fail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from importlib import metadata
+
+        monkeypatch.delenv(api_main._APP_VERSION_ENV_VAR, raising=False)
+        monkeypatch.setattr(
+            metadata,
+            "version",
+            lambda _pkg: (_ for _ in ()).throw(metadata.PackageNotFoundError()),
+        )
+        # Point __file__ to a tmp dir with no pyproject.toml
+        fake_file = tmp_path / "src" / "api" / "main.py"
+        fake_file.parent.mkdir(parents=True, exist_ok=True)
+        fake_file.touch()
+        monkeypatch.setattr(api_main, "__file__", str(fake_file))
+
+        result = api_main._load_app_version()
+
+        assert result == "unknown"
+
+
+class TestLoadAppVersionIntegration:
+    def test_env_takes_priority_over_metadata(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(api_main._APP_VERSION_ENV_VAR, "env-version")
+
+        assert api_main._load_app_version() == "env-version"
+
+    def test_empty_env_skips_to_next_source(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from importlib import metadata
+
+        monkeypatch.setenv(api_main._APP_VERSION_ENV_VAR, "   ")
+        monkeypatch.setattr(metadata, "version", lambda _pkg: "9.8.7-mock")
+
+        result = api_main._load_app_version()
+
+        assert result == "9.8.7-mock"
+
+
+class TestBuildDataVersionsPartialFailure:
+    def test_lexicon_failure_still_loads_matrix_and_rules(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(
+            api_main,
+            "_load_lexicon_document",
+            lambda: (_ for _ in ()).throw(OSError("lexicon read error")),
+        )
+        monkeypatch.setattr(
+            api_main,
+            "_load_distance_matrix_with_meta",
+            lambda: ({}, {"version": "1.0.0", "generated_at": "2026-04-20T09:00:00.000+00:00"}),
+        )
+        monkeypatch.setattr(
+            api_main,
+            "get_rules_version",
+            lambda _: {"vowels": "1.0.0"},
+        )
+        caplog.set_level(logging.ERROR, logger="api.main")
+
+        versions = api_main._build_data_versions()
+
+        assert versions.lexicon == "unknown"
+        assert versions.matrix == "1.0.0"
+        assert versions.rules == "1.0.0"
+        assert "Failed to load lexicon data version metadata" in caplog.text
+
+    def test_matrix_failure_still_loads_lexicon_and_rules(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(
+            api_main,
+            "_load_lexicon_document",
+            lambda: {"schema_version": "2.0.0", "_meta": {}, "lemmas": []},
+        )
+        monkeypatch.setattr(
+            api_main,
+            "_load_distance_matrix_with_meta",
+            lambda: (_ for _ in ()).throw(OSError("matrix read error")),
+        )
+        monkeypatch.setattr(
+            api_main,
+            "get_rules_version",
+            lambda _: {"consonants": "1.0.0"},
+        )
+        caplog.set_level(logging.ERROR, logger="api.main")
+
+        versions = api_main._build_data_versions()
+
+        assert versions.lexicon == "2.0.0"
+        assert versions.matrix == "unknown"
+        assert versions.rules == "1.0.0"
+        assert "Failed to load matrix data version metadata" in caplog.text
+
+    def test_total_failure_returns_default_versions(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(
+            api_main,
+            "_load_lexicon_document",
+            lambda: (_ for _ in ()).throw(ValueError("bad")),
+        )
+        monkeypatch.setattr(
+            api_main,
+            "_load_distance_matrix_with_meta",
+            lambda: (_ for _ in ()).throw(ValueError("bad")),
+        )
+        monkeypatch.setattr(
+            api_main,
+            "get_rules_version",
+            lambda _: (_ for _ in ()).throw(ValueError("bad")),
+        )
+        caplog.set_level(logging.ERROR, logger="api.main")
+
+        versions = api_main._build_data_versions()
+
+        assert versions == api_main.DataVersions()
+        assert "Failed to load lexicon data version metadata" in caplog.text
+        assert "Failed to load matrix data version metadata" in caplog.text
+        assert "Failed to load rules data version metadata" in caplog.text

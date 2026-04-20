@@ -2,10 +2,59 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 import unicodedata
 from typing import Annotated, Any, Literal
 
-from pydantic import AliasChoices, BaseModel, Field, StringConstraints, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    Field,
+    StringConstraints,
+    field_validator,
+)
+
+
+class DataVersions(BaseModel):
+    """Version metadata for data sources used in search."""
+
+    lexicon: str = Field(
+        default="unknown",
+        description="Lexicon schema version (e.g., '2.0.0').",
+    )
+    lexicon_updated_at: str = Field(
+        default="",
+        description="ISO 8601 timestamp of lexicon last update.",
+    )
+    matrix: str = Field(
+        default="unknown",
+        description="Distance matrix version (e.g., '1.0.0').",
+    )
+    matrix_generated_at: str = Field(
+        default="",
+        description="ISO 8601 timestamp of matrix generation.",
+    )
+    rules: str = Field(
+        default="unknown",
+        description="Aggregated phonological rules version (max of all rule files).",
+    )
+
+    @field_validator("lexicon_updated_at", "matrix_generated_at", mode="after")
+    @classmethod
+    def _validate_timestamp(cls, value: str) -> str:
+        if value == "":
+            return value
+        normalized = (
+            value.removesuffix("Z") + "+00:00"
+            if value.endswith("Z")
+            else value
+        )
+        try:
+            datetime.fromisoformat(normalized)
+        except ValueError as exc:
+            raise ValueError("timestamp must be a valid ISO 8601 datetime") from exc
+        return normalized
+
 
 # Ancient Greek headwords rarely exceed ~25 graphemes; 64 gives headroom for
 # partial-form patterns with wildcards while bounding the Needleman-Wunsch
@@ -190,4 +239,8 @@ class SearchResponse(BaseModel):
             "for Short-query searches when many candidates are filtered out, "
             "indicating the result set may be incomplete."
         ),
+    )
+    data_versions: DataVersions = Field(
+        default_factory=DataVersions,
+        description="Version metadata for data sources used in this search.",
     )

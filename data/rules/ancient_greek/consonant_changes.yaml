@@ -1,3 +1,6 @@
+version: "1.0.0"
+updated_at: "2026-04-20"
+
 # Ancient Greek Consonant Change Rules
 # Format: each rule records a historically significant consonant development.
 #
@@ -18,6 +21,10 @@
 #   note:       clarification for overlapping environments or special constraints
 #
 # Schema history:
+#   v1.0.0 added top-level `version` (rule schema semantic version, used by
+#   API data-version aggregation) and `updated_at` (ISO date for the last rule
+#   change in this file; documentation metadata only, not a runtime dependency).
+#   Compared with v0.1, the new top-level fields are `version` and `updated_at`.
 #   v0.1 fields `name`, `from`, `to`, `dialect`, `weight` were renamed/removed.
 #   `weight` (0.0-1.0 rule penalty) was removed because phonological distance
 #   is computed entirely from the substitution matrix in distance.py, making

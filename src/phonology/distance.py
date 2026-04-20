@@ -27,8 +27,10 @@ from .ipa_converter import (
 
 __all__ = [
     "MatrixData",
+    "MatrixMeta",
     "DEFAULT_COST",
     "load_matrix",
+    "load_matrix_document",
     "phone_distance",
     "phonological_distance",
     "normalized_phonological_distance",
@@ -40,6 +42,7 @@ __all__ = [
 ]
 
 MatrixData = dict[str, dict[str, float]]
+MatrixMeta = dict[str, Any]
 DEFAULT_COST = 5.0
 UNKNOWN_SUBSTITUTION_COST = 1.0
 _TRUSTED_MATRICES_DIR_ENV_VAR = "PROTEUS_TRUSTED_MATRICES_DIR"
@@ -144,27 +147,12 @@ def _resolve_matrix_path(path: Path | str, trusted_dir: Path) -> Path:
     return trusted_dir / candidate_path
 
 
-def load_matrix(path: Path | str) -> MatrixData:
-    """Load a phonological distance matrix from a JSON file.
-
-    Args:
-        path: Path or string naming a matrix JSON file. Relative inputs are
-            resolved from the trusted matrices directory, so both
-            ``"attic_doric.json"`` and ``"data/matrices/attic_doric.json"``
-            resolve to the packaged runtime asset.
-
-    Returns:
-        Nested dict mapping phone pair -> distance float.
-
-    Security:
-        Mitigates TOCTOU races via three layers:
-        (1) Pre-open lstat walk rejects symlinks in path components.
-        (2) O_NOFOLLOW open prevents kernel from following late-injected symlinks.
-        (3) Post-open fstat/stat comparison detects replacement between open and read.
-    """
+def _load_trusted_matrix_document(path: Path | str) -> dict[str, Any]:
+    """Load JSON from a trusted matrix file using symlink-safe validation."""
     trusted_dir = Path(os.path.abspath(_get_trusted_matrices_dir()))
     if not trusted_dir.is_dir():
         raise FileNotFoundError(trusted_dir)
+
     requested_path = _resolve_matrix_path(path, trusted_dir)
     requested_path = Path(os.path.abspath(requested_path))
     if not requested_path.is_relative_to(trusted_dir):
@@ -216,9 +204,54 @@ def load_matrix(path: Path | str) -> MatrixData:
 
         raw_data = json.load(matrix_file)
 
+    if not isinstance(raw_data, dict):
+        raise ValueError(f"Matrix file must contain a top-level object, got {path}")
+    return raw_data
+
+
+def load_matrix(path: Path | str) -> MatrixData:
+    """Load a phonological distance matrix from a JSON file.
+
+    Args:
+        path: Path or string naming a matrix JSON file. Relative inputs are
+            resolved from the trusted matrices directory, so both
+            ``"attic_doric.json"`` and ``"data/matrices/attic_doric.json"``
+            resolve to the packaged runtime asset.
+
+    Returns:
+        Nested dict mapping phone pair -> distance float.
+
+    Security:
+        Mitigates TOCTOU races via three layers:
+        (1) Pre-open lstat walk rejects symlinks in path components.
+        (2) O_NOFOLLOW open prevents kernel from following late-injected symlinks.
+        (3) Post-open fstat/stat comparison detects replacement between open and read.
+    """
+    raw_data = _load_trusted_matrix_document(path)
     matrix: MatrixData = {}
     _flatten_rows(raw_data, matrix)
     return matrix
+
+
+def load_matrix_document(path: Path | str) -> tuple[MatrixData, MatrixMeta]:
+    """Load a phonological distance matrix and its metadata from a JSON file.
+
+    Args:
+        path: Path or string naming a matrix JSON file. Relative inputs are
+            resolved from the trusted matrices directory.
+
+    Returns:
+        Tuple of (matrix data dict, metadata dict containing _meta fields).
+
+    Raises:
+        Same as load_matrix().
+    """
+    raw_data = _load_trusted_matrix_document(path)
+    matrix: MatrixData = {}
+    _flatten_rows(raw_data, matrix)
+    raw_meta = raw_data.get("_meta", {})
+    meta: MatrixMeta = raw_meta if isinstance(raw_meta, dict) else {}
+    return matrix, meta
 
 
 def phone_distance(p1: str, p2: str, matrix: MatrixData) -> float:

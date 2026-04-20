@@ -8,6 +8,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
     "lingpy>=2.6.13",
+    "packaging>=26.0",
     "pyyaml>=6.0.2",
 ]
 
@@ -47,6 +48,7 @@ exclude = ["data/lexicon/greek_lemmas.meta.json"]
 "data/matrices" = "phonology/data/matrices"
 "data/rules" = "phonology/data/rules"
 "src/web/index.html" = "web/index.html"
+"src/web/changelog.html" = "web/changelog.html"
 "src/web/static" = "web/static"
 
 [tool.hatch.build.targets.wheel.hooks.custom]

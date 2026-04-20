@@ -8,6 +8,7 @@ import logging
 import math
 import sys
 from copy import deepcopy
+from datetime import datetime, timezone
 from numbers import Real
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ _LEGACY_STOP_ORDER = ("p", "b", "pʰ", "t", "d", "tʰ", "k", "ɡ", "kʰ")
 STOP_ORDER = _LEGACY_STOP_ORDER + ("f", "θ", "x", "ð", "ɣ")
 _KOINE_STOP_BASES = {"f": "pʰ", "θ": "tʰ", "x": "kʰ", "ð": "d", "ɣ": "ɡ"}
 _KOINE_DIRECT_DISTANCE = 0.1
+_MATRIX_VERSION: str = "1.0.0"
 _MATRIX_NOTE = (
     "Generated from the repository sound-class inventory and validated for symmetry, "
     "completeness, and 0.0-1.0 bounds. Fricatives are included in the stop class "
@@ -327,8 +329,47 @@ def _validate_dialect_pairs(dialect_pairs: Any) -> dict[str, dict[str, float]]:
     return validated_pairs
 
 
-def build_attic_doric_matrix() -> dict[str, Any]:
-    """Build the canonical Attic-Doric matrix document."""
+def _normalize_generated_at(generated_at: str | None) -> str:
+    """Return a normalized ISO-8601 timestamp for matrix metadata.
+
+    When generated_at is None, return the current UTC time. Naive input
+    timestamps are treated as UTC, trailing "Z" is converted to "+00:00",
+    and returned values use millisecond precision. Non-string inputs and
+    invalid ISO-8601 strings raise ValueError.
+    """
+    if generated_at is None:
+        return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+    if not isinstance(generated_at, str):
+        raise ValueError(f"generated_at must be a string or None: {generated_at!r}")
+
+    normalized = (
+        generated_at.removesuffix("Z") + "+00:00"
+        if generated_at.endswith("Z")
+        else generated_at
+    )
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise ValueError(
+            f"generated_at must be a valid ISO-8601 timestamp: {generated_at!r}"
+        ) from exc
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+
+    return parsed.isoformat(timespec="milliseconds")
+
+
+def build_attic_doric_matrix(
+    *,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Build the canonical Attic-Doric matrix document.
+
+    Args:
+        generated_at: Optional ISO-8601 timestamp string for deterministic testing.
+            When None (default), uses current UTC time.
+    """
     seed_document = deepcopy(_load_seed_document())
     sound_classes = seed_document["sound_classes"]
     base_vowels, base_stops = _get_base_rows()
@@ -349,9 +390,12 @@ def build_attic_doric_matrix() -> dict[str, Any]:
     _validate_complete_matrix(vowels, VOWEL_ORDER)
     _validate_complete_matrix(stops, STOP_ORDER)
 
+    timestamp = _normalize_generated_at(generated_at)
     return {
         "_meta": {
             "description": "Phonological distance matrix between Attic and Doric Greek",
+            "version": _MATRIX_VERSION,
+            "generated_at": timestamp,
             "method": "weighted edit distance based on sound classes (Dolgopolsky/ASJP)",
             "range": "0.0 (identical) to 1.0 (maximally distant)",
             "note": _MATRIX_NOTE,
