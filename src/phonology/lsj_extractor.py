@@ -587,6 +587,26 @@ class _HeadingContext(NamedTuple):
     has_following_attic_label: bool  # Full zone: a dialect gramGrp with Attic label after start_index
 
 
+class _DialectDecisionContext(NamedTuple):
+    """Inputs needed to decide whether a heading dialect label is entry-level."""
+
+    mapped_dialect: str
+    heading: _HeadingContext
+    variant_context: bool
+    entry_level_constraint: bool
+    prior_headword_context: bool
+    following_headword_context: bool
+    has_distinct_following_surface_form: bool
+    has_extra_following_forms: bool
+
+
+class _DialectLabelDecision(NamedTuple):
+    """Decision for a mapped dialect label encountered in the entry heading."""
+
+    mapped_dialect: str
+    is_variant_only: bool
+
+
 def _has_attic_dialect_label(gramgrp: Any) -> bool:
     """Return True when a dialect ``<gramGrp>`` contains an Attic label."""
     for descendant in gramgrp.iter():
@@ -816,6 +836,207 @@ def _has_nearby_variant_context(children: list[Any], start_index: int) -> bool:
     return bool(_HEADING_NEARBY_VARIANT_CONTEXT_RE.search(current_tail))
 
 
+def _build_dialect_decision_context(
+    children: list[Any], start_index: int, mapped_dialect: str
+) -> _DialectDecisionContext:
+    """Collect heading-derived inputs for a dialect label decision."""
+    heading = _scan_heading_context(children, start_index)
+    return _DialectDecisionContext(
+        mapped_dialect=mapped_dialect,
+        heading=heading,
+        variant_context=_has_nearby_variant_context(children, start_index),
+        entry_level_constraint=bool(
+            _HEADING_ENTRY_LEVEL_CONSTRAINT_RE.search(children[start_index].tail or "")
+        ),
+        prior_headword_context=_has_prior_heading_headword_context(
+            children, start_index
+        ),
+        following_headword_context=_has_following_heading_headword_context(
+            children, start_index
+        ),
+        has_distinct_following_surface_form=_has_distinct_following_heading_surface_form(
+            children, start_index
+        ),
+        has_extra_following_forms=heading.following_greek_form_count > 1,
+    )
+
+
+def _is_attic_without_prior(context: _DialectDecisionContext) -> bool:
+    """Return True when an Attic label is likely the primary entry dialect."""
+    ctx = context.heading
+    return context.mapped_dialect == "attic" and not ctx.has_prior_dialect_label
+
+
+def _is_single_dialect_surface_variant(context: _DialectDecisionContext) -> bool:
+    """Return True for a lone dialect label attached to one surface variant."""
+    ctx = context.heading
+    return (
+        not ctx.has_prior_dialect_label
+        and not ctx.has_following_dialect_label
+        and ctx.has_following_surface_form
+        and (context.prior_headword_context or context.following_headword_context)
+    )
+
+
+def _has_dialect_variant_chain(context: _DialectDecisionContext) -> bool:
+    """Return True when a multi-dialect heading enumerates surface variants."""
+    ctx = context.heading
+    return (
+        ctx.has_following_dialect_label
+        and not ctx.has_following_attic_label
+        and ctx.has_following_form
+        and (ctx.has_following_surface_form or ctx.has_following_gen_marker)
+    )
+
+
+def _has_nominal_morphology_continuation(context: _DialectDecisionContext) -> bool:
+    """Return True when a dialect label continues nominal morphology markers."""
+    ctx = context.heading
+    return (
+        ctx.has_following_gen_marker
+        and not ctx.has_following_surface_form
+        and (ctx.has_preceding_itype_marker or ctx.has_following_itype_marker)
+    )
+
+
+def _has_distinct_nominal_surface_variant(context: _DialectDecisionContext) -> bool:
+    """Return True for a distinct surface spelling followed by nominal gender."""
+    ctx = context.heading
+    return (
+        not ctx.has_prior_dialect_label
+        and not ctx.has_following_dialect_label
+        and context.has_distinct_following_surface_form
+        and ctx.has_following_gen_marker
+    )
+
+
+def _qualifies_by_context(
+    context: _DialectDecisionContext,
+    *,
+    has_dialect_variant_chain: bool,
+    has_distinct_nominal_surface_variant: bool,
+    is_single_dialect_surface_variant: bool,
+) -> bool:
+    """Return True when surrounding context marks the label as variant-only."""
+    ctx = context.heading
+    return (
+        context.prior_headword_context
+        or context.has_extra_following_forms
+        or ctx.has_prior_dialect_label
+        or has_dialect_variant_chain
+        or has_distinct_nominal_surface_variant
+        or is_single_dialect_surface_variant
+        or (context.variant_context and ctx.has_following_surface_form)
+    )
+
+
+def _qualifies_by_nearby_variant_note(context: _DialectDecisionContext) -> bool:
+    """Return True when nearby prose cues make an adjacent form variant-only."""
+    ctx = context.heading
+    return context.variant_context and (
+        (ctx.has_preceding_form and context.prior_headword_context)
+        or ctx.has_following_surface_form
+    )
+
+
+def _qualifies_by_gen_marker(
+    context: _DialectDecisionContext,
+    *,
+    has_nominal_morphology_continuation: bool,
+) -> bool:
+    """Return True when a following gender marker belongs to a variant note."""
+    ctx = context.heading
+    return (
+        ctx.has_following_gen_marker
+        and not ctx.has_following_surface_form
+        and (
+            has_nominal_morphology_continuation
+            or (
+                context.prior_headword_context
+                and not ctx.has_non_dialect_gramgrp_before_gen
+            )
+        )
+    )
+
+
+def _is_variant_only(
+    context: _DialectDecisionContext,
+    *,
+    is_attic_without_prior: bool,
+    qualifies_by_context: bool,
+    qualifies_by_gen_marker: bool,
+    qualifies_by_nearby_variant_note: bool,
+) -> bool:
+    """Return the final variant-only decision for a dialect label."""
+    ctx = context.heading
+    return (
+        not is_attic_without_prior
+        and not context.entry_level_constraint
+        and (
+            (ctx.has_following_form and qualifies_by_context)
+            or qualifies_by_gen_marker
+            or qualifies_by_nearby_variant_note
+        )
+    )
+
+
+def _decide_dialect_label(
+    context: _DialectDecisionContext,
+) -> _DialectLabelDecision:
+    """Return whether a heading dialect label is variant-only."""
+    is_attic_without_prior = _is_attic_without_prior(context)
+    is_single_dialect_surface_variant = _is_single_dialect_surface_variant(context)
+    has_dialect_variant_chain = _has_dialect_variant_chain(context)
+    has_nominal_morphology_continuation = _has_nominal_morphology_continuation(
+        context
+    )
+    has_distinct_nominal_surface_variant = _has_distinct_nominal_surface_variant(
+        context
+    )
+    qualifies_by_context = _qualifies_by_context(
+        context,
+        has_dialect_variant_chain=has_dialect_variant_chain,
+        has_distinct_nominal_surface_variant=has_distinct_nominal_surface_variant,
+        is_single_dialect_surface_variant=is_single_dialect_surface_variant,
+    )
+    qualifies_by_nearby_variant_note = _qualifies_by_nearby_variant_note(context)
+    qualifies_by_gen_marker = _qualifies_by_gen_marker(
+        context,
+        has_nominal_morphology_continuation=has_nominal_morphology_continuation,
+    )
+    variant_only = _is_variant_only(
+        context,
+        is_attic_without_prior=is_attic_without_prior,
+        qualifies_by_context=qualifies_by_context,
+        qualifies_by_gen_marker=qualifies_by_gen_marker,
+        qualifies_by_nearby_variant_note=qualifies_by_nearby_variant_note,
+    )
+    return _DialectLabelDecision(
+        mapped_dialect=context.mapped_dialect,
+        is_variant_only=variant_only,
+    )
+
+
+def _mapped_heading_dialect(descendant: Any) -> str | None:
+    """Return a mapped dialect label for a heading ``<gram>`` descendant."""
+    if _local_name(descendant) != "gram":
+        return None
+    if descendant.get("type", "") != "dialect":
+        return None
+    return _DIALECT_MAP.get(_elem_text(descendant).strip())
+
+
+def _should_keep_heading_dialect_label(
+    children: list[Any], start_index: int, mapped_dialect: str
+) -> bool:
+    """Return True when a heading dialect label belongs to the entry."""
+    decision_context = _build_dialect_decision_context(
+        children, start_index, mapped_dialect
+    )
+    decision = _decide_dialect_label(decision_context)
+    return not decision.is_variant_only
+
+
 def _leading_dialect_labels(entry: Any) -> list[str]:
     """Return dialect labels attached before the first top-level ``<sense>``."""
     labels: list[str] = []
@@ -825,99 +1046,13 @@ def _leading_dialect_labels(entry: Any) -> list[str]:
         if local == "sense":
             break
         if local == "gramGrp":
-            variant_context = _has_nearby_variant_context(children, index)
-            entry_level_constraint = bool(
-                _HEADING_ENTRY_LEVEL_CONSTRAINT_RE.search(child.tail or "")
-            )
-            ctx = _scan_heading_context(children, index)
-            prior_headword_context = _has_prior_heading_headword_context(children, index)
-            following_headword_context = _has_following_heading_headword_context(
-                children, index
-            )
-            has_distinct_following_surface_form = _has_distinct_following_heading_surface_form(
-                children, index
-            )
             for descendant in child.iter():
-                if _local_name(descendant) != "gram":
+                mapped_dialect = _mapped_heading_dialect(descendant)
+                if mapped_dialect is None:
                     continue
-                if descendant.get("type", "") != "dialect":
-                    continue
-                text = _elem_text(descendant).strip()
-                if text not in _DIALECT_MAP:
-                    continue
-                mapped_dialect = _DIALECT_MAP[text]
-                # -- Named conditions for variant-only decision --
-                # Attic with no prior dialect heading: likely a primary entry, not a variant
-                is_attic_without_prior = mapped_dialect == "attic" and not ctx.has_prior_dialect_label
-                # A lone heading dialect label followed by one explicit surface form
-                # is usually a variant note attached to an Attic headword.
-                is_single_dialect_surface_variant = (
-                    not ctx.has_prior_dialect_label
-                    and not ctx.has_following_dialect_label
-                    and ctx.has_following_surface_form
-                    and (prior_headword_context or following_headword_context)
-                )
-                # More than one Greek form follows the dialect label
-                has_extra_following_forms = ctx.following_greek_form_count > 1
-                # A multi-dialect heading chain with explicit forms usually enumerates
-                # variants of the Attic headword rather than redefining the entry.
-                has_dialect_variant_chain = (
-                    ctx.has_following_dialect_label
-                    and not ctx.has_following_attic_label
-                    and ctx.has_following_form
-                    and (ctx.has_following_surface_form or ctx.has_following_gen_marker)
-                )
-                # Nominal variant notes often switch only the inflectional markers
-                # around a dialect label, e.g. ``Ion. ios, h(``.
-                has_nominal_morphology_continuation = (
-                    ctx.has_following_gen_marker
-                    and not ctx.has_following_surface_form
-                    and (ctx.has_preceding_itype_marker or ctx.has_following_itype_marker)
-                )
-                has_distinct_nominal_surface_variant = (
-                    not ctx.has_prior_dialect_label
-                    and not ctx.has_following_dialect_label
-                    and has_distinct_following_surface_form
-                    and ctx.has_following_gen_marker
-                )
-                # Surrounding context suggests this is a variant form
-                qualifies_by_context = (
-                    prior_headword_context
-                    or has_extra_following_forms
-                    or ctx.has_prior_dialect_label
-                    or has_dialect_variant_chain
-                    or has_distinct_nominal_surface_variant
-                    or is_single_dialect_surface_variant
-                    or (variant_context and ctx.has_following_surface_form)
-                )
-                # Nearby variant cues can also annotate an adjacent Greek form without
-                # placing it immediately after the dialect label.
-                qualifies_by_nearby_variant_note = variant_context and (
-                    (ctx.has_preceding_form and prior_headword_context)
-                    or ctx.has_following_surface_form
-                )
-                qualifies_by_gen_marker = (
-                    ctx.has_following_gen_marker
-                    and not ctx.has_following_surface_form
-                    and (
-                        has_nominal_morphology_continuation
-                        or (
-                            prior_headword_context
-                            and not ctx.has_non_dialect_gramgrp_before_gen
-                        )
-                    )
-                )
-
-                variant_only = (
-                    not is_attic_without_prior
-                    and not entry_level_constraint
-                    and (
-                        (ctx.has_following_form and qualifies_by_context)
-                        or qualifies_by_gen_marker
-                        or qualifies_by_nearby_variant_note
-                    )
-                )
-                if variant_only:
+                if not _should_keep_heading_dialect_label(
+                    children, index, mapped_dialect
+                ):
                     continue
                 labels.append(mapped_dialect)
     return labels
@@ -975,29 +1110,37 @@ def _extract_headword(entry: Any) -> str:
     return ""
 
 
-def _extract_pos(entry: Any) -> str | None:
-    """Infer the part of speech from the entry. Returns None if undetermined."""
-    itypes = _headword_itypes(entry)
-    key = entry.get("key", "")
-    adjective_itypes = _looks_like_adjective_itypes(itypes, key)
-    normalized_key = _normalize_headword_key(key)
-    participial_candidate = False
+class _PosInferenceContext(NamedTuple):
+    """Pre-computed inputs shared by ordered POS inference rules."""
 
-    # 1. Explicit <pos> tag
+    entry: Any
+    key: str
+    normalized_key: str
+    itypes: list[str]
+    adjective_itypes: bool
+    participial_candidate: bool
+
+
+def _infer_explicit_pos(entry: Any) -> str | None:
+    """Infer POS from a direct explicit ``<pos>`` tag."""
     pos_text = _find_text(entry, "pos")
-    if pos_text:
-        pos_text = pos_text.strip().rstrip(".")
-        # Try exact match first, then with trailing period
-        for candidate in (pos_text, pos_text + "."):
-            if candidate in _POS_MAP:
-                return _POS_MAP[candidate]
+    if not pos_text:
+        return None
+    pos_text = pos_text.strip().rstrip(".")
+    # Try exact match first, then with trailing period.
+    for candidate in (pos_text, pos_text + "."):
+        if candidate in _POS_MAP:
+            return _POS_MAP[candidate]
+    return None
 
-    # 2. Participial headwords are often introduced as "part. of <verb>" via <mood>.
-    entry_intro = _entry_intro_text(entry)
-    if _PARTICIPLE_OF_RE.search(entry_intro):
-        participial_candidate = True
 
-    # 3. Inline LSJ prose labels in the entry intro and first few sense headings.
+def _infer_participle_intro_marker(entry: Any) -> bool:
+    """Return True when heading prose marks a participial candidate."""
+    return bool(_PARTICIPLE_OF_RE.search(_entry_intro_text(entry)))
+
+
+def _infer_inline_prose_pos(entry: Any) -> str | None:
+    """Infer POS from inline heading and early sense prose labels."""
     inline_candidates: list[tuple[int, int, int, str]] = []
     inline_texts = [
         _entry_intro_text(entry, skip_mood_text=True),
@@ -1005,56 +1148,118 @@ def _extract_pos(entry: Any) -> str | None:
     ]
     for source_index, text in enumerate(inline_texts):
         for attic_priority, position, pos in _inline_pos_candidates(text):
-            # 0 = Attic-priority (sorts first), 1 = non-Attic
+            # 0 = Attic-priority (sorts first), 1 = non-Attic.
             sort_priority = 0 if attic_priority else 1
             inline_candidates.append((sort_priority, source_index, position, pos))
-    if inline_candidates:
-        # Sort by priority, then source order, then position in text
-        inline_candidates.sort()
-        return inline_candidates[0][3]
+    if not inline_candidates:
+        return None
+    inline_candidates.sort()
+    return inline_candidates[0][3]
 
-    # 4. Common cardinal numeral headwords are unlabeled in LSJ headings.
-    if key and _looks_like_known_numeral_key(key):
+
+def _infer_known_numeral_pos(context: _PosInferenceContext) -> str | None:
+    """Infer common cardinal numeral headwords omitted by LSJ POS markup."""
+    if context.key and _looks_like_known_numeral_key(context.key):
         return "numeral"
+    return None
 
-    # 5. Gender-based inference: presence of <gen> → noun
-    gen_text = _find_gen_text(entry)
-    if gen_text:
-        if participial_candidate and _has_plural_neuter_article(entry):
-            return "participle"
-        return "noun"
 
-    # 6. Headword ending heuristics
+def _infer_gender_based_pos(context: _PosInferenceContext) -> str | None:
+    """Infer noun or participle from heading gender morphology."""
+    gen_text = _find_gen_text(context.entry)
+    if not gen_text:
+        return None
+    if context.participial_candidate and _has_plural_neuter_article(context.entry):
+        return "participle"
+    return "noun"
+
+
+def _infer_adverb_ending_pos(context: _PosInferenceContext) -> str | None:
+    """Infer adverb POS from common headword endings."""
     if (
-        normalized_key.endswith("ws")
-        or normalized_key.endswith("w=s")
-        or normalized_key.endswith("ei/")
+        context.normalized_key.endswith("ws")
+        or context.normalized_key.endswith("w=s")
+        or context.normalized_key.endswith("ei/")
     ):
         return "adverb"
+    return None
 
-    # 7. Multi-form iTypes like "a, on" usually mark adjectives.
-    if adjective_itypes:
+
+def _infer_adjective_itype_pos(context: _PosInferenceContext) -> str | None:
+    """Infer adjective POS from direct headword iType morphology."""
+    if context.adjective_itypes:
         return "adjective"
+    return None
 
-    # 8. Verb indicators only help when the headword itself looks verbal.
-    if key and _looks_like_verb_key(key) and _has_descendant(entry, {"tns", "mood"}):
+
+def _infer_verb_indicator_pos(context: _PosInferenceContext) -> str | None:
+    """Infer verb POS from verb-like key plus verbal morphology evidence."""
+    if (
+        context.key
+        and _looks_like_verb_key(context.key)
+        and _has_descendant(context.entry, {"tns", "mood"})
+    ):
         return "verb"
+    return None
 
-    # 9. Post-gloss POS notes are a last-resort fallback for otherwise unlabeled entries.
+
+def _infer_post_gloss_pos(entry: Any) -> str | None:
+    """Infer POS from post-gloss prose as a last-resort fallback."""
     post_gloss_candidates: list[tuple[int, int, int, str]] = []
     for source_index, text in enumerate(_sense_post_gloss_pos_texts(entry)):
         for attic_priority, position, pos in _inline_pos_candidates(text):
             sort_priority = 0 if attic_priority else 1
             post_gloss_candidates.append((sort_priority, source_index, position, pos))
-    if post_gloss_candidates:
-        post_gloss_candidates.sort()
-        return post_gloss_candidates[0][3]
+    if not post_gloss_candidates:
+        return None
+    post_gloss_candidates.sort()
+    return post_gloss_candidates[0][3]
 
-    # 10. Fall back to participial classification only when stronger signals failed.
-    if participial_candidate:
+
+def _infer_final_participle_pos(context: _PosInferenceContext) -> str | None:
+    """Infer participle only after stronger POS signals fail."""
+    if context.participial_candidate:
         return "participle"
-
     return None
+
+
+def _extract_pos(entry: Any) -> str | None:
+    """Infer the part of speech from the entry. Returns None if undetermined."""
+    explicit_pos = _infer_explicit_pos(entry)
+    if explicit_pos is not None:
+        return explicit_pos
+
+    itypes = _headword_itypes(entry)
+    key = entry.get("key", "")
+    context = _PosInferenceContext(
+        entry=entry,
+        key=key,
+        normalized_key=_normalize_headword_key(key),
+        itypes=itypes,
+        adjective_itypes=_looks_like_adjective_itypes(itypes, key),
+        participial_candidate=_infer_participle_intro_marker(entry),
+    )
+
+    pos = _infer_inline_prose_pos(entry)
+    if pos is not None:
+        return pos
+
+    for infer_rule in (
+        _infer_known_numeral_pos,
+        _infer_gender_based_pos,
+        _infer_adverb_ending_pos,
+        _infer_adjective_itype_pos,
+        _infer_verb_indicator_pos,
+    ):
+        pos = infer_rule(context)
+        if pos is not None:
+            return pos
+
+    pos = _infer_post_gloss_pos(entry)
+    if pos is not None:
+        return pos
+
+    return _infer_final_participle_pos(context)
 
 
 def _extract_gender(entry: Any) -> str | None:

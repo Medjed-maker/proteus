@@ -51,9 +51,273 @@ def _make_entry_xml(
     return etree.fromstring("".join(parts))
 
 
+def _make_heading_context(
+    **overrides: Any,
+) -> lsj_extractor_module._HeadingContext:
+    """Build a minimal heading context for dialect predicate tests."""
+    defaults: dict[str, Any] = {
+        "following_greek_form_count": 0,
+        "has_following_form": False,
+        "has_following_surface_form": False,
+        "has_following_gen_marker": False,
+        "has_following_itype_marker": False,
+        "has_non_dialect_gramgrp_before_gen": False,
+        "has_preceding_form": False,
+        "has_preceding_itype_marker": False,
+        "has_prior_dialect_label": False,
+        "has_following_dialect_label": False,
+        "has_following_attic_label": False,
+    }
+    defaults.update(overrides)
+    return lsj_extractor_module._HeadingContext(**defaults)
+
+
+def _make_dialect_decision_context(
+    **overrides: Any,
+) -> lsj_extractor_module._DialectDecisionContext:
+    """Build a minimal dialect decision context for predicate tests."""
+    defaults: dict[str, Any] = {
+        "mapped_dialect": "doric",
+        "heading": _make_heading_context(),
+        "variant_context": False,
+        "entry_level_constraint": False,
+        "prior_headword_context": False,
+        "following_headword_context": False,
+        "has_distinct_following_surface_form": False,
+        "has_extra_following_forms": False,
+    }
+    defaults.update(overrides)
+    return lsj_extractor_module._DialectDecisionContext(**defaults)
+
+
 # --------------------------------------------------------------------------
 # extract_entry tests
 # --------------------------------------------------------------------------
+
+
+class TestDialectVariantPredicates:
+    """Test dialect variant-only predicate helpers directly."""
+
+    def test_is_attic_without_prior(self) -> None:
+        context = _make_dialect_decision_context(mapped_dialect="attic")
+
+        assert lsj_extractor_module._is_attic_without_prior(context) is True
+
+    def test_is_single_dialect_surface_variant_with_headword_context(self) -> None:
+        context = _make_dialect_decision_context(
+            heading=_make_heading_context(has_following_surface_form=True),
+            prior_headword_context=True,
+        )
+
+        assert (
+            lsj_extractor_module._is_single_dialect_surface_variant(context) is True
+        )
+
+    def test_has_dialect_variant_chain(self) -> None:
+        context = _make_dialect_decision_context(
+            heading=_make_heading_context(
+                has_following_dialect_label=True,
+                has_following_form=True,
+                has_following_surface_form=True,
+            )
+        )
+
+        assert lsj_extractor_module._has_dialect_variant_chain(context) is True
+
+    def test_has_nominal_morphology_continuation(self) -> None:
+        context = _make_dialect_decision_context(
+            heading=_make_heading_context(
+                has_following_gen_marker=True,
+                has_following_itype_marker=True,
+            )
+        )
+
+        assert (
+            lsj_extractor_module._has_nominal_morphology_continuation(context)
+            is True
+        )
+
+    def test_has_distinct_nominal_surface_variant(self) -> None:
+        context = _make_dialect_decision_context(
+            heading=_make_heading_context(has_following_gen_marker=True),
+            has_distinct_following_surface_form=True,
+        )
+
+        assert (
+            lsj_extractor_module._has_distinct_nominal_surface_variant(context)
+            is True
+        )
+
+    def test_qualifies_by_context_with_inherited_variant_chain(self) -> None:
+        context = _make_dialect_decision_context()
+
+        assert (
+            lsj_extractor_module._qualifies_by_context(
+                context,
+                has_dialect_variant_chain=True,
+                has_distinct_nominal_surface_variant=False,
+                is_single_dialect_surface_variant=False,
+            )
+            is True
+        )
+
+    @pytest.mark.parametrize(
+        ("heading", "prior_headword_context"),
+        [
+            (_make_heading_context(has_following_surface_form=True), False),
+            (_make_heading_context(has_preceding_form=True), True),
+        ],
+    )
+    def test_qualifies_by_nearby_variant_note(
+        self,
+        heading: lsj_extractor_module._HeadingContext,
+        prior_headword_context: bool,
+    ) -> None:
+        context = _make_dialect_decision_context(
+            heading=heading,
+            variant_context=True,
+            prior_headword_context=prior_headword_context,
+        )
+
+        assert lsj_extractor_module._qualifies_by_nearby_variant_note(context) is True
+
+    @pytest.mark.parametrize(
+        ("has_nominal_morphology_continuation", "prior_headword_context"),
+        [(True, False), (False, True)],
+    )
+    def test_qualifies_by_gen_marker(
+        self,
+        has_nominal_morphology_continuation: bool,
+        prior_headword_context: bool,
+    ) -> None:
+        context = _make_dialect_decision_context(
+            heading=_make_heading_context(has_following_gen_marker=True),
+            prior_headword_context=prior_headword_context,
+        )
+
+        assert (
+            lsj_extractor_module._qualifies_by_gen_marker(
+                context,
+                has_nominal_morphology_continuation=has_nominal_morphology_continuation,
+            )
+            is True
+        )
+
+    def test_is_variant_only_respects_entry_level_constraint(self) -> None:
+        context = _make_dialect_decision_context(
+            heading=_make_heading_context(has_following_form=True),
+            entry_level_constraint=True,
+        )
+
+        assert (
+            lsj_extractor_module._is_variant_only(
+                context,
+                is_attic_without_prior=False,
+                qualifies_by_context=True,
+                qualifies_by_gen_marker=False,
+                qualifies_by_nearby_variant_note=False,
+            )
+            is False
+        )
+
+
+class TestLeadingDialectLabels:
+    """Test heading dialect label extraction directly from XML fixtures."""
+
+    def test_attic_primary_heading(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25100" key="a)ru/w" type="main">'
+            '<orth extent="full" lang="greek">a)ru/w</orth>, '
+            '<gramGrp><gram type="dialect">Att.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">a)ru/tw</orth>, '
+            '<sense id="s1" n="A" level="1"><tr>draw</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._leading_dialect_labels(elem) == ["attic"]
+
+    def test_non_attic_primary_heading(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25101" key="dw=ron" type="main">'
+            '<orth extent="full" lang="greek">dw=ron</orth>, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<gen lang="greek">to/</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>gift</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._leading_dialect_labels(elem) == ["doric"]
+
+    def test_single_variant_form_is_variant_only(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25102" key="a)bohti/" type="main">'
+            '<orth extent="full" lang="greek">a)bohti/</orth>, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<orth extent="suff" lang="greek">a)bohq-a_ti/</orth>, '
+            '<pos>Adv.</pos> '
+            '<sense id="s1" n="A" level="1"><tr>without summons</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._leading_dialect_labels(elem) == []
+
+    def test_variant_chain_is_variant_only(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25103" key="a)/ella" type="main">'
+            '<orth extent="full" lang="greek">a)/ella</orth>, '
+            '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">a)e/llh</orth>, '
+            '<gramGrp><gram type="dialect">Aeol.</gram></gramGrp> '
+            '<orth extent="full" lang="greek">au)/ella</orth>, '
+            '<gen lang="greek">h(</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>stormy wind</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._leading_dialect_labels(elem) == []
+
+    def test_nominal_morphology_continuation_is_variant_only(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25104" key="a)na/stasis" type="main">'
+            '<orth extent="full" lang="greek">a)na/-sta^sis</orth>, '
+            '<itype lang="greek">ews</itype>, '
+            '<gramGrp><gram type="dialect">Ion.</gram></gramGrp> '
+            '<itype lang="greek">ios</itype>, '
+            '<gen lang="greek">h(</gen>, '
+            '<sense id="s1" n="A" level="1"><tr>raising up</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._leading_dialect_labels(elem) == []
+
+    def test_entry_level_constraint_keeps_dialect_label(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25105" key="a)mfagapa/zw" type="main">'
+            '<orth extent="full" lang="greek">a)mfagapa/zw</orth>, '
+            '<tns>impf.</tns> <foreign lang="greek">a)mfaga/pazon</foreign>, '
+            '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> only in '
+            '<tns>pres.</tns>, '
+            '<sense id="s1" n="A" level="1"><tr>embrace</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._leading_dialect_labels(elem) == ["ionic"]
+
+    def test_preserves_label_order_and_ignores_unrecognized_dialects(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25106" key="dw=ron" type="main">'
+            '<orth extent="full" lang="greek">dw=ron</orth>, '
+            '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
+            '<gramGrp><gram type="dialect">Boeot.</gram></gramGrp> '
+            '<gramGrp><gram type="dialect">Ion.</gram></gramGrp> '
+            '<sense id="s1" n="A" level="1"><tr>gift</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._leading_dialect_labels(elem) == [
+            "doric",
+            "ionic",
+        ]
 
 
 class TestLoadPosOverrides:
@@ -452,6 +716,110 @@ class TestExtractEntry:
         assert ",," not in result["gloss"]
 
     # -- POS and gender heuristics ---------------------------------------
+
+    def test_pos_rule_explicit_pos_beats_adjective_itype(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25200" key="*persiko/s" type="main">'
+            '<orth extent="full" lang="greek">*persiko/s</orth>'
+            '<itype lang="greek">h/</itype>'
+            '<itype lang="greek">o/n</itype>'
+            '<pos>Adv.</pos>'
+            '<sense id="s1" n="A" level="1"><tr>Persianly</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._extract_pos(elem) == "adverb"
+
+    def test_pos_rule_inline_prose_beats_known_numeral_key(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "_load_pos_overrides",
+            lambda: {
+                "common_gender_keys": frozenset(),
+                "numeral_keys": frozenset({"de/ka"}),
+            },
+        )
+        elem = etree.fromstring(
+            '<entryFree id="n25201" key="de/ka" type="main">'
+            '<orth extent="full" lang="greek">de/ka</orth>, Conj., '
+            '<sense id="s1" n="A" level="1"><tr>ten</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._extract_pos(elem) == "conjunction"
+
+    def test_pos_rule_gender_based_noun_beats_adverb_ending(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25202" key="o(/pws" type="main">'
+            '<orth extent="full" lang="greek">o(/pws</orth>'
+            '<gen lang="greek">o(</gen>'
+            '<sense id="s1" n="A" level="1"><tr>way</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._extract_pos(elem) == "noun"
+
+    def test_pos_rule_adverb_ending_beats_adjective_itype(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25203" key="o(/pws" type="main">'
+            '<orth extent="full" lang="greek">o(/pws</orth>'
+            '<itype lang="greek">a</itype>'
+            '<itype lang="greek">on</itype>'
+            '<sense id="s1" n="A" level="1"><tr>how</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._extract_pos(elem) == "adverb"
+
+    def test_pos_rule_adjective_itype_beats_verb_indicator(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25204" key="a)gapa/w" type="main">'
+            '<orth extent="full" lang="greek">a)gapa/w</orth>'
+            '<itype lang="greek">a</itype>'
+            '<itype lang="greek">on</itype>'
+            '<sense id="s1" n="A" level="1"><tr>beloved</tr>'
+            '<mood>inf.</mood></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._extract_pos(elem) == "adjective"
+
+    def test_pos_rule_verb_indicator_beats_post_gloss_fallback(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25205" key="a)ke/w" type="main">'
+            '<orth extent="full" lang="greek">a)ke/w</orth>'
+            '<sense id="s1" n="A" level="1">'
+            '<mood>inf.</mood><tr>to be silent</tr>: Pron. of another form'
+            "</sense>"
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._extract_pos(elem) == "verb"
+
+    def test_pos_rule_post_gloss_fallback_beats_final_participle(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25206" key="o)/nta" type="main">'
+            '<orth extent="full" lang="greek">o)/nta</orth>, '
+            '<mood>part.</mood> of <foreign lang="greek">ei)mi/</foreign> '
+            '<sense id="s1" n="A" level="1">'
+            '<tr>beings</tr>: Pron. of another form'
+            "</sense>"
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._extract_pos(elem) == "pronoun"
+
+    def test_pos_rule_undetermined_returns_none(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25207" key="a)ran" type="main">'
+            '<orth extent="full" lang="greek">a)ran</orth>'
+            '<sense id="s1" n="A" level="1"><tr>unclear</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._extract_pos(elem) is None
 
     def test_verb_indicator_requires_verb_like_headword(self) -> None:
         """Sense-level mood markup should not turn adverbs into verbs."""
