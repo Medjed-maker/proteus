@@ -110,6 +110,67 @@ def _run_subprocess(
     )
 
 
+def _validate_lsj_repo_dir_target(lsj_repo_dir: Path, project_root: Path) -> None:
+    """Validate that the LSJ checkout target is safe to create or replace."""
+    if lsj_repo_dir.is_symlink():
+        logger.error(
+            "Refusing to replace lsj_repo_dir %s: it is a symbolic link",
+            lsj_repo_dir,
+        )
+        raise RuntimeError(
+            f"Safety check failed: lsj_repo_dir {lsj_repo_dir} is a symbolic link; "
+            "remove the symlink manually before retrying."
+        )
+
+    if not lsj_repo_dir.exists():
+        return
+
+    resolved_project_root = project_root.resolve()
+    resolved_path = lsj_repo_dir.resolve(strict=False)
+    if not resolved_path.is_relative_to(resolved_project_root):
+        logger.error(
+            "Refusing to replace existing lsj_repo_dir %s: resolved path %s is not under project root %s",
+            lsj_repo_dir,
+            resolved_path,
+            resolved_project_root,
+        )
+        raise RuntimeError(
+            "Safety check failed: existing lsj_repo_dir "
+            f"{resolved_path} is not under project root {resolved_project_root}"
+        )
+
+
+def _cleanup_directory(path: Path) -> None:
+    """Best-effort cleanup for temporary clone directories."""
+    if not path.exists() and not path.is_symlink():
+        return
+    shutil.rmtree(path, ignore_errors=True)
+
+
+def _replace_lsj_checkout(prepared_repo_dir: Path, target_repo_dir: Path) -> None:
+    """Replace the target LSJ checkout with a prepared sibling directory."""
+    backup_repo_dir = target_repo_dir.with_name(f"{target_repo_dir.name}.bak")
+    _cleanup_directory(backup_repo_dir)
+    try:
+        if target_repo_dir.exists():
+            target_repo_dir.replace(backup_repo_dir)
+        prepared_repo_dir.replace(target_repo_dir)
+    except Exception:
+        if not target_repo_dir.exists() and backup_repo_dir.exists():
+            try:
+                backup_repo_dir.replace(target_repo_dir)
+            except Exception as rollback_exc:
+                logger.exception(
+                    "Failed to rollback backup from %s to %s: %s",
+                    backup_repo_dir,
+                    target_repo_dir,
+                    rollback_exc,
+                )
+        raise
+    else:
+        _cleanup_directory(backup_repo_dir)
+
+
 def _clone_lsj_repo(lsj_repo_dir: Path, project_root: Path) -> None:
     """Clone the Perseus LSJ repository with retry and a Python timeout."""
     git_executable = shutil.which("git")
@@ -117,46 +178,36 @@ def _clone_lsj_repo(lsj_repo_dir: Path, project_root: Path) -> None:
         raise RuntimeError("git is required to clone Perseus LSJ data")
 
     lsj_repo_dir.parent.mkdir(parents=True, exist_ok=True)
+    _validate_lsj_repo_dir_target(lsj_repo_dir, project_root)
 
     last_error: subprocess.CalledProcessError | subprocess.TimeoutExpired | None = None
-    clone_command = [
-        git_executable,
-        "clone",
-        "--depth",
-        "1",
-        "--filter=blob:none",
-        "--sparse",
-        "https://github.com/PerseusDL/lexica.git",
-        str(lsj_repo_dir),
-    ]
-
-    resolved_project_root = project_root.resolve()
+    temp_repo_dir = lsj_repo_dir.with_name(f"{lsj_repo_dir.name}.tmp")
     clone_succeeded = False
     for attempt in range(1, _CLONE_MAX_ATTEMPTS + 1):
-        if lsj_repo_dir.is_dir():
-            if lsj_repo_dir.is_symlink():
-                logger.error(
-                    "Refusing to delete lsj_repo_dir %s: it is a symbolic link",
-                    lsj_repo_dir,
-                )
-                raise RuntimeError(
-                    f"Safety check failed: lsj_repo_dir {lsj_repo_dir} is a symbolic link; "
-                    "remove the symlink manually before retrying."
-                )
-            resolved_path = lsj_repo_dir.resolve()
-            if not resolved_path.is_relative_to(resolved_project_root):
-                logger.error(
-                    "Refusing to delete lsj_repo_dir %s: resolved path %s is not under project root %s",
-                    lsj_repo_dir,
-                    resolved_path,
-                    resolved_project_root,
-                )
-                raise RuntimeError(
-                    f"Safety check failed: lsj_repo_dir {resolved_path} is not under project root {resolved_project_root}"
-                )
-            shutil.rmtree(lsj_repo_dir)
+        _cleanup_directory(temp_repo_dir)
+        clone_command = [
+            git_executable,
+            "clone",
+            "--depth",
+            "1",
+            "--filter=blob:none",
+            "--sparse",
+            "https://github.com/PerseusDL/lexica.git",
+            str(temp_repo_dir),
+        ]
         try:
             _run_subprocess(clone_command, timeout=_CLONE_TIMEOUT_SECONDS)
+            _run_subprocess(
+                [git_executable, "sparse-checkout", "set", "CTS_XML_TEI/perseus/pdllex/grc/lsj"],
+                cwd=temp_repo_dir,
+                timeout=_CLONE_TIMEOUT_SECONDS,
+            )
+            xml_dir = _lsj_xml_dir_for_repo(temp_repo_dir)
+            if not xml_dir.is_dir():
+                raise FileNotFoundError(
+                    f"LSJ XML directory not found after clone: {xml_dir}"
+                )
+            _replace_lsj_checkout(temp_repo_dir, lsj_repo_dir)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as err:
             last_error = err
             if attempt == _CLONE_MAX_ATTEMPTS:
@@ -167,21 +218,20 @@ def _clone_lsj_repo(lsj_repo_dir: Path, project_root: Path) -> None:
                 _CLONE_MAX_ATTEMPTS,
                 err,
             )
+            _cleanup_directory(temp_repo_dir)
             time.sleep(2 ** attempt + random.uniform(0, 1))
             continue
+        except Exception:
+            _cleanup_directory(temp_repo_dir)
+            raise
         clone_succeeded = True
         break
 
     if not clone_succeeded:
+        _cleanup_directory(temp_repo_dir)
         raise RuntimeError(
             f"Failed to clone Perseus LSJ after {_CLONE_MAX_ATTEMPTS} attempts"
         ) from last_error
-
-    _run_subprocess(
-        [git_executable, "sparse-checkout", "set", "CTS_XML_TEI/perseus/pdllex/grc/lsj"],
-        cwd=lsj_repo_dir,
-        timeout=_CLONE_TIMEOUT_SECONDS,
-    )
 
 
 def ensure_lsj_checkout(

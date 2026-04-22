@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Callable, Sequence, TypeGuard
 
 from ._paths import resolve_repo_data_dir
+from ._trusted_paths import resolve_trusted_dir_override
 from .ipa_converter import (
     get_known_phones,
     strip_ignored_ipa_combining_marks,
@@ -66,15 +67,11 @@ def _get_known_ipa_phones() -> frozenset[str]:
 
 def _get_trusted_matrices_dir() -> Path:
     """Resolve the trusted matrices directory from env, package data, or repo layout."""
-    override = os.environ.get(_TRUSTED_MATRICES_DIR_ENV_VAR)
-    if override:
-        override_path = Path(override).expanduser()
-        if override_path.is_symlink():
-            raise ValueError(
-                f"{_TRUSTED_MATRICES_DIR_ENV_VAR} must not be a symlink, got {override}"
-            )
-        if not override_path.exists() or not override_path.is_dir():
-            raise FileNotFoundError(override_path)
+    override_path = resolve_trusted_dir_override(
+        env_var=_TRUSTED_MATRICES_DIR_ENV_VAR,
+        description="trusted matrices",
+    )
+    if override_path is not None:
         return override_path
 
     try:

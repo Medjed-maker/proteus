@@ -100,7 +100,18 @@ def _resolve_rules_dir(rules_dir: Path | str, rules_base_dir: Path) -> Path:
 
 
 def _resolve_and_validate_rules_dir(rules_dir: Path | str, caller_name: str) -> Path:
-    """Resolve a rules directory and verify it stays within the rules base."""
+    """Resolve and validate an internal rules directory path.
+
+    This private helper resolves ``rules_dir`` relative to the packaged rules
+    base directory returned by ``_get_rules_base_dir()``. Bare relative inputs
+    such as ``"ancient_greek"`` and legacy repo-style paths such as
+    ``"data/rules/ancient_greek"`` are both normalized under that base.
+
+    The resolved path must exist, be a directory, and remain within the rules
+    base. This prevents callers such as ``load_rules()`` and
+    ``get_rules_version()`` from escaping the packaged rules tree via absolute
+    paths, traversal segments, or symlink resolution.
+    """
     rules_base_dir = _get_rules_base_dir()
     try:
         rules_base_dir = rules_base_dir.resolve(strict=True)
@@ -267,6 +278,13 @@ def get_rules_version(rules_dir: Path | str) -> dict[str, str]:
         Dict mapping rule file stem -> version string.
         Example: {"vowel_shifts": "1.0.0", "consonant_changes": "1.0.0"}
 
+        Version parsing semantics:
+        - non-empty YAML strings are returned as-is after trimming whitespace
+        - YAML integers are converted to decimal strings
+        - YAML floats are converted through ``Decimal(str(value))`` to avoid
+          binary float artifacts while preserving the parsed decimal form
+        - missing, invalid, or non-finite values are skipped with debug logs
+
     Raises:
         Same exceptions as load_rules().
     """
@@ -277,7 +295,8 @@ def get_rules_version(rules_dir: Path | str) -> dict[str, str]:
         if not rule_file.is_file() or rule_file.suffix.lower() not in {".yaml", ".yml"}:
             continue
 
-        document = yaml.safe_load(rule_file.read_text(encoding="utf-8"))
+        content = rule_file.read_text(encoding="utf-8")
+        document = yaml.safe_load(content)
         if not isinstance(document, dict):
             logger.debug(
                 "Skipping rule version metadata in %s: top-level YAML is not a mapping",
@@ -285,26 +304,14 @@ def get_rules_version(rules_dir: Path | str) -> dict[str, str]:
             )
             continue
 
-        version = document.get("version")
-        if isinstance(version, str) and version.strip():
-            versions[rule_file.stem] = version.strip()
-        elif isinstance(version, int):
-            versions[rule_file.stem] = str(version)
-        elif isinstance(version, float):
-            if not math.isfinite(version):
-                logger.debug(
-                    "Skipping rule version metadata in %s: version is non-finite (%s)",
-                    rule_file,
-                    version,
-                )
-                continue
-            versions[rule_file.stem] = str(Decimal(str(version)))
-        else:
+        version = _extract_rule_file_version(document, rule_file, content)
+        if version is None:
             logger.debug(
                 "Skipping rule version metadata in %s: version is missing or invalid",
                 rule_file,
             )
-
+            continue
+        versions[rule_file.stem] = version
     return versions
 
 
@@ -337,11 +344,103 @@ class _WordFinalSuffixMatch:
     lemma_start_position: int
 
 
+@dataclass(frozen=True)
+class _RuleMatchResult:
+    """Matched rule metadata normalized for downstream application building."""
+
+    matched_rule: TokenizedRule
+    word_final_suffix_match: _WordFinalSuffixMatch | None
+    consumed_lemma_tokens: int
+    consumed_query_tokens: int
+    application_position: int
+
+
 def _tokenize_rule_side(raw_value: object) -> tuple[str, ...]:
     """Tokenize a YAML rule side into comparable IPA tokens."""
     if not isinstance(raw_value, str) or not raw_value:
         return ()
     return tuple(tokenize_ipa(raw_value))
+
+
+def _extract_scalar_node_value(
+    version_node: yaml.nodes.Node | None,
+) -> str | int | float | Decimal | None:
+    """Return a parsed version value while preserving decimal text for floats."""
+    if not isinstance(version_node, yaml.ScalarNode):
+        return None
+
+    tag = version_node.tag
+    value = version_node.value
+    if tag == "tag:yaml.org,2002:str":
+        return value
+    if tag == "tag:yaml.org,2002:int":
+        try:
+            return int(value)
+        except ValueError:
+            return None
+    if tag == "tag:yaml.org,2002:float":
+        try:
+            numeric = float(value)
+        except ValueError:
+            return None
+        if not math.isfinite(numeric):
+            return numeric
+        return Decimal(value)
+    return None
+
+
+def _extract_rule_file_version(
+    document: object,
+    rule_file: Path,
+    content: str,
+) -> str | None:
+    """Extract a normalized version string from a parsed YAML rule file.
+
+    Args:
+        document: Parsed YAML document loaded from ``content``.
+        rule_file: Source path used for logging when version parsing fails.
+        content: Preloaded YAML text for ``rule_file``. Callers that already
+            read the file should pass the original text here so this helper can
+            inspect the scalar YAML node without re-reading from disk.
+    """
+    if not isinstance(document, dict):
+        return None
+
+    version_node: yaml.nodes.Node | None = None
+    try:
+        composed = yaml.compose(content)
+    except yaml.YAMLError:
+        composed = None
+    if isinstance(composed, yaml.MappingNode):
+        for key_node, value_node in composed.value:
+            if (
+                isinstance(key_node, yaml.ScalarNode)
+                and key_node.tag == "tag:yaml.org,2002:str"
+                and key_node.value == "version"
+            ):
+                version_node = value_node
+                break
+
+    version = _extract_scalar_node_value(version_node)
+    if version is None:
+        version = document.get("version")
+
+    if isinstance(version, str) and version.strip():
+        return version.strip()
+    if isinstance(version, int):
+        return str(version)
+    if isinstance(version, Decimal):
+        return str(version)
+    if isinstance(version, float):
+        if not math.isfinite(version):
+            logger.debug(
+                "Skipping rule version metadata in %s: version is non-finite (%s)",
+                rule_file,
+                version,
+            )
+            return None
+        return str(Decimal(str(version)))
+    return None
 
 
 def _tokenize_rules(rules: list[Rule]) -> list[TokenizedRule]:
@@ -979,6 +1078,197 @@ def _matches_word_final_suffix(
     return None
 
 
+def _find_word_final_suffix_match(
+    block: _MismatchBlock,
+    query_tokens: Sequence[str],
+    lemma_tokens: Sequence[str],
+    candidate: TokenizedRule,
+    *,
+    lemma_index: int,
+    query_index: int,
+) -> _RuleMatchResult | None:
+    """Return a normalized match result for a `_#` suffix rule candidate."""
+    suffix_match = _matches_word_final_suffix(
+        candidate,
+        block,
+        lemma_tokens=lemma_tokens,
+        query_tokens=query_tokens,
+        lemma_index=lemma_index,
+        query_index=query_index,
+    )
+    if suffix_match is None:
+        return None
+    return _RuleMatchResult(
+        matched_rule=candidate,
+        word_final_suffix_match=suffix_match,
+        consumed_lemma_tokens=len(block.lemma_tokens) - lemma_index,
+        consumed_query_tokens=len(block.query_tokens) - query_index,
+        application_position=suffix_match.lemma_start_position,
+    )
+
+
+def _find_normal_block_match(
+    block: _MismatchBlock,
+    query_tokens: Sequence[str],
+    lemma_tokens: Sequence[str],
+    candidate: TokenizedRule,
+    *,
+    lemma_index: int,
+    query_index: int,
+) -> _RuleMatchResult | None:
+    """Return a normalized match result for a non-suffix block candidate."""
+    input_length = len(candidate.input_tokens)
+    output_length = len(candidate.output_tokens)
+    if block.lemma_tokens[lemma_index : lemma_index + input_length] != candidate.input_tokens:
+        return None
+    if block.query_tokens[query_index : query_index + output_length] != candidate.output_tokens:
+        return None
+    if not _matches_block_columns(
+        block,
+        candidate,
+        lemma_index=lemma_index,
+        query_index=query_index,
+    ):
+        return None
+
+    global_lemma_start = block.lemma_start_position + lemma_index
+    global_query_start = block.query_start_position + query_index
+    if not _matches_context(
+        candidate.rule.get("context"),
+        lemma_tokens,
+        query_tokens,
+        lemma_start=global_lemma_start,
+        lemma_end=global_lemma_start + input_length,
+        query_start=global_query_start,
+        query_end=global_query_start + output_length,
+    ):
+        return None
+
+    return _RuleMatchResult(
+        matched_rule=candidate,
+        word_final_suffix_match=None,
+        consumed_lemma_tokens=input_length,
+        consumed_query_tokens=output_length,
+        application_position=global_lemma_start,
+    )
+
+
+def _find_matching_rule_candidate(
+    block: _MismatchBlock,
+    query_tokens: Sequence[str],
+    lemma_tokens: Sequence[str],
+    tokenized_rules: Sequence[TokenizedRule],
+    *,
+    lemma_index: int,
+    query_index: int,
+    lemma_metadata: RuleMetadata | None = None,
+) -> _RuleMatchResult | None:
+    """Return the first matching rule candidate at the current block cursor."""
+    for candidate in tokenized_rules:
+        if not _matches_lemma_constraints(candidate.rule, lemma_metadata):
+            continue
+
+        suffix_match = _find_word_final_suffix_match(
+            block,
+            query_tokens,
+            lemma_tokens,
+            candidate,
+            lemma_index=lemma_index,
+            query_index=query_index,
+        )
+        if suffix_match is not None:
+            return suffix_match
+
+        normal_match = _find_normal_block_match(
+            block,
+            query_tokens,
+            lemma_tokens,
+            candidate,
+            lemma_index=lemma_index,
+            query_index=query_index,
+        )
+        if normal_match is not None:
+            return normal_match
+    return None
+
+
+def _build_observed_application_for_column(
+    block: _MismatchBlock,
+    *,
+    lemma_index: int,
+    query_index: int,
+) -> RuleApplication:
+    """Build an observed fallback application for the current mismatch column."""
+    column_index, query_token, lemma_token = _current_block_column(
+        block,
+        lemma_index=lemma_index,
+        query_index=query_index,
+    )
+    if lemma_token is None and query_token is None:
+        raise RuntimeError(
+            "Encountered an invalid mismatch block column with lemma_token=None "
+            f"and query_token=None at column_index={column_index}, "
+            f"lemma_index={lemma_index}, query_index={query_index}; "
+            "the cursor cannot advance from a double-gap column."
+        )
+
+    lemma_phone = lemma_token or ""
+    query_phone = query_token or ""
+    if lemma_phone and query_phone:
+        obs_id, obs_ja, obs_en = "OBS-SUB", "観測された置換", "Observed substitution"
+    elif lemma_phone:
+        obs_id, obs_ja, obs_en = "OBS-DEL", "観測された脱落", "Observed deletion"
+    else:
+        obs_id, obs_ja, obs_en = "OBS-INS", "観測された挿入", "Observed insertion"
+
+    return RuleApplication(
+        rule_id=obs_id,
+        description=(
+            f"{obs_ja} / {obs_en}:"
+            f" /{_display_phoneme(lemma_phone)}/"
+            f" \u2192 /{_display_phoneme(query_phone)}/"
+        ),
+        rule_name=obs_ja,
+        rule_name_en=obs_en,
+        input_phoneme=lemma_phone,
+        output_phoneme=query_phone,
+        position=block.lemma_start_position + lemma_index,
+    )
+
+
+def _advance_block_cursors(
+    block: _MismatchBlock,
+    *,
+    lemma_index: int,
+    query_index: int,
+    match_result: _RuleMatchResult | None = None,
+) -> tuple[int, int]:
+    """Advance mismatch-block cursors and enforce forward progress."""
+    next_lemma_index = lemma_index
+    next_query_index = query_index
+
+    if match_result is not None:
+        next_lemma_index += match_result.consumed_lemma_tokens
+        next_query_index += match_result.consumed_query_tokens
+    else:
+        _, query_token, lemma_token = _current_block_column(
+            block,
+            lemma_index=lemma_index,
+            query_index=query_index,
+        )
+        if lemma_token is not None:
+            next_lemma_index += 1
+        if query_token is not None:
+            next_query_index += 1
+
+    if next_lemma_index == lemma_index and next_query_index == query_index:
+        raise RuntimeError(
+            "Mismatch block cursor failed to advance; each iteration must consume "
+            "at least one lemma or query token."
+        )
+    return next_lemma_index, next_query_index
+
+
 def _collect_block_applications(
     block: _MismatchBlock,
     query_tokens: Sequence[str],
@@ -992,110 +1282,32 @@ def _collect_block_applications(
     query_index = 0
 
     while lemma_index < len(block.lemma_tokens) or query_index < len(block.query_tokens):
-        matched_rule: TokenizedRule | None = None
-        word_final_suffix_match: _WordFinalSuffixMatch | None = None
-        # Word-final suffix rules (_# context) are checked before normal block
-        # matching so that longer suffix-level rules take priority over
-        # individual-segment rules that would otherwise consume the first
-        # mismatched token.  tokenized_rules is pre-sorted by
-        # _tokenize_rules() (specificity desc, total token length desc), so
-        # the first candidate that passes _matches_word_final_suffix is the
-        # longest available _# rule.
-        # Constant within the inner candidate loop; computed here to share
-        # with both _matches_word_final_suffix and _matches_context.
-        global_lemma_start = block.lemma_start_position + lemma_index
-        global_query_start = block.query_start_position + query_index
-        for candidate in tokenized_rules:
-            if not _matches_lemma_constraints(candidate.rule, lemma_metadata):
-                continue
+        match_result = _find_matching_rule_candidate(
+            block,
+            query_tokens,
+            lemma_tokens,
+            tokenized_rules,
+            lemma_index=lemma_index,
+            query_index=query_index,
+            lemma_metadata=lemma_metadata,
+        )
 
-            input_length = len(candidate.input_tokens)
-            output_length = len(candidate.output_tokens)
-
-            suffix_match = _matches_word_final_suffix(
-                candidate,
-                block,
-                lemma_tokens=lemma_tokens,
-                query_tokens=query_tokens,
-                lemma_index=lemma_index,
-                query_index=query_index,
-            )
-            if suffix_match is not None:
-                matched_rule = candidate
-                word_final_suffix_match = suffix_match
-                break
-
-            if block.lemma_tokens[lemma_index : lemma_index + input_length] != candidate.input_tokens:
-                continue
-            if block.query_tokens[query_index : query_index + output_length] != candidate.output_tokens:
-                continue
-            if not _matches_block_columns(
-                block,
-                candidate,
-                lemma_index=lemma_index,
-                query_index=query_index,
-            ):
-                continue
-            if not _matches_context(
-                candidate.rule.get("context"),
-                lemma_tokens,
-                query_tokens,
-                lemma_start=global_lemma_start,
-                lemma_end=global_lemma_start + input_length,
-                query_start=global_query_start,
-                query_end=global_query_start + output_length,
-            ):
-                continue
-            matched_rule = candidate
-            break
-
-        if matched_rule is None:
-            # Generate an observed-difference annotation for the unmatched
-            # mismatch so the user still sees what changed even without a
-            # catalogued phonological rule.
-            column_index, query_token, lemma_token = _current_block_column(
-                block,
-                lemma_index=lemma_index,
-                query_index=query_index,
-            )
-            if lemma_token is None and query_token is None:
-                raise RuntimeError(
-                    "Encountered an invalid mismatch block column with lemma_token=None "
-                    f"and query_token=None at column_index={column_index}, "
-                    f"lemma_index={lemma_index}, query_index={query_index}; "
-                    "the cursor cannot advance from a double-gap column."
-                )
-            lemma_phone = lemma_token or ""
-            query_phone = query_token or ""
-            if lemma_phone and query_phone:
-                obs_id, obs_ja, obs_en = "OBS-SUB", "観測された置換", "Observed substitution"
-            elif lemma_phone:
-                obs_id, obs_ja, obs_en = "OBS-DEL", "観測された脱落", "Observed deletion"
-            else:
-                obs_id, obs_ja, obs_en = "OBS-INS", "観測された挿入", "Observed insertion"
+        if match_result is None:
             applications.append(
-                RuleApplication(
-                    rule_id=obs_id,
-                    description=(
-                        f"{obs_ja} / {obs_en}:"
-                        f" /{_display_phoneme(lemma_phone)}/"
-                        f" \u2192 /{_display_phoneme(query_phone)}/"
-                    ),
-                    rule_name=obs_ja,
-                    rule_name_en=obs_en,
-                    input_phoneme=lemma_phone,
-                    output_phoneme=query_phone,
-                    position=block.lemma_start_position + lemma_index,
+                _build_observed_application_for_column(
+                    block,
+                    lemma_index=lemma_index,
+                    query_index=query_index,
                 )
             )
-            if lemma_token is not None:
-                lemma_index += 1
-            if query_token is not None:
-                query_index += 1
+            lemma_index, query_index = _advance_block_cursors(
+                block,
+                lemma_index=lemma_index,
+                query_index=query_index,
+            )
             continue
 
-        input_length = len(matched_rule.input_tokens)
-        output_length = len(matched_rule.output_tokens)
+        matched_rule = match_result.matched_rule
         input_phoneme = "".join(matched_rule.input_tokens)
         output_phoneme = "".join(matched_rule.output_tokens)
         rule_name = _rule_name_for_description(matched_rule.rule)
@@ -1114,20 +1326,16 @@ def _collect_block_applications(
                 rule_name_en=rule_name_en,
                 input_phoneme=input_phoneme,
                 output_phoneme=output_phoneme,
-                position=(
-                    word_final_suffix_match.lemma_start_position
-                    if word_final_suffix_match is not None
-                    else block.lemma_start_position + lemma_index
-                ),
+                position=match_result.application_position,
                 dialects=dialects,
             )
         )
-        if word_final_suffix_match is not None:
-            lemma_index = len(block.lemma_tokens)
-            query_index = len(block.query_tokens)
-        else:
-            lemma_index += input_length
-            query_index += output_length
+        lemma_index, query_index = _advance_block_cursors(
+            block,
+            lemma_index=lemma_index,
+            query_index=query_index,
+            match_result=match_result,
+        )
 
     return applications
 

@@ -1054,6 +1054,7 @@ def test_ensure_lsj_checkout_uses_python_timeout_and_retry(
     project_root = tmp_path
     xml_dir = build_lexicon.default_xml_dir(project_root)
     repo_dir = project_root / "data" / "external" / "lsj"
+    temp_repo_dir = repo_dir.with_name(f"{repo_dir.name}.tmp")
     repo_dir.parent.mkdir(parents=True, exist_ok=True)
     repo_dir.mkdir()
 
@@ -1072,8 +1073,8 @@ def test_ensure_lsj_checkout_uses_python_timeout_and_retry(
             clone_attempts += 1
             if clone_attempts == 1:
                 raise subprocess.TimeoutExpired(command, timeout=timeout or 0)
-            repo_dir.mkdir(parents=True, exist_ok=True)
-            xml_dir.mkdir(parents=True, exist_ok=True)
+            temp_repo_dir.mkdir(parents=True, exist_ok=True)
+            build_lexicon._lsj_xml_dir_for_repo(temp_repo_dir).mkdir(parents=True, exist_ok=True)
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(build_lexicon.shutil, "which", lambda name: "/usr/bin/git")
@@ -1237,11 +1238,11 @@ def test_ensure_lsj_checkout_rejects_both_repo_dir_arguments(tmp_path: Path) -> 
         )
 
 
-def test_clone_lsj_repo_rejects_repo_dir_outside_project_root_with_shared_prefix(
+def test_clone_lsj_repo_rejects_existing_repo_dir_outside_project_root_with_shared_prefix(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Ensure is_relative_to rejects paths that share a prefix but are not children."""
+    """Existing repo dirs outside project_root must still be rejected."""
     project_root = tmp_path / "myproject"
     project_root.mkdir()
 
@@ -1253,6 +1254,41 @@ def test_clone_lsj_repo_rejects_repo_dir_outside_project_root_with_shared_prefix
 
     with pytest.raises(RuntimeError, match="Safety check failed"):
         build_lexicon._clone_lsj_repo(evil_repo_dir, project_root)
+
+
+def test_clone_lsj_repo_allows_new_repo_dir_outside_project_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A missing external repo dir should be allowed for first-time clone."""
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    external_root = tmp_path / "external"
+    repo_dir = external_root / "lsj"
+    temp_repo_dir = repo_dir.with_name(f"{repo_dir.name}.tmp")
+
+    def fake_run_subprocess(
+        command: list[str],
+        *,
+        cwd: Path | None = None,
+        timeout: int | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, timeout
+        if command[1] == "clone":
+            xml_dir = build_lexicon._lsj_xml_dir_for_repo(temp_repo_dir)
+            xml_dir.mkdir(parents=True, exist_ok=True)
+            (temp_repo_dir / "new.txt").write_text("new\n", encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(build_lexicon.shutil, "which", lambda name: "/usr/bin/git")
+    monkeypatch.setattr(build_lexicon, "_run_subprocess", fake_run_subprocess)
+
+    build_lexicon._clone_lsj_repo(repo_dir, project_root)
+
+    assert repo_dir.is_dir()
+    assert (repo_dir / "new.txt").read_text(encoding="utf-8") == "new\n"
+    assert build_lexicon._lsj_xml_dir_for_repo(repo_dir).is_dir()
+    assert not temp_repo_dir.exists()
 
 
 def test_clone_lsj_repo_rejects_symlink_repo_dir(
@@ -1276,6 +1312,79 @@ def test_clone_lsj_repo_rejects_symlink_repo_dir(
     # (rmtree on a symlink would remove the symlink itself, leaving it dangling).
     assert symlink_dir.is_symlink()
     assert real_dir.is_dir()
+
+
+def test_clone_lsj_repo_failure_keeps_existing_checkout_and_cleans_temp_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    repo_dir = project_root / "data" / "external" / "lsj"
+    existing_file = repo_dir / "existing.txt"
+    existing_file.parent.mkdir(parents=True, exist_ok=True)
+    existing_file.write_text("keep-me\n", encoding="utf-8")
+    temp_repo_dir = repo_dir.with_name(f"{repo_dir.name}.tmp")
+
+    def fake_run_subprocess(
+        command: list[str],
+        *,
+        cwd: Path | None = None,
+        timeout: int | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, timeout
+        if command[1] == "clone":
+            temp_repo_dir.mkdir(parents=True, exist_ok=True)
+            (temp_repo_dir / "partial.txt").write_text("partial\n", encoding="utf-8")
+        raise subprocess.CalledProcessError(returncode=1, cmd=command, stderr="boom")
+
+    monkeypatch.setattr(build_lexicon.shutil, "which", lambda name: "/usr/bin/git")
+    monkeypatch.setattr(build_lexicon, "_run_subprocess", fake_run_subprocess)
+    monkeypatch.setattr(build_lexicon.time, "sleep", lambda _: None)
+
+    with pytest.raises(RuntimeError, match="Failed to clone Perseus LSJ"):
+        build_lexicon._clone_lsj_repo(repo_dir, project_root)
+
+    assert existing_file.read_text(encoding="utf-8") == "keep-me\n"
+    assert not temp_repo_dir.exists()
+
+
+def test_clone_lsj_repo_successfully_replaces_existing_checkout_and_cleans_backup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    repo_dir = project_root / "data" / "external" / "lsj"
+    old_file = repo_dir / "old.txt"
+    old_file.parent.mkdir(parents=True, exist_ok=True)
+    old_file.write_text("old\n", encoding="utf-8")
+    temp_repo_dir = repo_dir.with_name(f"{repo_dir.name}.tmp")
+    backup_repo_dir = repo_dir.with_name(f"{repo_dir.name}.bak")
+
+    def fake_run_subprocess(
+        command: list[str],
+        *,
+        cwd: Path | None = None,
+        timeout: int | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, timeout
+        if command[1] == "clone":
+            xml_dir = build_lexicon._lsj_xml_dir_for_repo(temp_repo_dir)
+            xml_dir.mkdir(parents=True, exist_ok=True)
+            (temp_repo_dir / "new.txt").write_text("new\n", encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(build_lexicon.shutil, "which", lambda name: "/usr/bin/git")
+    monkeypatch.setattr(build_lexicon, "_run_subprocess", fake_run_subprocess)
+
+    build_lexicon._clone_lsj_repo(repo_dir, project_root)
+
+    assert not old_file.exists()
+    assert (repo_dir / "new.txt").read_text(encoding="utf-8") == "new\n"
+    assert build_lexicon._lsj_xml_dir_for_repo(repo_dir).is_dir()
+    assert not temp_repo_dir.exists()
+    assert not backup_repo_dir.exists()
 
 
 @pytest.mark.parametrize(

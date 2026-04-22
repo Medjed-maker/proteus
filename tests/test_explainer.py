@@ -1,5 +1,6 @@
 """Tests for phonology.explainer."""
 
+import logging
 from pathlib import Path
 
 import pytest
@@ -772,6 +773,353 @@ def test_explain_generates_observed_substitution_for_unmatched_blocks() -> None:
     assert applications[0].rule_name_en == "Observed substitution"
 
 
+def test_find_matching_rule_candidate_returns_single_token_match_result() -> None:
+    """Verify the helper returns consumed lengths and position for a simple match."""
+    block = explainer_module._MismatchBlock(
+        aligned_query=("ɛː",),
+        aligned_lemma=("aː",),
+        lemma_tokens=("aː",),
+        query_tokens=("ɛː",),
+        lemma_start_position=3,
+        query_start_position=3,
+    )
+    tokenized_rules = explainer_module.tokenize_rules_for_matching(
+        [_rule(rule_id="VSH-001", input_phoneme="aː", output_phoneme="ɛː")]
+    )
+
+    match = explainer_module._find_matching_rule_candidate(
+        block,
+        ["k", "ɛː", "s"],
+        ["k", "aː", "s"],
+        tokenized_rules,
+        lemma_index=0,
+        query_index=0,
+    )
+
+    assert match is not None
+    assert match.matched_rule.rule["id"] == "VSH-001"
+    assert match.consumed_lemma_tokens == 1
+    assert match.consumed_query_tokens == 1
+    assert match.application_position == 3
+    assert match.word_final_suffix_match is None
+
+
+def test_find_matching_rule_candidate_prefers_longest_multi_token_rule() -> None:
+    """Verify candidate selection keeps longest-match-first behavior."""
+    block = explainer_module._MismatchBlock(
+        aligned_query=("t", "t"),
+        aligned_lemma=("s", "s"),
+        lemma_tokens=("s", "s"),
+        query_tokens=("t", "t"),
+        lemma_start_position=0,
+        query_start_position=0,
+    )
+    tokenized_rules = explainer_module.tokenize_rules_for_matching(
+        [
+            _rule(rule_id="CCH-SHORT", input_phoneme="s", output_phoneme="t"),
+            _rule(rule_id="CCH-LONG", input_phoneme="ss", output_phoneme="tt"),
+        ]
+    )
+
+    match = explainer_module._find_matching_rule_candidate(
+        block,
+        ["t", "t"],
+        ["s", "s"],
+        tokenized_rules,
+        lemma_index=0,
+        query_index=0,
+    )
+
+    assert match is not None
+    assert match.matched_rule.rule["id"] == "CCH-LONG"
+    assert match.consumed_lemma_tokens == 2
+    assert match.consumed_query_tokens == 2
+
+
+def test_find_matching_rule_candidate_returns_word_final_suffix_match_result() -> None:
+    """Verify `_#` suffix selection returns the suffix start as application position."""
+    block = explainer_module._MismatchBlock(
+        aligned_query=(None,),
+        aligned_lemma=("n",),
+        lemma_tokens=("n",),
+        query_tokens=(),
+        lemma_start_position=4,
+        query_start_position=4,
+    )
+    tokenized_rules = explainer_module.tokenize_rules_for_matching(
+        [_rule(rule_id="MPH-014", input_phoneme="stin", output_phoneme="sti", context="_#")]
+    )
+
+    match = explainer_module._find_matching_rule_candidate(
+        block,
+        ["e", "s", "t", "i"],
+        ["e", "s", "t", "i", "n"],
+        tokenized_rules,
+        lemma_index=0,
+        query_index=0,
+    )
+
+    assert match is not None
+    assert match.matched_rule.rule["id"] == "MPH-014"
+    assert match.application_position == 1
+    assert match.consumed_lemma_tokens == 1
+    assert match.consumed_query_tokens == 0
+    assert match.word_final_suffix_match is not None
+
+
+def test_find_matching_rule_candidate_rejects_context_mismatch() -> None:
+    """Verify context mismatch prevents helper candidate selection."""
+    block = explainer_module._MismatchBlock(
+        aligned_query=("aː",),
+        aligned_lemma=("ɛː",),
+        lemma_tokens=("ɛː",),
+        query_tokens=("aː",),
+        lemma_start_position=1,
+        query_start_position=1,
+    )
+    tokenized_rules = explainer_module.tokenize_rules_for_matching(
+        [
+            _rule(
+                rule_id="RET-AFTER",
+                input_phoneme="ɛː",
+                output_phoneme="aː",
+                context="after e, i, or r",
+            )
+        ]
+    )
+
+    match = explainer_module._find_matching_rule_candidate(
+        block,
+        ["o", "aː"],
+        ["o", "ɛː"],
+        tokenized_rules,
+        lemma_index=0,
+        query_index=0,
+    )
+
+    assert match is None
+
+
+def test_find_matching_rule_candidate_rejects_lemma_constraint_mismatch() -> None:
+    """Verify lemma constraints are checked before returning a helper match."""
+    constrained_rule = _rule(rule_id="MPH-017", input_phoneme="on", output_phoneme="o", context="_#")
+    constrained_rule["lemma_constraints"] = {"gender": "neuter"}
+    block = explainer_module._MismatchBlock(
+        aligned_query=("o", None),
+        aligned_lemma=("o", "n"),
+        lemma_tokens=("o", "n"),
+        query_tokens=("o",),
+        lemma_start_position=4,
+        query_start_position=4,
+    )
+    tokenized_rules = explainer_module.tokenize_rules_for_matching([constrained_rule])
+
+    match = explainer_module._find_matching_rule_candidate(
+        block,
+        ["t", "e", "k", "n", "o"],
+        ["t", "e", "k", "n", "o", "n"],
+        tokenized_rules,
+        lemma_index=0,
+        query_index=0,
+        lemma_metadata={"gender": "common"},
+    )
+
+    assert match is None
+
+
+@pytest.mark.parametrize(
+    ("aligned_query", "aligned_lemma", "expected_rule_id"),
+    [
+        (("x",), ("a",), "OBS-SUB"),
+        ((None,), ("a",), "OBS-DEL"),
+        (("x",), (None,), "OBS-INS"),
+    ],
+)
+def test_build_observed_application_for_column_supports_all_observed_types(
+    aligned_query: tuple[str | None, ...],
+    aligned_lemma: tuple[str | None, ...],
+    expected_rule_id: str,
+) -> None:
+    """Verify the observed fallback helper builds each OBS-* annotation type."""
+    block = explainer_module._MismatchBlock(
+        aligned_query=aligned_query,
+        aligned_lemma=aligned_lemma,
+        lemma_tokens=tuple(token for token in aligned_lemma if token is not None),
+        query_tokens=tuple(token for token in aligned_query if token is not None),
+        lemma_start_position=2,
+        query_start_position=2,
+    )
+
+    application = explainer_module._build_observed_application_for_column(
+        block,
+        lemma_index=0,
+        query_index=0,
+    )
+
+    assert application.rule_id == expected_rule_id
+    assert application.position == 2
+
+
+def test_build_observed_application_for_column_rejects_double_gap_column() -> None:
+    """Verify invalid double-gap columns still fail fast in the observed helper."""
+    block = explainer_module._MismatchBlock(
+        aligned_query=(None,),
+        aligned_lemma=(None,),
+        lemma_tokens=(),
+        query_tokens=(),
+        lemma_start_position=0,
+        query_start_position=0,
+    )
+
+    with pytest.raises(RuntimeError, match="double-gap column"):
+        explainer_module._build_observed_application_for_column(
+            block,
+            lemma_index=0,
+            query_index=0,
+        )
+
+
+def test_advance_block_cursors_supports_insertion_only_rule() -> None:
+    """Verify cursor advancement uses rule-consumed lengths for insertions."""
+    block = explainer_module._MismatchBlock(
+        aligned_query=("a",),
+        aligned_lemma=(None,),
+        lemma_tokens=(),
+        query_tokens=("a",),
+        lemma_start_position=0,
+        query_start_position=0,
+    )
+    match = explainer_module._RuleMatchResult(
+        matched_rule=explainer_module.TokenizedRule(rule={}, input_tokens=(), output_tokens=("a",), order=0),
+        word_final_suffix_match=None,
+        consumed_lemma_tokens=0,
+        consumed_query_tokens=1,
+        application_position=0,
+    )
+
+    assert explainer_module._advance_block_cursors(
+        block,
+        lemma_index=0,
+        query_index=0,
+        match_result=match,
+    ) == (0, 1)
+
+
+def test_advance_block_cursors_supports_deletion_only_rule() -> None:
+    """Verify cursor advancement uses rule-consumed lengths for deletions."""
+    block = explainer_module._MismatchBlock(
+        aligned_query=(None,),
+        aligned_lemma=("a",),
+        lemma_tokens=("a",),
+        query_tokens=(),
+        lemma_start_position=0,
+        query_start_position=0,
+    )
+    match = explainer_module._RuleMatchResult(
+        matched_rule=explainer_module.TokenizedRule(rule={}, input_tokens=("a",), output_tokens=(), order=0),
+        word_final_suffix_match=None,
+        consumed_lemma_tokens=1,
+        consumed_query_tokens=0,
+        application_position=0,
+    )
+
+    assert explainer_module._advance_block_cursors(
+        block,
+        lemma_index=0,
+        query_index=0,
+        match_result=match,
+    ) == (1, 0)
+
+
+def test_advance_block_cursors_supports_multi_token_expansion() -> None:
+    """Verify cursor advancement works for one-to-many matches."""
+    block = explainer_module._MismatchBlock(
+        aligned_query=("e", "o"),
+        aligned_lemma=("eu", None),
+        lemma_tokens=("eu",),
+        query_tokens=("e", "o"),
+        lemma_start_position=0,
+        query_start_position=0,
+    )
+    match = explainer_module._RuleMatchResult(
+        matched_rule=explainer_module.TokenizedRule(
+            rule={},
+            input_tokens=("eu",),
+            output_tokens=("e", "o"),
+            order=0,
+        ),
+        word_final_suffix_match=None,
+        consumed_lemma_tokens=1,
+        consumed_query_tokens=2,
+        application_position=0,
+    )
+
+    assert explainer_module._advance_block_cursors(
+        block,
+        lemma_index=0,
+        query_index=0,
+        match_result=match,
+    ) == (1, 2)
+
+
+def test_advance_block_cursors_supports_multi_token_contraction() -> None:
+    """Verify cursor advancement works for many-to-one matches."""
+    block = explainer_module._MismatchBlock(
+        aligned_query=("ɛː", None),
+        aligned_lemma=("e", "a"),
+        lemma_tokens=("e", "a"),
+        query_tokens=("ɛː",),
+        lemma_start_position=0,
+        query_start_position=0,
+    )
+    match = explainer_module._RuleMatchResult(
+        matched_rule=explainer_module.TokenizedRule(
+            rule={},
+            input_tokens=("e", "a"),
+            output_tokens=("ɛː",),
+            order=0,
+        ),
+        word_final_suffix_match=None,
+        consumed_lemma_tokens=2,
+        consumed_query_tokens=1,
+        application_position=0,
+    )
+
+    assert explainer_module._advance_block_cursors(
+        block,
+        lemma_index=0,
+        query_index=0,
+        match_result=match,
+    ) == (2, 1)
+
+
+def test_advance_block_cursors_rejects_non_advancing_iteration() -> None:
+    """Verify the advancement helper enforces forward progress."""
+    block = explainer_module._MismatchBlock(
+        aligned_query=(None,),
+        aligned_lemma=(None,),
+        lemma_tokens=(),
+        query_tokens=(),
+        lemma_start_position=0,
+        query_start_position=0,
+    )
+    match = explainer_module._RuleMatchResult(
+        matched_rule=explainer_module.TokenizedRule(rule={}, input_tokens=(), output_tokens=(), order=0),
+        word_final_suffix_match=None,
+        consumed_lemma_tokens=0,
+        consumed_query_tokens=0,
+        application_position=0,
+    )
+
+    with pytest.raises(RuntimeError, match="failed to advance"):
+        explainer_module._advance_block_cursors(
+            block,
+            lemma_index=0,
+            query_index=0,
+            match_result=match,
+        )
+
+
 def test_explain_alignment_wraps_rule_ids_into_explanation_steps() -> None:
     """Verify explain_alignment expands rule ids into populated explanation steps."""
     explanation = explain_alignment(
@@ -910,6 +1258,73 @@ def test_load_rules_accepts_legacy_repo_style_relative_directory(
     rules = load_rules("data/rules/ancient_greek")
 
     assert "TEST-LEGACY-001" in rules
+
+
+@pytest.mark.parametrize(
+    ("rules_dir", "expected_name"),
+    [
+        ("ancient_greek", "ancient_greek"),
+        ("data/rules/ancient_greek", "ancient_greek"),
+    ],
+)
+def test_resolve_and_validate_rules_dir_accepts_packaged_relative_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    rules_dir: str,
+    expected_name: str,
+) -> None:
+    """Verify the private resolver accepts both packaged relative path styles."""
+    rules_base = tmp_path / "rules"
+    packaged_dir = rules_base / expected_name
+    packaged_dir.mkdir(parents=True)
+    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
+
+    resolved = explainer_module._resolve_and_validate_rules_dir(rules_dir, "test_helper")
+
+    assert resolved == packaged_dir.resolve()
+
+
+def test_resolve_and_validate_rules_dir_rejects_path_traversal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify traversal outside the rules base is rejected."""
+    rules_base = tmp_path / "rules"
+    rules_base.mkdir()
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
+
+    with pytest.raises(ValueError, match="must stay within"):
+        explainer_module._resolve_and_validate_rules_dir("../outside", "test_helper")
+
+
+def test_resolve_and_validate_rules_dir_rejects_missing_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify missing rule directories raise a clear validation error."""
+    rules_base = tmp_path / "rules"
+    rules_base.mkdir()
+    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
+
+    with pytest.raises(ValueError, match="could not find rules directory"):
+        explainer_module._resolve_and_validate_rules_dir("ancient_greek", "test_helper")
+
+
+def test_resolve_and_validate_rules_dir_rejects_file_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify file paths are rejected when a directory is required."""
+    rules_base = tmp_path / "rules"
+    rules_base.mkdir()
+    not_a_directory = rules_base / "rules.yaml"
+    not_a_directory.write_text("rules: []\n", encoding="utf-8")
+    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
+
+    with pytest.raises(ValueError, match="expected a directory"):
+        explainer_module._resolve_and_validate_rules_dir("rules.yaml", "test_helper")
 
 
 def test_load_rules_reads_all_three_packaged_rule_files() -> None:
@@ -1152,8 +1567,6 @@ def test_get_rules_version_logs_skipped_invalid_metadata(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Invalid version metadata is skipped with debug context."""
-    import logging
-
     rules_base = tmp_path / "rules"
     rules_dir = rules_base / "ancient_greek"
     rules_dir.mkdir(parents=True)
@@ -1186,6 +1599,45 @@ def test_get_rules_version_logs_skipped_invalid_metadata(
         and "version is missing or invalid" in record.getMessage()
     ]
     assert len(missing_version_records) >= 1
+
+
+def test_get_rules_version_supports_integer_and_decimal_numeric_versions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify integer and float YAML versions are normalized into strings."""
+    rules_base = tmp_path / "rules"
+    rules_dir = rules_base / "ancient_greek"
+    rules_dir.mkdir(parents=True)
+    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
+
+    (rules_dir / "integer.yaml").write_text("version: 2\nrules: []\n", encoding="utf-8")
+    (rules_dir / "decimal.yaml").write_text("version: 1.10\nrules: []\n", encoding="utf-8")
+
+    versions = explainer_module.get_rules_version("ancient_greek")
+
+    assert versions["integer"] == "2"
+    assert versions["decimal"] == "1.10"
+
+
+def test_get_rules_version_skips_non_finite_numeric_versions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Verify non-finite numeric versions are skipped with debug logging."""
+    rules_base = tmp_path / "rules"
+    rules_dir = rules_base / "ancient_greek"
+    rules_dir.mkdir(parents=True)
+    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
+
+    (rules_dir / "nan.yaml").write_text("version: .nan\nrules: []\n", encoding="utf-8")
+    caplog.set_level(logging.DEBUG, logger="phonology.explainer")
+
+    versions = explainer_module.get_rules_version("ancient_greek")
+
+    assert versions == {}
+    assert any("non-finite" in record.getMessage() for record in caplog.records)
 
 
 def test_explain_generates_observed_deletion() -> None:

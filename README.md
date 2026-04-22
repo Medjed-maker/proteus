@@ -103,6 +103,35 @@ The `--xml-dir` and `--lsj-repo-dir` options apply directly to
 arguments to that module, while `PROTEUS_LSJ_REPO_DIR` is read by both
 `uv build` and the extraction workflow.
 
+Runtime trusted-directory overrides for Buck rules and matrix assets are
+disabled by default. To use `PROTEUS_TRUSTED_BUCK_DIR` or
+`PROTEUS_TRUSTED_MATRICES_DIR`, you must also set
+`PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES=1`. When the opt-in flag is absent,
+Proteus rejects those override env vars instead of silently honoring them.
+The override directory must be a real directory and must not itself be a
+symlink, nor may any path components resolve through symlinks.
+
+Example:
+
+```bash
+export PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES=1
+export PROTEUS_TRUSTED_BUCK_DIR=/absolute/path/to/buck
+export PROTEUS_TRUSTED_MATRICES_DIR=/absolute/path/to/matrices
+uv run uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+If the opt-in flag is missing, Proteus rejects `PROTEUS_TRUSTED_BUCK_DIR` and
+`PROTEUS_TRUSTED_MATRICES_DIR` during dependency loading with a clear
+`...requires PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES=1` error instead of accepting
+them silently. In that state, readiness and search dependency loading fail, so
+`/ready` returns not-ready and `/search` cannot serve requests until the
+configuration is fixed.
+
+Validation also fails with clear errors when an override path does not exist, is
+not a directory, or resolves through a symlinked path component. The symlink
+restriction prevents path traversal and privilege-escalation risks via
+symlink-swapped directories.
+
 ## API
 
 ### `POST /search`
@@ -114,7 +143,6 @@ arguments to that module, while `PROTEUS_LSJ_REPO_DIR` is read by both
   "max_results": 20
 }
 ```
-
 
 **Response Model Example**
 
@@ -182,7 +210,7 @@ Liveness probe — returns `{"status": "ok"}`.
   [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). Morpheus
   ([PerseusDL/morpheus](https://github.com/PerseusDL/morpheus)) is a separate
   morphological analysis system.
-- **Phonology**: Allen, W.S. *Vox Graeca* (3rd ed., 1987); Horrocks, G. *Greek: A History of the Language and its Speakers* (2010)
+- **Phonology**: Allen, W.S. _Vox Graeca_ (3rd ed., 1987); Horrocks, G. _Greek: A History of the Language and its Speakers_ (2010)
 - **IPA system**: Scholarly Ancient Greek pronunciation (Attic, c. 400 BCE default)
 - **Rule notation**: See `docs/phonology_rules.md` for context notation used in the committed YAML rule files.
 
