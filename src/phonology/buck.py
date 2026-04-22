@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import lru_cache
@@ -12,6 +11,7 @@ from typing import Any, TypedDict
 import yaml  # type: ignore[import-untyped]
 
 from ._paths import resolve_repo_data_dir
+from ._trusted_paths import resolve_trusted_dir_override
 
 __all__ = ["BuckData", "load_buck_data"]
 
@@ -41,30 +41,15 @@ def _get_buck_rules_dir() -> Path:
 
     When the environment variable ``PROTEUS_TRUSTED_BUCK_DIR`` is set, it
     allows specifying an arbitrary filesystem path as the Buck data
-    directory.  Basic safety checks (``is_symlink``, ``exists``,
-    ``is_dir``) are performed, but the variable ultimately grants full
-    filesystem access and must only be used in trusted environments.
-    Operators should avoid setting this env var in untrusted or
-    user-supplied contexts.
+    directory, but only when ``PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES`` is
+    also enabled.
     """
-    override = os.environ.get(_TRUSTED_BUCK_DIR_ENV_VAR)
-    if override:
-        override_path = Path(override).expanduser()
-        for part in [override_path, *override_path.parents]:
-            if part == part.parent:
-                # filesystem root — skip
-                break
-            if part.is_symlink():
-                raise ValueError(
-                    f"{_TRUSTED_BUCK_DIR_ENV_VAR} must not contain a symlink, "
-                    f"got {override} (symlink at {part})"
-                )
-        resolved = override_path.resolve(strict=False)
-        if not resolved.exists() or not resolved.is_dir():
-            raise FileNotFoundError(
-                f"Could not find Buck data directory {resolved}"
-            )
-        return resolved
+    override_path = resolve_trusted_dir_override(
+        env_var=_TRUSTED_BUCK_DIR_ENV_VAR,
+        description="Buck data",
+    )
+    if override_path is not None:
+        return override_path
     return resolve_repo_data_dir("rules") / "ancient_greek" / "buck"
 
 

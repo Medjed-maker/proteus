@@ -1,0 +1,72 @@
+# Search Benchmark Queries
+#
+# This file contains a diverse set of queries for testing Proteus search latency.
+#
+# Selection Criteria:
+# - Single-word Greek tokens (common lemmas for baseline measurement)
+# - Multi-word phrases (testing tokenization and phrase matching)
+# - Long sentences (testing performance with complex input)
+# - Queries with punctuation (testing text normalization)
+# - Edge cases (empty lines, very long tokens, mixed scripts)
+#
+# File Encoding: UTF-8 (required for Greek polytonic characters)
+#
+# Usage:
+#   uv run python tools/benchmark_search_latency.py --queries tests/fixtures/search_benchmark_queries.txt
+#
+# Maintainer Notes:
+# - Add new queries to exercise specific search paths (full-form, partial, short-query)
+# - Keep single-word Greek tokens at the top for consistent baseline comparison
+# - Comment lines (starting with #) are ignored by the benchmark runner
+# - This list is not exhaustive; extend it when adding new search features
+
+# Single-word Greek tokens (baseline queries)
+λόγος
+ἄνθρωπος
+δῶρο
+παιδίο
+μνημεῖο
+τέκνο
+γυνή
+πόλις
+γράφω
+σοφία
+
+# Multi-word phrases
+ὁ λόγος τοῦ θεοῦ
+ἐν ἀρχῇ ἦν ὁ λόγος
+τὰ ἀγαθὰ δῶρα
+περὶ τῆς ἀρετῆς
+μετὰ τῶν φίλων
+
+# Long sentences (>200 characters)
+ἐν ἀρχῇ ἦν ὁ λόγος, καὶ ὁ λόγος ἦν πρὸς τὸν θεόν, καὶ θεὸς ἦν ὁ λόγος. οὗτος ἦν ἐν ἀρχῇ πρὸς τὸν θεόν. πάντα δι᾽ αὐτοῦ ἐγένετο, καὶ χωρὶς αὐτοῦ ἐγένετο οὐδὲ ἕν ὃ γέγονεν.
+ἡ πόλις ἡ Ἀθηναία πολὺ μεγίστη ἐστὶν τῶν ἐν τῇ Ἑλλάδι πόλεων, καὶ ἐν αὐτῇ οἱ ἄνθρωποι σοφώτατοί εἰσι καὶ πλεῖστα μαθήματα ἐπιτηδεύουσι περί τε τὸν λόγον καὶ τὰς ἄλλας ἐπιστήμας.
+
+# Queries with punctuation
+λόγος;
+ἄνθρωπος!
+"δῶρον"
+(παιδίον)
+[μνημεῖον]
+γυνή, ἀνήρ
+πόλις: Ἀθῆναι
+
+# Edge cases
+
+# Empty line above tests blank line handling
+
+# Very long single-token string (token boundary stress test)
+ἀντιπαραγγελματοδοσιοπαρασκευαστικῶς
+
+# Mixed-script entries
+λόγος (logos)
+ἄνθρωπος = human
+φιλοσοφία philosophy
+σοφία (wisdom)
+ἀρετή virtue
+
+# Greek with CJK
+λόγος 論
+ἄνθρωπος 人
+σοφία 知恵

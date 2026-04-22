@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from phonology import buck as buck_module
+from phonology._trusted_paths import TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR
 from phonology.buck import load_buck_data
 
 
@@ -37,6 +38,7 @@ def _write_buck_fixture(
 
 @pytest.fixture(autouse=True)
 def reset_buck_loader_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR, "1")
     monkeypatch.delenv("PROTEUS_TRUSTED_BUCK_DIR", raising=False)
     buck_module._load_buck_data_cached.cache_clear()
 
@@ -116,6 +118,8 @@ def test_load_buck_data_supports_relative_override_directory(
         ),
     )
     monkeypatch.chdir(tmp_path)
+    # Keep "true" here to verify non-"1" truthy opt-in values are also accepted.
+    monkeypatch.setenv(TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR, "true")
     monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", "buck")
 
     data = load_buck_data()
@@ -252,6 +256,22 @@ def test_load_buck_data_reports_missing_directory(
         load_buck_data()
 
 
+def test_load_buck_data_rejects_override_without_opt_in(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    buck_dir.mkdir()
+    monkeypatch.delenv(TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR, raising=False)
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    with pytest.raises(
+        ValueError,
+        match="PROTEUS_TRUSTED_BUCK_DIR requires PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES=1",
+    ):
+        load_buck_data()
+
+
 def test_load_buck_data_rejects_symlink_override(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -275,8 +295,20 @@ def test_load_buck_data_rejects_symlink_in_parent_component(
     link_parent = tmp_path / "link-parent"
     link_parent.symlink_to(real_parent)
     buck_dir = link_parent / "buck"
-    # buck_dir itself is not a symlink, but its parent is
+    # load_buck_data must reject symlinked parents before it checks existence.
     monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
 
     with pytest.raises(ValueError, match="must not contain a symlink"):
+        load_buck_data()
+
+
+def test_load_buck_data_rejects_file_override(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_file = tmp_path / "buck.yaml"
+    buck_file.write_text("rules: []\n", encoding="utf-8")
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_file))
+
+    with pytest.raises(NotADirectoryError, match="Buck data path is not a directory"):
         load_buck_data()

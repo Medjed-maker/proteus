@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from phonology import distance as distance_module
+from phonology._trusted_paths import TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR
 from phonology.distance import (
     DEFAULT_COST,
     MatrixMeta,
@@ -26,6 +27,11 @@ from phonology import ipa_converter as ipa_converter_module
 from phonology.ipa_converter import greek_to_ipa, to_ipa
 
 
+@pytest.fixture(autouse=True)
+def enable_trusted_dir_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR, "1")
+
+
 @pytest.fixture
 def committed_matrix_copy(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -38,6 +44,10 @@ def committed_matrix_copy(
     trusted_dir.mkdir()
     copied_matrix = trusted_dir / source_matrix.name
     shutil.copy2(source_matrix, copied_matrix)
+    # Explicitly set opt-in and override to ensure the fixture is self-contained
+    # and remains valid even if the enable_trusted_dir_overrides autouse fixture
+    # signature or behavior changes in the future.
+    monkeypatch.setenv(TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR, "1")
     monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
     return copied_matrix
 
@@ -205,7 +215,47 @@ class TestLoadMatrix:
     ) -> None:
         monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(tmp_path / "missing"))
 
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(FileNotFoundError, match="Could not find trusted matrices directory"):
+            distance_module._get_trusted_matrices_dir()
+
+    def test_environment_override_rejects_without_opt_in(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        trusted_dir = tmp_path / "matrices"
+        trusted_dir.mkdir()
+        monkeypatch.delenv(TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR, raising=False)
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        with pytest.raises(
+            ValueError,
+            match="PROTEUS_TRUSTED_MATRICES_DIR requires PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES=1",
+        ):
+            distance_module._get_trusted_matrices_dir()
+
+    def test_environment_override_rejects_file_path(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        matrix_file = tmp_path / "matrix.json"
+        matrix_file.write_text("{}", encoding="utf-8")
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(matrix_file))
+
+        with pytest.raises(NotADirectoryError, match="trusted matrices path is not a directory"):
+            distance_module._get_trusted_matrices_dir()
+
+    def test_environment_override_rejects_parent_symlink(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        real_parent = tmp_path / "real-parent"
+        real_parent.mkdir()
+        link_parent = tmp_path / "link-parent"
+        try:
+            link_parent.symlink_to(real_parent)
+        except OSError as exc:  # pragma: no cover - platform-dependent
+            pytest.skip(f"symlink creation not supported: {exc}")
+        trusted_dir = link_parent / "matrices"
+        monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(trusted_dir))
+
+        with pytest.raises(ValueError, match="must not contain a symlink"):
             distance_module._get_trusted_matrices_dir()
 
     def test_falls_back_to_repo_data_directory_when_env_is_unset(
@@ -745,4 +795,3 @@ class TestLoadMatrixDocument:
         assert isinstance(meta, dict)
         assert "version" in meta
         assert "generated_at" in meta
-

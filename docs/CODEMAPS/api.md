@@ -217,7 +217,9 @@ Mounts `src/web/static/` at `/static/*`. Conditional on directory existence.
 | `PROTEUS_ALLOWED_ORIGINS` | CORS allowlist (comma-separated) | `"http://localhost:3000,https://example.com"` |
 | `PROTEUS_LOG_RAW_SEARCH_QUERY` | Enable raw query logging (debug only) | `"true"` |
 | `PROTEUS_LSJ_REPO_DIR` | Override LSJ checkout location (used by build_lexicon) | `"/path/to/lexica"` |
-| `PROTEUS_TRUSTED_MATRICES_DIR` | Override matrix directory (in distance.py) | N/A (internal) |
+| `PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES` | Must be enabled before `PROTEUS_TRUSTED_*_DIR` runtime overrides are honored | `"true"` |
+| `PROTEUS_TRUSTED_BUCK_DIR` | Override Buck rules directory when `PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES` is enabled | `"/path/to/buck"` |
+| `PROTEUS_TRUSTED_MATRICES_DIR` | Override matrix directory when `PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES` is enabled | `"/path/to/matrices"` |
 
 ## Related Areas
 
