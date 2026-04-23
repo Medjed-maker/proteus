@@ -5,10 +5,11 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import replace
-from typing import Any, NamedTuple, Protocol
 from functools import lru_cache
 import heapq
 import logging
+import time
+from typing import Any, NamedTuple, Protocol
 
 import yaml  # type: ignore[import-untyped]
 
@@ -32,7 +33,6 @@ from ._constants import (
     _PARTIAL_QUERY_CONFIDENCE_THRESHOLD,
     _SEED_MULTIPLIER,
     _SHORT_QUERY_CONFIDENCE_THRESHOLD,
-    _SHORT_QUERY_MAX_ANNOTATION_BATCHES,
     OBSERVED_PREFIX,
 )
 from ._lookup import (
@@ -74,6 +74,13 @@ from ._filtering import (
     _apply_mode_quality_filter,
     _rank_short_query_annotation_candidates,
     _select_annotation_candidates,
+)
+from ._debug_logging import (
+    log_candidate_selection as _log_candidate_selection,
+    log_finalization as _log_finalization,
+    log_scoring as _log_scoring,
+    perf_counter_if_debug as _perf_counter_if_debug,
+    summarize_query_ipa_for_logs as _summarize_query_ipa_for_logs,
 )
 from ._dedup import (
     _deduplicate_by_headword,
@@ -132,6 +139,8 @@ __all__ = [
     "prepare_query",
     "prepare_query_ipa",
     "search",
+    "search_execution",
+    "SearchExecutionResult",
 ]
 
 
@@ -156,6 +165,22 @@ class _FallbackLimits(NamedTuple):
 
     similarity: int
     unigram: int
+
+
+class _FinalizationResult(NamedTuple):
+    """Finalized search results plus debug-only performance counters."""
+
+    results: list[SearchResult]
+    annotated_count: int
+    returned_count: int
+    truncated: bool = False
+
+
+class SearchExecutionResult(NamedTuple):
+    """Search return value with result metadata for API callers."""
+
+    results: list[SearchResult]
+    truncated: bool = False
 
 
 class _LazySearchDependencies:
@@ -768,7 +793,7 @@ def _rank_by_token_count_proximity(
     query_ipa: str,
     lexicon_map: LexiconMap,
     *,
-    max_candidates: int | None = None,
+    max_candidates: int,
     query_token_count: int | None = None,
 ) -> list[str]:
     """Rank candidates whose IPA token count is closest to the query's.
@@ -776,18 +801,13 @@ def _rank_by_token_count_proximity(
     Used as a last-resort fallback when no consonant k-mers can be
     generated (e.g. pure-vowel queries). Returns entry IDs sorted by
     ascending token-count difference, then exact-IPA matches, then entry ID.
-    By default callers can evaluate the full ranked list; ``max_candidates``
-    is only an explicit override for a capped fallback scan.
-    
+    Callers must pass an explicit positive cap so fallback scans remain bounded.
+
     If ``query_token_count`` is provided, it is used directly instead of
     re-tokenizing ``query_ipa``.
-
-    **Performance note**: When ``max_candidates`` is ``None`` the full
-    ``lexicon_map`` is sorted (O(n log n) for ~63k entries). Callers should
-    pass an explicit cap unless uncapped evaluation is intentional.
     """
-    if max_candidates is not None and max_candidates <= 0:
-        raise ValueError("max_candidates must be a positive integer when provided")
+    if max_candidates <= 0:
+        raise ValueError("max_candidates must be a positive integer")
 
     query_length = query_token_count
     if query_length is None:
@@ -801,12 +821,8 @@ def _rank_by_token_count_proximity(
             entry_id,
         )
 
-    if max_candidates is not None:
-        top = heapq.nsmallest(max_candidates, lexicon_map.items(), key=_sort_key)
-        return [entry_id for entry_id, _ in top]
-
-    scored = sorted(lexicon_map.items(), key=_sort_key)
-    return [entry_id for entry_id, _ in scored]
+    top = heapq.nsmallest(max_candidates, lexicon_map.items(), key=_sort_key)
+    return [entry_id for entry_id, _ in top]
 
 
 
@@ -1070,15 +1086,21 @@ def _finalize_full_form_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
-) -> list[SearchResult]:
+) -> _FinalizationResult:
     """Finalize Full-form results by annotating only visible deduplicated hits."""
     unique_scored = _deduplicate_by_headword(ranked_scored, check_sorted=False)
-    return _annotate_search_results(
+    final_results = _annotate_search_results(
         query_ipa=query_ipa,
         results=unique_scored[:max_results],
         lexicon_map=selection.lexicon_lookup,
         matrix=matrix,
         language=language,
+    )
+    return _FinalizationResult(
+        results=final_results,
+        annotated_count=len(unique_scored[:max_results]),
+        returned_count=len(final_results),
+        truncated=False,
     )
 
 
@@ -1091,26 +1113,21 @@ def _finalize_short_query_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
-) -> list[SearchResult]:
+) -> _FinalizationResult:
     """Finalize Short-query results with batched annotation and quality filtering."""
     annotation_limit = _annotation_candidate_limit(max_results)
     ordered_annotation_candidates = _rank_short_query_annotation_candidates(
         selection.query_tokens,
         ranked_scored,
         selection.lexicon_lookup,
+        annotation_limit=annotation_limit,
     )
     annotated_results: list[SearchResult] = []
     deduplicated_results: list[SearchResult] = []
-    truncated_by_batch_cap = False
-    for batch_index, offset in enumerate(
-        range(0, len(ordered_annotation_candidates), annotation_limit)
-    ):
-        if batch_index >= _SHORT_QUERY_MAX_ANNOTATION_BATCHES:
-            truncated_by_batch_cap = True
-            break
-        batch = ordered_annotation_candidates[offset : offset + annotation_limit]
-        if not batch:
-            break
+    total_annotated_count = 0
+    window_truncated = len(ranked_scored) > len(ordered_annotation_candidates)
+    batch = ordered_annotation_candidates[:annotation_limit]
+    if batch:
         batch_annotated = _annotate_search_results(
             query_ipa=query_ipa,
             results=batch,
@@ -1118,6 +1135,7 @@ def _finalize_short_query_results(
             matrix=matrix,
             language=language,
         )
+        total_annotated_count += len(batch)
         batch_filtered = _apply_mode_quality_filter(
             selection.query_mode,
             selection.query_tokens,
@@ -1134,26 +1152,45 @@ def _finalize_short_query_results(
         annotated_results.extend(batch_filtered)
         deduplicated_results = _deduplicate_by_headword_common(annotated_results)
         if len(deduplicated_results) >= max_results:
-            return deduplicated_results[:max_results]
+            final_results = deduplicated_results[:max_results]
+            if window_truncated:
+                final_results = [replace(result, truncated=True) for result in final_results]
+            return _FinalizationResult(
+                results=final_results,
+                annotated_count=total_annotated_count,
+                returned_count=len(final_results),
+                truncated=window_truncated,
+            )
 
-    if truncated_by_batch_cap and len(deduplicated_results) < max_results:
+    if window_truncated and len(deduplicated_results) < max_results:
         logger.warning(
             "Short-query search for query IPA %r returned %d/%d results; "
-            "annotation batches capped at %d (query_mode=%s). "
+            "annotation window capped at %d (query_mode=%s). "
             "Remaining %d candidates were not annotated.",
             query_ipa,
             len(deduplicated_results),
             max_results,
-            _SHORT_QUERY_MAX_ANNOTATION_BATCHES,
+            annotation_limit,
             selection.query_mode,
             max(
                 0,
-                len(ordered_annotation_candidates)
-                - _SHORT_QUERY_MAX_ANNOTATION_BATCHES * annotation_limit,
+                len(ranked_scored) - len(ordered_annotation_candidates),
             ),
         )
-        return [replace(r, truncated=True) for r in deduplicated_results[:max_results]]
-    return deduplicated_results[:max_results]
+        final_results = [replace(r, truncated=True) for r in deduplicated_results[:max_results]]
+        return _FinalizationResult(
+            results=final_results,
+            annotated_count=total_annotated_count,
+            returned_count=len(final_results),
+            truncated=True,
+        )
+    final_results = deduplicated_results[:max_results]
+    return _FinalizationResult(
+        results=final_results,
+        annotated_count=total_annotated_count,
+        returned_count=len(final_results),
+        truncated=False,
+    )
 
 
 def _finalize_partial_form_results(
@@ -1165,7 +1202,7 @@ def _finalize_partial_form_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
-) -> list[SearchResult]:
+) -> _FinalizationResult:
     """Finalize Partial-form results after bounded annotation and filtering."""
     annotation_candidates = _select_annotation_candidates(
         selection.query_mode,
@@ -1190,10 +1227,16 @@ def _finalize_partial_form_results(
         selection.lexicon_lookup,
     )
     deduplicated_results = _deduplicate_by_headword_common(filtered_results)
-    return deduplicated_results[:max_results]
+    final_results = deduplicated_results[:max_results]
+    return _FinalizationResult(
+        results=final_results,
+        annotated_count=len(annotation_candidates),
+        returned_count=len(final_results),
+        truncated=False,
+    )
 
 
-def search(
+def _execute_search(
     query: str,
     lexicon: Sequence[LexiconEntry],
     matrix: DistanceMatrix,
@@ -1208,7 +1251,7 @@ def search(
     prebuilt_ipa_index: IpaIndex | None = None,
     similarity_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
     unigram_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
-) -> list[SearchResult]:
+) -> SearchExecutionResult:
     """Run full three-stage search for a Greek query word.
 
     The query mode is classified before search:
@@ -1283,7 +1326,8 @@ def search(
             positive integer to override the default cap.
 
     Returns:
-        Ranked search results ordered by descending confidence.
+        Internal execution bundle containing ranked search results ordered by
+        descending confidence plus a truncation signal for API callers.
 
     Raises:
         ValueError: If ``query`` is empty/whitespace-only, ``max_results``
@@ -1310,6 +1354,16 @@ def search(
     query_mode = prepared_query.query_mode
     query_ipa = prepared_query.query_ipa
     query_tokens = tokenize_ipa(query_ipa)
+    _debug_enabled = logger.isEnabledFor(logging.DEBUG)
+    query_log_label = (
+        _summarize_query_ipa_for_logs(
+            query_ipa,
+            query_token_count=len(query_tokens),
+            debug_enabled=_debug_enabled,
+        )
+        if _debug_enabled
+        else ""
+    )
     query_skeleton = _extract_consonant_skeleton(query_tokens)
     partial_query_tokens = prepared_query.partial_query_tokens
     fallback_limits = _resolve_fallback_limits(
@@ -1328,6 +1382,7 @@ def search(
     search_index = (
         index if index is not None else build_kmer_index(lexicon, k=_DEFAULT_KMER_SIZE)
     )
+    _t_selection = _perf_counter_if_debug(logger)
     seed_candidates = seed_stage(query_ipa, search_index, k=_DEFAULT_KMER_SIZE)
     stage2_limit = max(_MIN_STAGE2_CANDIDATES, max_results * _SEED_MULTIPLIER)
 
@@ -1373,7 +1428,20 @@ def search(
                 max_results=max_results,
                 effective_similarity_fallback_limit=effective_similarity_fallback_limit,
             )
+    if _debug_enabled:
+        _log_candidate_selection(
+            logger,
+            query_label=query_log_label,
+            query_mode=selection.query_mode,
+            selection_path=selection.selection_path,
+            seed_candidate_count=selection.seed_candidate_count,
+            unigram_candidate_count=selection.unigram_candidate_count,
+            selected_count=len(selection.candidate_ids),
+            fallback_limit=selection.fallback_limit,
+            elapsed_ms=(time.perf_counter() - _t_selection) * 1000.0,
+        )
 
+    _t_scoring = _perf_counter_if_debug(logger)
     scored_results = _score_stage(
         query_ipa=query_ipa,
         candidates=selection.candidate_ids,
@@ -1381,8 +1449,18 @@ def search(
         matrix=matrix,
     )
     ranked_scored = sorted(scored_results, key=lambda r: (-r.confidence, r.lemma))
+    if _debug_enabled:
+        _log_scoring(
+            logger,
+            query_label=query_log_label,
+            selected_count=len(selection.candidate_ids),
+            scored_count=len(ranked_scored),
+            elapsed_ms=(time.perf_counter() - _t_scoring) * 1000.0,
+        )
+
+    _t_finalization = _perf_counter_if_debug(logger)
     if selection.query_mode == "Full-form":
-        return _finalize_full_form_results(
+        finalization = _finalize_full_form_results(
             query_ipa=query_ipa,
             ranked_scored=ranked_scored,
             selection=selection,
@@ -1390,9 +1468,8 @@ def search(
             max_results=max_results,
             language=language,
         )
-
-    if selection.query_mode == "Short-query":
-        return _finalize_short_query_results(
+    elif selection.query_mode == "Short-query":
+        finalization = _finalize_short_query_results(
             query_ipa=query_ipa,
             ranked_scored=ranked_scored,
             selection=selection,
@@ -1401,13 +1478,124 @@ def search(
             max_results=max_results,
             language=language,
         )
+    else:
+        finalization = _finalize_partial_form_results(
+            query_ipa=query_ipa,
+            ranked_scored=ranked_scored,
+            selection=selection,
+            partial_query_tokens=partial_query_tokens,
+            matrix=matrix,
+            max_results=max_results,
+            language=language,
+        )
+    if _debug_enabled:
+        _log_finalization(
+            logger,
+            query_label=query_log_label,
+            query_mode=selection.query_mode,
+            annotated_count=finalization.annotated_count,
+            returned_count=finalization.returned_count,
+            elapsed_ms=(time.perf_counter() - _t_finalization) * 1000.0,
+        )
+    return SearchExecutionResult(
+        results=finalization.results,
+        truncated=finalization.truncated,
+    )
 
-    return _finalize_partial_form_results(
-        query_ipa=query_ipa,
-        ranked_scored=ranked_scored,
-        selection=selection,
-        partial_query_tokens=partial_query_tokens,
+
+def search_execution(
+    query: str,
+    lexicon: Sequence[LexiconEntry],
+    matrix: DistanceMatrix,
+    max_results: int = 5,
+    dialect: str = "attic",
+    index: KmerIndex | None = None,
+    unigram_index: KmerIndex | None = None,
+    prebuilt_lexicon_map: LexiconMap | None = None,
+    language: str = "ancient_greek",
+    query_ipa: str | None = None,
+    prepared_query: PreparedQueryIpa | None = None,
+    prebuilt_ipa_index: IpaIndex | None = None,
+    similarity_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
+    unigram_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
+) -> SearchExecutionResult:
+    """Run full three-stage search and return the full execution result.
+
+    Unlike search() which returns only the list of results, search_execution
+    returns a SearchExecutionResult containing both results and execution
+    metadata such as the truncated flag.
+
+    Args:
+        query: The search query string (Greek word or partial form).
+        lexicon: Sequence of lexicon entries to search against.
+        matrix: Phonological distance matrix for scoring.
+        max_results: Maximum number of results to return (default: 5).
+        dialect: Dialect hint for IPA conversion (default: "attic").
+        index: Optional k-mer index for candidate selection.
+        unigram_index: Optional unigram index for fallback selection.
+        prebuilt_lexicon_map: Optional pre-built lexicon lookup map.
+        language: Language code for rule application (default: "ancient_greek").
+        query_ipa: Optional pre-computed IPA for the query.
+        prepared_query: Optional pre-computed prepared query object.
+        prebuilt_ipa_index: Optional pre-built IPA index.
+        similarity_fallback_limit: Max candidates for similarity fallback.
+        unigram_fallback_limit: Max candidates for unigram fallback.
+
+    Returns:
+        SearchExecutionResult with fields:
+        - results: List of matching SearchResult objects.
+        - truncated: True if results were capped due to max_results limit.
+          Note: truncated=True can occur even when results=[] if all
+          candidates were filtered out after reaching the annotation limit.
+    """
+    return _execute_search(
+        query,
+        lexicon=lexicon,
         matrix=matrix,
         max_results=max_results,
+        dialect=dialect,
+        index=index,
+        unigram_index=unigram_index,
+        prebuilt_lexicon_map=prebuilt_lexicon_map,
         language=language,
+        query_ipa=query_ipa,
+        prepared_query=prepared_query,
+        prebuilt_ipa_index=prebuilt_ipa_index,
+        similarity_fallback_limit=similarity_fallback_limit,
+        unigram_fallback_limit=unigram_fallback_limit,
     )
+
+
+def search(
+    query: str,
+    lexicon: Sequence[LexiconEntry],
+    matrix: DistanceMatrix,
+    max_results: int = 5,
+    dialect: str = "attic",
+    index: KmerIndex | None = None,
+    unigram_index: KmerIndex | None = None,
+    prebuilt_lexicon_map: LexiconMap | None = None,
+    language: str = "ancient_greek",
+    query_ipa: str | None = None,
+    prepared_query: PreparedQueryIpa | None = None,
+    prebuilt_ipa_index: IpaIndex | None = None,
+    similarity_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
+    unigram_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
+) -> list[SearchResult]:
+    """Run full three-stage search for a Greek query word."""
+    return search_execution(
+        query,
+        lexicon=lexicon,
+        matrix=matrix,
+        max_results=max_results,
+        dialect=dialect,
+        index=index,
+        unigram_index=unigram_index,
+        prebuilt_lexicon_map=prebuilt_lexicon_map,
+        language=language,
+        query_ipa=query_ipa,
+        prepared_query=prepared_query,
+        prebuilt_ipa_index=prebuilt_ipa_index,
+        similarity_fallback_limit=similarity_fallback_limit,
+        unigram_fallback_limit=unigram_fallback_limit,
+    ).results

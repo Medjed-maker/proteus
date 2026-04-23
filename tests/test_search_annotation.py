@@ -260,10 +260,10 @@ class TestSearchAnnotation:
         assert [result.entry_id for result in results] == [f"L{annotation_limit - 1:03d}"]
         assert results[0].applied_rules == ["RULE-TAIL"]
 
-    def test_short_query_annotation_continues_to_next_batch_for_rule_support(
+    def test_short_query_annotation_does_not_continue_past_bounded_window(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Short-query annotation should continue when the first window has no kept hits."""
+        """Short-query annotation should not continue past the bounded candidate window."""
         annotation_limit = search_module._annotation_candidate_limit(5)
         batch_sizes: list[int] = []
         target_id = f"L{annotation_limit:03d}"
@@ -315,9 +315,8 @@ class TestSearchAnnotation:
 
         results = search("q", lexicon, matrix={}, max_results=5, index={}, unigram_index={})
 
-        assert batch_sizes == [annotation_limit, 1]
-        assert [result.entry_id for result in results] == [target_id]
-        assert results[0].applied_rules == ["RULE-NEXT-BATCH"]
+        assert batch_sizes == [annotation_limit]
+        assert results == []
 
     def test_short_query_annotation_window_keeps_late_exact_match(
         self, monkeypatch: pytest.MonkeyPatch
@@ -366,6 +365,213 @@ class TestSearchAnnotation:
         results = search("q", lexicon, matrix={}, max_results=1, index={}, unigram_index={})
 
         assert [result.entry_id for result in results] == [exact_id]
+
+    def test_short_query_annotation_ranking_prioritizes_exact_and_confident_candidates(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Short-query pre-annotation ordering should pull strong candidates into the first batch."""
+        annotation_limit = search_module._annotation_candidate_limit(5)
+        exact_id = "L120"
+        confident_id = "L121"
+        captured_batches: list[list[str]] = []
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
+        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(
+            search_module,
+            "_rank_by_token_count_proximity",
+            lambda query_ipa, lexicon_map, max_candidates=None, query_token_count=None: [
+                f"L{index:03d}" for index in range(150)
+            ],
+        )
+
+        threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
+
+        def fake_score_stage(
+            query_ipa: str,
+            candidates: Iterable[str],
+            lexicon_map: dict[str, object],
+            matrix: object,
+        ) -> list[SearchResult]:
+            scored: list[SearchResult] = []
+            for index, candidate_id in enumerate(candidates):
+                confidence = threshold - 0.20
+                if candidate_id == confident_id:
+                    confidence = threshold + 0.05
+                scored.append(
+                    SearchResult(
+                        lemma=f"lemma-{index:03d}",
+                        confidence=confidence,
+                        dialect_attribution="lemma dialect: attic",
+                        entry_id=candidate_id,
+                    )
+                )
+            return scored
+
+        def fake_annotate_results(
+            query_ipa: str,
+            results: list[SearchResult],
+            lexicon_map: dict[str, object],
+            matrix: object,
+            language: str = "ancient_greek",
+        ) -> list[SearchResult]:
+            captured_batches.append([str(result.entry_id) for result in results])
+            return list(results)
+
+        monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
+        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+
+        lexicon = [
+            {
+                "id": f"L{index:03d}",
+                "headword": f"lemma-{index:03d}",
+                "ipa": "q" if index == 120 else "t",
+                "dialect": "attic",
+            }
+            for index in range(150)
+        ]
+
+        search("q", lexicon, matrix={}, max_results=5, index={}, unigram_index={})
+
+        assert captured_batches
+        assert exact_id in captured_batches[0]
+        assert confident_id in captured_batches[0]
+        assert len(captured_batches[0]) == annotation_limit
+
+    def test_short_query_exploratory_reserve_keeps_rule_supported_candidate_with_many_strong_hits(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exploratory reserve should keep a low-confidence rule hit reachable within batch caps."""
+        target_id = "L320"
+        threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
+        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(
+            search_module,
+            "_rank_by_token_count_proximity",
+            lambda query_ipa, lexicon_map, max_candidates=None, query_token_count=None: [
+                f"L{index:03d}" for index in range(350)
+            ],
+        )
+
+        def fake_score_stage(
+            query_ipa: str,
+            candidates: Iterable[str],
+            lexicon_map: dict[str, object],
+            matrix: object,
+        ) -> list[SearchResult]:
+            scored: list[SearchResult] = []
+            target_num = int(target_id[1:])
+            for candidate_id in candidates:
+                candidate_num = int(candidate_id[1:])
+                confidence = threshold + 0.05 if candidate_num < target_num else threshold - 0.20
+                scored.append(
+                    SearchResult(
+                        lemma=str(candidate_id),
+                        confidence=confidence,
+                        dialect_attribution="lemma dialect: attic",
+                        entry_id=str(candidate_id),
+                    )
+                )
+            return scored
+
+        def fake_annotate_results(
+            query_ipa: str,
+            results: list[SearchResult],
+            lexicon_map: dict[str, object],
+            matrix: object,
+            language: str = "ancient_greek",
+        ) -> list[SearchResult]:
+            annotated = list(results)
+            for result in annotated:
+                if result.entry_id == target_id:
+                    result.applied_rules = ["RULE-RESCUE"]
+            return annotated
+
+        monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
+        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+
+        lexicon = [
+            {
+                "id": f"L{index:03d}",
+                "headword": f"lemma-{index:03d}",
+                "ipa": "q" if index == 320 else "t",
+                "dialect": "attic",
+            }
+            for index in range(350)
+        ]
+
+        results = search("q", lexicon, matrix={}, max_results=1, index={}, unigram_index={})
+
+        assert [result.entry_id for result in results] == [target_id]
+        assert results[0].applied_rules == ["RULE-RESCUE"]
+
+    def test_short_query_annotation_window_keeps_all_primary_hits_when_they_fill_the_limit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Short-query reserve should not displace in-budget exact or confident candidates."""
+        annotation_limit = search_module._annotation_candidate_limit(5)
+        captured_batches: list[list[str]] = []
+        threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
+        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(
+            search_module,
+            "_rank_by_token_count_proximity",
+            lambda query_ipa, lexicon_map, max_candidates=None, query_token_count=None: [
+                f"L{index:03d}" for index in range(150)
+            ],
+        )
+
+        def fake_score_stage(
+            query_ipa: str,
+            candidates: Iterable[str],
+            lexicon_map: dict[str, object],
+            matrix: object,
+        ) -> list[SearchResult]:
+            scored: list[SearchResult] = []
+            for index, candidate_id in enumerate(candidates):
+                confidence = threshold + 0.05 if index < annotation_limit else threshold - 0.20
+                scored.append(
+                    SearchResult(
+                        lemma=f"lemma-{index:03d}",
+                        confidence=confidence,
+                        dialect_attribution="lemma dialect: attic",
+                        entry_id=candidate_id,
+                    )
+                )
+            return scored
+
+        def fake_annotate_results(
+            query_ipa: str,
+            results: list[SearchResult],
+            lexicon_map: dict[str, object],
+            matrix: object,
+            language: str = "ancient_greek",
+        ) -> list[SearchResult]:
+            captured_batches.append([str(result.entry_id) for result in results])
+            return list(results)
+
+        monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
+        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+
+        lexicon = [
+            {
+                "id": f"L{index:03d}",
+                "headword": f"lemma-{index:03d}",
+                "ipa": "q" if index < annotation_limit else "t",
+                "dialect": "attic",
+            }
+            for index in range(150)
+        ]
+
+        results = search("q", lexicon, matrix={}, max_results=5, index={}, unigram_index={})
+
+        expected_primary_ids = [f"L{index:03d}" for index in range(annotation_limit)]
+        assert captured_batches == [expected_primary_ids]
+        assert [result.entry_id for result in results] == expected_primary_ids[:5]
 
     def test_partial_query_annotates_candidates_beyond_previous_window(
         self, monkeypatch: pytest.MonkeyPatch
@@ -566,6 +772,249 @@ class TestSearchAnnotation:
         results = search("ζηταω-", lexicon, matrix={}, max_results=2, index={})
 
         assert [result.entry_id for result in results] == ["L1", "L2"]
+
+    def test_partial_query_annotation_selection_prioritizes_positive_overlap_candidates(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Partial-form pre-annotation selection should prefer overlap candidates over zero-overlap noise."""
+        captured: dict[str, object] = {}
+        target_id = "L095"
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "a c")
+        monkeypatch.setattr(
+            search_module,
+            "seed_stage",
+            lambda *_args, **_kwargs: [f"L{index:03d}" for index in range(150)],
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage",
+            lambda query_ipa, candidates, lexicon_map, matrix: [
+                SearchResult(
+                    lemma=f"lemma-{index:03d}",
+                    confidence=0.95,
+                    dialect_attribution="lemma dialect: attic",
+                    entry_id=candidate_id,
+                )
+                for index, candidate_id in enumerate(candidates)
+            ],
+        )
+
+        def fake_annotate_results(
+            query_ipa: str,
+            results: list[SearchResult],
+            lexicon_map: dict[str, object],
+            matrix: object,
+            language: str = "ancient_greek",
+        ) -> list[SearchResult]:
+            captured["annotated_ids"] = [str(result.entry_id) for result in results]
+            return list(results)
+
+        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+
+        lexicon = [
+            {
+                "id": f"L{index:03d}",
+                "headword": f"lemma-{index:03d}",
+                "ipa": "a x c" if index == 95 else "t t",
+                "dialect": "attic",
+            }
+            for index in range(150)
+        ]
+
+        search("a*c", lexicon, matrix={}, max_results=5, index={}, unigram_index={})
+
+        assert target_id in captured["annotated_ids"]
+
+    def test_partial_query_exploratory_reserve_keeps_zero_overlap_rule_supported_candidate(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Partial-form exploratory reserve should still annotate a low-confidence zero-overlap candidate."""
+        target_id = "L095"
+        captured: dict[str, object] = {}
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "a c")
+        monkeypatch.setattr(
+            search_module,
+            "seed_stage",
+            lambda *_args, **_kwargs: [f"L{index:03d}" for index in range(150)],
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage",
+            lambda query_ipa, candidates, lexicon_map, matrix: [
+                SearchResult(
+                    lemma=f"lemma-{index:03d}",
+                    confidence=0.95 if candidate_id != target_id else 0.10,
+                    dialect_attribution="lemma dialect: attic",
+                    entry_id=candidate_id,
+                )
+                for index, candidate_id in enumerate(candidates)
+            ],
+        )
+
+        def fake_annotate_results(
+            query_ipa: str,
+            results: list[SearchResult],
+            lexicon_map: dict[str, object],
+            matrix: object,
+            language: str = "ancient_greek",
+        ) -> list[SearchResult]:
+            captured["annotated_ids"] = [str(result.entry_id) for result in results]
+            annotated = list(results)
+            for result in annotated:
+                if result.entry_id == target_id:
+                    result.applied_rules = ["RULE-ZERO-OVERLAP"]
+            return annotated
+
+        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+
+        lexicon = [
+            {
+                "id": f"L{index:03d}",
+                "headword": f"lemma-{index:03d}",
+                "ipa": "z z" if index == 95 else "a x c",
+                "dialect": "attic",
+            }
+            for index in range(150)
+        ]
+
+        results = search("a*c", lexicon, matrix={}, max_results=1, index={}, unigram_index={})
+
+        assert target_id in captured["annotated_ids"]
+        assert results == []
+
+    def test_partial_query_annotation_window_keeps_all_primary_hits_when_they_fill_the_limit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Partial-form reserve should not displace overlap-matching primary candidates."""
+        max_results = 5
+        annotation_limit = search_module._annotation_candidate_limit(max_results)
+        captured: dict[str, object] = {}
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query.replace("*", ""))
+        monkeypatch.setattr(
+            search_module,
+            "seed_stage",
+            lambda *_args, **_kwargs: [f"L{index:03d}" for index in range(150)],
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage",
+            lambda query_ipa, candidates, lexicon_map, matrix: [
+                SearchResult(
+                    lemma=f"lemma-{index:03d}",
+                    confidence=0.95 if index < annotation_limit else 0.10,
+                    dialect_attribution="lemma dialect: attic",
+                    entry_id=candidate_id,
+                )
+                for index, candidate_id in enumerate(candidates)
+            ],
+        )
+
+        def fake_annotate_results(
+            query_ipa: str,
+            results: list[SearchResult],
+            lexicon_map: dict[str, object],
+            matrix: object,
+            language: str = "ancient_greek",
+        ) -> list[SearchResult]:
+            captured["annotated_ids"] = [str(result.entry_id) for result in results]
+            return list(results)
+
+        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+
+        lexicon = [
+            {
+                "id": f"L{index:03d}",
+                "headword": f"lemma-{index:03d}",
+                "ipa": "a x c" if index < annotation_limit else "z z",
+                "dialect": "attic",
+            }
+            for index in range(150)
+        ]
+
+        results = search(
+            "a*c",
+            lexicon,
+            matrix={},
+            max_results=max_results,
+            index={},
+            unigram_index={},
+        )
+
+        expected_primary_ids = [f"L{index:03d}" for index in range(annotation_limit)]
+        assert captured["annotated_ids"] == expected_primary_ids
+        assert [result.entry_id for result in results] == expected_primary_ids[:max_results]
+
+    def test_short_query_annotation_call_counts_stay_bounded_by_annotation_window(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Short-query annotation should bound tokenize/alignment/explainer call counts."""
+        annotation_limit = search_module._annotation_candidate_limit(5)
+        counts = {
+            "tokenize": 0,
+            "alignment": 0,
+            "explain": 0,
+        }
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
+        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(
+            search_module,
+            "_rank_by_token_count_proximity",
+            lambda query_ipa, lexicon_map, max_candidates=None, query_token_count=None: [
+                f"L{index:03d}" for index in range(150)
+            ],
+        )
+        monkeypatch.setattr(search_module, "get_rules_registry", lambda language="ancient_greek": {})
+        monkeypatch.setattr(search_module, "tokenize_rules_for_matching", lambda rules: [])
+
+        original_tokenize = search_module.tokenize_ipa
+
+        def tracking_tokenize(ipa_text: str) -> list[str]:
+            counts["tokenize"] += 1
+            return original_tokenize(ipa_text)
+
+        def fake_alignment(
+            query_tokens: list[str],
+            lemma_tokens: list[str],
+            matrix: object,
+        ) -> tuple[float, list[str | None], list[str | None]]:
+            counts["alignment"] += 1
+            return 2.0, list(query_tokens), list(lemma_tokens)
+
+        def fake_explain(
+            *,
+            query_tokens: list[str],
+            lemma_tokens: list[str],
+            alignment: object,
+            tokenized_rules: tuple[object, ...],
+            lemma_metadata: dict[str, object],
+        ) -> list[object]:
+            counts["explain"] += 1
+            return []
+
+        monkeypatch.setattr(search_module, "tokenize_ipa", tracking_tokenize)
+        monkeypatch.setattr(search_module, "explain_with_tokenized_rules", fake_explain)
+        monkeypatch.setattr(scoring_module, "_smith_waterman_alignment", fake_alignment)
+
+        lexicon = [
+            {
+                "id": f"L{index:03d}",
+                "headword": f"lemma-{index:03d}",
+                "ipa": "q" if index < 5 else "t",
+                "dialect": "attic",
+            }
+            for index in range(150)
+        ]
+
+        search("q", lexicon, matrix={}, max_results=5, index={}, unigram_index={})
+
+        extra_tokenize_calls = 2  # One for the query and one for tokenized rule preparation.
+        assert counts["alignment"] == len(lexicon)
+        assert counts["explain"] == annotation_limit
+        assert counts["tokenize"] == len(lexicon) + extra_tokenize_calls
 
     def test_short_query_deduplicates_after_quality_filter(
         self, monkeypatch: pytest.MonkeyPatch

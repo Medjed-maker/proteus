@@ -235,8 +235,8 @@ class SearchResponse(BaseModel):
     truncated: bool = Field(
         default=False,
         description=(
-            "True when annotation was truncated due to batch limits. This occurs "
-            "for Short-query searches when many candidates are filtered out, "
+            "True when annotation was truncated due to candidate-window or batch limits. "
+            "This occurs for Short-query searches when many candidates are filtered out, "
             "indicating the result set may be incomplete."
         ),
     )

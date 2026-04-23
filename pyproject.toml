@@ -67,6 +67,9 @@ path = "hatch_build.py"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--tb=short -v"
+markers = [
+    "internal_search_execution: tests that intentionally inspect internal search execution metadata",
+]
 
 [tool.coverage.run]
 source = ["src"]

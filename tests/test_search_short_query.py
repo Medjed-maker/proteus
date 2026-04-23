@@ -18,7 +18,10 @@ from phonology.search import (
     SearchResult,
     search,
 )
-from phonology.search._constants import _SHORT_QUERY_MAX_ANNOTATION_BATCHES
+from phonology.search._constants import (
+    _SHORT_QUERY_MAX_ANNOTATION_BATCHES,
+    _annotation_candidate_limit,
+)
 
 
 class TestSearchShortQuery:
@@ -300,12 +303,14 @@ class TestSearchShortQuery:
         assert annotation_call_count >= 1, "Batch loop should process at least one batch"
         assert annotation_call_count <= _SHORT_QUERY_MAX_ANNOTATION_BATCHES
 
-    def test_short_query_finalization_continues_into_later_annotation_batches(
+    def test_short_query_finalization_bounded_to_annotation_window(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Short-query finalization should keep scanning batches until enough hits survive."""
+        """Short-query finalization annotates exactly one bounded window; candidates beyond
+        the window are never reached even if they would survive quality filtering."""
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
-        scored_count = 150
+        annotation_limit = _annotation_candidate_limit(2)  # max(100, 2*10)
+        scored_count = annotation_limit + 50
         entry_ids = [f"E{i:03d}" for i in range(scored_count)]
         annotated_batches: list[list[str]] = []
 
@@ -325,6 +330,8 @@ class TestSearchShortQuery:
             ],
         )
 
+        beyond_window_id = f"E{annotation_limit:03d}"
+
         def fake_annotate_results(
             query_ipa: str,
             results: list[SearchResult],
@@ -339,7 +346,7 @@ class TestSearchShortQuery:
             annotated_batches.append(batch_entry_ids)
             return [
                 replace(result, applied_rules=["RULE-KEEP"])
-                if result.entry_id in {"E100", "E101"}
+                if result.entry_id == beyond_window_id
                 else result
                 for result in results
             ]
@@ -353,18 +360,17 @@ class TestSearchShortQuery:
 
         results = search("ααα", lexicon, matrix={}, max_results=2, index={})
 
-        assert len(annotated_batches) == 2
-        assert annotated_batches[0][0] == "E000"
-        assert annotated_batches[1][0] == "E100"
-        assert [result.entry_id for result in results] == ["E100", "E101"]
-        assert all(result.applied_rules == ["RULE-KEEP"] for result in results)
+        assert len(annotated_batches) == 1, "bounded-window policy must annotate exactly one batch"
+        assert len(annotated_batches[0]) == annotation_limit
+        assert beyond_window_id not in annotated_batches[0], "out-of-window candidate must not be annotated"
+        assert results == [], "candidates below quality threshold must not appear in results"
 
-    def test_short_query_truncated_flag_set_when_batch_cap_reached(
+    def test_short_query_result_marked_truncated_when_annotation_window_bounded(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """When annotation batches are capped, truncated flag should be set on results."""
-        # Generate enough candidates to exceed batch limit but have most filtered out
-        # so we don't reach max_results before the cap
+        """Bounded-window short-query results should retain the incomplete-results signal."""
+        # Generate enough candidates to exceed the annotation window but have most
+        # filtered out so we do not reach max_results before the cap.
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
         entry_ids = [f"E{i:04d}" for i in range(400)]
 
@@ -410,11 +416,65 @@ class TestSearchShortQuery:
             "ααα", lexicon, matrix={}, max_results=5, index={},
         )
 
-        # One candidate survived filtering (E0000)
+        # E0000 has above-threshold confidence and survives the quality filter
         assert len(results) == 1
         assert results[0].entry_id == "E0000"
-        # The search hit the batch cap (400 > 300), so the result should be marked as truncated
         assert results[0].truncated is True
+
+    @pytest.mark.internal_search_execution
+    def test_short_query_execution_reports_truncated_even_when_windowed_results_are_empty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Internal execution metadata should preserve truncation for empty result sets."""
+        threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
+        annotation_limit = search_module._annotation_candidate_limit(2)
+        entry_ids = [f"E{i:03d}" for i in range(annotation_limit + 50)]
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "zz")
+        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: entry_ids)
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage",
+            lambda query_ipa, candidates, lexicon_map, matrix: [
+                SearchResult(
+                    lemma=f"word-{entry_id}",
+                    confidence=threshold - 0.10,
+                    dialect_attribution="lemma dialect: attic",
+                    entry_id=entry_id,
+                )
+                for entry_id in entry_ids
+            ],
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_annotate_search_results",
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": list(
+                results
+            ),
+        )
+
+        lexicon = [
+            {
+                "id": entry_id,
+                "headword": f"word-{index:03d}",
+                "ipa": "x",
+                "dialect": "attic",
+            }
+            for index, entry_id in enumerate(entry_ids)
+        ]
+
+        # Public search() returns only results, so this edge case intentionally
+        # uses the internal execution bundle to assert truncated metadata.
+        execution = search_module._execute_search(
+            "ααα",
+            lexicon,
+            matrix={},
+            max_results=2,
+            index={},
+        )
+
+        assert execution.results == []
+        assert execution.truncated is True
 
     def test_short_query_truncated_flag_false_when_not_capped(
         self, monkeypatch: pytest.MonkeyPatch

@@ -500,7 +500,7 @@ async def search(request: SearchRequest) -> SearchResponse:
         query_ipa = prepared_query.query_ipa
         # The cached dependency bundle is reused across requests, so pass its
         # named fields directly into the core search implementation.
-        results = phonology_search.search(
+        execution = phonology_search.search_execution(
             request.query_form,
             lexicon=deps.lexicon,
             matrix=deps.matrix,
@@ -514,6 +514,7 @@ async def search(request: SearchRequest) -> SearchResponse:
             similarity_fallback_limit=_API_FALLBACK_CANDIDATE_LIMIT,
             unigram_fallback_limit=_API_FALLBACK_CANDIDATE_LIMIT,
         )
+        results = execution.results
     except ValueError as err:
         logger.info("Rejected search query (%s): %s", query_log_label, err)
         debug_query = (
@@ -532,9 +533,6 @@ async def search(request: SearchRequest) -> SearchResponse:
             detail="Search failed due to an internal error.",
         ) from err
 
-    # Detect truncation from any result (set by search core for Short-query batch limits)
-    truncated = any(r.truncated for r in results)
-
     return SearchResponse(
         query=request.query_form,
         query_ipa=query_ipa,
@@ -549,7 +547,7 @@ async def search(request: SearchRequest) -> SearchResponse:
             )
             for result in results
         ],
-        truncated=truncated,
+        truncated=execution.truncated,
         data_versions=deps.data_versions,
     )
 
