@@ -54,6 +54,26 @@ class TestOverlaySeedRows:
         assert "Skipping unknown row 'x' from seed.json" in caplog.text
         assert "Skipping unknown column 'y' for row 'a' from seed.json" in caplog.text
 
+    def test_logs_non_mapping_rows_and_non_numeric_distances(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level("WARNING", logger="phonology.matrix_generator")
+        base_rows = {
+            "a": {"a": 0.0, "b": 0.1},
+            "b": {"a": 0.1, "b": 0.0},
+        }
+
+        rows = matrix_generator._overlay_seed_rows(
+            base_rows,
+            {"a": [], "b": {"a": "bad"}},
+            ["a", "b"],
+            seed_source="seed.json",
+        )
+
+        assert rows == base_rows
+        assert "Skipping non-mapping row 'a' (type list) from seed.json" in caplog.text
+        assert "Skipping non-numeric distance for 'b' -> 'a' from seed.json" in caplog.text
+
     def test_raises_clear_error_when_reverse_distance_is_missing(self) -> None:
         base_rows = {
             "a": {"a": 0.0},
@@ -62,6 +82,36 @@ class TestOverlaySeedRows:
 
         with pytest.raises(ValueError, match="Missing symmetric distance"):
             matrix_generator._overlay_seed_rows(base_rows, {}, ["a", "b"], seed_source="seed.json")
+
+
+class TestCoerceSeedRows:
+    def test_rejects_non_mapping_top_level_rows(self) -> None:
+        with pytest.raises(ValueError, match="must be a JSON object of row mappings"):
+            matrix_generator._coerce_seed_rows([], ("a",), label="rows")
+
+    def test_rejects_missing_and_extra_rows(self) -> None:
+        with pytest.raises(ValueError, match=r"missing=\['b'\].*extra=\['c'\]"):
+            matrix_generator._coerce_seed_rows(
+                {"a": {"a": 0.0, "b": 0.1}, "c": {"a": 0.1, "b": 0.0}},
+                ("a", "b"),
+                label="rows",
+            )
+
+    def test_rejects_non_mapping_row(self) -> None:
+        with pytest.raises(ValueError, match=r"rows\.a must be a JSON object"):
+            matrix_generator._coerce_seed_rows({"a": []}, ("a",), label="rows")
+
+    def test_rejects_missing_and_extra_columns(self) -> None:
+        with pytest.raises(ValueError, match=r"rows.a must define exactly.*missing=\['b'\].*extra=\['c'\]"):
+            matrix_generator._coerce_seed_rows(
+                {"a": {"a": 0.0, "c": 0.2}, "b": {"a": 0.1, "b": 0.0}},
+                ("a", "b"),
+                label="rows",
+            )
+
+    def test_rejects_non_numeric_distance(self) -> None:
+        with pytest.raises(ValueError, match=r"rows\.a\.a must be numeric, got str"):
+            matrix_generator._coerce_seed_rows({"a": {"a": "0.0"}}, ("a",), label="rows")
 
 
 class TestExpandKoineStopRows:
@@ -128,6 +178,31 @@ class TestLoadBaseSoundClassRows:
         with pytest.raises(RuntimeError, match="missing required key"):
             matrix_generator._load_base_sound_class_rows()
 
+    def test_raises_clear_error_when_seed_file_is_missing(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        clear_seed_document_cache: None,
+    ) -> None:
+        missing_seed = tmp_path / "missing.json"
+        monkeypatch.setattr(matrix_generator, "MATRIX_PATH", missing_seed)
+
+        with pytest.raises(RuntimeError, match="Matrix seed file not found"):
+            matrix_generator._load_base_sound_class_rows()
+
+    def test_raises_clear_error_when_seed_json_is_invalid(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        clear_seed_document_cache: None,
+    ) -> None:
+        bad_seed = tmp_path / "bad.json"
+        bad_seed.write_text("{not-json", encoding="utf-8")
+        monkeypatch.setattr(matrix_generator, "MATRIX_PATH", bad_seed)
+
+        with pytest.raises(RuntimeError, match="is not valid JSON"):
+            matrix_generator._load_base_sound_class_rows()
+
     def test_raises_clear_error_when_seed_rows_are_malformed(
         self,
         tmp_path: Path,
@@ -142,6 +217,32 @@ class TestLoadBaseSoundClassRows:
         monkeypatch.setattr(matrix_generator, "MATRIX_PATH", bad_seed)
 
         with pytest.raises(ValueError, match="is malformed"):
+            matrix_generator._load_base_sound_class_rows()
+
+    def test_raises_clear_error_for_unknown_stop_inventory(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        clear_seed_document_cache: None,
+    ) -> None:
+        bad_seed = tmp_path / "bad-stops.json"
+        bad_seed.write_text(
+            json.dumps(
+                {
+                    "sound_classes": {
+                        "vowels": {
+                            phone: {column: 0.0 for column in matrix_generator.VOWEL_ORDER}
+                            for phone in matrix_generator.VOWEL_ORDER
+                        },
+                        "stops": {"p": {"p": 0.0}},
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(matrix_generator, "MATRIX_PATH", bad_seed)
+
+        with pytest.raises(ValueError, match="legacy or expanded stop inventory"):
             matrix_generator._load_base_sound_class_rows()
 
 
@@ -162,6 +263,27 @@ class TestValidateCompleteMatrix:
 
         with pytest.raises(ValueError, match="Matrix must be symmetric"):
             matrix_generator._validate_complete_matrix(rows, ["a", "b"])
+
+    def test_rejects_incomplete_rows(self) -> None:
+        with pytest.raises(ValueError, match="does not cover the full inventory"):
+            matrix_generator._validate_complete_matrix(
+                {"a": {"a": 0.0}, "b": {"b": 0.0}}, ["a", "b"]
+            )
+
+    def test_rejects_out_of_bounds_distances(self) -> None:
+        rows = {
+            "a": {"a": 0.0, "b": 1.1},
+            "b": {"a": 1.1, "b": 0.0},
+        }
+
+        with pytest.raises(ValueError, match=r"within \[0.0, 1.0\]"):
+            matrix_generator._validate_complete_matrix(rows, ["a", "b"])
+
+    def test_rejects_non_zero_self_distance(self) -> None:
+        rows = {"a": {"a": 0.1}}
+
+        with pytest.raises(ValueError, match="Self-distance"):
+            matrix_generator._validate_complete_matrix(rows, ["a"])
 
 
 class TestGetBaseRows:
@@ -198,6 +320,24 @@ class TestGetBaseRows:
 
 
 class TestValidateDialectPairs:
+    def test_rejects_non_mapping_dialect_pairs(self) -> None:
+        with pytest.raises(ValueError, match="must be a JSON object"):
+            matrix_generator._validate_dialect_pairs([])
+
+    @pytest.mark.parametrize("bad_key", ["", 123])
+    def test_rejects_invalid_dialect_pair_names(self, bad_key: object) -> None:
+        with pytest.raises(ValueError, match="keys must be non-empty strings"):
+            matrix_generator._validate_dialect_pairs({bad_key: {"a_b": 0.1}})
+
+    def test_rejects_non_mapping_phone_pairs(self) -> None:
+        with pytest.raises(ValueError, match="attic_doric must be a JSON object"):
+            matrix_generator._validate_dialect_pairs({"attic_doric": []})
+
+    @pytest.mark.parametrize("bad_key", ["", 123])
+    def test_rejects_invalid_phone_pair_names(self, bad_key: object) -> None:
+        with pytest.raises(ValueError, match="attic_doric keys must be non-empty strings"):
+            matrix_generator._validate_dialect_pairs({"attic_doric": {bad_key: 0.1}})
+
     def test_rejects_non_numeric_distance(self) -> None:
         with pytest.raises(ValueError, match="must be numeric"):
             matrix_generator._validate_dialect_pairs(
@@ -288,6 +428,65 @@ class TestBuildAtticDoricMatrix:
             matrix_generator.build_attic_doric_matrix(
                 generated_at=invalid_generated_at  # type: ignore[arg-type]
             )
+
+    def test_raises_when_seed_document_is_missing_dialect_pairs(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            matrix_generator,
+            "_load_seed_document",
+            lambda: {"sound_classes": {"vowels": {}, "stops": {}}},
+        )
+        monkeypatch.setattr(
+            matrix_generator,
+            "_get_base_rows",
+            lambda: ({"a": {"a": 0.0}}, {"p": {"p": 0.0}}),
+        )
+        monkeypatch.setattr(
+            matrix_generator,
+            "_overlay_seed_rows",
+            lambda base_rows, *_args, **_kwargs: base_rows,
+        )
+        monkeypatch.setattr(matrix_generator, "VOWEL_ORDER", ("a",))
+        monkeypatch.setattr(matrix_generator, "STOP_ORDER", ("p",))
+
+        with pytest.raises(KeyError, match="dialect_pairs"):
+            matrix_generator.build_attic_doric_matrix()
+
+
+class TestWriteAtticDoricMatrix:
+    def test_writes_generated_document_to_requested_path(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        output_path = tmp_path / "matrix.json"
+        monkeypatch.setattr(
+            matrix_generator,
+            "build_attic_doric_matrix",
+            lambda: {"_meta": {"version": "test"}, "sound_classes": {}},
+        )
+
+        assert matrix_generator.write_attic_doric_matrix(output_path) == output_path
+
+        assert json.loads(output_path.read_text(encoding="utf-8")) == {
+            "_meta": {"version": "test"},
+            "sound_classes": {},
+        }
+
+    def test_propagates_write_failures(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            matrix_generator,
+            "build_attic_doric_matrix",
+            lambda: {"_meta": {}, "sound_classes": {}},
+        )
+
+        with pytest.raises(FileNotFoundError):
+            matrix_generator.write_attic_doric_matrix(tmp_path / "missing" / "matrix.json")
 
 
 class TestRunCli:

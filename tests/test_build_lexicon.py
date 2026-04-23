@@ -98,6 +98,104 @@ def _write_default_fingerprint_inputs(project_root: Path) -> tuple[Path, Path]:
     return tracked_source, xml_dir
 
 
+def test_run_subprocess_returns_completed_process_for_success() -> None:
+    result = build_lexicon._run_subprocess(
+        [sys.executable, "-c", "print('subprocess-ok')"],
+        timeout=30,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == "subprocess-ok"
+
+
+def test_run_subprocess_propagates_command_failures() -> None:
+    with pytest.raises(subprocess.CalledProcessError) as exc_info:
+        build_lexicon._run_subprocess(
+            [sys.executable, "-c", "import sys; sys.exit(7)"],
+            timeout=30,
+        )
+
+    assert exc_info.value.returncode == 7
+
+
+def test_default_output_path_uses_packaged_lexicon_location(tmp_path: Path) -> None:
+    assert build_lexicon._default_output_path(tmp_path) == (
+        tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    )
+
+
+def test_resolve_lsj_repo_dir_override_prefers_expanded_explicit_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    home_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home_dir))
+    monkeypatch.setenv(build_lexicon.LSJ_REPO_DIR_ENV_VAR, str(tmp_path / "env-lsj"))
+
+    resolved = build_lexicon._resolve_lsj_repo_dir_override(Path("~/explicit-lsj"))
+
+    assert resolved == home_dir / "explicit-lsj"
+
+
+@pytest.mark.parametrize(
+    ("record_update", "expected_log"),
+    [
+        ({"path": 123}, "without a valid path"),
+        ({"path": "missing.txt"}, "missing and cannot be reused"),
+        ({"size": "1"}, "non-integer size"),
+        ({"size": -1}, "negative size"),
+        ({"content_hash": 123}, "non-string content_hash"),
+        ({"content_hash": ""}, "empty content_hash"),
+        ({"mtime_ns": "bad"}, "non-integer mtime_ns"),
+    ],
+)
+def test_metadata_input_records_for_reuse_rejects_malformed_metadata_fields(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    record_update: dict[str, object],
+    expected_log: str,
+) -> None:
+    path_label = "data/external/lsj/CTS_XML_TEI/perseus/pdllex/grc/lsj/grc.lsj.perseus-eng1.xml"
+    record: dict[str, object] = {
+        "path": path_label,
+        "size": 1,
+        "mtime_ns": 123,
+        "content_hash": "abc123",
+    }
+    record.update(record_update)
+    caplog.set_level(logging.INFO, logger=build_lexicon.logger.name)
+
+    result = build_lexicon._metadata_input_records_for_reuse(
+        {"inputs": [record]},
+        tmp_path,
+    )
+
+    assert result is None
+    assert expected_log in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_log"),
+    [
+        ({"inputs": "bad"}, "missing a valid inputs list"),
+        ({"inputs": ["bad"]}, "contains a non-object input record"),
+    ],
+)
+def test_metadata_input_records_for_reuse_rejects_malformed_inputs_container(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    payload: dict[str, object],
+    expected_log: str,
+) -> None:
+    caplog.set_level(logging.INFO, logger=build_lexicon.logger.name)
+
+    result = build_lexicon._metadata_input_records_for_reuse(payload, tmp_path)
+
+    assert result is None
+    assert expected_log in caplog.text
+
+
 def test_run_extractor_raises_when_pos_overrides_fail_strict_load(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -119,6 +217,52 @@ def test_run_extractor_raises_when_pos_overrides_fail_strict_load(
 
     with pytest.raises(UnicodeDecodeError):
         build_lexicon._run_extractor(xml_dir=xml_dir, output_path=output_path)
+
+
+def test_run_extractor_forwards_arguments_to_lsj_extractor_main(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    xml_dir = tmp_path / "xml"
+    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    xml_dir.mkdir(parents=True)
+    captured: dict[str, object] = {}
+
+    def fake_load(*, cli_mode: bool = False) -> dict[str, frozenset[str]]:
+        captured["cli_mode"] = cli_mode
+        return {}
+
+    def fake_main(
+        *,
+        xml_dir: Path,
+        output_path: Path,
+        limit: int | None = None,
+        dry_run: bool = False,
+    ) -> int:
+        captured["xml_dir"] = xml_dir
+        captured["output_path"] = output_path
+        captured["limit"] = limit
+        captured["dry_run"] = dry_run
+        return 17
+
+    monkeypatch.setattr(lsj_extractor_module, "_load_pos_overrides", fake_load)
+    monkeypatch.setattr(lsj_extractor_module, "main", fake_main)
+
+    result = build_lexicon._run_extractor(
+        xml_dir=xml_dir,
+        output_path=output_path,
+        limit=9,
+        dry_run=True,
+    )
+
+    assert result == 17
+    assert captured == {
+        "cli_mode": True,
+        "xml_dir": xml_dir,
+        "output_path": output_path,
+        "limit": 9,
+        "dry_run": True,
+    }
 
 
 def test_ensure_generated_lexicon_reuses_fresh_output_for_missing_custom_lsj_xml_input(
@@ -987,6 +1131,49 @@ def test_ensure_generated_lexicon_raises_when_extractor_returns_nonzero(
         )
 
 
+def test_ensure_generated_lexicon_dry_run_skips_metadata_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    xml_dir = tmp_path / "xml"
+    xml_dir.mkdir()
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        build_lexicon,
+        "ensure_lsj_checkout",
+        lambda *_args, **_kwargs: xml_dir,
+    )
+    monkeypatch.setattr(
+        build_lexicon,
+        "build_fingerprint_payload",
+        lambda *_args, **_kwargs: _freshness_payload(),
+    )
+
+    def fake_run_extractor(**kwargs: object) -> int:
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(build_lexicon, "_run_extractor", fake_run_extractor)
+    monkeypatch.setattr(
+        build_lexicon,
+        "_write_metadata",
+        partial(_raise_assertion, "metadata should not be written during dry-run"),
+    )
+
+    did_generate = build_lexicon.ensure_generated_lexicon(
+        project_root=tmp_path,
+        output_path=output_path,
+        xml_dir=xml_dir,
+        dry_run=True,
+    )
+
+    assert did_generate is True
+    assert captured["dry_run"] is True
+    assert not build_lexicon._metadata_path_for_output(output_path).exists()
+
+
 def test_ensure_generated_lexicon_fails_fast_without_checkout_when_clone_disabled(
     tmp_path: Path,
 ) -> None:
@@ -1045,6 +1232,161 @@ def test_build_fingerprint_payload_tracks_xml_inputs(
         "xml/grc.lsj.perseus-eng1.xml",
         "xml/grc.lsj.perseus-eng2.xml",
     ]
+
+
+def test_fingerprint_path_label_returns_absolute_path_for_inputs_outside_project_root(
+    tmp_path: Path,
+) -> None:
+    project_root = tmp_path / "project"
+    external_file = tmp_path / "external" / "input.txt"
+    project_root.mkdir()
+    external_file.parent.mkdir(parents=True)
+    external_file.write_text("external\n", encoding="utf-8")
+
+    label = build_lexicon._fingerprint_path_label(external_file, project_root)
+
+    assert label == external_file.resolve().as_posix()
+
+
+def test_tracked_input_records_raises_for_missing_tracked_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    xml_dir = tmp_path / "xml"
+    xml_dir.mkdir()
+    xml_path = xml_dir / "grc.lsj.perseus-eng1.xml"
+    xml_path.write_text("<TEI/>\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        build_lexicon,
+        "_FINGERPRINT_INPUTS",
+        (Path("src/phonology/missing.py"),),
+    )
+    monkeypatch.setattr(lsj_extractor_module, "find_xml_files", lambda path: [xml_path])
+
+    with pytest.raises(FileNotFoundError, match="Fingerprint input not found"):
+        build_lexicon._tracked_input_records(tmp_path, xml_dir)
+
+
+@pytest.mark.parametrize(
+    ("writer", "expected_log"),
+    [
+        (None, "Freshness metadata missing"),
+        ("[1, 2, 3]\n", "must be a JSON object"),
+        (
+            json.dumps({"schema_version": 999, "fingerprint": "abc", "inputs": []}) + "\n",
+            "unsupported schema version",
+        ),
+        (
+            json.dumps(
+                {
+                    "schema_version": build_lexicon.FINGERPRINT_SCHEMA_VERSION,
+                    "fingerprint": "",
+                    "inputs": [],
+                }
+            )
+            + "\n",
+            "missing a valid fingerprint",
+        ),
+    ],
+)
+def test_read_metadata_rejects_missing_or_invalid_payloads(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    writer: str | None,
+    expected_log: str,
+) -> None:
+    metadata_path = tmp_path / "greek_lemmas.meta.json"
+    caplog.set_level(logging.INFO, logger=build_lexicon.logger.name)
+
+    if writer is not None:
+        metadata_path.write_text(writer, encoding="utf-8")
+
+    result = build_lexicon._read_metadata(metadata_path)
+
+    assert result is None
+    assert expected_log in caplog.text
+
+
+def test_read_metadata_returns_none_for_unreadable_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    metadata_path = tmp_path / "greek_lemmas.meta.json"
+    metadata_path.write_text("{}", encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def fake_read_text(self: Path, *args: object, **kwargs: object) -> str:
+        if self == metadata_path:
+            raise OSError("nope")
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fake_read_text)
+    caplog.set_level(logging.WARNING, logger=build_lexicon.logger.name)
+
+    result = build_lexicon._read_metadata(metadata_path)
+
+    assert result is None
+    assert "is unreadable" in caplog.text
+
+
+def test_is_output_fresh_returns_false_when_metadata_is_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    metadata_path = build_lexicon._metadata_path_for_output(output_path)
+
+    monkeypatch.setattr(build_lexicon, "_is_reusable_output_document", lambda **kwargs: True)
+
+    assert (
+        build_lexicon._is_output_fresh(
+            project_root=tmp_path,
+            output_path=output_path,
+            metadata_path=metadata_path,
+            expected_payload=_freshness_payload(),
+        )
+        is False
+    )
+
+
+def test_is_output_fresh_without_checkout_returns_false_when_metadata_is_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    metadata_path = build_lexicon._metadata_path_for_output(output_path)
+
+    monkeypatch.setattr(build_lexicon, "_is_reusable_output_document", lambda **kwargs: True)
+
+    assert (
+        build_lexicon._is_output_fresh_without_checkout(
+            project_root=tmp_path,
+            output_path=output_path,
+            metadata_path=metadata_path,
+        )
+        is False
+    )
+
+
+def test_is_reusable_output_document_rejects_non_object_json(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("[1, 2, 3]\n", encoding="utf-8")
+    _write_schema(tmp_path)
+    caplog.set_level(logging.WARNING, logger=build_lexicon.logger.name)
+
+    result = build_lexicon._is_reusable_output_document(
+        project_root=tmp_path,
+        output_path=output_path,
+    )
+
+    assert result is False
+    assert "not a JSON object" in caplog.text
 
 
 def test_ensure_lsj_checkout_uses_python_timeout_and_retry(
@@ -1229,6 +1571,25 @@ def test_ensure_lsj_checkout_prefers_pre_resolved_repo_dir_over_env_override(
     assert captured == [repo_dir]
 
 
+def test_ensure_lsj_checkout_expands_explicit_repo_dir_when_xml_exists(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home_dir = tmp_path / "home"
+    repo_dir = home_dir / "custom-lsj"
+    expected_xml_dir = build_lexicon._lsj_xml_dir_for_repo(repo_dir)
+    expected_xml_dir.mkdir(parents=True, exist_ok=True)
+    home_dir.mkdir(exist_ok=True)
+    monkeypatch.setenv("HOME", str(home_dir))
+
+    resolved_xml_dir = build_lexicon.ensure_lsj_checkout(
+        tmp_path,
+        lsj_repo_dir=Path("~/custom-lsj"),
+    )
+
+    assert resolved_xml_dir == expected_xml_dir
+
+
 def test_ensure_lsj_checkout_rejects_both_repo_dir_arguments(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="mutually exclusive"):
         build_lexicon.ensure_lsj_checkout(
@@ -1288,6 +1649,80 @@ def test_clone_lsj_repo_allows_new_repo_dir_outside_project_root(
     assert repo_dir.is_dir()
     assert (repo_dir / "new.txt").read_text(encoding="utf-8") == "new\n"
     assert build_lexicon._lsj_xml_dir_for_repo(repo_dir).is_dir()
+    assert not temp_repo_dir.exists()
+
+
+def test_clone_lsj_repo_requires_git_executable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_lexicon.shutil, "which", lambda name: None)
+
+    with pytest.raises(RuntimeError, match="git is required"):
+        build_lexicon._clone_lsj_repo(tmp_path / "lsj", tmp_path)
+
+
+def test_clone_lsj_repo_raises_when_sparse_checkout_does_not_materialize_xml_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    repo_dir = project_root / "data" / "external" / "lsj"
+    temp_repo_dir = repo_dir.with_name(f"{repo_dir.name}.tmp")
+
+    def fake_run_subprocess(
+        command: list[str],
+        *,
+        cwd: Path | None = None,
+        timeout: int | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, timeout
+        if command[1] == "clone":
+            temp_repo_dir.mkdir(parents=True, exist_ok=True)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(build_lexicon.shutil, "which", lambda name: "/usr/bin/git")
+    monkeypatch.setattr(build_lexicon, "_run_subprocess", fake_run_subprocess)
+
+    with pytest.raises(FileNotFoundError, match="LSJ XML directory not found after clone"):
+        build_lexicon._clone_lsj_repo(repo_dir, project_root)
+
+    assert not temp_repo_dir.exists()
+
+
+def test_clone_lsj_repo_cleans_temp_dir_when_non_subprocess_error_occurs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    repo_dir = project_root / "data" / "external" / "lsj"
+    temp_repo_dir = repo_dir.with_name(f"{repo_dir.name}.tmp")
+
+    def fake_run_subprocess(
+        command: list[str],
+        *,
+        cwd: Path | None = None,
+        timeout: int | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        del cwd, timeout
+        if command[1] == "clone":
+            xml_dir = build_lexicon._lsj_xml_dir_for_repo(temp_repo_dir)
+            xml_dir.mkdir(parents=True, exist_ok=True)
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(build_lexicon.shutil, "which", lambda name: "/usr/bin/git")
+    monkeypatch.setattr(build_lexicon, "_run_subprocess", fake_run_subprocess)
+    monkeypatch.setattr(
+        build_lexicon,
+        "_replace_lsj_checkout",
+        partial(_raise_assertion, "replace failed"),
+    )
+
+    with pytest.raises(AssertionError, match="replace failed"):
+        build_lexicon._clone_lsj_repo(repo_dir, project_root)
+
     assert not temp_repo_dir.exists()
 
 
@@ -1387,6 +1822,46 @@ def test_clone_lsj_repo_successfully_replaces_existing_checkout_and_cleans_backu
     assert not backup_repo_dir.exists()
 
 
+def test_replace_lsj_checkout_logs_rollback_failure_and_preserves_original_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    target_repo_dir = tmp_path / "lsj"
+    prepared_repo_dir = tmp_path / "lsj.tmp"
+    backup_repo_dir = tmp_path / "lsj.bak"
+    target_repo_dir.mkdir()
+    prepared_repo_dir.mkdir()
+    original_replace = Path.replace
+
+    def fake_replace(self: Path, target: Path) -> Path:
+        if self == target_repo_dir:
+            return original_replace(self, target)
+        if self == prepared_repo_dir:
+            raise RuntimeError("replace failed")
+        if self == backup_repo_dir:
+            raise RuntimeError("rollback failed")
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", fake_replace)
+    caplog.set_level(logging.ERROR, logger=build_lexicon.logger.name)
+
+    with pytest.raises(RuntimeError, match="replace failed"):
+        build_lexicon._replace_lsj_checkout(prepared_repo_dir, target_repo_dir)
+
+    assert "Failed to rollback backup" in caplog.text
+
+
+def test_ensure_lsj_checkout_raises_when_clone_does_not_create_xml_dir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_lexicon, "_clone_lsj_repo", lambda *_args, **_kwargs: None)
+
+    with pytest.raises(FileNotFoundError, match="LSJ XML directory not found after clone"):
+        build_lexicon.ensure_lsj_checkout(tmp_path)
+
+
 @pytest.mark.parametrize(
     ("no_clone_flag", "expected_allow_clone"),
     [
@@ -1411,6 +1886,72 @@ def test_run_cli_passes_allow_clone_based_on_no_clone_flag(
 
     assert build_lexicon.run_cli() == 0
     assert captured.get("allow_clone") is expected_allow_clone
+
+
+def test_run_cli_forwards_output_limit_dry_run_and_skip_flags(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+    project_root = tmp_path / "project"
+    xml_dir = tmp_path / "xml"
+    lsj_repo_dir = tmp_path / "lsj"
+    output_path = tmp_path / "out.json"
+
+    def fake_ensure(**kwargs: object) -> bool:
+        captured.update(kwargs)
+        return True
+
+    monkeypatch.setattr(build_lexicon, "ensure_generated_lexicon", fake_ensure)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "build_lexicon.py",
+            "--project-root",
+            str(project_root),
+            "--xml-dir",
+            str(xml_dir),
+            "--lsj-repo-dir",
+            str(lsj_repo_dir),
+            "--output",
+            str(output_path),
+            "--limit",
+            "12",
+            "--dry-run",
+            "--if-missing",
+            "--no-clone",
+        ],
+    )
+
+    assert build_lexicon.run_cli() == 0
+
+    assert captured == {
+        "project_root": project_root,
+        "output_path": output_path,
+        "xml_dir": xml_dir,
+        "lsj_repo_dir": lsj_repo_dir,
+        "allow_clone": False,
+        "limit": 12,
+        "dry_run": True,
+        "skip_if_present": True,
+    }
+
+
+def test_run_cli_returns_130_for_keyboard_interrupt(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def interrupt(**kwargs: object) -> bool:
+        del kwargs
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(build_lexicon, "ensure_generated_lexicon", interrupt)
+    monkeypatch.setattr(sys, "argv", ["build_lexicon.py"])
+    caplog.set_level(logging.INFO, logger=build_lexicon.logger.name)
+
+    assert build_lexicon.run_cli() == 130
+    assert "interrupted by user" in caplog.text
 
 
 @pytest.mark.parametrize(

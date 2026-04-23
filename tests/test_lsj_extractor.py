@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+import sys
 from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
@@ -319,6 +321,32 @@ class TestLeadingDialectLabels:
             "ionic",
         ]
 
+    @pytest.mark.parametrize(
+        ("dialect_label", "tail", "following_markup", "expected"),
+        [
+            ("Dor.", " mostly ", '<orth lang="greek">dw/rion</orth><pos>Noun</pos>', []),
+            ("Ion.", " form of ", '<orth lang="greek">dw/rion</orth>', ["ionic"]),
+            ("Att.", " ", '<orth lang="greek">dw/rion</orth>', ["attic"]),
+        ],
+    )
+    def test_table_driven_dialect_variant_classification(
+        self,
+        dialect_label: str,
+        tail: str,
+        following_markup: str,
+        expected: list[str],
+    ) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n25107" key="dw=ron" type="main">'
+            '<orth extent="full" lang="greek">dw=ron</orth>, '
+            f'<gramGrp><gram type="dialect">{dialect_label}</gram></gramGrp>{tail}'
+            f"{following_markup}"
+            '<sense id="s1" n="A" level="1"><tr>gift</tr></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._leading_dialect_labels(elem) == expected
+
 
 class TestLoadPosOverrides:
     """Test POS override loading behavior."""
@@ -446,6 +474,29 @@ class TestLoadPosOverrides:
         assert lsj_extractor_module._pos_overrides == result
         assert "Failed to read POS overrides YAML" in caplog.text
 
+    def test_malformed_pos_override_lists_ignore_non_strings_with_warning(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(lsj_extractor_module, "_pos_overrides", None)
+        monkeypatch.setattr(lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path)
+        (tmp_path / "pos_overrides.yaml").write_text(
+            "common_gender_keys: [a)/nqrwpos, 123]\n"
+            "numeral_keys: [de/ka, false]\n",
+            encoding="utf-8",
+        )
+        caplog.set_level("WARNING", logger="phonology.lsj_extractor")
+
+        result = lsj_extractor_module._load_pos_overrides()
+
+        assert result == {
+            "common_gender_keys": frozenset({"a)/nqrwpos"}),
+            "numeral_keys": frozenset({"de/ka"}),
+        }
+        assert "Ignoring non-string values in POS overrides list" in caplog.text
+
 
 class TestExtractEntry:
     """Test single entry extraction."""
@@ -515,6 +566,27 @@ class TestExtractEntry:
         )
         result = extract_entry(elem)
         assert result is None
+
+    def test_skips_non_numeric_id(self) -> None:
+        elem = _make_entry_xml(entry_id="not-numeric", orth="lo/gos", gen="o(", tr="word")
+
+        assert extract_entry(elem) is None
+
+    def test_skips_when_transliteration_is_empty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        elem = _make_entry_xml(entry_id="n101", orth="lo/gos", gen="o(", tr="word")
+        monkeypatch.setattr(lsj_extractor_module, "transliterate", lambda _headword: "")
+
+        assert extract_entry(elem) is None
+
+    def test_skips_when_ipa_conversion_returns_empty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        elem = _make_entry_xml(entry_id="n102", orth="lo/gos", gen="o(", tr="word")
+        monkeypatch.setattr(lsj_extractor_module, "to_ipa", lambda *_args, **_kwargs: "")
+
+        assert extract_entry(elem) is None
 
     def test_feminine_gender(self) -> None:
         elem = _make_entry_xml(
@@ -715,6 +787,28 @@ class TestExtractEntry:
         assert result["gloss"] == "word, speech"
         assert ",," not in result["gloss"]
 
+    def test_find_texts_filters_direct_children_by_tag_and_attributes(self) -> None:
+        elem = etree.fromstring(
+            '<entryFree id="n1">'
+            '<orth lang="greek">lo/gos</orth>'
+            '<orth lang="latin">logos</orth>'
+            '<sense><orth lang="greek">nested</orth></sense>'
+            "</entryFree>"
+        )
+
+        assert lsj_extractor_module._find_texts(elem, "orth", lang="greek") == ["lo/gos"]
+
+    def test_extract_gloss_falls_back_to_direct_tr_and_truncates_long_text(self) -> None:
+        long_gloss = "x" * 250
+        elem = etree.fromstring(
+            f'<entryFree id="n1" key="lo/gos" type="main"><tr>{long_gloss}</tr></entryFree>'
+        )
+
+        gloss = lsj_extractor_module._extract_gloss(elem)
+
+        assert len(gloss) == 200
+        assert gloss.endswith("...")
+
     # -- POS and gender heuristics ---------------------------------------
 
     def test_pos_rule_explicit_pos_beats_adjective_itype(self) -> None:
@@ -820,6 +914,51 @@ class TestExtractEntry:
         )
 
         assert lsj_extractor_module._extract_pos(elem) is None
+
+    @pytest.mark.parametrize(
+        ("pos_text", "expected"),
+        [
+            ("Article", "article"),
+            ("prep", "preposition"),
+            ("Pron", "pronoun"),
+            ("unknown", None),
+        ],
+    )
+    def test_explicit_pos_inference_accepts_periodless_labels(
+        self,
+        pos_text: str,
+        expected: str | None,
+    ) -> None:
+        elem = etree.fromstring(
+            f'<entryFree id="n25208" key="o(" type="main"><pos>{pos_text}</pos></entryFree>'
+        )
+
+        assert lsj_extractor_module._infer_explicit_pos(elem) == expected
+
+    @pytest.mark.parametrize(
+        ("xml", "expected"),
+        [
+            (
+                '<entryFree id="n25209" key="o)/nta" type="main">'
+                '<orth extent="full" lang="greek">o)/nta</orth>, '
+                '<mood>part.</mood> of <foreign lang="greek">ei)mi/</foreign>'
+                "</entryFree>",
+                "participle",
+            ),
+            (
+                '<entryFree id="n25210" key="o)/nta" type="main">'
+                '<orth extent="full" lang="greek">o)/nta</orth>, '
+                '<mood>part.</mood> of <foreign lang="greek">ei)mi/</foreign>'
+                '<gen lang="greek">ta/</gen>'
+                "</entryFree>",
+                "participle",
+            ),
+        ],
+    )
+    def test_participle_fallback_inference_paths(self, xml: str, expected: str) -> None:
+        elem = etree.fromstring(xml)
+
+        assert lsj_extractor_module._extract_pos(elem) == expected
 
     def test_verb_indicator_requires_verb_like_headword(self) -> None:
         """Sense-level mood markup should not turn adverbs into verbs."""
@@ -1897,31 +2036,35 @@ class TestExtractEntry:
 # --------------------------------------------------------------------------
 
 
+def _sample_document_entries() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "LSJ-000001",
+            "headword": "λόγος",
+            "transliteration": "logos",
+            "ipa": "lóɡos",
+            "pos": "noun",
+            "gender": "masculine",
+            "gloss": "word, speech",
+            "dialect": "attic",
+        },
+        {
+            "id": "LSJ-000002",
+            "headword": "βάδην",
+            "transliteration": "badēn",
+            "ipa": "bádɛːn",
+            "pos": "adverb",
+            "gloss": "step by step",
+            "dialect": "attic",
+        },
+    ]
+
+
 class TestBuildDocument:
     """Test document assembly and validation."""
 
     def _sample_entries(self) -> list[dict[str, Any]]:
-        return [
-            {
-                "id": "LSJ-000001",
-                "headword": "λόγος",
-                "transliteration": "logos",
-                "ipa": "lóɡos",
-                "pos": "noun",
-                "gender": "masculine",
-                "gloss": "word, speech",
-                "dialect": "attic",
-            },
-            {
-                "id": "LSJ-000002",
-                "headword": "βάδην",
-                "transliteration": "badēn",
-                "ipa": "bádɛːn",
-                "pos": "adverb",
-                "gloss": "step by step",
-                "dialect": "attic",
-            },
-        ]
+        return _sample_document_entries()
 
     def test_build_document_structure(self) -> None:
         entries = self._sample_entries()
@@ -2046,6 +2189,236 @@ class TestBuildDocument:
         # Schema permits an empty lemmas array; the CLI main() enforces
         # at least one entry at a higher level.
         validate_document(doc)
+
+
+class TestXmlIterationAndCli:
+    """Test XML file discovery, extraction orchestration, and CLI behavior."""
+
+    def _write_xml_file(self, xml_dir: Path, name: str, entries: list[str]) -> Path:
+        xml_dir.mkdir(parents=True, exist_ok=True)
+        xml_path = xml_dir / name
+        xml_path.write_text("<root>" + "".join(entries) + "</root>", encoding="utf-8")
+        return xml_path
+
+    def _entry_xml(self, entry_id: str, key: str = "lo/gos") -> str:
+        return etree.tostring(
+            _make_entry_xml(entry_id=entry_id, key=key, orth=key),
+            encoding="unicode",
+        )
+
+    def test_find_xml_files_sorts_by_eng_suffix_number(self, tmp_path: Path) -> None:
+        xml_dir = tmp_path / "xml"
+        xml_dir.mkdir()
+        for name in [
+            "grc.lsj.perseus-eng10.xml",
+            "grc.lsj.perseus-eng.xml",
+            "grc.lsj.perseus-eng2.xml",
+            "ignored.xml",
+        ]:
+            (xml_dir / name).write_text("<root/>", encoding="utf-8")
+
+        files = lsj_extractor_module.find_xml_files(xml_dir)
+
+        assert [path.name for path in files] == [
+            "grc.lsj.perseus-eng.xml",
+            "grc.lsj.perseus-eng2.xml",
+            "grc.lsj.perseus-eng10.xml",
+        ]
+
+    def test_find_xml_files_reports_missing_inputs(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError, match="No LSJ XML files found"):
+            lsj_extractor_module.find_xml_files(tmp_path)
+
+    def test_iter_xml_entries_yields_valid_entries(self, tmp_path: Path) -> None:
+        xml_path = self._write_xml_file(
+            tmp_path,
+            "grc.lsj.perseus-eng.xml",
+            [self._entry_xml("n1")],
+        )
+
+        entries = list(lsj_extractor_module.iter_xml_entries(xml_path))
+
+        assert [entry["id"] for entry in entries] == ["LSJ-000001"]
+
+    def test_extract_all_deduplicates_ids_and_honors_limit(self, tmp_path: Path) -> None:
+        xml_dir = tmp_path / "xml"
+        self._write_xml_file(
+            xml_dir,
+            "grc.lsj.perseus-eng.xml",
+            [self._entry_xml("n1"), self._entry_xml("n1"), self._entry_xml("n2", "a)/nqrwpos")],
+        )
+
+        entries = list(lsj_extractor_module.extract_all(xml_dir, limit=2))
+
+        assert [entry["id"] for entry in entries] == ["LSJ-000001", "LSJ-000002"]
+
+    def test_main_returns_one_when_no_entries_are_extracted(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(lsj_extractor_module, "extract_all", lambda *_args, **_kwargs: iter(()))
+        caplog.set_level("ERROR", logger="phonology.lsj_extractor")
+
+        assert lsj_extractor_module.main(xml_dir=tmp_path, output_path=tmp_path / "out.json") == 1
+        assert "No entries extracted" in caplog.text
+
+    def test_main_returns_one_when_validation_fails(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "extract_all",
+            lambda *_args, **_kwargs: iter([_sample_document_entries()[0]]),
+        )
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "validate_document",
+            Mock(side_effect=ValueError("bad schema")),
+        )
+        caplog.set_level("ERROR", logger="phonology.lsj_extractor")
+
+        assert lsj_extractor_module.main(xml_dir=tmp_path, output_path=tmp_path / "out.json") == 1
+        assert "Validation failed: bad schema" in caplog.text
+
+    def test_main_dry_run_prints_counts_without_writing(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        output_path = tmp_path / "out.json"
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "extract_all",
+            lambda *_args, **_kwargs: iter(_sample_document_entries()),
+        )
+        monkeypatch.setattr(lsj_extractor_module, "validate_document", lambda *_args, **_kwargs: None)
+
+        assert (
+            lsj_extractor_module.main(
+                xml_dir=tmp_path,
+                output_path=output_path,
+                dry_run=True,
+            )
+            == 0
+        )
+
+        captured = capsys.readouterr()
+        assert "Dry run: 2 entries would be written" in captured.out
+        assert "  adverb: 1" in captured.out
+        assert "  noun: 1" in captured.out
+        assert not output_path.exists()
+
+    def test_main_writes_valid_document(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        output_path = tmp_path / "out.json"
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "extract_all",
+            lambda *_args, **_kwargs: iter([_sample_document_entries()[0]]),
+        )
+        monkeypatch.setattr(lsj_extractor_module, "validate_document", lambda *_args, **_kwargs: None)
+
+        assert lsj_extractor_module.main(xml_dir=tmp_path, output_path=output_path) == 0
+
+        assert json.loads(output_path.read_text(encoding="utf-8"))["lemmas"][0]["id"] == "LSJ-000001"
+        assert "Lexicon written: 1 entries" in capsys.readouterr().out
+
+    def test_main_requires_xml_dir(self) -> None:
+        with pytest.raises(ValueError, match="xml_dir is required"):
+            lsj_extractor_module.main(xml_dir=None, output_path=Path("out.json"))
+
+    def test_main_propagates_output_write_errors(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "extract_all",
+            lambda *_args, **_kwargs: iter([_sample_document_entries()[0]]),
+        )
+        monkeypatch.setattr(lsj_extractor_module, "validate_document", lambda *_args, **_kwargs: None)
+
+        with pytest.raises(FileNotFoundError):
+            lsj_extractor_module.main(
+                xml_dir=tmp_path,
+                output_path=tmp_path / "missing" / "out.json",
+            )
+
+    def test_run_cli_forwards_arguments_and_preloads_overrides(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        captured: dict[str, object] = {}
+        xml_dir = tmp_path / "xml"
+        output_path = tmp_path / "out.json"
+
+        def fake_load_pos_overrides(*, cli_mode: bool = False) -> dict[str, frozenset[str]]:
+            captured["cli_mode"] = cli_mode
+            return lsj_extractor_module._empty_pos_overrides()
+
+        def fake_main(**kwargs: object) -> int:
+            captured.update(kwargs)
+            return 0
+
+        monkeypatch.setattr(lsj_extractor_module, "_load_pos_overrides", fake_load_pos_overrides)
+        monkeypatch.setattr(lsj_extractor_module, "main", fake_main)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "lsj_extractor.py",
+                "--xml-dir",
+                str(xml_dir),
+                "--output",
+                str(output_path),
+                "--limit",
+                "3",
+                "--dry-run",
+                "--verbose",
+            ],
+        )
+
+        assert lsj_extractor_module.run_cli() == 0
+        assert captured == {
+            "cli_mode": True,
+            "xml_dir": xml_dir,
+            "output_path": output_path,
+            "limit": 3,
+            "dry_run": True,
+        }
+
+    def test_run_cli_returns_one_for_preload_failure(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "_load_pos_overrides",
+            Mock(side_effect=RuntimeError("bad overrides")),
+        )
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "main",
+            Mock(side_effect=AssertionError("main should not run")),
+        )
+        monkeypatch.setattr(sys, "argv", ["lsj_extractor.py", "--xml-dir", "xml"])
+        caplog.set_level("ERROR", logger="phonology.lsj_extractor")
+
+        assert lsj_extractor_module.run_cli() == 1
+        assert "Extraction failed: bad overrides" in caplog.text
 
 
 # --------------------------------------------------------------------------
