@@ -1021,6 +1021,95 @@ class TestSearch:
         assert "query IPA 'pa'" in caplog.text
         assert "missing" in caplog.text
 
+    def test_search_debug_logs_redacted_query_label_for_performance_metrics(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Performance debug logs should use a redacted query label only."""
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "p t e n")
+        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"])
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage",
+            lambda query_ipa, candidates, lexicon_map, matrix: [
+                SearchResult(
+                    lemma="alpha",
+                    confidence=1.0,
+                    dialect_attribution="lemma dialect: attic",
+                    entry_id="L1",
+                )
+            ],
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_annotate_search_results",
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": list(results),
+        )
+
+        lexicon = [{"id": "L1", "headword": "alpha", "ipa": "p t e n", "dialect": "attic"}]
+
+        caplog.set_level("DEBUG", logger="phonology.search")
+        search("λόγος", lexicon, matrix={}, max_results=1, index={})
+
+        debug_messages = "\n".join(
+            record.getMessage() for record in caplog.records if record.levelname == "DEBUG"
+        )
+
+        assert "candidate selection completed" in debug_messages
+        assert "scoring completed" in debug_messages
+        assert "annotation/final filtering completed" in debug_messages
+        assert "λόγος" not in debug_messages
+        assert "p t e n" not in debug_messages
+        assert "sha256=" in debug_messages
+
+    def test_search_default_paths_never_use_uncapped_token_proximity_sort(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Every default token-proximity path should pass an explicit candidate cap."""
+        rank_calls = 0
+
+        def fake_rank_by_token_count_proximity(
+            query_ipa: str,
+            lexicon_map: dict[str, LexiconRecord],
+            *,
+            max_candidates: int | None = None,
+            query_token_count: int | None = None,
+        ) -> list[str]:
+            nonlocal rank_calls
+            rank_calls += 1
+            assert max_candidates is not None
+            return ["L1"]
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "aː")
+        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(
+            search_module,
+            "_rank_by_token_count_proximity",
+            fake_rank_by_token_count_proximity,
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage",
+            lambda query_ipa, candidates, lexicon_map, matrix: [
+                SearchResult(
+                    lemma="alpha",
+                    confidence=1.0,
+                    dialect_attribution="lemma dialect: attic",
+                    entry_id="L1",
+                )
+            ],
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_annotate_search_results",
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": list(results),
+        )
+
+        lexicon = [{"id": "L1", "headword": "alpha", "ipa": "aː", "dialect": "attic"}]
+
+        search("query", lexicon, matrix={}, max_results=1, index={}, unigram_index={})
+
+        assert rank_calls > 0
+
     def test_search_skips_building_unigram_index_for_pure_vowel_query(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

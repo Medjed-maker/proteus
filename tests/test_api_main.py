@@ -55,10 +55,15 @@ def _install_invalid_query_to_ipa(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(api_main, "to_ipa", fake_to_ipa)
 
 
-def _make_fake_search(captured: dict[str, object]) -> Callable[..., list[SearchResult]]:
-    """Build a fake phonology search callable that records API arguments."""
+def _make_fake_search_execution(
+    captured: dict[str, object],
+    *,
+    results: list[SearchResult] | None = None,
+    truncated: bool = False,
+) -> Callable[..., search_module.SearchExecutionResult]:
+    """Build a fake public phonology search callable that records API arguments."""
 
-    def fake_search(
+    def fake_search_execution(
         query: str,
         lexicon: tuple[dict[str, object], ...],
         matrix: dict[str, dict[str, float]],
@@ -67,12 +72,13 @@ def _make_fake_search(captured: dict[str, object]) -> Callable[..., list[SearchR
         index: dict[str, list[str]],
         unigram_index: dict[str, list[str]] | None = None,
         prebuilt_lexicon_map: dict[str, object] | None = None,
+        language: str = "ancient_greek",
         query_ipa: str | None = None,
         prepared_query: object | None = None,
         prebuilt_ipa_index: dict[str, list[str]] | None = None,
         similarity_fallback_limit: int | None = None,
         unigram_fallback_limit: int | None = None,
-    ) -> list[SearchResult]:
+    ) -> search_module.SearchExecutionResult:
         captured["query"] = query
         captured["lexicon"] = lexicon
         captured["matrix"] = matrix
@@ -81,31 +87,41 @@ def _make_fake_search(captured: dict[str, object]) -> Callable[..., list[SearchR
         captured["index"] = index
         captured["unigram_index"] = unigram_index
         captured["prebuilt_lexicon_map"] = prebuilt_lexicon_map
-        captured["query_ipa"] = getattr(prepared_query, "query_ipa", query_ipa)
-        captured["prepared_query"] = prepared_query
+        captured["language"] = language
+        # Extract query_ipa from prepared_query if available, otherwise use query_ipa param
+        effective_query_ipa = query_ipa
+        if prepared_query is not None:
+            effective_query_ipa = getattr(prepared_query, "query_ipa", query_ipa)
+        captured["query_ipa"] = effective_query_ipa
         captured["prebuilt_ipa_index"] = prebuilt_ipa_index
         captured["similarity_fallback_limit"] = similarity_fallback_limit
         captured["unigram_fallback_limit"] = unigram_fallback_limit
-        return [
-            SearchResult(
-                lemma="λόγος",
-                confidence=0.75,
-                dialect_attribution="lemma dialect: attic",
-                applied_rules=["CCH-001"],
-                rule_applications=[
-                    RuleApplication(
-                        rule_id="CCH-001",
-                        rule_name="CCH-001",
-                        from_phone="s",
-                        to_phone="h",
-                        position=2,
-                    )
-                ],
-                ipa="lóɡos",
-            )
-        ]
+        search_results = results
+        if search_results is None:
+            search_results = [
+                SearchResult(
+                    lemma="λόγος",
+                    confidence=0.75,
+                    dialect_attribution="lemma dialect: attic",
+                    applied_rules=["CCH-001"],
+                    rule_applications=[
+                        RuleApplication(
+                            rule_id="CCH-001",
+                            rule_name="CCH-001",
+                            from_phone="s",
+                            to_phone="h",
+                            position=2,
+                        )
+                    ],
+                    ipa="lóɡos",
+                )
+            ]
+        return search_module.SearchExecutionResult(
+            results=search_results,
+            truncated=truncated,
+        )
 
-    return fake_search
+    return fake_search_execution
 
 
 class TestDataVersionsModel:
@@ -1161,7 +1177,11 @@ def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, objec
     monkeypatch.setattr(api_main, "_load_unigram_index", lambda: td["unigram_index"])
     monkeypatch.setattr(api_main, "_load_lexicon_map", lambda: td["lexicon_map"])
     monkeypatch.setattr(api_main, "_load_ipa_index", lambda: td["ipa_index"])
-    monkeypatch.setattr(api_main.phonology_search, "search", _make_fake_search(captured))
+    monkeypatch.setattr(
+        api_main.phonology_search,
+        "search_execution",
+        _make_fake_search_execution(captured),
+    )
     return captured
 
 
@@ -1188,7 +1208,11 @@ class TestSearchEndpoint:
         )
         monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "loɡos")
 
-        monkeypatch.setattr(api_main.phonology_search, "search", _make_fake_search(captured))
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search_execution",
+            _make_fake_search_execution(captured),
+        )
 
         response = client.post(
             "/search",
@@ -1282,16 +1306,19 @@ class TestSearchEndpoint:
         monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "nyn")
         monkeypatch.setattr(
             api_main.phonology_search,
-            "search",
-            lambda *args, **kwargs: [
-                SearchResult(
-                    lemma="ἄγνυον",
-                    confidence=0.72,
-                    dialect_attribution="lemma dialect: attic",
-                    applied_rules=[],
-                    ipa="aɡnyon",
-                )
-            ],
+            "search_execution",
+            lambda *args, **kwargs: search_module.SearchExecutionResult(
+                results=[
+                    SearchResult(
+                        lemma="ἄγνυον",
+                        confidence=0.72,
+                        dialect_attribution="lemma dialect: attic",
+                        applied_rules=[],
+                        ipa="aɡnyon",
+                    )
+                ],
+                truncated=False,
+            ),
         )
         monkeypatch.setattr(api_hit_formatting, "explain_alignment", lambda **kwargs: FakeExplanation())
         monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "short-query exploratory")
@@ -1366,16 +1393,19 @@ class TestSearchEndpoint:
         monkeypatch.setattr(api_main, "to_ipa", fake_to_ipa)
         monkeypatch.setattr(
             api_main.phonology_search,
-            "search",
-            lambda *args, **kwargs: [
-                SearchResult(
-                    lemma="ζητέω",
-                    confidence=0.72,
-                    dialect_attribution="lemma dialect: attic",
-                    applied_rules=[],
-                    ipa="zɛːtɛɔ",
-                )
-            ],
+            "search_execution",
+            lambda *args, **kwargs: search_module.SearchExecutionResult(
+                results=[
+                    SearchResult(
+                        lemma="ζητέω",
+                        confidence=0.72,
+                        dialect_attribution="lemma dialect: attic",
+                        applied_rules=[],
+                        ipa="zɛːtɛɔ",
+                    )
+                ],
+                truncated=False,
+            ),
         )
         monkeypatch.setattr(api_hit_formatting, "explain_alignment", lambda **kwargs: FakeExplanation())
         monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "partial-query exploratory")
@@ -1449,8 +1479,8 @@ class TestSearchEndpoint:
         )
         monkeypatch.setattr(
             api_main.phonology_search,
-            "search",
-            lambda *_args, **_kwargs: pytest.fail("search should not run"),
+            "search_execution",
+            lambda *_args, **_kwargs: pytest.fail("search_execution should not run"),
         )
 
         response = client.post("/search", json={"query_form": query_form})
@@ -1463,7 +1493,11 @@ class TestSearchEndpoint:
     ) -> None:
         mock_search_dependencies(monkeypatch)
         monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "nyn")
-        monkeypatch.setattr(api_main.phonology_search, "search", lambda *args, **kwargs: [])
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search_execution",
+            lambda *args, **kwargs: search_module.SearchExecutionResult(results=[], truncated=False),
+        )
 
         response = client.post("/search", json={"query_form": "νυν"})
 
@@ -1472,6 +1506,25 @@ class TestSearchEndpoint:
         assert payload["query_mode"] == "Short-query"
         assert payload["query_ipa"] == "nyn"
         assert payload["hits"] == []
+        assert payload["truncated"] is False
+
+    def test_search_returns_truncated_true_for_empty_incomplete_short_query_results(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "nyn")
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search_execution",
+            lambda *args, **kwargs: search_module.SearchExecutionResult(results=[], truncated=True),
+        )
+
+        response = client.post("/search", json={"query_form": "νυν"})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["hits"] == []
+        assert payload["truncated"] is True
 
     def test_search_short_query_keeps_exact_or_rule_supported_candidates(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -1480,25 +1533,28 @@ class TestSearchEndpoint:
         monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "nyn")
         monkeypatch.setattr(
             api_main.phonology_search,
-            "search",
-            lambda *args, **kwargs: [
-                SearchResult(
-                    lemma="νυν",
-                    confidence=0.40,
-                    dialect_attribution="lemma dialect: attic",
-                    applied_rules=["RULE-001"],
-                    rule_applications=[
-                        RuleApplication(
-                            rule_id="RULE-001",
-                            rule_name="Rule 001",
-                            from_phone="y",
-                            to_phone="u",
-                            position=1,
-                        )
-                    ],
-                    ipa="nyn",
-                )
-            ],
+            "search_execution",
+            lambda *args, **kwargs: search_module.SearchExecutionResult(
+                results=[
+                    SearchResult(
+                        lemma="νυν",
+                        confidence=0.40,
+                        dialect_attribution="lemma dialect: attic",
+                        applied_rules=["RULE-001"],
+                        rule_applications=[
+                            RuleApplication(
+                                rule_id="RULE-001",
+                                rule_name="Rule 001",
+                                from_phone="y",
+                                to_phone="u",
+                                position=1,
+                            )
+                        ],
+                        ipa="nyn",
+                    )
+                ],
+                truncated=True,
+            ),
         )
         monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "short-query supported")
 
@@ -1509,6 +1565,7 @@ class TestSearchEndpoint:
         assert payload["query_mode"] == "Short-query"
         assert payload["hits"][0]["headword"] == "νυν"
         assert payload["hits"][0]["candidate_bucket"] == "Supported"
+        assert payload["truncated"] is True
 
     def test_search_accepts_koine_dialect_hint_and_returns_koine_rule(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -1535,29 +1592,33 @@ class TestSearchEndpoint:
         )
         monkeypatch.setattr(
             api_main.phonology_search,
-            "search",
+            "search_execution",
             lambda *args, **kwargs: captured.update(
                 {"dialect": kwargs.get("dialect", args[4] if len(args) > 4 else None)}
-            ) or [
-                SearchResult(
-                    lemma="λόγος",
-                    confidence=0.8,
-                    dialect_attribution="lemma dialect: attic; query-compatible dialects: koine",
-                    applied_rules=["CCH-009"],
-                    rule_applications=[
-                        RuleApplication(
-                            rule_id="CCH-009",
-                            rule_name="コイネー期の γ 摩擦音化",
-                            rule_name_en="Koine spirantization: gamma",
-                            from_phone="ɡ",
-                            to_phone="ɣ",
-                            position=2,
-                            dialects=["koine"],
-                        )
-                    ],
-                    ipa="lóɡos",
-                )
-            ],
+            )
+            or search_module.SearchExecutionResult(
+                results=[
+                    SearchResult(
+                        lemma="λόγος",
+                        confidence=0.8,
+                        dialect_attribution="lemma dialect: attic; query-compatible dialects: koine",
+                        applied_rules=["CCH-009"],
+                        rule_applications=[
+                            RuleApplication(
+                                rule_id="CCH-009",
+                                rule_name="コイネー期の γ 摩擦音化",
+                                rule_name_en="Koine spirantization: gamma",
+                                from_phone="ɡ",
+                                to_phone="ɣ",
+                                position=2,
+                                dialects=["koine"],
+                            )
+                        ],
+                        ipa="lóɡos",
+                    )
+                ],
+                truncated=False,
+            ),
         )
 
         response = client.post(
@@ -1668,16 +1729,19 @@ class TestSearchEndpoint:
         monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "loɡos")
         monkeypatch.setattr(
             api_main.phonology_search,
-            "search",
-            lambda *args, **kwargs: [
-                SearchResult(
-                    lemma="λόγος",
-                    confidence=0.75,
-                    dialect_attribution="lemma dialect: attic",
-                    applied_rules=["CCH-001"],
-                    ipa="lóɡos",
-                )
-            ],
+            "search_execution",
+            lambda *args, **kwargs: search_module.SearchExecutionResult(
+                results=[
+                    SearchResult(
+                        lemma="λόγος",
+                        confidence=0.75,
+                        dialect_attribution="lemma dialect: attic",
+                        applied_rules=["CCH-001"],
+                        ipa="lóɡos",
+                    )
+                ],
+                truncated=False,
+            ),
         )
 
         def fake_explain_alignment(**kwargs: object) -> FakeExplanation:
@@ -2265,8 +2329,8 @@ class TestQueryLengthBound:
         mock_search_dependencies(monkeypatch)
         monkeypatch.setattr(
             api_main.phonology_search,
-            "search",
-            _make_fake_search({}),
+            "search_execution",
+            _make_fake_search_execution({}),
         )
         monkeypatch.setattr(
             api_main.phonology_search,
@@ -2293,8 +2357,8 @@ class TestQueryLengthBound:
         mock_search_dependencies(monkeypatch)
         monkeypatch.setattr(
             api_main.phonology_search,
-            "search",
-            _make_fake_search({}),
+            "search_execution",
+            _make_fake_search_execution({}),
         )
         monkeypatch.setattr(
             api_main.phonology_search,
