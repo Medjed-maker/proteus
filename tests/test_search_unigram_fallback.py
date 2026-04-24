@@ -241,7 +241,14 @@ class TestSearchUnigramFallback:
         )
 
         assert len(captured["candidate_ids"]) == search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT
-        assert "unigram_fallback_limit=None for query IPA" in caplog.text
+        expected_label = search_module._summarize_query_ipa_for_logs(
+            "pa",
+            query_token_count=len(search_module.tokenize_ipa("pa")),
+            debug_enabled=False,
+        )
+        assert "unigram_fallback_limit=None for query" in caplog.text
+        assert expected_label in caplog.text
+        assert "query IPA 'pa'" not in caplog.text
         assert (
             f"applying default cap {search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT}."
             in caplog.text
