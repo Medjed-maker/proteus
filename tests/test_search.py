@@ -1018,7 +1018,13 @@ class TestSearch:
 
         assert captured["candidate_ids"] == ["L2", "L1"]
         assert captured["lookup_keys"] == ["L1", "L2"]
-        assert "query IPA 'pa'" in caplog.text
+        expected_label = search_module._summarize_query_ipa_for_logs(
+            "pa",
+            query_token_count=len(search_module.tokenize_ipa("pa")),
+            debug_enabled=False,
+        )
+        assert expected_label in caplog.text
+        assert "query IPA 'pa'" not in caplog.text
         assert "missing" in caplog.text
 
     def test_search_debug_logs_redacted_query_label_for_performance_metrics(
@@ -1060,6 +1066,35 @@ class TestSearch:
         assert "λόγος" not in debug_messages
         assert "p t e n" not in debug_messages
         assert "sha256=" in debug_messages
+
+    def test_search_passes_debug_disabled_flag_when_debug_logging_is_off(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Normal search path should skip hash generation when DEBUG logging is off."""
+        captured: list[bool] = []
+
+        def fake_summarize_query_ipa_for_logs(
+            query_ipa: str,
+            *,
+            query_token_count: int,
+            debug_enabled: bool = True,
+        ) -> str:
+            captured.append(debug_enabled)
+            return "tokens=2 chars=2 sha256=<debug-disabled>"
+
+        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
+        monkeypatch.setattr(
+            search_module,
+            "_summarize_query_ipa_for_logs",
+            fake_summarize_query_ipa_for_logs,
+        )
+
+        lexicon = [{"id": "L1", "headword": "alpha", "ipa": "pa", "dialect": "attic"}]
+
+        caplog.set_level("INFO", logger="phonology.search")
+        search("λόγος", lexicon, matrix={}, max_results=1, index={})
+
+        assert captured == [False]
 
     def test_search_default_paths_never_use_uncapped_token_proximity_sort(
         self, monkeypatch: pytest.MonkeyPatch

@@ -1,6 +1,6 @@
 [project]
 name = "proteus"
-version = "0.1.0"
+version = "0.1.1"
 description = "Ancient Greek phonological search engine using BLAST-like alignment"
 readme = "README.md"
 requires-python = ">=3.11"

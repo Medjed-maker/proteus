@@ -253,7 +253,7 @@ def _validate_search_arguments(
 
 def _resolve_fallback_limits(
     *,
-    query_ipa: str,
+    query_log_label: str,
     similarity_fallback_limit: int | None,
     unigram_fallback_limit: int | None,
 ) -> _FallbackLimits:
@@ -261,9 +261,9 @@ def _resolve_fallback_limits(
     if similarity_fallback_limit is None:
         effective_similarity_fallback_limit = _DEFAULT_FALLBACK_CANDIDATE_LIMIT
         logger.warning(
-            "similarity_fallback_limit=None for query IPA %r; applying default cap %d. "
+            "similarity_fallback_limit=None for query %s; applying default cap %d. "
             "Pass an explicit positive integer to silence this warning.",
-            query_ipa,
+            query_log_label,
             _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
         )
     else:
@@ -272,9 +272,9 @@ def _resolve_fallback_limits(
     if unigram_fallback_limit is None:
         effective_unigram_fallback_limit = _DEFAULT_FALLBACK_CANDIDATE_LIMIT
         logger.warning(
-            "unigram_fallback_limit=None for query IPA %r; applying default cap %d. "
+            "unigram_fallback_limit=None for query %s; applying default cap %d. "
             "Pass an explicit positive integer to silence this warning.",
-            query_ipa,
+            query_log_label,
             _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
         )
     else:
@@ -345,6 +345,7 @@ def _inject_length_proximate_candidates(
 def _select_seeded_candidates(
     *,
     query_ipa: str,
+    query_log_label: str,
     query_mode: QueryMode,
     query_tokens: list[str],
     query_skeleton: list[str],
@@ -384,9 +385,9 @@ def _select_seeded_candidates(
             stage2_limit,
         )
         logger.info(
-            "k=2 seed hit for query IPA %r (mode=%s); selected %d stage-2 candidates "
+            "k=2 seed hit for query %s (mode=%s); selected %d stage-2 candidates "
             "from %d seeds (+%d unigram supplements)",
-            query_ipa,
+            query_log_label,
             query_mode,
             len(candidate_ids),
             len(seed_candidates),
@@ -428,8 +429,8 @@ def _select_seeded_candidates(
         )
 
     logger.info(
-        "k=2 seed hit for query IPA %r (mode=%s); selected %d stage-2 candidates from %d seeds",
-        query_ipa,
+        "k=2 seed hit for query %s (mode=%s); selected %d stage-2 candidates from %d seeds",
+        query_log_label,
         query_mode,
         len(candidate_ids),
         len(seed_candidates),
@@ -449,6 +450,7 @@ def _select_seeded_candidates(
 def _select_unigram_fallback_candidates(
     *,
     query_ipa: str,
+    query_log_label: str,
     query_mode: QueryMode,
     query_tokens: list[str],
     partial_query_tokens: PartialQueryTokens | None,
@@ -482,9 +484,9 @@ def _select_unigram_fallback_candidates(
             explicit_limit=effective_unigram_fallback_limit,
         )
         logger.info(
-            "k=2 seed empty for query IPA %r; partial k=1 fallback selected %d "
+            "k=2 seed empty for query %s; partial k=1 fallback selected %d "
             "stage-2 candidates from %d unigram hits (cap=%s)",
-            query_ipa,
+            query_log_label,
             len(candidate_ids),
             len(unigram_candidates),
             effective_unigram_fallback_limit,
@@ -516,9 +518,9 @@ def _select_unigram_fallback_candidates(
         else:
             _msg = str(_truncated)
         logger.warning(
-            "k=2 seed empty for query IPA %r; ignoring unigram fallback "
+            "k=2 seed empty for query %s; ignoring unigram fallback "
             "candidates missing from tokenized lexicon map: %s",
-            query_ipa,
+            query_log_label,
             _msg,
         )
     unigram_candidate_map = {
@@ -533,9 +535,9 @@ def _select_unigram_fallback_candidates(
         query_token_count=len(query_tokens),
     )
     logger.info(
-        "k=2 seed empty for query IPA %r; capped k=1 fallback evaluating %d of %d "
+        "k=2 seed empty for query %s; capped k=1 fallback evaluating %d of %d "
         "unigram candidates ranked by token-count proximity",
-        query_ipa,
+        query_log_label,
         len(candidate_ids),
         len(unigram_candidates),
     )
@@ -554,6 +556,7 @@ def _select_unigram_fallback_candidates(
 def _select_token_proximity_fallback_candidates(
     *,
     query_ipa: str,
+    query_log_label: str,
     query_mode: QueryMode,
     query_tokens: list[str],
     partial_query_tokens: PartialQueryTokens | None,
@@ -575,9 +578,9 @@ def _select_token_proximity_fallback_candidates(
             explicit_limit=effective_similarity_fallback_limit,
         )
         logger.info(
-            "k=2 and k=1 seeds empty for query IPA %r; partial token fallback "
+            "k=2 and k=1 seeds empty for query %s; partial token fallback "
             "selected %d stage-2 candidates from %d tokenized entries (cap=%s)",
-            query_ipa,
+            query_log_label,
             len(candidate_ids),
             len(tokenized_map),
             effective_similarity_fallback_limit,
@@ -591,9 +594,9 @@ def _select_token_proximity_fallback_candidates(
             query_token_count=len(query_tokens),
         )
         logger.info(
-            "k=2 and k=1 seeds empty for query IPA %r; capped fallback evaluating %d of %d candidates "
+            "k=2 and k=1 seeds empty for query %s; capped fallback evaluating %d of %d candidates "
             "ranked by token-count proximity",
-            query_ipa,
+            query_log_label,
             len(candidate_ids),
             len(tokenized_map),
         )
@@ -1107,6 +1110,7 @@ def _finalize_full_form_results(
 def _finalize_short_query_results(
     *,
     query_ipa: str,
+    query_log_label: str,
     ranked_scored: list[SearchResult],
     selection: _CandidateSelectionResult,
     partial_query_tokens: PartialQueryTokens | None,
@@ -1164,10 +1168,10 @@ def _finalize_short_query_results(
 
     if window_truncated and len(deduplicated_results) < max_results:
         logger.warning(
-            "Short-query search for query IPA %r returned %d/%d results; "
+            "Short-query search for query %s returned %d/%d results; "
             "annotation window capped at %d (query_mode=%s). "
             "Remaining %d candidates were not annotated.",
-            query_ipa,
+            query_log_label,
             len(deduplicated_results),
             max_results,
             annotation_limit,
@@ -1355,19 +1359,20 @@ def _execute_search(
     query_ipa = prepared_query.query_ipa
     query_tokens = tokenize_ipa(query_ipa)
     _debug_enabled = logger.isEnabledFor(logging.DEBUG)
-    query_log_label = (
-        _summarize_query_ipa_for_logs(
-            query_ipa,
-            query_token_count=len(query_tokens),
-            debug_enabled=_debug_enabled,
-        )
+    query_log_label = _summarize_query_ipa_for_logs(
+        query_ipa,
+        query_token_count=len(query_tokens),
+        debug_enabled=_debug_enabled,
+    )
+    debug_query_log_label = (
+        query_log_label
         if _debug_enabled
         else ""
     )
     query_skeleton = _extract_consonant_skeleton(query_tokens)
     partial_query_tokens = prepared_query.partial_query_tokens
     fallback_limits = _resolve_fallback_limits(
-        query_ipa=query_ipa,
+        query_log_label=query_log_label,
         similarity_fallback_limit=similarity_fallback_limit,
         unigram_fallback_limit=unigram_fallback_limit,
     )
@@ -1389,6 +1394,7 @@ def _execute_search(
     if seed_candidates:
         selection = _select_seeded_candidates(
             query_ipa=query_ipa,
+            query_log_label=query_log_label,
             query_mode=query_mode,
             query_tokens=query_tokens,
             query_skeleton=query_skeleton,
@@ -1410,6 +1416,7 @@ def _execute_search(
         if unigram_candidates:
             selection = _select_unigram_fallback_candidates(
                 query_ipa=query_ipa,
+                query_log_label=query_log_label,
                 query_mode=query_mode,
                 query_tokens=query_tokens,
                 partial_query_tokens=partial_query_tokens,
@@ -1421,6 +1428,7 @@ def _execute_search(
         else:
             selection = _select_token_proximity_fallback_candidates(
                 query_ipa=query_ipa,
+                query_log_label=query_log_label,
                 query_mode=query_mode,
                 query_tokens=query_tokens,
                 partial_query_tokens=partial_query_tokens,
@@ -1431,7 +1439,7 @@ def _execute_search(
     if _debug_enabled:
         _log_candidate_selection(
             logger,
-            query_label=query_log_label,
+            query_label=debug_query_log_label,
             query_mode=selection.query_mode,
             selection_path=selection.selection_path,
             seed_candidate_count=selection.seed_candidate_count,
@@ -1452,7 +1460,7 @@ def _execute_search(
     if _debug_enabled:
         _log_scoring(
             logger,
-            query_label=query_log_label,
+            query_label=debug_query_log_label,
             selected_count=len(selection.candidate_ids),
             scored_count=len(ranked_scored),
             elapsed_ms=(time.perf_counter() - _t_scoring) * 1000.0,
@@ -1471,6 +1479,7 @@ def _execute_search(
     elif selection.query_mode == "Short-query":
         finalization = _finalize_short_query_results(
             query_ipa=query_ipa,
+            query_log_label=query_log_label,
             ranked_scored=ranked_scored,
             selection=selection,
             partial_query_tokens=partial_query_tokens,
@@ -1491,7 +1500,7 @@ def _execute_search(
     if _debug_enabled:
         _log_finalization(
             logger,
-            query_label=query_log_label,
+            query_label=debug_query_log_label,
             query_mode=selection.query_mode,
             annotated_count=finalization.annotated_count,
             returned_count=finalization.returned_count,

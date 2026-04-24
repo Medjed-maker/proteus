@@ -123,6 +123,7 @@ class TestSearchTokenFallback:
         query_tokens = ["a", "b"]
         selection = search_module._select_token_proximity_fallback_candidates(
             query_ipa="a b",
+            query_log_label="tokens=2 chars=3 sha256=testlabel",
             query_mode="Full-form",
             query_tokens=query_tokens,
             partial_query_tokens=None,
@@ -195,6 +196,7 @@ class TestSearchTokenFallback:
         query_tokens = ["a", "b"]
         selection = search_module._select_token_proximity_fallback_candidates(
             query_ipa="a b",
+            query_log_label="tokens=2 chars=3 sha256=testlabel",
             query_mode="Partial-form",
             query_tokens=query_tokens,
             partial_query_tokens=partial_query,
@@ -446,7 +448,14 @@ class TestSearchTokenFallback:
         )
 
         assert len(captured["candidate_ids"]) == search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT
-        assert "similarity_fallback_limit=None for query IPA" in caplog.text
+        expected_label = search_module._summarize_query_ipa_for_logs(
+            "loɡos",
+            query_token_count=len(search_module.tokenize_ipa("loɡos")),
+            debug_enabled=False,
+        )
+        assert "similarity_fallback_limit=None for query" in caplog.text
+        assert expected_label in caplog.text
+        assert "query IPA 'loɡos'" not in caplog.text
         assert (
             f"applying default cap {search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT}."
             in caplog.text
