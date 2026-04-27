@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import dataclasses
+from dataclasses import replace
 import json
 from pathlib import Path
 
@@ -469,18 +469,18 @@ def test_custom_profile_does_not_apply_koine_skeleton(
     )
 
 
-def test_default_language_id_with_custom_converter_raises() -> None:
-    """_get_profile_converter raises when default language id has a custom converter.
-    
-    NOTE: This test intentionally targets an internal helper function and may break
-    on refactor. The test is kept because it validates specific behavior that
-    should be preserved through the public API.
-    """
-    from api import main as api_main
-
+def test_default_language_id_can_use_custom_converter_without_api_guard() -> None:
+    """Custom converters are passed through the public search boundary."""
     default_profile = get_default_language_profile()
-    custom_profile = dataclasses.replace(
+    custom_profile = replace(
         default_profile, converter=lambda t, **_: "custom"
     )
-    with pytest.raises(RuntimeError, match="custom converter"):
-        api_main._get_profile_converter(custom_profile)
+    result = search_execution(
+        "anything",
+        lexicon=(),
+        matrix={},
+        max_results=1,
+        converter=custom_profile.converter,
+    )
+
+    assert result.query_ipa == "custom"

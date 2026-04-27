@@ -30,7 +30,6 @@ from packaging.version import InvalidVersion, Version
 from phonology import search as phonology_search
 from phonology.distance import MatrixData, load_matrix_document
 from phonology.explainer import get_rules_version
-from phonology.ipa_converter import to_ipa
 from phonology.profiles import (
     LanguageProfile,
     get_default_language_profile,
@@ -71,6 +70,10 @@ _SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL = (
     "phonology.build_lexicon --if-missing "
     "to generate the lexicon. If you use a non-default LSJ checkout, set "
     f"{_LSJ_REPO_DIR_ENV_VAR} before extraction."
+)
+_LEGACY_LANGUAGE_ALIAS_DEPRECATION_MESSAGE = (
+    "Use response_language='en'|'ja' for response prose; language now selects "
+    "the phonology profile."
 )
 
 
@@ -236,6 +239,13 @@ def _load_frontend_html() -> str | None:
         return None
 
 
+def _build_deprecation_link_header(base_url: str, docs_path: str) -> str:
+    """Return an absolute URI Link header value per RFC 8288."""
+    base = base_url.rstrip("/")
+    path = docs_path.lstrip("/")
+    return f"<{base}/{path}>; rel=\"deprecation\""
+
+
 def _load_changelog_html() -> str | None:
     """Load and cache the packaged changelog HTML document."""
     if not _CHANGELOG_PATH.exists():
@@ -245,45 +255,6 @@ def _load_changelog_html() -> str | None:
     except (OSError, UnicodeError):
         logger.exception("Failed to read changelog HTML from %s", _CHANGELOG_PATH)
         return None
-
-
-def _get_profile_converter(profile: LanguageProfile) -> Callable[..., str]:
-    """Return the profile converter, preserving existing test monkeypatch seams.
-
-    Test fixtures patch ``api.main.to_ipa`` directly (see
-    ``tests/test_api_main.py::mock_search_dependencies``). For the default
-    profile, return that module-level reference so patches propagate.
-
-    Guard: if a caller registers a custom converter under the default language
-    id, we raise rather than silently returning the wrong converter.
-    """
-    default_profile = get_default_language_profile()
-    if profile.language_id == default_profile.language_id:
-        if profile.converter is not default_profile.converter:
-            raise RuntimeError(
-                f"Language id {profile.language_id!r} is registered with a custom "
-                "converter but shares the default language id. Register the profile "
-                "under a distinct language_id to avoid shadowing the default converter."
-            )
-        return to_ipa
-    return profile.converter
-
-
-def _is_default_language(language: str) -> bool:
-    """Return True when ``language`` is the built-in default profile id."""
-    return language == get_default_language_profile().language_id
-
-
-# This wrapper coordinates with @lru_cache key identity in the dependency
-# loaders: default-language calls invoke the factory with no argument so they
-# hit the same zero-arg cache slot used by tests that monkeypatch those loaders.
-# Removing it would split default-id traffic across two cache slots and bypass
-# test patches in tests/test_api_main.py.
-def _call_with_language(func: Callable[..., Any], language: str) -> Any:
-    """Call ``func`` with no language argument for the default profile fast path."""
-    if _is_default_language(language):
-        return func()
-    return func(language)
 
 
 @lru_cache(maxsize=8)
@@ -327,7 +298,7 @@ def load_lexicon_entries(
     language: str = get_default_language_profile().language_id,
 ) -> tuple[dict[str, Any], ...]:
     """Return cached packaged lexicon entries for a language profile."""
-    return _call_with_language(_load_lexicon_entries, language)
+    return _load_lexicon_entries(language)
 
 
 @lru_cache(maxsize=8)
@@ -343,7 +314,7 @@ def _load_distance_matrix(
     language: str = get_default_language_profile().language_id,
 ) -> MatrixData:
     """Load the packaged search distance matrix once per process."""
-    matrix, _ = _call_with_language(_load_distance_matrix_with_meta, language)
+    matrix, _ = _load_distance_matrix_with_meta(language)
     return matrix
 
 
@@ -402,9 +373,7 @@ def _load_ipa_index(
     language: str = get_default_language_profile().language_id,
 ) -> phonology_search.IpaIndex:
     """Build and cache the IPA-to-entry-id index for the packaged lexicon."""
-    return phonology_search.build_ipa_index(
-        _call_with_language(_load_lexicon_map, language)
-    )
+    return phonology_search.build_ipa_index(_load_lexicon_map(language))
 
 
 def _build_data_versions(
@@ -418,7 +387,7 @@ def _build_data_versions(
     fields: dict[str, str] = {}
 
     try:
-        document = _call_with_language(_load_lexicon_document, language)
+        document = _load_lexicon_document(language)
         schema_version = document.get("schema_version")
         if isinstance(schema_version, str) and schema_version.strip():
             fields["lexicon"] = schema_version
@@ -431,7 +400,7 @@ def _build_data_versions(
         logger.exception("Failed to load lexicon data version metadata: %s", err)
 
     try:
-        _, matrix_meta = _call_with_language(_load_distance_matrix_with_meta, language)
+        _, matrix_meta = _load_distance_matrix_with_meta(language)
         matrix_version = matrix_meta.get("version")
         if isinstance(matrix_version, str) and matrix_version.strip():
             fields["matrix"] = matrix_version
@@ -458,23 +427,23 @@ def _load_search_dependencies(
     """Load all cached search dependencies needed by /ready and /search."""
     profile = get_language_profile(language)
     try:
-        lexicon = _call_with_language(load_lexicon_entries, language)
+        lexicon = load_lexicon_entries(language)
     except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
         raise SearchDependenciesNotReadyError(
             _SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL
         ) from err
 
     try:
-        data_versions = _call_with_language(_build_data_versions, language)
+        data_versions = _build_data_versions(language)
         return SearchDependencies(
             profile=profile,
             lexicon=lexicon,
-            matrix=_call_with_language(_load_distance_matrix, language),
-            rules_registry=_call_with_language(_load_rules_registry, language),
-            search_index=_call_with_language(_load_search_index, language),
-            unigram_index=_call_with_language(_load_unigram_index, language),
-            lexicon_map=_call_with_language(_load_lexicon_map, language),
-            ipa_index=_call_with_language(_load_ipa_index, language),
+            matrix=_load_distance_matrix(language),
+            rules_registry=_load_rules_registry(language),
+            search_index=_load_search_index(language),
+            unigram_index=_load_unigram_index(language),
+            lexicon_map=_load_lexicon_map(language),
+            ipa_index=_load_ipa_index(language),
             data_versions=data_versions,
         )
     except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
@@ -509,7 +478,7 @@ def _log_search_dependencies_not_ready(
 def _warm_search_dependencies() -> None:
     """Eagerly populate cached search dependencies for faster first queries."""
     try:
-        _load_search_dependencies()
+        _load_search_dependencies(get_default_language_profile().language_id)
     except SearchDependenciesNotReadyError as err:
         _log_search_dependencies_not_ready(
             err.detail,
@@ -573,12 +542,16 @@ async def changelog_head() -> Response:
 
 
 @app.post("/search", response_model=SearchResponse)
-async def search(request: SearchRequest) -> SearchResponse:
+async def search(
+    request: SearchRequest,
+    response: Response,
+    fastapi_request: Request,
+) -> SearchResponse:
     """Run phonological search for a query word."""
     query_log_label = _summarize_query_for_logs(request.query_form)
 
     try:
-        deps = _call_with_language(_load_search_dependencies, request.language)
+        deps = _load_search_dependencies(request.language)
     except ValueError as err:
         logger.info("Rejected unsupported language %r: %s", request.language, err)
         raise HTTPException(status_code=400, detail="Unsupported language") from err
@@ -601,15 +574,6 @@ async def search(request: SearchRequest) -> SearchResponse:
                 f"Invalid dialect_hint {request.dialect_hint!r}; expected one of "
                 f"({allowed_dialects})"
             )
-        converter = _get_profile_converter(profile)
-        prepared_query = phonology_search.prepare_query_ipa(
-            request.query_form,
-            dialect=request.dialect_hint,
-            converter=converter,
-            phone_inventory=profile.phone_inventory,
-        )
-        query_mode = prepared_query.query_mode
-        query_ipa = prepared_query.query_ipa
         # The cached dependency bundle is reused across requests, so pass its
         # named fields directly into the core search implementation.
         search_kwargs: dict[str, Any] = {
@@ -618,28 +582,23 @@ async def search(request: SearchRequest) -> SearchResponse:
             "max_results": request.max_candidates,
             "dialect": request.dialect_hint,
             "language": profile.language_id,
+            "converter": profile.converter,
             "index": deps.search_index,
             "unigram_index": deps.unigram_index,
             "prebuilt_lexicon_map": deps.lexicon_map,
-            "prepared_query": prepared_query,
             "prebuilt_ipa_index": deps.ipa_index,
             "phone_inventory": profile.phone_inventory,
             "dialect_skeleton_builders": profile.dialect_skeleton_builders,
             "similarity_fallback_limit": _API_FALLBACK_CANDIDATE_LIMIT,
             "unigram_fallback_limit": _API_FALLBACK_CANDIDATE_LIMIT,
         }
-        # For the default language, omit converter so the search layer picks up
-        # its own module-level to_ipa reference — coordinated with
-        # _get_profile_converter and with tests/test_search.py patches of
-        # search_module.to_ipa. Forwarding converter for the default language
-        # would decouple those two test surfaces.
-        if not _is_default_language(profile.language_id):
-            search_kwargs["converter"] = converter
         execution = phonology_search.search_execution(
             request.query_form,
             **search_kwargs,
         )
         results = execution.results
+        query_ipa = execution.query_ipa
+        query_mode = execution.query_mode
     except ValueError as err:
         logger.info("Rejected search query (%s): %s", query_log_label, err)
         debug_query = (
@@ -663,7 +622,7 @@ async def search(request: SearchRequest) -> SearchResponse:
             detail="Search failed due to an internal error.",
         ) from err
 
-    return SearchResponse(
+    search_response = SearchResponse(
         query=request.query_form,
         query_ipa=query_ipa,
         query_mode=query_mode,
@@ -673,13 +632,23 @@ async def search(request: SearchRequest) -> SearchResponse:
                 query_ipa=query_ipa,
                 rules_registry=deps.rules_registry,
                 query_mode=query_mode,
-                lang=request.lang,
+                lang=request.response_language,
             )
             for result in results
         ],
         truncated=execution.truncated,
         data_versions=deps.data_versions,
     )
+    if request.legacy_language_alias_used:
+        response.headers["Deprecation"] = "true"
+        if app.docs_url:
+            response.headers["Link"] = _build_deprecation_link_header(
+                str(fastapi_request.base_url), app.docs_url
+            )
+        response.headers["X-Proteus-Migration"] = (
+            _LEGACY_LANGUAGE_ALIAS_DEPRECATION_MESSAGE
+        )
+    return search_response
 
 
 @app.get("/health")
@@ -698,7 +667,7 @@ async def health_head() -> Response:
 async def ready() -> dict[str, str]:
     """Readiness probe."""
     try:
-        _load_search_dependencies()
+        _load_search_dependencies(get_default_language_profile().language_id)
     except SearchDependenciesNotReadyError as err:
         _log_search_dependencies_not_ready(
             err.detail,

@@ -21,9 +21,11 @@ compatibility.
 - [x] Update packaging configuration for the new data layout
 - [x] Add `SearchRequest.language` with default `"ancient_greek"`
 - [x] Preserve legacy `language="en"|"ja"` as an alias for response prose `lang`
+- [x] Add `SearchRequest.response_language` as the preferred i18n field
 - [x] Load `/search` lexicon, matrix, rules, and converter via `LanguageProfile`
 - [x] Cache API search dependencies per language profile
 - [x] Allow `search_execution()` to receive a profile-provided converter
+- [x] Return `query_ipa` and `query_mode` from `search_execution()`
 - [x] Load search rules through registered profile `rules_dir`
 - [x] Add a `toy_language` integration test using only toy profile/data/converter
 - [x] Update README API and data layout documentation
@@ -34,7 +36,9 @@ compatibility.
 - [x] New: `phonology.profiles.get_language_profile(language_id: str)`
 - [x] New: `phonology.profiles.register_language_profile(profile: LanguageProfile)`
 - [x] Changed: `/search` accepts `language`, defaulting to `"ancient_greek"`
-- [x] Preserved: `lang` remains the response prose language selector
+- [x] New: `/search` accepts `response_language` for response prose language
+- [x] Preserved: `lang` remains a response prose language alias
+- [x] Deprecated: legacy `language="en"|"ja"` emits migration headers
 - [x] Preserved: `phonology.ipa_converter.to_ipa`, `greek_to_ipa`, `tokenize_ipa`
 - [x] Preserved: legacy `/search` aliases `query`, `dialect`, and `max_results`
 
@@ -55,13 +59,18 @@ compatibility.
 - [x] `/search` accepts `language="ancient_greek"`.
 - [x] Existing clients that omit `language` continue to work.
 - [x] Existing clients that send `language="en"` or `"ja"` for i18n continue to work.
+- [x] Existing clients that send `language="en"` or `"ja"` receive deprecation headers.
 - [x] A registered `toy_language` can run `search_execution()` without core code changes.
 - [x] Core search can receive language-specific converter/rule configuration externally.
 
-## Deferred Technical Debt (separate PR)
+## Deferred Technical Debt
 
-The following issues were identified in post-implementation code review but
-deferred to avoid a large test-fixture overhaul in the same change set.
+The following issues were identified in post-implementation code review and are
+now complete.
+
+- [x] MEDIUM #4 — `_get_profile_converter` test monkeypatch seam (`api/main.py`)
+- [x] MEDIUM #5 — `_call_with_language` `lru_cache` key hack (`api/main.py`)
+- [x] MEDIUM #6 — `_models.SearchRequest` backward-compat shim for `language="en"|"ja"`
 
 ### MEDIUM #4 — `_get_profile_converter` test monkeypatch seam (`api/main.py`)
 
@@ -78,6 +87,10 @@ raises a `RuntimeError` rather than routing cleanly.
 instead of `api.main.to_ipa`. Move IPA conversion fully inside the search layer
 so the API no longer needs a separate converter reference.
 
+**Status**: Complete. The API no longer imports `to_ipa` or exposes
+`_get_profile_converter`; `/search` forwards `profile.converter` to
+`phonology_search.search_execution()`.
+
 ### MEDIUM #5 — `_call_with_language` `lru_cache` key hack (`api/main.py`)
 
 Default-language calls invoke cached loaders with zero arguments
@@ -91,6 +104,9 @@ custom-language callers get a different code path than default-language callers.
 **Recommended fix**: Remove `_call_with_language` and make all cached loaders
 accept an explicit `language: str` argument. Update tests to patch at the
 `phonology_search.search_execution` boundary rather than individual loaders.
+
+**Status**: Complete. `_call_with_language` was removed and API dependency
+loading now passes an explicit language id through the cached loader stack.
 
 ### MEDIUM #6 — `_models.SearchRequest` backward-compat shim for `language="en"|"ja"`
 
@@ -106,3 +122,7 @@ locale) is undocumented at the API boundary.
 **Recommended fix**: Introduce a separate `response_language` field for i18n,
 deprecate `language="en"|"ja"` via a migration header, and drop the shim in a
 future minor version after a grace period.
+
+**Status**: Complete. `response_language` is the preferred field, `lang`
+remains an alias, and legacy `language="en"|"ja"` requests receive deprecation
+and migration headers.

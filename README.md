@@ -157,13 +157,16 @@ symlink-swapped directories.
   "language": "ancient_greek",
   "dialect": "attic",
   "max_results": 20,
-  "lang": "en"
+  "response_language": "en"
 }
 ```
 
 `language` selects the phonological profile and defaults to `"ancient_greek"`.
-For backward compatibility, legacy `language: "en"` or `"ja"` is still treated
-as the response prose language; new clients should use `lang` for that purpose.
+`response_language` selects generated prose language and accepts `"en"` or
+`"ja"`. The older `lang` field remains accepted as an alias. For backward
+compatibility, legacy `language: "en"` or `"ja"` is still treated as the
+response prose language, but responses include deprecation headers; new clients
+should use `response_language`.
 
 **Response Model Example**
 

@@ -54,12 +54,12 @@ def _clear_loader_caches() -> None:
 
 
 def _install_invalid_query_to_ipa(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Patch to_ipa to raise the same query validation error used in search tests."""
+    """Patch search_execution to raise the query validation error used in search tests."""
 
-    def fake_to_ipa(query: str, dialect: str = "attic") -> str:
+    def fake_search_execution(*_args: object, **_kwargs: object) -> object:
         raise ValueError("query must be a non-empty string")
 
-    monkeypatch.setattr(api_main, "to_ipa", fake_to_ipa)
+    monkeypatch.setattr(api_main.phonology_search, "search_execution", fake_search_execution)
 
 
 def _make_fake_search_execution(
@@ -100,10 +100,25 @@ def _make_fake_search_execution(
         captured["language"] = language
         captured["converter"] = converter
         captured["phone_inventory"] = phone_inventory
-        # Extract query_ipa from prepared_query if available, otherwise use query_ipa param
+        # Extract query_ipa from prepared_query if available, otherwise use query_ipa param.
         effective_query_ipa = query_ipa
+        effective_query_mode = "Full-form"
         if prepared_query is not None:
             effective_query_ipa = getattr(prepared_query, "query_ipa", query_ipa)
+            effective_query_mode = getattr(prepared_query, "query_mode", "Full-form")
+        elif effective_query_ipa is None and converter is not None:
+            # Tests that don't override query_ipa rely on the same prepare_query_ipa
+            # contract that production search_execution uses internally. This keeps
+            # query_mode heuristics (Full-form / Short-query / Partial-form) in sync
+            # with production without requiring every call site to hardcode IPA strings.
+            prepared = search_module.prepare_query_ipa(
+                query,
+                dialect=dialect,
+                converter=converter,
+                phone_inventory=phone_inventory,
+            )
+            effective_query_ipa = prepared.query_ipa
+            effective_query_mode = prepared.query_mode
         captured["query_ipa"] = effective_query_ipa
         captured["prebuilt_ipa_index"] = prebuilt_ipa_index
         captured["similarity_fallback_limit"] = similarity_fallback_limit
@@ -130,6 +145,8 @@ def _make_fake_search_execution(
             ]
         return search_module.SearchExecutionResult(
             results=search_results,
+            query_ipa=effective_query_ipa or "",
+            query_mode=effective_query_mode,
             truncated=truncated,
         )
 
@@ -889,7 +906,7 @@ class TestReadyEndpoint:
     ) -> None:
         """Readiness probe should explain how to generate the lexicon."""
 
-        def failing_loader() -> None:
+        def failing_loader(*_args: object) -> None:
             raise ValueError("lexicon unavailable")
 
         monkeypatch.setattr(api_main, "_load_lexicon_entries", failing_loader)
@@ -907,7 +924,7 @@ class TestReadyEndpoint:
     ) -> None:
         """Readiness probe should log expected 503 states without stack traces."""
 
-        def failing_loader() -> None:
+        def failing_loader(*_args: object) -> None:
             raise ValueError("lexicon unavailable")
 
         monkeypatch.setattr(api_main, "_load_lexicon_entries", failing_loader)
@@ -939,7 +956,7 @@ class TestReadyEndpoint:
     ) -> None:
         """Readiness probe returns 503 when a dependency loader raises."""
 
-        def failing_loader() -> None:
+        def failing_loader(*_args: object) -> None:
             raise error
 
         monkeypatch.setattr(api_main, loader_name, failing_loader)
@@ -991,7 +1008,7 @@ class TestSearchDependenciesLoader:
     ) -> None:
         lexicon_calls = 0
 
-        def fake_lexicon_document() -> dict[str, object]:
+        def fake_lexicon_document(*_args: object) -> dict[str, object]:
             nonlocal lexicon_calls
             lexicon_calls += 1
             return {
@@ -1004,7 +1021,7 @@ class TestSearchDependenciesLoader:
         monkeypatch.setattr(
             api_main,
             "_load_distance_matrix_with_meta",
-            lambda: (
+            lambda *_args: (
                 {},
                 {
                     "version": "1.0.0",
@@ -1035,12 +1052,12 @@ class TestSearchDependenciesLoader:
         monkeypatch.setattr(
             api_main,
             "_load_lexicon_document",
-            lambda: (_ for _ in ()).throw(ValueError("bad lexicon")),
+            lambda *_args: (_ for _ in ()).throw(ValueError("bad lexicon")),
         )
         monkeypatch.setattr(
             api_main,
             "_load_distance_matrix_with_meta",
-            lambda: (_ for _ in ()).throw(ValueError("bad matrix")),
+            lambda *_args: (_ for _ in ()).throw(ValueError("bad matrix")),
         )
         monkeypatch.setattr(
             api_main,
@@ -1061,20 +1078,22 @@ class TestSearchDependenciesLoader:
     ) -> None:
         td = _make_test_dependencies()
 
-        monkeypatch.setattr(api_main, "load_lexicon_entries", lambda: td["lexicon"])
-        monkeypatch.setattr(api_main, "_load_distance_matrix", lambda: td["matrix"])
-        monkeypatch.setattr(api_main, "_load_rules_registry", lambda: td["rules_registry"])
-        monkeypatch.setattr(api_main, "_load_search_index", lambda: td["search_index"])
-        monkeypatch.setattr(api_main, "_load_unigram_index", lambda: td["unigram_index"])
-        monkeypatch.setattr(api_main, "_load_lexicon_map", lambda: td["lexicon_map"])
-        monkeypatch.setattr(api_main, "_load_ipa_index", lambda: td["ipa_index"])
+        monkeypatch.setattr(api_main, "load_lexicon_entries", lambda _language: td["lexicon"])
+        monkeypatch.setattr(api_main, "_load_distance_matrix", lambda _language: td["matrix"])
+        monkeypatch.setattr(api_main, "_load_rules_registry", lambda _language: td["rules_registry"])
+        monkeypatch.setattr(api_main, "_load_search_index", lambda _language: td["search_index"])
+        monkeypatch.setattr(api_main, "_load_unigram_index", lambda _language: td["unigram_index"])
+        monkeypatch.setattr(api_main, "_load_lexicon_map", lambda _language: td["lexicon_map"])
+        monkeypatch.setattr(api_main, "_load_ipa_index", lambda _language: td["ipa_index"])
         monkeypatch.setattr(
             api_main,
             "_build_data_versions",
-            lambda: api_main.DataVersions(rules="10.0.0"),
+            lambda _language: api_main.DataVersions(rules="10.0.0"),
         )
 
-        deps = api_main._load_search_dependencies()
+        deps = api_main._load_search_dependencies(
+            api_main.get_default_language_profile().language_id
+        )
 
         assert isinstance(deps, api_main.SearchDependencies)
         assert deps.lexicon == td["lexicon"]
@@ -1093,7 +1112,7 @@ class TestSearchDependenciesLoader:
     ) -> None:
         detail = api_main._SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL
 
-        def fail_dependencies() -> api_main.SearchDependencies:
+        def fail_dependencies(*_args: object) -> api_main.SearchDependencies:
             raise api_main.SearchDependenciesNotReadyError(detail)
 
         monkeypatch.setattr(api_main, "_load_search_dependencies", fail_dependencies)
@@ -1180,15 +1199,36 @@ def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, objec
     """Stub all search dependencies and return a capture dict."""
     td = _make_test_dependencies()
     captured: dict[str, object] = {}
+    profile = replace(
+        get_default_language_profile(),
+        converter=lambda query, dialect="attic": {
+            "λόγος": "loɡos",
+            "νυν": "nyn",
+            "νῦν": "nyn",
+            "ζηταω": "zɛːtaɔ",
+            "λόγ": "loɡ",
+            "λ": "l",
+            "γ": "ɡ",
+            "α": "a",
+            "ι": "i",
+        }.get(query, query),
+    )
 
-    monkeypatch.setattr(api_main, "_load_lexicon_entries", lambda: td["lexicon"])
-    monkeypatch.setattr(api_main, "_load_distance_matrix", lambda: td["matrix"])
-    monkeypatch.setattr(api_main, "_load_rules_registry", lambda: td["rules_registry"])
-    monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "loɡos")
-    monkeypatch.setattr(api_main, "_load_search_index", lambda: td["search_index"])
-    monkeypatch.setattr(api_main, "_load_unigram_index", lambda: td["unigram_index"])
-    monkeypatch.setattr(api_main, "_load_lexicon_map", lambda: td["lexicon_map"])
-    monkeypatch.setattr(api_main, "_load_ipa_index", lambda: td["ipa_index"])
+    monkeypatch.setattr(
+        api_main,
+        "_load_search_dependencies",
+        lambda _language: api_main.SearchDependencies(
+            lexicon=td["lexicon"],
+            matrix=td["matrix"],
+            rules_registry=td["rules_registry"],
+            search_index=td["search_index"],
+            unigram_index=td["unigram_index"],
+            lexicon_map=td["lexicon_map"],
+            ipa_index=td["ipa_index"],
+            data_versions=api_main.DataVersions(),
+            profile=profile,
+        ),
+    )
     monkeypatch.setattr(
         api_main.phonology_search,
         "search_execution",
@@ -1207,7 +1247,7 @@ class TestSearchEndpoint:
         monkeypatch.setattr(
             api_main,
             "_load_search_dependencies",
-            lambda: api_main.SearchDependencies(
+            lambda _language: api_main.SearchDependencies(
                 lexicon=td["lexicon"],
                 matrix=td["matrix"],
                 rules_registry=td["rules_registry"],
@@ -1216,9 +1256,12 @@ class TestSearchEndpoint:
                 lexicon_map=td["lexicon_map"],
                 ipa_index=td["ipa_index"],
                 data_versions=api_main.DataVersions(),
+                profile=replace(
+                    get_default_language_profile(),
+                    converter=lambda query, dialect="attic": "loɡos",
+                ),
             ),
         )
-        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "loɡos")
 
         monkeypatch.setattr(
             api_main.phonology_search,
@@ -1315,7 +1358,6 @@ class TestSearchEndpoint:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         mock_search_dependencies(monkeypatch)
-        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "nyn")
         monkeypatch.setattr(
             api_main.phonology_search,
             "search_execution",
@@ -1329,6 +1371,8 @@ class TestSearchEndpoint:
                         ipa="aɡnyon",
                     )
                 ],
+                query_ipa="nyn",
+                query_mode="Short-query",
                 truncated=False,
             ),
         )
@@ -1396,13 +1440,6 @@ class TestSearchEndpoint:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         mock_search_dependencies(monkeypatch)
-        captured: dict[str, object] = {}
-
-        def fake_to_ipa(query: str, dialect: str = "attic") -> str:
-            captured["query"] = query
-            return "zɛːtaɔ"
-
-        monkeypatch.setattr(api_main, "to_ipa", fake_to_ipa)
         monkeypatch.setattr(
             api_main.phonology_search,
             "search_execution",
@@ -1416,6 +1453,8 @@ class TestSearchEndpoint:
                         ipa="zɛːtɛɔ",
                     )
                 ],
+                query_ipa="zɛːtaɔ",
+                query_mode="Partial-form",
                 truncated=False,
             ),
         )
@@ -1426,7 +1465,6 @@ class TestSearchEndpoint:
 
         assert response.status_code == 200
         payload = response.json()
-        assert captured["query"] == "ζηταω"
         assert payload["query_ipa"] == "zɛːtaɔ"
         assert payload["query_mode"] == "Partial-form"
         assert payload["hits"][0]["match_type"] == "Distance-only"
@@ -1455,19 +1493,6 @@ class TestSearchEndpoint:
         expected_ipa: str,
     ) -> None:
         captured_search = mock_search_dependencies(monkeypatch)
-        captured: list[str] = []
-
-        def fake_to_ipa(query: str, dialect: str = "attic") -> str:
-            captured.append(query)
-            return {
-                "λόγ": "loɡ",
-                "λ": "l",
-                "γ": "ɡ",
-                "α": "a",
-                "ι": "i",
-            }.get(query, query)
-
-        monkeypatch.setattr(api_main, "to_ipa", fake_to_ipa)
         monkeypatch.setattr(api_hit_formatting, "to_prose", lambda explanation: "partial-query exploratory")
 
         response = client.post("/search", json={"query_form": query_form})
@@ -1476,7 +1501,6 @@ class TestSearchEndpoint:
         payload = response.json()
         assert payload["query_mode"] == "Partial-form"
         assert payload["query_ipa"] == expected_ipa
-        assert captured == expected_queries
         assert captured_search["query_ipa"] == expected_ipa
 
     @pytest.mark.parametrize("query_form", ["*", "-", "-*", "a*b*c"])
@@ -1485,14 +1509,11 @@ class TestSearchEndpoint:
     ) -> None:
         mock_search_dependencies(monkeypatch)
         monkeypatch.setattr(
-            api_main,
-            "to_ipa",
-            lambda *_args, **_kwargs: pytest.fail("to_ipa should not run"),
-        )
-        monkeypatch.setattr(
             api_main.phonology_search,
             "search_execution",
-            lambda *_args, **_kwargs: pytest.fail("search_execution should not run"),
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                ValueError("invalid partial query syntax")
+            ),
         )
 
         response = client.post("/search", json={"query_form": query_form})
@@ -1511,7 +1532,7 @@ class TestSearchEndpoint:
         monkeypatch.setattr(
             api_main,
             "_load_search_dependencies",
-            lambda: api_main.SearchDependencies(
+            lambda _language: api_main.SearchDependencies(
                 lexicon=td["lexicon"],
                 matrix=td["matrix"],
                 rules_registry=td["rules_registry"],
@@ -1587,17 +1608,22 @@ class TestSearchEndpoint:
         assert response.status_code == 200
         assert captured["dialect"] == "toy"
         assert captured["language"] == "toy_api"
+        assert captured["converter"] is profile.converter
         assert captured["phone_inventory"] == ("ts", "p", "a")
 
     def test_search_returns_empty_hits_when_short_query_quality_filter_drops_candidates(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         mock_search_dependencies(monkeypatch)
-        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "nyn")
         monkeypatch.setattr(
             api_main.phonology_search,
             "search_execution",
-            lambda *args, **kwargs: search_module.SearchExecutionResult(results=[], truncated=False),
+            lambda *args, **kwargs: search_module.SearchExecutionResult(
+                results=[],
+                query_ipa="nyn",
+                query_mode="Short-query",
+                truncated=False,
+            ),
         )
 
         response = client.post("/search", json={"query_form": "νυν"})
@@ -1613,11 +1639,15 @@ class TestSearchEndpoint:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         mock_search_dependencies(monkeypatch)
-        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "nyn")
         monkeypatch.setattr(
             api_main.phonology_search,
             "search_execution",
-            lambda *args, **kwargs: search_module.SearchExecutionResult(results=[], truncated=True),
+            lambda *args, **kwargs: search_module.SearchExecutionResult(
+                results=[],
+                query_ipa="nyn",
+                query_mode="Short-query",
+                truncated=True,
+            ),
         )
 
         response = client.post("/search", json={"query_form": "νυν"})
@@ -1631,7 +1661,6 @@ class TestSearchEndpoint:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         mock_search_dependencies(monkeypatch)
-        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "nyn")
         monkeypatch.setattr(
             api_main.phonology_search,
             "search_execution",
@@ -1654,6 +1683,8 @@ class TestSearchEndpoint:
                         ipa="nyn",
                     )
                 ],
+                query_ipa="nyn",
+                query_mode="Short-query",
                 truncated=True,
             ),
         )
@@ -1674,13 +1705,8 @@ class TestSearchEndpoint:
         captured = mock_search_dependencies(monkeypatch)
         monkeypatch.setattr(
             api_main,
-            "to_ipa",
-            lambda query, dialect="attic": "loɣos" if dialect == "koine" else "loɡos",
-        )
-        monkeypatch.setattr(
-            api_main,
             "_load_rules_registry",
-            lambda: {
+            lambda _language: {
                 "CCH-009": {
                     "id": "CCH-009",
                     "name_ja": "コイネー期の γ 摩擦音化",
@@ -1718,6 +1744,8 @@ class TestSearchEndpoint:
                         ipa="lóɡos",
                     )
                 ],
+                query_ipa="loɣos",
+                query_mode="Full-form",
                 truncated=False,
             ),
         )
@@ -1745,28 +1773,54 @@ class TestSearchEndpoint:
     def test_search_uses_contextual_rule_ids_and_matching_distance_in_api_response(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        profile = replace(
+            get_default_language_profile(),
+            converter=lambda query, dialect="attic": "raː",
+        )
         monkeypatch.setattr(
             api_main,
-            "_load_lexicon_entries",
-            lambda: (
-                {
-                    "id": "L1",
-                    "headword": "χώρα",
-                    "ipa": "rɛː",
-                    "dialect": "attic",
+            "_load_search_dependencies",
+            lambda _language: api_main.SearchDependencies(
+                lexicon=(
+                    {
+                        "id": "L1",
+                        "headword": "χώρα",
+                        "ipa": "rɛː",
+                        "dialect": "attic",
+                    },
+                ),
+                matrix={"ɛː": {"aː": 0.1}},
+                rules_registry={
+                    "VSH-010": {
+                        "id": "VSH-010",
+                        "name_ja": "アッティカ方言の e・i・r 後における長母音 ā 保持",
+                        "name_en": "Attic retention of long alpha after e, i, or r",
+                        "input": "ɛː",
+                        "output": "aː",
+                        "dialects": ["attic"],
+                    }
                 },
+                search_index={},
+                unigram_index={},
+                lexicon_map=api_main.phonology_search.build_lexicon_map(
+                    (
+                        {
+                            "id": "L1",
+                            "headword": "χώρα",
+                            "ipa": "rɛː",
+                            "dialect": "attic",
+                        },
+                    )
+                ),
+                ipa_index={"rɛː": ["L1"]},
+                data_versions=api_main.DataVersions(),
+                profile=profile,
             ),
         )
         monkeypatch.setattr(
-            api_main,
-            "_load_distance_matrix",
-            lambda: {"ɛː": {"aː": 0.1}},
-        )
-        monkeypatch.setattr(api_main, "_load_search_index", lambda: {})
-        monkeypatch.setattr(
-            api_main,
-            "_load_rules_registry",
-            lambda: {
+            api_main.phonology_search,
+            "get_rules_registry",
+            lambda language="ancient_greek": {
                 "VSH-010": {
                     "id": "VSH-010",
                     "name_ja": "アッティカ方言の e・i・r 後における長母音 ā 保持",
@@ -1776,12 +1830,6 @@ class TestSearchEndpoint:
                     "dialects": ["attic"],
                 }
             },
-        )
-        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "raː")
-        monkeypatch.setattr(
-            api_main.phonology_search,
-            "to_ipa",
-            lambda query, dialect="attic": "raː",
         )
 
         response = client.post(
@@ -1812,22 +1860,7 @@ class TestSearchEndpoint:
     ) -> None:
         captured: dict[str, object] = {}
 
-        monkeypatch.setattr(
-            api_main,
-            "_load_lexicon_entries",
-            lambda: (
-                {
-                    "id": "L1",
-                    "headword": "λόγος",
-                    "ipa": "lóɡos",
-                    "dialect": "attic",
-                },
-            ),
-        )
-        monkeypatch.setattr(api_main, "_load_distance_matrix", lambda: {"l": {"l": 0.0}})
-        monkeypatch.setattr(api_main, "_load_rules_registry", lambda: {})
-        monkeypatch.setattr(api_main, "_load_search_index", lambda: {"l ɡ": ["L1"]})
-        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "loɡos")
+        mock_search_dependencies(monkeypatch)
         monkeypatch.setattr(
             api_main.phonology_search,
             "search_execution",
@@ -1841,6 +1874,8 @@ class TestSearchEndpoint:
                         ipa="lóɡos",
                     )
                 ],
+                query_ipa="loɡos",
+                query_mode="Full-form",
                 truncated=False,
             ),
         )
@@ -1877,44 +1912,34 @@ class TestSearchEndpoint:
     def test_search_hit_prefers_observed_rule_applications_over_fallback_ids(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(
-            api_main,
-            "_load_lexicon_entries",
-            lambda: (
-                {
-                    "id": "L1",
-                    "headword": "λόγος",
-                    "ipa": "a",
-                    "dialect": "attic",
-                },
-            ),
-        )
-        monkeypatch.setattr(api_main, "_load_distance_matrix", lambda: {"a": {"x": 0.5}})
-        monkeypatch.setattr(api_main, "_load_rules_registry", lambda: {})
-        monkeypatch.setattr(api_main, "_load_search_index", lambda: {"l ɡ": ["L1"]})
-        monkeypatch.setattr(api_main, "to_ipa", lambda query, dialect="attic": "x")
+        mock_search_dependencies(monkeypatch)
         monkeypatch.setattr(
             api_main.phonology_search,
-            "search",
-            lambda *args, **kwargs: [
-                SearchResult(
-                    lemma="λόγος",
-                    confidence=0.5,
-                    dialect_attribution="lemma dialect: attic",
-                    applied_rules=[],
-                    rule_applications=[
-                        RuleApplication(
-                            rule_id="OBS-SUB",
-                            rule_name="観測された置換",
-                            rule_name_en="Observed substitution",
-                            from_phone="a",
-                            to_phone="x",
-                            position=0,
-                        )
-                    ],
-                    ipa="a",
-                )
-            ],
+            "search_execution",
+            lambda *args, **kwargs: search_module.SearchExecutionResult(
+                results=[
+                    SearchResult(
+                        lemma="λόγος",
+                        confidence=0.5,
+                        dialect_attribution="lemma dialect: attic",
+                        applied_rules=[],
+                        rule_applications=[
+                            RuleApplication(
+                                rule_id="OBS-SUB",
+                                rule_name="観測された置換",
+                                rule_name_en="Observed substitution",
+                                from_phone="a",
+                                to_phone="x",
+                                position=0,
+                            )
+                        ],
+                        ipa="a",
+                    )
+                ],
+                query_ipa="x",
+                query_mode="Full-form",
+                truncated=False,
+            ),
         )
 
         def fail_explain_alignment(**_kwargs: object) -> object:
@@ -1963,13 +1988,13 @@ class TestSearchEndpoint:
     ) -> None:
         mock_search_dependencies(monkeypatch)
 
-        def fake_to_ipa(query: str, dialect: str = "attic") -> str:
+        def fake_search_execution(*_args: object, **_kwargs: object) -> object:
             raise ValueError("query must be a non-empty string")
 
         monkeypatch.setattr(
-            api_main,
-            "to_ipa",
-            fake_to_ipa,
+            api_main.phonology_search,
+            "search_execution",
+            fake_search_execution,
         )
 
         response = client.post(
@@ -2045,7 +2070,7 @@ class TestSearchEndpoint:
     def test_search_returns_503_with_lexicon_setup_guidance_when_lexicon_loader_fails(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        def fail_lexicon_entries() -> tuple[dict[str, object], ...]:
+        def fail_lexicon_entries(*_args: object) -> tuple[dict[str, object], ...]:
             raise ValueError("lexicon unavailable")
 
         monkeypatch.setattr(api_main, "_load_lexicon_entries", fail_lexicon_entries)
@@ -2064,7 +2089,7 @@ class TestSearchEndpoint:
         monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        def fail_lexicon_entries() -> tuple[dict[str, object], ...]:
+        def fail_lexicon_entries(*_args: object) -> tuple[dict[str, object], ...]:
             raise ValueError("lexicon unavailable")
 
         monkeypatch.setattr(api_main, "_load_lexicon_entries", fail_lexicon_entries)
@@ -2087,7 +2112,7 @@ class TestSearchEndpoint:
     def test_search_returns_generic_503_when_distance_matrix_loader_fails(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        def fail_distance_matrix() -> dict[str, dict[str, float]]:
+        def fail_distance_matrix(*_args: object) -> dict[str, dict[str, float]]:
             raise ValueError("matrix unavailable")
 
         monkeypatch.setattr(
@@ -2109,12 +2134,15 @@ class TestSearchEndpoint:
     def test_search_returns_generic_503_when_unigram_loader_fails(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        mock_search_dependencies(monkeypatch)
-
-        def fail_unigram_index() -> dict[str, list[str]]:
-            raise ValueError("unigram unavailable")
-
-        monkeypatch.setattr(api_main, "_load_unigram_index", fail_unigram_index)
+        monkeypatch.setattr(
+            api_main,
+            "_load_search_dependencies",
+            lambda _language: (_ for _ in ()).throw(
+                api_main.SearchDependenciesNotReadyError(
+                    api_main._SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL
+                )
+            ),
+        )
 
         response = client.post(
             "/search",
@@ -2129,12 +2157,15 @@ class TestSearchEndpoint:
     def test_search_returns_generic_503_when_lexicon_map_loader_fails(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        mock_search_dependencies(monkeypatch)
-
-        def fail_lexicon_map() -> dict[str, object]:
-            raise ValueError("lexicon map unavailable")
-
-        monkeypatch.setattr(api_main, "_load_lexicon_map", fail_lexicon_map)
+        monkeypatch.setattr(
+            api_main,
+            "_load_search_dependencies",
+            lambda _language: (_ for _ in ()).throw(
+                api_main.SearchDependenciesNotReadyError(
+                    api_main._SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL
+                )
+            ),
+        )
 
         response = client.post(
             "/search",
@@ -2648,12 +2679,12 @@ class TestBuildDataVersionsPartialFailure:
         monkeypatch.setattr(
             api_main,
             "_load_lexicon_document",
-            lambda: (_ for _ in ()).throw(OSError("lexicon read error")),
+            lambda *_args: (_ for _ in ()).throw(OSError("lexicon read error")),
         )
         monkeypatch.setattr(
             api_main,
             "_load_distance_matrix_with_meta",
-            lambda: ({}, {"version": "1.0.0", "generated_at": "2026-04-20T09:00:00.000+00:00"}),
+            lambda *_args: ({}, {"version": "1.0.0", "generated_at": "2026-04-20T09:00:00.000+00:00"}),
         )
         monkeypatch.setattr(
             api_main,
@@ -2677,12 +2708,12 @@ class TestBuildDataVersionsPartialFailure:
         monkeypatch.setattr(
             api_main,
             "_load_lexicon_document",
-            lambda: {"schema_version": "2.0.0", "_meta": {}, "lemmas": []},
+            lambda *_args: {"schema_version": "2.0.0", "_meta": {}, "lemmas": []},
         )
         monkeypatch.setattr(
             api_main,
             "_load_distance_matrix_with_meta",
-            lambda: (_ for _ in ()).throw(OSError("matrix read error")),
+            lambda *_args: (_ for _ in ()).throw(OSError("matrix read error")),
         )
         monkeypatch.setattr(
             api_main,
@@ -2706,12 +2737,12 @@ class TestBuildDataVersionsPartialFailure:
         monkeypatch.setattr(
             api_main,
             "_load_lexicon_document",
-            lambda: (_ for _ in ()).throw(ValueError("bad")),
+            lambda *_args: (_ for _ in ()).throw(ValueError("bad")),
         )
         monkeypatch.setattr(
             api_main,
             "_load_distance_matrix_with_meta",
-            lambda: (_ for _ in ()).throw(ValueError("bad")),
+            lambda *_args: (_ for _ in ()).throw(ValueError("bad")),
         )
         monkeypatch.setattr(
             api_main,
@@ -2728,17 +2759,11 @@ class TestBuildDataVersionsPartialFailure:
         assert "Failed to load rules data version metadata" in caplog.text
 
 
-class TestCallWithLanguage:
-    """Regression tests for the _call_with_language cache-key coalescing invariant."""
+class TestExplicitLanguageLoaderCaching:
+    """Regression tests for explicit language cache-key behavior."""
 
-    def test_routes_default_language_to_zero_arg_cache_slot(self) -> None:
-        """Default-language calls must reuse the zero-arg lru_cache slot.
-
-        The _call_with_language wrapper is the seam that lets test fixtures
-        patch ``api.main._load_lexicon_entries()`` (zero-arg) and have explicit
-        ``language='ancient_greek'`` calls route to the same cache. Splitting
-        the cache would silently bypass test patches and double memory usage.
-        """
+    def test_default_language_uses_explicit_cache_slot(self) -> None:
+        """Default-language calls use the same explicit language cache key."""
         default_language_id = api_main.get_default_language_profile().language_id
         call_count = 0
 
@@ -2748,24 +2773,22 @@ class TestCallWithLanguage:
             call_count += 1
             return call_count
 
-        result1 = api_main._call_with_language(_mock_loader, default_language_id)
+        result1 = _mock_loader(default_language_id)
         info_after_first = _mock_loader.cache_info()
 
-        result2 = api_main._call_with_language(_mock_loader, default_language_id)
+        result2 = _mock_loader(default_language_id)
         info_after_second = _mock_loader.cache_info()
 
         assert info_after_first.misses == 1
-        assert info_after_second.misses == 1, (
-            "Explicit default language must reuse the zero-arg cache slot"
-        )
+        assert info_after_second.misses == 1
         assert info_after_second.hits == 1
         assert result1 == result2
 
-    def test_load_ipa_index_uses_default_lexicon_map_cache_slot(
+    def test_load_ipa_index_uses_explicit_lexicon_map_cache_slot(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Default IPA index loading must reuse the zero-arg lexicon-map slot."""
+        """Default IPA index loading reuses the explicit default lexicon-map slot."""
         default_language_id = api_main.get_default_language_profile().language_id
         call_count = 0
 
@@ -2783,7 +2806,7 @@ class TestCallWithLanguage:
         )
         api_main._load_ipa_index.cache_clear()
 
-        cached_map = fake_load_lexicon_map()
+        cached_map = fake_load_lexicon_map(default_language_id)
         result = api_main._load_ipa_index(default_language_id)
 
         assert call_count == 1
