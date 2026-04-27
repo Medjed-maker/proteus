@@ -14,6 +14,7 @@ from pydantic import (
     StringConstraints,
     field_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
 from phonology._paths import DEFAULT_LANGUAGE_ID
 from phonology.profiles import get_default_language_profile, get_language_profile
 
@@ -74,16 +75,19 @@ class SearchRequest(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _normalize_language_and_dialect(cls, data: Any) -> Any:
-        """Normalize profile language and dialect, preserving legacy language aliases."""
+        """Normalize profile language and dialect, preserving legacy locale aliases."""
         if not isinstance(data, dict):
             return data
         payload = dict(data)
+        payload.pop("legacy_language_alias_used", None)
         raw_language = payload.get("language")
         if isinstance(raw_language, str):
             normalized = raw_language.strip().lower()
             if normalized in {"en", "ja"}:
-                payload.setdefault("lang", normalized)
+                if "response_language" not in payload and "lang" not in payload:
+                    payload["response_language"] = normalized
                 payload["language"] = "ancient_greek"
+                payload["legacy_language_alias_used"] = True
 
         language_value = payload.get("language")
         if language_value is None:
@@ -145,11 +149,23 @@ class SearchRequest(BaseModel):
         default="ancient_greek",
         description="Language profile used for phonological search.",
     )
-    lang: Literal["en", "ja"] = Field(
+    response_language: Literal["en", "ja"] = Field(
         default="en",
-        validation_alias=AliasChoices("lang"),
+        validation_alias=AliasChoices("response_language", "lang"),
         description="Response language for generated prose text ('en' or 'ja').",
     )
+
+    legacy_language_alias_used: SkipJsonSchema[bool] = Field(
+        default=False,
+        exclude=True,
+        repr=False,
+        description="Internal marker for deprecated language=en|ja compatibility.",
+    )
+
+    @property
+    def lang(self) -> Literal["en", "ja"]:
+        """Backward-compatible access to the response prose language."""
+        return self.response_language
 
     @field_validator("query_form", mode="after")
     @classmethod
@@ -173,7 +189,7 @@ class SearchRequest(BaseModel):
             return normalized
         return value
 
-    @field_validator("lang", mode="before")
+    @field_validator("response_language", mode="before")
     @classmethod
     def _normalize_lang(cls, value: Any) -> Any:
         if value is None:

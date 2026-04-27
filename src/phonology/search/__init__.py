@@ -251,6 +251,8 @@ class SearchExecutionResult(NamedTuple):
 
     results: list[SearchResult]
     truncated: bool = False
+    query_ipa: str = ""
+    query_mode: QueryMode = "Full-form"
 
 
 class _LazySearchDependencies:
@@ -1794,6 +1796,8 @@ def _execute_search(
         )
     return SearchExecutionResult(
         results=finalization.results,
+        query_ipa=query_ipa,
+        query_mode=query_mode,
         truncated=finalization.truncated,
     )
 

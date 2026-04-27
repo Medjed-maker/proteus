@@ -43,6 +43,13 @@ class TestSearchRequestLang:
         req = SearchRequest(**{"query": "ἄνθρωπος", "lang": "ja"})
 
         assert req.lang == "ja"
+        assert req.response_language == "ja"
+
+    def test_response_language_accepts_japanese(self) -> None:
+        req = SearchRequest(**{"query": "ἄνθρωπος", "response_language": "ja"})
+
+        assert req.response_language == "ja"
+        assert req.lang == "ja"
 
     def test_lang_accepts_english_explicit(self) -> None:
         req = SearchRequest(**{"query": "ἄνθρωπος", "lang": "en"})
@@ -57,13 +64,31 @@ class TestSearchRequestLang:
         req = SearchRequest(**{"query": "ἄνθρωπος", "language": "ja"})
 
         assert req.lang == "ja"
+        assert req.response_language == "ja"
         assert req.language == "ancient_greek"
+        assert req.legacy_language_alias_used is True
 
     def test_language_accepts_profile_id(self) -> None:
         req = SearchRequest(**{"query": "ἄνθρωπος", "language": "ancient_greek"})
 
         assert req.language == "ancient_greek"
         assert req.lang == "en"
+        assert req.legacy_language_alias_used is False
+
+    def test_language_alias_conflict_precedence(self) -> None:
+        # 1. response_language vs legacy language alias
+        req1 = SearchRequest(**{"query": "ἄνθρωπος", "language": "ja", "response_language": "en"})
+        assert req1.response_language == "en"
+        assert req1.lang == "en"
+        assert req1.language == "ancient_greek"
+        assert req1.legacy_language_alias_used is True
+
+        # 2. lang vs legacy language alias
+        req2 = SearchRequest(**{"query": "ἄνθρωπος", "language": "ja", "lang": "en"})
+        assert req2.response_language == "en"
+        assert req2.lang == "en"
+        assert req2.language == "ancient_greek"
+        assert req2.legacy_language_alias_used is True
 
     @pytest.mark.parametrize(
         ("value", "expected"),
@@ -374,6 +399,42 @@ class TestSearchEndpointI18n:
         client.post("/search", json={"query": "λόγος", "lang": "ja"})
 
         assert capture_lang.get("lang") == "ja"
+
+    def test_response_language_ja_is_forwarded_to_build_search_hit(
+        self, client: TestClient, capture_lang: dict[str, str]
+    ) -> None:
+        client.post("/search", json={"query": "λόγος", "response_language": "ja"})
+
+        assert capture_lang.get("lang") == "ja"
+
+    def test_legacy_language_locale_adds_deprecation_headers(
+        self, client: TestClient, capture_lang: dict[str, str]
+    ) -> None:
+        response = client.post("/search", json={"query": "λόγος", "language": "ja"})
+
+        assert response.status_code == 200
+        assert capture_lang.get("lang") == "ja"
+        assert response.headers["deprecation"] == "true"
+        assert "link" not in response.headers
+        assert "response_language" in response.headers["x-proteus-migration"]
+
+    def test_legacy_language_locale_adds_deprecation_link_when_docs_are_enabled(
+        self,
+        client: TestClient,
+        capture_lang: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        import api.main as api_main_module
+
+        monkeypatch.setattr(api_main_module.app, "docs_url", "/docs")
+
+        response = client.post("/search", json={"query": "λόγος", "language": "ja"})
+
+        assert response.status_code == 200
+        assert capture_lang.get("lang") == "ja"
+        assert response.headers["deprecation"] == "true"
+        assert response.headers["link"] == '<http://testserver/docs>; rel="deprecation"'
+        assert "response_language" in response.headers["x-proteus-migration"]
 
 
 # ---------------------------------------------------------------------------
