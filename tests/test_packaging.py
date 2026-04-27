@@ -23,14 +23,14 @@ from phonology import build_lexicon
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 EXPECTED_WHEEL_ASSETS = {
-    "phonology/data/lexicon/greek_lemmas.json",
-    "phonology/data/matrices/attic_doric.json",
-    "phonology/data/rules/ancient_greek/consonant_changes.yaml",
-    "phonology/data/rules/ancient_greek/buck/dialects.yaml",
-    "phonology/data/rules/ancient_greek/buck/glossary.yaml",
-    "phonology/data/rules/ancient_greek/buck/grammar_rules.yaml",
-    "phonology/data/rules/ancient_greek/morphophonemic_alternations.yaml",
-    "phonology/data/rules/ancient_greek/vowel_shifts.yaml",
+    "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json",
+    "phonology/data/languages/ancient_greek/matrices/attic_doric.json",
+    "phonology/data/languages/ancient_greek/rules/consonant_changes.yaml",
+    "phonology/data/languages/ancient_greek/rules/buck/dialects.yaml",
+    "phonology/data/languages/ancient_greek/rules/buck/glossary.yaml",
+    "phonology/data/languages/ancient_greek/rules/buck/grammar_rules.yaml",
+    "phonology/data/languages/ancient_greek/rules/morphophonemic_alternations.yaml",
+    "phonology/data/languages/ancient_greek/rules/vowel_shifts.yaml",
     "web/changelog.html",
     "web/index.html",
     "web/static/styles.css",
@@ -39,7 +39,7 @@ EXPECTED_WHEEL_ASSETS = {
 
 EXPECTED_BUCK_RULE_ASSETS = {
     asset for asset in EXPECTED_WHEEL_ASSETS
-    if asset.startswith("phonology/data/rules/ancient_greek/buck/")
+    if asset.startswith("phonology/data/languages/ancient_greek/rules/buck/")
 }
 
 
@@ -56,7 +56,7 @@ def _minimal_lexicon_document() -> dict[str, object]:
             "last_updated": "2026-03-29T00:00:00Z",
             "license": "CC-BY-SA 4.0",
             "contributors": ["Proteus maintainers"],
-            "data_schema_ref": "data/lexicon/greek_lemmas.schema.json",
+            "data_schema_ref": "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json",
             "description": "Packaging test fixture.",
             "note": "Generated during packaging tests.",
         },
@@ -182,9 +182,9 @@ def _copy_build_project(tmp_path: Path) -> Path:
     # Validate required directories exist
     required_dirs = [
         ROOT_DIR / "src",
-        ROOT_DIR / "data" / "lexicon",
-        ROOT_DIR / "data" / "matrices",
-        ROOT_DIR / "data" / "rules",
+        ROOT_DIR / "data" / "languages" / "ancient_greek" / "lexicon",
+        ROOT_DIR / "data" / "languages" / "ancient_greek" / "matrices",
+        ROOT_DIR / "data" / "languages" / "ancient_greek" / "rules",
         ROOT_DIR / "scripts",
     ]
     for dir_path in required_dirs:
@@ -208,9 +208,10 @@ def _copy_build_project(tmp_path: Path) -> Path:
 
     project_dir = tmp_path / "project"
     shutil.copytree(ROOT_DIR / "src", project_dir / "src")
-    shutil.copytree(ROOT_DIR / "data" / "lexicon", project_dir / "data" / "lexicon")
-    shutil.copytree(ROOT_DIR / "data" / "matrices", project_dir / "data" / "matrices")
-    shutil.copytree(ROOT_DIR / "data" / "rules", project_dir / "data" / "rules")
+    shutil.copytree(
+        ROOT_DIR / "data" / "languages",
+        project_dir / "data" / "languages",
+    )
     shutil.copytree(ROOT_DIR / "scripts", project_dir / "scripts")
     # Create minimal .git directory so build hooks detect a git repository
     (project_dir / ".git").mkdir()
@@ -314,11 +315,11 @@ def test_wheel_force_include_config_and_packaged_layout_support_runtime_loaders(
     pyproject = tomllib.loads((ROOT_DIR / "pyproject.toml").read_text(encoding="utf-8"))
     force_include = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
     assert force_include == {
-        "data/lexicon/greek_lemmas.json": "phonology/data/lexicon/greek_lemmas.json",
-        "data/lexicon/greek_lemmas.schema.json": "phonology/data/lexicon/greek_lemmas.schema.json",
-        "data/lexicon/pos_overrides.yaml": "phonology/data/lexicon/pos_overrides.yaml",
-        "data/matrices": "phonology/data/matrices",
-        "data/rules": "phonology/data/rules",
+        "data/languages/ancient_greek/lexicon/greek_lemmas.json": "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json",
+        "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json": "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.schema.json",
+        "data/languages/ancient_greek/lexicon/pos_overrides.yaml": "phonology/data/languages/ancient_greek/lexicon/pos_overrides.yaml",
+        "data/languages/ancient_greek/matrices": "phonology/data/languages/ancient_greek/matrices",
+        "data/languages/ancient_greek/rules": "phonology/data/languages/ancient_greek/rules",
         "src/web/index.html": "web/index.html",
         "src/web/changelog.html": "web/changelog.html",
         "src/web/static": "web/static",
@@ -337,7 +338,7 @@ def test_wheel_force_include_config_and_packaged_layout_support_runtime_loaders(
             destination_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source_path, destination_path)
 
-    lexicon_output = packaged_root / "phonology" / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_output = packaged_root / "phonology" / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     if not lexicon_output.is_file():
         lexicon_output.write_text(
             json.dumps(_minimal_lexicon_document(), ensure_ascii=False, indent=2) + "\n",
@@ -368,8 +369,8 @@ lexicon_entries = api_module.load_lexicon_entries()
 buck_data = buck_module.load_buck_data()
 matrix = distance_module.load_matrix("attic_doric.json")
 rules = explainer_module.load_rules("ancient_greek")
-legacy_matrix = distance_module.load_matrix("data/matrices/attic_doric.json")
-legacy_rules = explainer_module.load_rules("data/rules/ancient_greek")
+legacy_matrix = distance_module.load_matrix("data/languages/ancient_greek/matrices/attic_doric.json")
+legacy_rules = explainer_module.load_rules("data/languages/ancient_greek/rules")
 
 assert lexicon_entries
 assert any(entry.get("headword") == "ἄνθρωπος" for entry in lexicon_entries)
@@ -404,8 +405,8 @@ def test_sdist_force_include_config_bundles_generated_lexicon_and_metadata() -> 
 
     assert sdist_config["exclude"] == ["data/external/"]
     assert sdist_config["force-include"] == {
-        "data/lexicon/greek_lemmas.json": "data/lexicon/greek_lemmas.json",
-        "data/lexicon/greek_lemmas.meta.json": "data/lexicon/greek_lemmas.meta.json",
+        "data/languages/ancient_greek/lexicon/greek_lemmas.json": "data/languages/ancient_greek/lexicon/greek_lemmas.json",
+        "data/languages/ancient_greek/lexicon/greek_lemmas.meta.json": "data/languages/ancient_greek/lexicon/greek_lemmas.meta.json",
     }
     assert sdist_config["hooks"]["custom"]["path"] == "hatch_build.py"
 
@@ -491,16 +492,16 @@ def test_build_hook_skips_lexicon_generation_for_editable_builds(tmp_path: Path)
         hatch_build_module = _import_hatch_build_module()
         hook = hatch_build_module.build_hook.__new__(hatch_build_module.build_hook)
         hook.root = str(project_root)
-        matrices_source = str((project_root / "data" / "matrices").resolve())
+        matrices_source = str((project_root / "data" / "languages" / "ancient_greek" / "matrices").resolve())
         hook.build_config = type(
             "DummyBuildConfig",
             (),
             {
                 "get_force_include": staticmethod(
                     lambda: {
-                        str((project_root / "data" / "lexicon" / "greek_lemmas.json").resolve()):
-                        "phonology/data/lexicon/greek_lemmas.json",
-                        matrices_source: "phonology/data/matrices",
+                        str((project_root / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json").resolve()):
+                        "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json",
+                        matrices_source: "phonology/data/languages/ancient_greek/matrices",
                     }
                 )
             },
@@ -513,7 +514,7 @@ def test_build_hook_skips_lexicon_generation_for_editable_builds(tmp_path: Path)
         assert str(project_root / "src") not in sys.path
         assert build_data == {
             "force_include_editable": {
-                matrices_source: "phonology/data/matrices",
+                matrices_source: "phonology/data/languages/ancient_greek/matrices",
             }
         }
     finally:
@@ -535,7 +536,7 @@ def test_uv_build_generates_missing_lexicon_for_sdist(tmp_path: Path) -> None:
     project_dir = _copy_build_project(tmp_path)
     sdist_dir = tmp_path / "dist-sdist"
     sdist_dir.mkdir()
-    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_path = project_dir / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     metadata_path = _metadata_path_for_lexicon(lexicon_path)
 
     if lexicon_path.exists():
@@ -560,10 +561,10 @@ def test_uv_build_generates_missing_lexicon_for_sdist(tmp_path: Path) -> None:
     with tarfile.open(sdist_files[0]) as archive:
         names = archive.getnames()
         lexicon_members = [
-            name for name in names if name.endswith("data/lexicon/greek_lemmas.json")
+            name for name in names if name.endswith("data/languages/ancient_greek/lexicon/greek_lemmas.json")
         ]
         metadata_members = [
-            name for name in names if name.endswith("data/lexicon/greek_lemmas.meta.json")
+            name for name in names if name.endswith("data/languages/ancient_greek/lexicon/greek_lemmas.meta.json")
         ]
         assert lexicon_members, "sdist does not contain greek_lemmas.json"
         assert metadata_members, "sdist does not contain greek_lemmas.meta.json"
@@ -594,7 +595,7 @@ def test_uv_build_generates_missing_lexicon_for_wheel(tmp_path: Path) -> None:
     wheel_dir = tmp_path / "dist"
     wheel_dir.mkdir()
 
-    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_path = project_dir / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     if lexicon_path.exists():
         lexicon_path.unlink()
     _write_fake_lsj_checkout(project_dir)
@@ -616,10 +617,10 @@ def test_uv_build_generates_missing_lexicon_for_wheel(tmp_path: Path) -> None:
         asset_names = wheel_zip.namelist()
         for asset_path in EXPECTED_BUCK_RULE_ASSETS:
             assert asset_path in asset_names, f"Missing expected asset in wheel: {asset_path}"
-        assert "phonology/data/lexicon/greek_lemmas.json" in asset_names
-        assert "phonology/data/lexicon/greek_lemmas.meta.json" not in asset_names
+        assert "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json" in asset_names
+        assert "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.meta.json" not in asset_names
         lexicon_document = json.loads(
-            wheel_zip.read("phonology/data/lexicon/greek_lemmas.json").decode("utf-8")
+            wheel_zip.read("phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json").decode("utf-8")
         )
 
     assert any(entry.get("headword") == "ἄνθρωπος" for entry in lexicon_document["lemmas"])
@@ -631,7 +632,7 @@ def test_uv_build_replaces_stale_existing_lexicon_for_wheel(tmp_path: Path) -> N
     project_dir = _copy_build_project(tmp_path)
     wheel_dir = tmp_path / "dist-stale"
     wheel_dir.mkdir()
-    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_path = project_dir / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     metadata_path = _metadata_path_for_lexicon(lexicon_path)
     stale_document = _minimal_lexicon_document()
     stale_document["lemmas"] = [
@@ -679,10 +680,10 @@ def test_uv_build_replaces_stale_existing_lexicon_for_wheel(tmp_path: Path) -> N
 
     with zipfile.ZipFile(wheel_files[0]) as wheel_zip:
         lexicon_document = json.loads(
-            wheel_zip.read("phonology/data/lexicon/greek_lemmas.json").decode("utf-8")
+            wheel_zip.read("phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json").decode("utf-8")
         )
         wheel_headwords = {entry["headword"] for entry in lexicon_document["lemmas"]}
-        assert "phonology/data/lexicon/greek_lemmas.meta.json" not in wheel_zip.namelist()
+        assert "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.meta.json" not in wheel_zip.namelist()
 
     assert "ἄνθρωπος" in wheel_headwords
     assert "παλαιός" not in wheel_headwords
@@ -694,7 +695,7 @@ def test_uv_build_reuses_fresh_existing_lexicon_for_wheel(tmp_path: Path) -> Non
     project_dir = _copy_build_project(tmp_path)
     wheel_dir = tmp_path / "dist-fresh"
     wheel_dir.mkdir()
-    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_path = project_dir / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     xml_dir = (
         project_dir / "data" / "external" / "lsj" / "CTS_XML_TEI" / "perseus" / "pdllex" / "grc" / "lsj"
     )
@@ -737,10 +738,10 @@ def test_uv_build_reuses_fresh_existing_lexicon_for_wheel(tmp_path: Path) -> Non
 
     with zipfile.ZipFile(wheel_files[0]) as wheel_zip:
         lexicon_document = json.loads(
-            wheel_zip.read("phonology/data/lexicon/greek_lemmas.json").decode("utf-8")
+            wheel_zip.read("phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json").decode("utf-8")
         )
         wheel_headwords = {entry["headword"] for entry in lexicon_document["lemmas"]}
-        assert "phonology/data/lexicon/greek_lemmas.meta.json" not in wheel_zip.namelist()
+        assert "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.meta.json" not in wheel_zip.namelist()
 
     assert "ἕτοιμος" in wheel_headwords
     assert "ἄνθρωπος" not in wheel_headwords
@@ -754,7 +755,7 @@ def test_uv_build_reuses_fresh_existing_lexicon_without_git_or_lsj_checkout(
     project_dir = _copy_build_project(tmp_path)
     wheel_dir = tmp_path / "dist-fresh-offline"
     wheel_dir.mkdir()
-    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_path = project_dir / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     xml_dir = build_lexicon.default_xml_dir(project_dir)
     fake_bin_dir = tmp_path / "fake-bin"
     fake_bin_dir.mkdir()
@@ -804,9 +805,9 @@ def test_uv_build_reuses_fresh_existing_lexicon_without_git_or_lsj_checkout(
 
     with zipfile.ZipFile(wheel_files[0]) as wheel_zip:
         lexicon_document = json.loads(
-            wheel_zip.read("phonology/data/lexicon/greek_lemmas.json").decode("utf-8")
+            wheel_zip.read("phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json").decode("utf-8")
         )
-        assert "phonology/data/lexicon/greek_lemmas.meta.json" not in wheel_zip.namelist()
+        assert "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.meta.json" not in wheel_zip.namelist()
         wheel_headwords = {entry["headword"] for entry in lexicon_document["lemmas"]}
 
     assert "ἕτοιμος" in wheel_headwords
@@ -821,7 +822,7 @@ def test_uv_build_env_override_regenerates_instead_of_reusing_offline_shortcut(
     project_dir = _copy_build_project(tmp_path)
     wheel_dir = tmp_path / "dist-env-override"
     wheel_dir.mkdir()
-    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_path = project_dir / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     default_xml_dir = build_lexicon.default_xml_dir(project_dir)
     override_repo_dir = tmp_path / "override-lsj"
 
@@ -873,7 +874,7 @@ def test_uv_build_env_override_regenerates_instead_of_reusing_offline_shortcut(
 
     with zipfile.ZipFile(wheel_files[0]) as wheel_zip:
         lexicon_document = json.loads(
-            wheel_zip.read("phonology/data/lexicon/greek_lemmas.json").decode("utf-8")
+            wheel_zip.read("phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json").decode("utf-8")
         )
         wheel_headwords = {entry["headword"] for entry in lexicon_document["lemmas"]}
 
@@ -896,7 +897,7 @@ def test_uv_build_wheel_from_extracted_sdist_reuses_packaged_lexicon_offline(
     extracted_dir.mkdir()
     fake_bin_dir.mkdir()
 
-    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_path = project_dir / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     metadata_path = _metadata_path_for_lexicon(lexicon_path)
     if lexicon_path.exists():
         lexicon_path.unlink()
@@ -944,9 +945,9 @@ def test_uv_build_wheel_from_extracted_sdist_reuses_packaged_lexicon_offline(
 
     with zipfile.ZipFile(wheel_files[0]) as wheel_zip:
         lexicon_document = json.loads(
-            wheel_zip.read("phonology/data/lexicon/greek_lemmas.json").decode("utf-8")
+            wheel_zip.read("phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json").decode("utf-8")
         )
-        assert "phonology/data/lexicon/greek_lemmas.meta.json" not in wheel_zip.namelist()
+        assert "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.meta.json" not in wheel_zip.namelist()
 
     assert any(entry.get("headword") == "ἄνθρωπος" for entry in lexicon_document["lemmas"])
 
@@ -959,7 +960,7 @@ def test_uv_build_regenerates_invalid_existing_lexicon_when_local_checkout_exist
     project_dir = _copy_build_project(tmp_path)
     wheel_dir = tmp_path / "dist-invalid-regenerated"
     wheel_dir.mkdir()
-    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_path = project_dir / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     xml_dir = (
         project_dir / "data" / "external" / "lsj" / "CTS_XML_TEI" / "perseus" / "pdllex" / "grc" / "lsj"
     )
@@ -987,7 +988,7 @@ def test_uv_build_regenerates_invalid_existing_lexicon_when_local_checkout_exist
 
     with zipfile.ZipFile(wheel_files[0]) as wheel_zip:
         lexicon_document = json.loads(
-            wheel_zip.read("phonology/data/lexicon/greek_lemmas.json").decode("utf-8")
+            wheel_zip.read("phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json").decode("utf-8")
         )
         wheel_headwords = {entry["headword"] for entry in lexicon_document["lemmas"]}
 
@@ -1002,7 +1003,7 @@ def test_uv_build_fails_when_existing_lexicon_is_invalid_and_no_checkout_exists(
     project_dir = _copy_build_project(tmp_path)
     wheel_dir = tmp_path / "dist-invalid-no-checkout"
     wheel_dir.mkdir()
-    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_path = project_dir / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     xml_dir = build_lexicon.default_xml_dir(project_dir)
 
     _write_fake_lsj_checkout(project_dir)
@@ -1024,7 +1025,7 @@ def test_uv_build_fails_when_existing_lexicon_is_invalid_and_no_checkout_exists(
     )
 
     _assert_uv_build_failed_with_message_or_skip(result, "build-time cloning is disabled")
-    assert "data/lexicon/greek_lemmas.json" in result.stderr
+    assert "data/languages/ancient_greek/lexicon/greek_lemmas.json" in result.stderr
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv CLI not available")
@@ -1033,7 +1034,7 @@ def test_uv_build_fails_without_lexicon_or_local_lsj_checkout(tmp_path: Path) ->
     project_dir = _copy_build_project(tmp_path)
     wheel_dir = tmp_path / "dist-missing-inputs"
     wheel_dir.mkdir()
-    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_path = project_dir / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     metadata_path = _metadata_path_for_lexicon(lexicon_path)
 
     if lexicon_path.exists():
@@ -1051,7 +1052,7 @@ def test_uv_build_fails_without_lexicon_or_local_lsj_checkout(tmp_path: Path) ->
     )
 
     _assert_uv_build_failed_with_message_or_skip(result, "build-time cloning is disabled")
-    assert "data/lexicon/greek_lemmas.json" in result.stderr
+    assert "data/languages/ancient_greek/lexicon/greek_lemmas.json" in result.stderr
     assert "--xml-dir" in result.stderr
     assert "--lsj-repo-dir" in result.stderr
     assert build_lexicon.LSJ_REPO_DIR_ENV_VAR in result.stderr
@@ -1063,7 +1064,7 @@ def test_uv_sync_succeeds_without_lexicon_or_lsj_checkout_for_editable_builds(
 ) -> None:
     """Verify editable installs succeed before lexicon generation, but search stays unready."""
     project_dir = _copy_build_project(tmp_path)
-    lexicon_path = project_dir / "data" / "lexicon" / "greek_lemmas.json"
+    lexicon_path = project_dir / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     metadata_path = _metadata_path_for_lexicon(lexicon_path)
 
     if lexicon_path.exists():
@@ -1160,8 +1161,8 @@ def test_ci_workflow_caches_lexicon_json_and_metadata_together() -> None:
     assert cache_step is not None, "expected a 'Cache generated lexicon' step in CI workflow"
     cache_path = cache_step["with"]["path"]
 
-    assert "data/lexicon/greek_lemmas.json" in cache_path
-    assert "data/lexicon/greek_lemmas.meta.json" in cache_path
+    assert "data/languages/ancient_greek/lexicon/greek_lemmas.json" in cache_path
+    assert "data/languages/ancient_greek/lexicon/greek_lemmas.meta.json" in cache_path
 
 
 def _create_fake_binary(path: Path, script_body: str) -> None:

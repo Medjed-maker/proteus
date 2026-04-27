@@ -23,11 +23,15 @@ PartialQueryShape: TypeAlias = Literal["prefix", "suffix", "infix"]
 
 
 class LexiconRecord(NamedTuple):
-    """A lexicon entry paired with its cached IPA tokens and count."""
+    """A lexicon entry paired with token metadata.
+
+    ``ipa_tokens=None`` means tokens have not been cached and should be
+    resolved from the entry IPA on demand.
+    """
 
     entry: LexiconEntry
     token_count: int
-    ipa_tokens: tuple[str, ...] = ()
+    ipa_tokens: tuple[str, ...] | None = None
 
 
 LexiconMap: TypeAlias = dict[str, LexiconRecord]

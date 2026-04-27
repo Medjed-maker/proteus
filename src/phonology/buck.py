@@ -50,7 +50,10 @@ def _get_buck_rules_dir() -> Path:
     )
     if override_path is not None:
         return override_path
-    return resolve_repo_data_dir("rules") / "ancient_greek" / "buck"
+    rules_dir = resolve_repo_data_dir("rules")
+    if (rules_dir / "buck").is_dir():
+        return rules_dir / "buck"
+    return rules_dir / "ancient_greek" / "buck"
 
 
 def _load_yaml_mapping(path: Path, *, required_list_key: str) -> dict[str, Any]:
@@ -58,9 +61,7 @@ def _load_yaml_mapping(path: Path, *, required_list_key: str) -> dict[str, Any]:
     try:
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
-        raise ValueError(
-            f"Failed to parse YAML file {path}: {exc}"
-        ) from exc
+        raise ValueError(f"Failed to parse YAML file {path}: {exc}") from exc
     if not isinstance(document, dict):
         raise ValueError(f"Buck data file {path} must contain a top-level mapping")
     raw_items = document.get(required_list_key)
@@ -80,7 +81,9 @@ def _validate_grammar_rules(document: dict[str, Any], path: Path) -> set[str]:
             raise ValueError(f"Buck rule entry {index} in {path} must be a mapping")
         rule_id = raw_rule.get("id")
         if not isinstance(rule_id, str) or not rule_id.strip():
-            raise ValueError(f"Buck rule entry {index} in {path} must define a non-empty id")
+            raise ValueError(
+                f"Buck rule entry {index} in {path} must define a non-empty id"
+            )
         if rule_id in rule_ids:
             raise ValueError(f"Duplicate Buck rule id {rule_id!r} found in {path}")
         rule_ids.add(rule_id)
@@ -90,7 +93,9 @@ def _validate_grammar_rules(document: dict[str, Any], path: Path) -> set[str]:
 def _validate_dialects(document: dict[str, Any], path: Path) -> set[str]:
     """Validate Buck dialect catalog and return the discovered dialect ids."""
     if "rules" in document:
-        raise ValueError(f"Buck dialect catalog {path} must not define a top-level 'rules' key")
+        raise ValueError(
+            f"Buck dialect catalog {path} must not define a top-level 'rules' key"
+        )
 
     raw_dialects = document["dialects"]
     dialect_ids: set[str] = set()
@@ -99,9 +104,13 @@ def _validate_dialects(document: dict[str, Any], path: Path) -> set[str]:
             raise ValueError(f"Buck dialect entry {index} in {path} must be a mapping")
         dialect_id = raw_dialect.get("id")
         if not isinstance(dialect_id, str) or not dialect_id.strip():
-            raise ValueError(f"Buck dialect entry {index} in {path} must define a non-empty id")
+            raise ValueError(
+                f"Buck dialect entry {index} in {path} must define a non-empty id"
+            )
         if dialect_id in dialect_ids:
-            raise ValueError(f"Duplicate Buck dialect id {dialect_id!r} found in {path}")
+            raise ValueError(
+                f"Duplicate Buck dialect id {dialect_id!r} found in {path}"
+            )
         raw_rules = raw_dialect.get("rules", [])
         if not isinstance(raw_rules, list):
             raise ValueError(
@@ -136,7 +145,9 @@ def _validate_rule_refs(
 
     for index, raw_word in enumerate(glossary_document["words"]):
         if not isinstance(raw_word, dict):
-            raise ValueError(f"Buck glossary entry {index} in {paths.glossary} must be a mapping")
+            raise ValueError(
+                f"Buck glossary entry {index} in {paths.glossary} must be a mapping"
+            )
         dialect_id = raw_word.get("dialect")
         if not isinstance(dialect_id, str) or not dialect_id.strip():
             raise ValueError(

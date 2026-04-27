@@ -12,7 +12,7 @@ from tools import validate_matrix as validate_matrix_tool
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-COMMITTED_MATRIX_PATH = ROOT_DIR / "data" / "matrices" / "attic_doric.json"
+COMMITTED_MATRIX_PATH = ROOT_DIR / "data" / "languages" / "ancient_greek" / "matrices" / "attic_doric.json"
 
 
 def _valid_matrix_document() -> dict[str, object]:

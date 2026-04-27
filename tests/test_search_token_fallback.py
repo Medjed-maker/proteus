@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from typing import Any
 
 import pytest
 
@@ -57,6 +58,7 @@ def _make_fake_score_stage(
         candidates: Iterable[str],
         lexicon_map: dict[str, object],
         matrix: object,
+        **_kwargs: Any,
     ) -> list[SearchResult]:
         candidate_ids = list(candidates)
         captured["candidate_ids"] = candidate_ids
@@ -107,6 +109,7 @@ class TestSearchTokenFallback:
             *,
             max_candidates: int | None = None,
             query_token_count: int | None = None,
+            **_kwargs: Any,
         ) -> list[str]:
             captured["query_ipa"] = query_ipa
             captured["lexicon_lookup"] = lexicon_map
@@ -178,6 +181,7 @@ class TestSearchTokenFallback:
             *,
             max_results: int,
             explicit_limit: int,
+            **_kwargs: Any,
         ) -> list[str]:
             captured["partial_query"] = partial_query_arg
             captured["query_ipa"] = query_ipa
@@ -265,7 +269,7 @@ class TestSearchTokenFallback:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
         monkeypatch.setattr(
             search_module, "filter_stage", lambda results, max_results: results[:max_results]
@@ -379,7 +383,7 @@ class TestSearchTokenFallback:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
         monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
 
@@ -422,7 +426,7 @@ class TestSearchTokenFallback:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
         monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
 
@@ -475,7 +479,7 @@ class TestSearchTokenFallback:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
         monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
 

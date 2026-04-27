@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import replace
 from functools import lru_cache
 import heapq
 import logging
+from pathlib import Path
 import time
 from typing import Any, NamedTuple, Protocol
 
@@ -21,25 +22,26 @@ from ..explainer import (
     load_rules,
     tokenize_rules_for_matching,
 )
-from ..ipa_converter import to_ipa, tokenize_ipa
+from .._paths import DEFAULT_LANGUAGE_ID
+from ..ipa_converter import to_ipa, tokenize_ipa  # noqa: F401 (tokenize_ipa: test monkeypatch seam)
+from ..profiles import get_default_language_profile, get_language_profile
 from ._constants import (
     _annotation_candidate_limit,
     _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
     _DEFAULT_KMER_SIZE,
     _LENGTH_PROXIMATE_LIMIT_MULTIPLIER,
-    _MIN_PARTIAL_STAGE2_CANDIDATES,
+    _MIN_PARTIAL_STAGE2_CANDIDATES,  # noqa: F401 (test access via search_module)
     _MIN_STAGE2_CANDIDATES,
-    _partial_candidate_limit,
-    _PARTIAL_QUERY_CONFIDENCE_THRESHOLD,
+    _partial_candidate_limit,  # noqa: F401 (test access via search_module)
+    _PARTIAL_QUERY_CONFIDENCE_THRESHOLD,  # noqa: F401 (test access via search_module)
     _SEED_MULTIPLIER,
-    _SHORT_QUERY_CONFIDENCE_THRESHOLD,
+    _SHORT_QUERY_CONFIDENCE_THRESHOLD,  # noqa: F401 (test access via search_module)
     OBSERVED_PREFIX,
 )
 from ._lookup import (
     _build_entry_lookup,
     _entry_ipa,
     _inject_exact_ipa_matches,
-    _lemma_label,
     _lookup_entry,
     _normalize_ipa_lookup_key,
     build_ipa_index,
@@ -56,17 +58,14 @@ from ._annotation import (
 )
 from ._scoring import (
     _apply_rule_markers,
-    _normalized_confidence,
     _score_stage,
     _smith_waterman_alignment,
-    _substitution_score,
 )
 from ._overlap import (
     _merge_bounded_candidate_ids,
-    _token_count_proximity_key,
 )
 from ._partial import (
-    _match_partial_query,
+    _match_partial_query,  # noqa: F401 (test access via search_module)
     _select_partial_fallback_candidates,
     _select_partial_seed_candidates,
 )
@@ -98,12 +97,12 @@ from ._query import (
     normalize_query_for_search,
     prepare_query,
 )
+from ._tokenization import resolve_entry_tokens, tokenize_for_inventory
 from ._types import (
     DistanceMatrix,
     KmerIndex,
     LexiconEntry,
     LexiconLookup,
-    LexiconLookupValue,
     LexiconMap,
     LexiconRecord,
     PartialQueryPattern,
@@ -115,6 +114,77 @@ from ._types import (
 )
 
 logger = logging.getLogger(__name__)
+_TOKENIZED_RULES_CACHE_MAXSIZE = 64
+
+
+def _phone_inventory_key(
+    phone_inventory: Iterable[str] | None,
+) -> tuple[str, ...] | None:
+    """Return a stable normalized cache key for an optional phone inventory."""
+    if phone_inventory is None:
+        return None
+    # Materialize iterable once and canonicalize order for cache reuse while
+    # preserving the tokenizer's longest-phone-first matching semantics.
+    return tuple(
+        sorted(
+            {str(phone) for phone in phone_inventory},
+            key=lambda phone: (-len(phone), phone),
+        )
+    )
+
+
+def _with_optional_phone_inventory(
+    kwargs: dict[str, Any],
+    phone_inventory: Iterable[str] | None,
+) -> dict[str, Any]:
+    """Add ``phone_inventory`` only when callers requested custom tokenization."""
+    updated_kwargs = dict(kwargs)
+    if phone_inventory is not None:
+        updated_kwargs["phone_inventory"] = phone_inventory
+    return updated_kwargs
+
+
+def _build_kmer_index_for_inventory(
+    lexicon: Sequence[LexiconEntry],
+    *,
+    k: int,
+    phone_inventory: Iterable[str] | None,
+    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
+) -> KmerIndex:
+    """Call k-mer builder, forwarding phone inventory and dialect skeleton builders."""
+    return build_kmer_index(
+        lexicon,
+        **_with_optional_phone_inventory({"k": k}, phone_inventory),
+        dialect_skeleton_builders=dialect_skeleton_builders,
+    )
+
+
+def _build_lexicon_map_for_inventory(
+    lexicon: Sequence[LexiconEntry],
+    *,
+    phone_inventory: Iterable[str] | None,
+) -> LexiconMap:
+    """Call lexicon-map builder without custom-inventory kwargs on the default path."""
+    return build_lexicon_map(
+        lexicon,
+        **_with_optional_phone_inventory({}, phone_inventory),
+    )
+
+
+def _seed_stage_for_inventory(
+    query_ipa: str,
+    index: KmerIndex,
+    *,
+    k: int,
+    phone_inventory: Iterable[str] | None,
+) -> list[str]:
+    """Call seed stage without custom-inventory kwargs on the default path."""
+    return seed_stage(
+        query_ipa,
+        index,
+        **_with_optional_phone_inventory({"k": k}, phone_inventory),
+    )
+
 
 # Private tuning attributes remain available for internal tests but are
 # intentionally excluded from the public star-import surface.
@@ -192,10 +262,15 @@ class _LazySearchDependencies:
         lexicon: Sequence[LexiconEntry],
         prebuilt_lexicon_map: LexiconMap | None,
         prebuilt_ipa_index: IpaIndex | None,
+        phone_inventory: Iterable[str] | None = None,
+        dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]]
+        | None = None,
     ) -> None:
         self._lexicon = lexicon
         self._lexicon_map = prebuilt_lexicon_map
         self._prebuilt_ipa_index = prebuilt_ipa_index
+        self._phone_inventory = phone_inventory
+        self._dialect_skeleton_builders = dialect_skeleton_builders
         self._entry_lookup: dict[str, LexiconEntry] | None = None
         self._ipa_index: IpaIndex | None = None
 
@@ -214,7 +289,10 @@ class _LazySearchDependencies:
     def tokenized_lexicon_map(self) -> LexiconMap:
         """Return the tokenized lexicon map, building it only when needed."""
         if self._lexicon_map is None:
-            self._lexicon_map = build_lexicon_map(self._lexicon)
+            self._lexicon_map = _build_lexicon_map_for_inventory(
+                self._lexicon,
+                phone_inventory=self._phone_inventory,
+            )
         return self._lexicon_map
 
     def ipa_index(self) -> IpaIndex:
@@ -224,6 +302,18 @@ class _LazySearchDependencies:
         if self._ipa_index is None:
             self._ipa_index = build_ipa_index(self.lexicon_lookup())
         return self._ipa_index
+
+    @property
+    def phone_inventory(self) -> Iterable[str] | None:
+        """Return the optional phone inventory shared by this search."""
+        return self._phone_inventory
+
+    @property
+    def dialect_skeleton_builders(
+        self,
+    ) -> Iterable[Callable[[list[str]], list[str]]] | None:
+        """Return the optional dialect skeleton builders shared by this search."""
+        return self._dialect_skeleton_builders
 
 
 def _validate_search_arguments(
@@ -286,18 +376,6 @@ def _resolve_fallback_limits(
     )
 
 
-def _lookup_entry_tokens(record_or_entry: LexiconLookupValue) -> tuple[str, ...]:
-    """Return cached IPA tokens when available, tokenizing only as a fallback.
-
-    Stays in this module (not ``_lookup``) because tests monkeypatch
-    ``search_module.tokenize_ipa`` and bare-name resolution only picks up
-    the patched value in the module where the call is defined.
-    """
-    if isinstance(record_or_entry, LexiconRecord) and len(record_or_entry.ipa_tokens) > 0:
-        return record_or_entry.ipa_tokens
-    return tuple(tokenize_ipa(_entry_ipa(_lookup_entry(record_or_entry))))
-
-
 def _inject_length_proximate_candidates(
     *,
     query_token_count: int,
@@ -306,6 +384,7 @@ def _inject_length_proximate_candidates(
     lexicon_lookup: LexiconLookup,
     limit: int,
     max_delta: int = 2,
+    phone_inventory: Iterable[str] | None = None,
 ) -> list[str]:
     """Append seed candidates whose IPA token count is close to the query's.
 
@@ -330,7 +409,12 @@ def _inject_length_proximate_candidates(
         if isinstance(record_or_entry, LexiconRecord):
             token_count = record_or_entry.token_count
         else:
-            token_count = len(_lookup_entry_tokens(record_or_entry))
+            token_count = len(
+                resolve_entry_tokens(
+                    record_or_entry,
+                    phone_inventory=phone_inventory,
+                )
+            )
         if abs(token_count - query_token_count) > max_delta:
             continue
 
@@ -360,18 +444,28 @@ def _select_seeded_candidates(
     """Select stage-2 candidates when the primary k=2 seed stage has hits."""
     if query_mode == "Partial-form":
         if partial_query_tokens is None:
-            raise ValueError("partial_query_tokens must not be None when query_mode == 'Partial-form'")
+            raise ValueError(
+                "partial_query_tokens must not be None when query_mode == 'Partial-form'"
+            )
         tokenized_map = dependencies.tokenized_lexicon_map()
         partial_candidate_window = _annotation_candidate_limit(max_results)
         supplemental_unigram_candidates: list[str] = []
         if query_skeleton:
             fallback_unigram_index = (
-                unigram_index if unigram_index is not None else build_kmer_index(lexicon, k=1)
+                unigram_index
+                if unigram_index is not None
+                else _build_kmer_index_for_inventory(
+                    lexicon,
+                    k=1,
+                    phone_inventory=dependencies.phone_inventory,
+                    dialect_skeleton_builders=dependencies.dialect_skeleton_builders,
+                )
             )
-            supplemental_unigram_candidates = seed_stage(
+            supplemental_unigram_candidates = _seed_stage_for_inventory(
                 query_ipa,
                 fallback_unigram_index,
                 k=1,
+                phone_inventory=dependencies.phone_inventory,
             )
         partial_candidates = _merge_bounded_candidate_ids(
             seed_candidates,
@@ -409,8 +503,7 @@ def _select_seeded_candidates(
     ipa_index_lookup = dependencies.ipa_index()
     normalized_query_ipa = _normalize_ipa_lookup_key(query_ipa)
     has_exact_ipa_match = (
-        query_mode == "Full-form"
-        and normalized_query_ipa in ipa_index_lookup
+        query_mode == "Full-form" and normalized_query_ipa in ipa_index_lookup
     )
     candidate_ids = _inject_exact_ipa_matches(
         query_ipa,
@@ -426,6 +519,7 @@ def _select_seeded_candidates(
             candidate_ids=candidate_ids,
             lexicon_lookup=lexicon_lookup,
             limit=stage2_limit * _LENGTH_PROXIMATE_LIMIT_MULTIPLIER,
+            phone_inventory=dependencies.phone_inventory,
         )
 
     logger.info(
@@ -462,7 +556,9 @@ def _select_unigram_fallback_candidates(
     """Select stage-2 candidates from k=1 fallback hits."""
     if query_mode == "Partial-form":
         if partial_query_tokens is None:
-            raise ValueError("partial_query_tokens must not be None for Partial-form query")
+            raise ValueError(
+                "partial_query_tokens must not be None for Partial-form query"
+            )
         tokenized_map = dependencies.tokenized_lexicon_map()
         ranked_candidates = _rank_by_token_count_proximity(
             query_ipa,
@@ -471,8 +567,13 @@ def _select_unigram_fallback_candidates(
                 for entry_id in unigram_candidates
                 if entry_id in tokenized_map
             },
-            max_candidates=effective_unigram_fallback_limit,
-            query_token_count=len(query_tokens),
+            **_with_optional_phone_inventory(
+                {
+                    "max_candidates": effective_unigram_fallback_limit,
+                    "query_token_count": len(query_tokens),
+                },
+                dependencies.phone_inventory,
+            ),
         )
         # Partial-form follow-up work is always narrowed again inside
         # _select_partial_fallback_candidates().
@@ -505,9 +606,7 @@ def _select_unigram_fallback_candidates(
     tokenized_map = dependencies.tokenized_lexicon_map()
     missing_unigram_candidates = list(
         dict.fromkeys(
-            entry_id
-            for entry_id in unigram_candidates
-            if entry_id not in tokenized_map
+            entry_id for entry_id in unigram_candidates if entry_id not in tokenized_map
         )
     )
     if missing_unigram_candidates:
@@ -531,8 +630,13 @@ def _select_unigram_fallback_candidates(
     candidate_ids = _rank_by_token_count_proximity(
         query_ipa,
         unigram_candidate_map,
-        max_candidates=effective_unigram_fallback_limit,
-        query_token_count=len(query_tokens),
+        **_with_optional_phone_inventory(
+            {
+                "max_candidates": effective_unigram_fallback_limit,
+                "query_token_count": len(query_tokens),
+            },
+            dependencies.phone_inventory,
+        ),
     )
     logger.info(
         "k=2 seed empty for query %s; capped k=1 fallback evaluating %d of %d "
@@ -568,14 +672,21 @@ def _select_token_proximity_fallback_candidates(
     tokenized_map = dependencies.tokenized_lexicon_map()
     if query_mode == "Partial-form":
         if partial_query_tokens is None:
-            raise ValueError("partial_query_tokens must not be None for Partial-form query")
+            raise ValueError(
+                "partial_query_tokens must not be None for Partial-form query"
+            )
         candidate_ids = _select_partial_token_fallback_candidates(
             partial_query_tokens,
             query_ipa,
             len(query_tokens),
             tokenized_map,
-            max_results=max_results,
-            explicit_limit=effective_similarity_fallback_limit,
+            **_with_optional_phone_inventory(
+                {
+                    "max_results": max_results,
+                    "explicit_limit": effective_similarity_fallback_limit,
+                },
+                dependencies.phone_inventory,
+            ),
         )
         logger.info(
             "k=2 and k=1 seeds empty for query %s; partial token fallback "
@@ -590,8 +701,13 @@ def _select_token_proximity_fallback_candidates(
         candidate_ids = _rank_by_token_count_proximity(
             query_ipa,
             tokenized_map,
-            max_candidates=effective_similarity_fallback_limit,
-            query_token_count=len(query_tokens),
+            **_with_optional_phone_inventory(
+                {
+                    "max_candidates": effective_similarity_fallback_limit,
+                    "query_token_count": len(query_tokens),
+                },
+                dependencies.phone_inventory,
+            ),
         )
         logger.info(
             "k=2 and k=1 seeds empty for query %s; capped fallback evaluating %d of %d candidates "
@@ -614,7 +730,11 @@ def _select_token_proximity_fallback_candidates(
     )
 
 
-def build_lexicon_map(lexicon: Sequence[LexiconEntry]) -> LexiconMap:
+def build_lexicon_map(
+    lexicon: Sequence[LexiconEntry],
+    *,
+    phone_inventory: Iterable[str] | None = None,
+) -> LexiconMap:
     """Build a lexicon map with cached IPA token counts for each entry.
 
     Stays in this module (not ``_lookup``) because tests monkeypatch
@@ -632,7 +752,7 @@ def build_lexicon_map(lexicon: Sequence[LexiconEntry]) -> LexiconMap:
     """
     result: LexiconMap = {}
     for entry_id, entry in _build_entry_lookup(lexicon).items():
-        ipa_tokens = tuple(tokenize_ipa(_entry_ipa(entry)))
+        ipa_tokens = tuple(tokenize_for_inventory(_entry_ipa(entry), phone_inventory))
         result[entry_id] = LexiconRecord(
             entry=entry,
             token_count=len(ipa_tokens),
@@ -667,6 +787,7 @@ def _tokenize_partial_query(
     *,
     dialect: str,
     converter: IpaConverter | None = None,
+    phone_inventory: Iterable[str] | None = None,
     converted_fragments: tuple[str, str] | None = None,
 ) -> PartialQueryTokens:
     """Convert partial-query fragments into IPA token sequences."""
@@ -681,8 +802,12 @@ def _tokenize_partial_query(
     )
     return PartialQueryTokens(
         shape=partial_query.shape,
-        left_tokens=tuple(tokenize_ipa(left_ipa)) if left_ipa else (),
-        right_tokens=tuple(tokenize_ipa(right_ipa)) if right_ipa else (),
+        left_tokens=tuple(tokenize_for_inventory(left_ipa, phone_inventory))
+        if left_ipa
+        else (),
+        right_tokens=tuple(tokenize_for_inventory(right_ipa, phone_inventory))
+        if right_ipa
+        else (),
     )
 
 
@@ -706,6 +831,7 @@ def prepare_query_ipa(
     *,
     dialect: str = "attic",
     converter: IpaConverter | None = None,
+    phone_inventory: Iterable[str] | None = None,
     query_ipa: str | None = None,
 ) -> PreparedQueryIpa:
     """Classify, normalize, and convert a query without crossing wildcard gaps.
@@ -750,7 +876,9 @@ def prepare_query_ipa(
 
     partial_query = _parse_partial_query(query)
     query_mode: QueryMode = (
-        "Partial-form" if partial_query is not None else _classify_non_partial_query(query)
+        "Partial-form"
+        if partial_query is not None
+        else _classify_non_partial_query(query)
     )
     normalized_query = _normalize_query_with_pattern(query, partial_query)
     if not normalized_query.strip():
@@ -770,6 +898,7 @@ def prepare_query_ipa(
             partial_query_tokens = _tokenize_partial_query(
                 partial_query,
                 dialect=dialect,
+                phone_inventory=phone_inventory,
                 converted_fragments=converted_fragments,
             )
             query_ipa = _partial_query_ipa_from_fragments(
@@ -781,6 +910,7 @@ def prepare_query_ipa(
             partial_query,
             dialect=dialect,
             converter=ipa_converter,
+            phone_inventory=phone_inventory,
         )
 
     return PreparedQueryIpa(
@@ -798,6 +928,7 @@ def _rank_by_token_count_proximity(
     *,
     max_candidates: int,
     query_token_count: int | None = None,
+    phone_inventory: Iterable[str] | None = None,
 ) -> list[str]:
     """Rank candidates whose IPA token count is closest to the query's.
 
@@ -814,7 +945,7 @@ def _rank_by_token_count_proximity(
 
     query_length = query_token_count
     if query_length is None:
-        query_length = len(tokenize_ipa(query_ipa))
+        query_length = len(tokenize_for_inventory(query_ipa, phone_inventory))
 
     def _sort_key(item: tuple[str, LexiconRecord]) -> tuple[int, bool, str]:
         entry_id, record = item
@@ -828,10 +959,6 @@ def _rank_by_token_count_proximity(
     return [entry_id for entry_id, _ in top]
 
 
-
-
-
-
 def _select_partial_token_fallback_candidates(
     partial_query: PartialQueryTokens,
     query_ipa: str,
@@ -840,6 +967,7 @@ def _select_partial_token_fallback_candidates(
     *,
     max_results: int,
     explicit_limit: int,
+    phone_inventory: Iterable[str] | None = None,
 ) -> list[str]:
     """Select bounded partial-form token fallback candidates.
 
@@ -851,8 +979,13 @@ def _select_partial_token_fallback_candidates(
     ranked_candidates = _rank_by_token_count_proximity(
         query_ipa,
         lexicon_map,
-        max_candidates=explicit_limit,
-        query_token_count=query_token_count,
+        **_with_optional_phone_inventory(
+            {
+                "max_candidates": explicit_limit,
+                "query_token_count": query_token_count,
+            },
+            phone_inventory,
+        ),
     )
     return _select_partial_fallback_candidates(
         partial_query,
@@ -863,14 +996,12 @@ def _select_partial_token_fallback_candidates(
     )
 
 
-
-
-
-
 def seed_stage(
     query_ipa: str,
     index: KmerIndex,
     k: int = _DEFAULT_KMER_SIZE,
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> list[str]:
     """Stage 1: rank candidate ids by shared consonant-skeleton k-mers.
 
@@ -888,7 +1019,9 @@ def seed_stage(
     if k <= 0:
         raise ValueError(f"seed_stage requires k > 0 for k-mer size, got {k}")
 
-    query_skeleton = _extract_consonant_skeleton(tokenize_ipa(query_ipa))
+    query_skeleton = _extract_consonant_skeleton(
+        tokenize_for_inventory(query_ipa, phone_inventory)
+    )
     query_kmers = _iter_kmers(query_skeleton, k)
     if not query_kmers:
         return []
@@ -900,12 +1033,21 @@ def seed_stage(
 
     return [
         candidate_id
-        for candidate_id, _ in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        for candidate_id, _ in sorted(
+            counts.items(), key=lambda item: (-item[1], item[0])
+        )
     ]
 
 
 @lru_cache(maxsize=8)
-def get_rules_registry(language: str = "ancient_greek") -> dict[str, dict[str, Any]]:
+def _load_rules_cached(rules_source: str | Path) -> dict[str, dict[str, Any]]:
+    """Inner cached function that loads rules from a canonical source."""
+    return load_rules(rules_source)
+
+
+def get_rules_registry(
+    language: str | Path = "ancient_greek",
+) -> dict[str, dict[str, Any]]:
     """Load the packaged rule registry for the specified language.
 
     Loads packaged phonological rules via ``load_rules`` and caches the result
@@ -914,7 +1056,9 @@ def get_rules_registry(language: str = "ancient_greek") -> dict[str, dict[str, A
 
     Args:
         language: The language identifier for which to load rules.
-            Defaults to "ancient_greek".
+            Defaults to "ancient_greek". If the normalized string matches
+            ``DEFAULT_LANGUAGE_ID``, the default language profile's rules
+            directory is used as a fallback rules source.
 
     Returns:
         A dictionary mapping rule IDs to rule definitions. Each rule definition
@@ -924,21 +1068,54 @@ def get_rules_registry(language: str = "ancient_greek") -> dict[str, dict[str, A
         OSError: Propagated from ``load_rules`` if file system errors occur.
         ValueError: Propagated from ``load_rules`` if rule validation fails,
             or raised if the registry cannot be loaded for the given language.
+            Non-default language load failures include the original error
+            information in the exception message.
         yaml.YAMLError: Propagated from ``load_rules`` if YAML parsing fails.
     """
+    # Resolve language id to its registered profile's rules directory.
+    # A ValueError here means the language is not registered — a distinct
+    # caller error from a corrupt or missing rules file caught below.
+    rules_source: str | Path = language
+    if isinstance(language, str):
+        try:
+            # Strict: an unregistered language id is a programmer error, not a
+            # directory name. Pass Path(...) when a rules directory is intended.
+            rules_source = get_language_profile(language).rules_dir
+        except ValueError as err:
+            if language.strip().lower() == DEFAULT_LANGUAGE_ID:
+                rules_source = get_default_language_profile().rules_dir
+            else:
+                raise ValueError(
+                    f"get_rules_registry failed to load rules for language {language!r}: {err}"
+                ) from err
+
+    # Load and cache rules from the resolved source.
     try:
-        return load_rules(language)
+        return _load_rules_cached(rules_source)
     except (OSError, ValueError, yaml.YAMLError) as err:
         raise ValueError(
             f"get_rules_registry failed to load rules for language {language!r}: {err}"
         ) from err
 
 
-@lru_cache(maxsize=8)
-def _get_tokenized_rules(language: str = "ancient_greek") -> tuple[TokenizedRule, ...]:
-    """Get tokenized rules from the registry for matching."""
+@lru_cache(maxsize=_TOKENIZED_RULES_CACHE_MAXSIZE)
+def _get_tokenized_rules(
+    language: str | Path = "ancient_greek",
+    phone_inventory_key: tuple[str, ...] | None = None,
+) -> tuple[TokenizedRule, ...]:
+    """Get tokenized rules from the registry for matching.
+
+    Uses normalized cache keys to avoid duplicate entries when callers pass
+    non-canonical inventories. Consider increasing maxsize if many inventories
+    are expected - monitor cache hit/miss patterns in production.
+    """
     rules_registry = get_rules_registry(language)
-    return tuple(tokenize_rules_for_matching(list(rules_registry.values())))
+    rules = list(rules_registry.values())
+    if phone_inventory_key is None:
+        return tuple(tokenize_rules_for_matching(rules))
+    return tuple(
+        tokenize_rules_for_matching(rules, phone_inventory=phone_inventory_key)
+    )
 
 
 def _annotate_search_results(
@@ -946,14 +1123,16 @@ def _annotate_search_results(
     results: list[SearchResult],
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
-    language: str = "ancient_greek",
+    language: str | Path = "ancient_greek",
+    phone_inventory: Iterable[str] | None = None,
 ) -> list[SearchResult]:
     """Stage 2b: annotate ranked hits with explanations and alignments."""
     if not results:
         return []
 
-    query_tokens = tokenize_ipa(query_ipa)
-    tokenized_rules = _get_tokenized_rules(language)
+    inventory_key = _phone_inventory_key(phone_inventory)
+    query_tokens = tokenize_for_inventory(query_ipa, inventory_key)
+    tokenized_rules = _get_tokenized_rules(language, inventory_key)
     annotated: list[SearchResult] = []
 
     for result in results:
@@ -973,7 +1152,9 @@ def _annotate_search_results(
             continue
 
         entry = _lookup_entry(record_or_entry)
-        lemma_tokens = list(_lookup_entry_tokens(record_or_entry))
+        lemma_tokens = list(
+            resolve_entry_tokens(record_or_entry, phone_inventory=inventory_key)
+        )
         alignment = result.alignment
         if alignment is None:
             _best_score, aligned_query, aligned_lemma = _smith_waterman_alignment(
@@ -999,6 +1180,7 @@ def _annotate_search_results(
             aligned_query,
             aligned_lemma,
             applications,
+            phone_inventory=inventory_key,
         )
         annotated_result = SearchResult(
             lemma=result.lemma,
@@ -1025,12 +1207,54 @@ def _annotate_search_results(
     return annotated
 
 
+def _score_stage_for_inventory(
+    *,
+    query_ipa: str,
+    candidates: Iterable[str],
+    lexicon_map: LexiconLookup,
+    matrix: DistanceMatrix,
+    phone_inventory: Iterable[str] | None,
+) -> list[SearchResult]:
+    """Call score stage without custom-inventory kwargs on the default path."""
+    kwargs: dict[str, Any] = {
+        "query_ipa": query_ipa,
+        "candidates": candidates,
+        "lexicon_map": lexicon_map,
+        "matrix": matrix,
+    }
+    return _score_stage(**_with_optional_phone_inventory(kwargs, phone_inventory))
+
+
+def _annotate_search_results_for_inventory(
+    *,
+    query_ipa: str,
+    results: list[SearchResult],
+    lexicon_map: LexiconLookup,
+    matrix: DistanceMatrix,
+    language: str | Path,
+    phone_inventory: Iterable[str] | None,
+) -> list[SearchResult]:
+    """Call annotation without custom-inventory kwargs on the default path."""
+    kwargs: dict[str, Any] = {
+        "query_ipa": query_ipa,
+        "results": results,
+        "lexicon_map": lexicon_map,
+        "matrix": matrix,
+        "language": language,
+    }
+    return _annotate_search_results(
+        **_with_optional_phone_inventory(kwargs, phone_inventory)
+    )
+
+
 def extend_stage(
     query_ipa: str,
     candidates: Iterable[str],
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
-    language: str = "ancient_greek",
+    language: str | Path = "ancient_greek",
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> list[SearchResult]:
     """Stage 2: run Smith-Waterman on candidate IPA forms and assemble results.
 
@@ -1059,18 +1283,20 @@ def extend_stage(
             ``"headword"`` or ``"ipa"`` field and ``_lemma_label`` or
             ``_entry_ipa`` rejects it.
     """
-    scored_results = _score_stage(
+    scored_results = _score_stage_for_inventory(
         query_ipa=query_ipa,
         candidates=candidates,
         lexicon_map=lexicon_map,
         matrix=matrix,
+        phone_inventory=phone_inventory,
     )
-    return _annotate_search_results(
+    return _annotate_search_results_for_inventory(
         query_ipa=query_ipa,
         results=scored_results,
         lexicon_map=lexicon_map,
         matrix=matrix,
         language=language,
+        phone_inventory=phone_inventory,
     )
 
 
@@ -1078,7 +1304,9 @@ def filter_stage(results: list[SearchResult], max_results: int) -> list[SearchRe
     """Stage 3: sort by confidence and keep the top N results."""
     if max_results <= 0:
         raise ValueError("max_results must be a positive integer")
-    return sorted(results, key=lambda result: (-result.confidence, result.lemma))[:max_results]
+    return sorted(results, key=lambda result: (-result.confidence, result.lemma))[
+        :max_results
+    ]
 
 
 def _finalize_full_form_results(
@@ -1089,15 +1317,17 @@ def _finalize_full_form_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
+    phone_inventory: Iterable[str] | None,
 ) -> _FinalizationResult:
     """Finalize Full-form results by annotating only visible deduplicated hits."""
     unique_scored = _deduplicate_by_headword(ranked_scored, check_sorted=False)
-    final_results = _annotate_search_results(
+    final_results = _annotate_search_results_for_inventory(
         query_ipa=query_ipa,
         results=unique_scored[:max_results],
         lexicon_map=selection.lexicon_lookup,
         matrix=matrix,
         language=language,
+        phone_inventory=phone_inventory,
     )
     return _FinalizationResult(
         results=final_results,
@@ -1117,6 +1347,7 @@ def _finalize_short_query_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
+    phone_inventory: Iterable[str] | None,
 ) -> _FinalizationResult:
     """Finalize Short-query results with batched annotation and quality filtering."""
     annotation_limit = _annotation_candidate_limit(max_results)
@@ -1125,6 +1356,7 @@ def _finalize_short_query_results(
         ranked_scored,
         selection.lexicon_lookup,
         annotation_limit=annotation_limit,
+        phone_inventory=phone_inventory,
     )
     annotated_results: list[SearchResult] = []
     deduplicated_results: list[SearchResult] = []
@@ -1132,12 +1364,13 @@ def _finalize_short_query_results(
     window_truncated = len(ranked_scored) > len(ordered_annotation_candidates)
     batch = ordered_annotation_candidates[:annotation_limit]
     if batch:
-        batch_annotated = _annotate_search_results(
+        batch_annotated = _annotate_search_results_for_inventory(
             query_ipa=query_ipa,
             results=batch,
             lexicon_map=selection.lexicon_lookup,
             matrix=matrix,
             language=language,
+            phone_inventory=phone_inventory,
         )
         total_annotated_count += len(batch)
         batch_filtered = _apply_mode_quality_filter(
@@ -1146,19 +1379,25 @@ def _finalize_short_query_results(
             partial_query_tokens,
             batch_annotated,
             selection.lexicon_lookup,
+            phone_inventory=phone_inventory,
         )
         batch_filtered = _rank_short_query_results(
             selection.query_tokens,
             batch_filtered,
             selection.lexicon_lookup,
-            _lookup_entry_tokens,
+            lambda record: resolve_entry_tokens(
+                record,
+                phone_inventory=phone_inventory,
+            ),
         )
         annotated_results.extend(batch_filtered)
         deduplicated_results = _deduplicate_by_headword_common(annotated_results)
         if len(deduplicated_results) >= max_results:
             final_results = deduplicated_results[:max_results]
             if window_truncated:
-                final_results = [replace(result, truncated=True) for result in final_results]
+                final_results = [
+                    replace(result, truncated=True) for result in final_results
+                ]
             return _FinalizationResult(
                 results=final_results,
                 annotated_count=total_annotated_count,
@@ -1181,7 +1420,9 @@ def _finalize_short_query_results(
                 len(ranked_scored) - len(ordered_annotation_candidates),
             ),
         )
-        final_results = [replace(r, truncated=True) for r in deduplicated_results[:max_results]]
+        final_results = [
+            replace(r, truncated=True) for r in deduplicated_results[:max_results]
+        ]
         return _FinalizationResult(
             results=final_results,
             annotated_count=total_annotated_count,
@@ -1206,6 +1447,7 @@ def _finalize_partial_form_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
+    phone_inventory: Iterable[str] | None,
 ) -> _FinalizationResult:
     """Finalize Partial-form results after bounded annotation and filtering."""
     annotation_candidates = _select_annotation_candidates(
@@ -1215,13 +1457,15 @@ def _finalize_partial_form_results(
         ranked_scored,
         selection.lexicon_lookup,
         _annotation_candidate_limit(max_results),
+        phone_inventory=phone_inventory,
     )
-    annotated_results = _annotate_search_results(
+    annotated_results = _annotate_search_results_for_inventory(
         query_ipa=query_ipa,
         results=annotation_candidates,
         lexicon_map=selection.lexicon_lookup,
         matrix=matrix,
         language=language,
+        phone_inventory=phone_inventory,
     )
     filtered_results = _apply_mode_quality_filter(
         selection.query_mode,
@@ -1229,6 +1473,7 @@ def _finalize_partial_form_results(
         partial_query_tokens,
         annotated_results,
         selection.lexicon_lookup,
+        phone_inventory=phone_inventory,
     )
     deduplicated_results = _deduplicate_by_headword_common(filtered_results)
     final_results = deduplicated_results[:max_results]
@@ -1250,6 +1495,9 @@ def _execute_search(
     unigram_index: KmerIndex | None = None,
     prebuilt_lexicon_map: LexiconMap | None = None,
     language: str = "ancient_greek",
+    converter: IpaConverter | None = None,
+    phone_inventory: Iterable[str] | None = None,
+    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
     query_ipa: str | None = None,
     prepared_query: PreparedQueryIpa | None = None,
     prebuilt_ipa_index: IpaIndex | None = None,
@@ -1301,6 +1549,13 @@ def _execute_search(
             to reuse across repeated searches over the same lexicon.
         language: Language identifier selecting the phonological rule set
             passed to ``extend_stage``. Defaults to ``"ancient_greek"``.
+        dialect_skeleton_builders: Optional iterable of callables with type
+            ``Iterable[Callable[[list[str]], list[str]]] | None``. Each callable
+            receives a list of skeleton strings and returns the modified list
+            consumed by the search pipeline to add dialect-specific skeleton
+            coverage. ``None`` preserves the existing always-on Koine behavior.
+            Passing an explicit tuple, including ``()``, enables the explicit
+            dialect shift model using only the supplied builders in order.
         query_ipa: Optional pre-computed IPA transcription of the normalized
             query. When provided, the internal ``to_ipa`` call for the main
             query is skipped. Fragment-level conversions for partial queries
@@ -1348,27 +1603,25 @@ def _execute_search(
         query_ipa=query_ipa,
     )
 
+    inventory_key = _phone_inventory_key(phone_inventory)
     if prepared_query is None:
         prepared_query = prepare_query_ipa(
             query,
             dialect=dialect,
+            converter=converter,
+            phone_inventory=inventory_key,
             query_ipa=query_ipa,
         )
-    partial_query = prepared_query.partial_query
     query_mode = prepared_query.query_mode
     query_ipa = prepared_query.query_ipa
-    query_tokens = tokenize_ipa(query_ipa)
+    query_tokens = tokenize_for_inventory(query_ipa, inventory_key)
     _debug_enabled = logger.isEnabledFor(logging.DEBUG)
     query_log_label = _summarize_query_ipa_for_logs(
         query_ipa,
         query_token_count=len(query_tokens),
         debug_enabled=_debug_enabled,
     )
-    debug_query_log_label = (
-        query_log_label
-        if _debug_enabled
-        else ""
-    )
+    debug_query_log_label = query_log_label if _debug_enabled else ""
     query_skeleton = _extract_consonant_skeleton(query_tokens)
     partial_query_tokens = prepared_query.partial_query_tokens
     fallback_limits = _resolve_fallback_limits(
@@ -1382,13 +1635,27 @@ def _execute_search(
         lexicon=lexicon,
         prebuilt_lexicon_map=prebuilt_lexicon_map,
         prebuilt_ipa_index=prebuilt_ipa_index,
+        phone_inventory=inventory_key,
+        dialect_skeleton_builders=dialect_skeleton_builders,
     )
 
     search_index = (
-        index if index is not None else build_kmer_index(lexicon, k=_DEFAULT_KMER_SIZE)
+        index
+        if index is not None
+        else _build_kmer_index_for_inventory(
+            lexicon,
+            k=_DEFAULT_KMER_SIZE,
+            phone_inventory=inventory_key,
+            dialect_skeleton_builders=dialect_skeleton_builders,
+        )
     )
     _t_selection = _perf_counter_if_debug(logger)
-    seed_candidates = seed_stage(query_ipa, search_index, k=_DEFAULT_KMER_SIZE)
+    seed_candidates = _seed_stage_for_inventory(
+        query_ipa,
+        search_index,
+        k=_DEFAULT_KMER_SIZE,
+        phone_inventory=inventory_key,
+    )
     stage2_limit = max(_MIN_STAGE2_CANDIDATES, max_results * _SEED_MULTIPLIER)
 
     if seed_candidates:
@@ -1410,9 +1677,21 @@ def _execute_search(
         unigram_candidates: list[str] = []
         if query_skeleton:
             fallback_unigram_index = (
-                unigram_index if unigram_index is not None else build_kmer_index(lexicon, k=1)
+                unigram_index
+                if unigram_index is not None
+                else _build_kmer_index_for_inventory(
+                    lexicon,
+                    k=1,
+                    phone_inventory=inventory_key,
+                    dialect_skeleton_builders=dialect_skeleton_builders,
+                )
             )
-            unigram_candidates = seed_stage(query_ipa, fallback_unigram_index, k=1)
+            unigram_candidates = _seed_stage_for_inventory(
+                query_ipa,
+                fallback_unigram_index,
+                k=1,
+                phone_inventory=inventory_key,
+            )
         if unigram_candidates:
             selection = _select_unigram_fallback_candidates(
                 query_ipa=query_ipa,
@@ -1450,12 +1729,16 @@ def _execute_search(
         )
 
     _t_scoring = _perf_counter_if_debug(logger)
-    scored_results = _score_stage(
-        query_ipa=query_ipa,
-        candidates=selection.candidate_ids,
-        lexicon_map=selection.lexicon_lookup,
-        matrix=matrix,
+    score_params = _with_optional_phone_inventory(
+        {
+            "query_ipa": query_ipa,
+            "candidates": selection.candidate_ids,
+            "lexicon_map": selection.lexicon_lookup,
+            "matrix": matrix,
+        },
+        inventory_key,
     )
+    scored_results = _score_stage(**score_params)
     ranked_scored = sorted(scored_results, key=lambda r: (-r.confidence, r.lemma))
     if _debug_enabled:
         _log_scoring(
@@ -1475,6 +1758,7 @@ def _execute_search(
             matrix=matrix,
             max_results=max_results,
             language=language,
+            phone_inventory=inventory_key,
         )
     elif selection.query_mode == "Short-query":
         finalization = _finalize_short_query_results(
@@ -1486,6 +1770,7 @@ def _execute_search(
             matrix=matrix,
             max_results=max_results,
             language=language,
+            phone_inventory=inventory_key,
         )
     else:
         finalization = _finalize_partial_form_results(
@@ -1496,6 +1781,7 @@ def _execute_search(
             matrix=matrix,
             max_results=max_results,
             language=language,
+            phone_inventory=inventory_key,
         )
     if _debug_enabled:
         _log_finalization(
@@ -1522,6 +1808,9 @@ def search_execution(
     unigram_index: KmerIndex | None = None,
     prebuilt_lexicon_map: LexiconMap | None = None,
     language: str = "ancient_greek",
+    converter: IpaConverter | None = None,
+    phone_inventory: Iterable[str] | None = None,
+    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
     query_ipa: str | None = None,
     prepared_query: PreparedQueryIpa | None = None,
     prebuilt_ipa_index: IpaIndex | None = None,
@@ -1544,6 +1833,15 @@ def search_execution(
         unigram_index: Optional unigram index for fallback selection.
         prebuilt_lexicon_map: Optional pre-built lexicon lookup map.
         language: Language code for rule application (default: "ancient_greek").
+        converter: Optional IPA converter to use for query conversion.
+        phone_inventory: Optional phone inventory for profile-specific tokenization.
+        dialect_skeleton_builders: Optional iterable of callables with type
+            ``Iterable[Callable[[list[str]], list[str]]] | None``. Each callable
+            receives skeleton strings and returns a list consumed by candidate
+            indexing and fallback search to add dialect-specific skeleton
+            coverage. ``None`` preserves the existing always-on Koine behavior;
+            an explicit tuple, including ``()``, uses only those builders in
+            order.
         query_ipa: Optional pre-computed IPA for the query.
         prepared_query: Optional pre-computed prepared query object.
         prebuilt_ipa_index: Optional pre-built IPA index.
@@ -1567,6 +1865,9 @@ def search_execution(
         unigram_index=unigram_index,
         prebuilt_lexicon_map=prebuilt_lexicon_map,
         language=language,
+        converter=converter,
+        phone_inventory=phone_inventory,
+        dialect_skeleton_builders=dialect_skeleton_builders,
         query_ipa=query_ipa,
         prepared_query=prepared_query,
         prebuilt_ipa_index=prebuilt_ipa_index,
@@ -1585,6 +1886,9 @@ def search(
     unigram_index: KmerIndex | None = None,
     prebuilt_lexicon_map: LexiconMap | None = None,
     language: str = "ancient_greek",
+    converter: IpaConverter | None = None,
+    phone_inventory: Iterable[str] | None = None,
+    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
     query_ipa: str | None = None,
     prepared_query: PreparedQueryIpa | None = None,
     prebuilt_ipa_index: IpaIndex | None = None,
@@ -1602,6 +1906,9 @@ def search(
         unigram_index=unigram_index,
         prebuilt_lexicon_map=prebuilt_lexicon_map,
         language=language,
+        converter=converter,
+        phone_inventory=phone_inventory,
+        dialect_skeleton_builders=dialect_skeleton_builders,
         query_ipa=query_ipa,
         prepared_query=prepared_query,
         prebuilt_ipa_index=prebuilt_ipa_index,

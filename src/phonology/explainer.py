@@ -14,11 +14,19 @@ import logging
 import math
 from pathlib import Path
 import re
+import threading
+from collections.abc import Iterable
 from typing import Any, Sequence, TypeAlias
 
 import yaml  # type: ignore[import-untyped]
 
-from ._paths import resolve_repo_data_dir
+from ._paths import (
+    DEFAULT_LANGUAGE_ID,
+    resolve_language_data_dir,
+    resolve_repo_data_dir,
+)
+from ._trusted_paths import validate_no_symlinks_in_path
+from .core.ipa import tokenize_ipa as tokenize_ipa_with_inventory
 from ._phones import VOWEL_PHONES
 from .ipa_converter import tokenize_ipa
 
@@ -34,6 +42,8 @@ __all__ = [
     "tokenize_rules_for_matching",
     "explain_with_tokenized_rules",
     "load_rules",
+    "register_trusted_rules_dir",
+    "clear_trusted_external_rules_dirs",
     "get_rules_version",
     "explain",
     "explain_alignment",
@@ -43,6 +53,8 @@ __all__ = [
 Rule: TypeAlias = dict[str, Any]
 RuleMetadata: TypeAlias = Mapping[str, Any]
 _RULES_BASE_DIR_OVERRIDE: Path | None = None
+_TRUSTED_EXTERNAL_RULES_DIRS: set[Path] = set()
+_TRUSTED_EXTERNAL_RULES_DIRS_LOCK = threading.Lock()
 _NASAL_PHONES = frozenset({"m", "n"})
 _AFTER_E_I_R_PHONES = frozenset({"e", "i", "r"})
 _ALWAYS_MATCH_CONTEXTS = frozenset(
@@ -72,7 +84,50 @@ def _get_rules_base_dir() -> Path:
     """
     if _RULES_BASE_DIR_OVERRIDE is not None:
         return _RULES_BASE_DIR_OVERRIDE
-    return resolve_repo_data_dir("rules")
+    try:
+        return resolve_language_data_dir(DEFAULT_LANGUAGE_ID, "rules")
+    except FileNotFoundError:
+        return resolve_repo_data_dir("rules")
+
+
+def register_trusted_rules_dir(
+    rules_dir: Path | str, *, allow_symlinks: bool = False
+) -> None:
+    """Trust a registered language profile's absolute rules directory.
+
+    ``register_trusted_rules_dir`` stores ``Path(...).resolve(strict=True)`` in
+    ``_TRUSTED_EXTERNAL_RULES_DIRS``. Callers are responsible for registering
+    only explicitly validated absolute paths and avoiding unsafe symlink or
+    unintended parent-directory targets; prefer stricter allowlists, symlink
+    bans, or signed-rule validation where possible.
+
+    Args:
+        rules_dir: The rules directory to trust.
+        allow_symlinks: If False (default), rejects paths containing symlinks.
+                       Set to True to allow symlinked paths.
+
+    Raises:
+        ValueError: If symlinks are detected and allow_symlinks is False.
+    """
+    rules_path = Path(rules_dir).expanduser()
+    if not rules_path.is_absolute():
+        rules_path = Path.cwd() / rules_path
+
+    if not allow_symlinks:
+        validate_no_symlinks_in_path(
+            rules_path,
+            description="trusted rules directory",
+        )
+
+    resolved_rules_dir = rules_path.resolve(strict=True)
+    with _TRUSTED_EXTERNAL_RULES_DIRS_LOCK:
+        _TRUSTED_EXTERNAL_RULES_DIRS.add(resolved_rules_dir)
+
+
+def clear_trusted_external_rules_dirs() -> None:
+    """Test helper: clear externally-registered trusted rules directories."""
+    with _TRUSTED_EXTERNAL_RULES_DIRS_LOCK:
+        _TRUSTED_EXTERNAL_RULES_DIRS.clear()
 
 
 def __getattr__(name: str) -> Path:
@@ -93,8 +148,31 @@ def _resolve_rules_dir(rules_dir: Path | str, rules_base_dir: Path) -> Path:
         return candidate_rules_dir
 
     parts = candidate_rules_dir.parts
+    language_rules_prefix = ("data", "languages", DEFAULT_LANGUAGE_ID, "rules")
+    if (
+        len(parts) >= len(language_rules_prefix)
+        and parts[: len(language_rules_prefix)] == language_rules_prefix
+    ):
+        candidate_rules_dir = Path(*parts[len(language_rules_prefix) :])
+        return rules_base_dir / candidate_rules_dir
+
     if len(parts) >= 2 and parts[:2] == ("data", "rules"):
         candidate_rules_dir = Path(*parts[2:])
+
+    # Legacy fallback for backward compatibility:
+    # When candidate_rules_dir.parts == (DEFAULT_LANGUAGE_ID,), we have three fallback cases:
+    # 1. Try legacy_language_dir (rules_base_dir / DEFAULT_LANGUAGE_ID) if it exists as a directory
+    # 2. If rules_base_dir contains any YAML files (detected via glob("*.yaml")), use rules_base_dir directly
+    # 3. Fall back to legacy_language_dir again (will fail gracefully if directory doesn't exist)
+    # This handles old data layouts where rules were stored directly under language directories
+    # or in the base rules directory without language subdirectories.
+    if candidate_rules_dir.parts == (DEFAULT_LANGUAGE_ID,):
+        legacy_language_dir = rules_base_dir / DEFAULT_LANGUAGE_ID
+        if legacy_language_dir.is_dir():
+            return legacy_language_dir
+        if any(rules_base_dir.glob("*.yaml")):
+            return rules_base_dir
+        return legacy_language_dir
 
     return rules_base_dir / candidate_rules_dir
 
@@ -129,12 +207,19 @@ def _resolve_and_validate_rules_dir(rules_dir: Path | str, caller_name: str) -> 
             f"{caller_name} could not find rules directory {candidate_rules_dir}. "
             f"Expected an existing directory within {rules_base_dir}."
         ) from exc
-    if not resolved_rules_dir.is_relative_to(rules_base_dir):
+    with _TRUSTED_EXTERNAL_RULES_DIRS_LOCK:
+        is_trusted_external_dir = resolved_rules_dir in _TRUSTED_EXTERNAL_RULES_DIRS
+    if (
+        not resolved_rules_dir.is_relative_to(rules_base_dir)
+        and not is_trusted_external_dir
+    ):
         raise ValueError(
             f"{caller_name} path must stay within {rules_base_dir}, got {resolved_rules_dir}"
         )
     if not resolved_rules_dir.is_dir():
-        raise ValueError(f"{caller_name} expected a directory, got {resolved_rules_dir}")
+        raise ValueError(
+            f"{caller_name} expected a directory, got {resolved_rules_dir}"
+        )
 
     return resolved_rules_dir
 
@@ -174,12 +259,16 @@ class RuleApplication:
         # Similarly, input_phoneme/from_phone and output_phoneme/to_phone are
         # aliases where the canonical field takes precedence over the legacy one.
         fallback = (
-            rule_name if rule_name is not None else (description if description is not None else "")
+            rule_name
+            if rule_name is not None
+            else (description if description is not None else "")
         )
         self.description = description if description is not None else fallback
         self._rule_name = rule_name if rule_name is not None else fallback
         self._rule_name_en = rule_name_en if rule_name_en is not None else ""
-        self.input_phoneme = input_phoneme if input_phoneme is not None else (from_phone or "")
+        self.input_phoneme = (
+            input_phoneme if input_phoneme is not None else (from_phone or "")
+        )
         self.output_phoneme = (
             output_phoneme if output_phoneme is not None else (to_phone or "")
         )
@@ -254,7 +343,9 @@ def load_rules(rules_dir: Path | str) -> dict[str, dict]:
 
             rule_id = raw_rule.get("id")
             if not isinstance(rule_id, str) or not rule_id.strip():
-                raise ValueError(f"Rule entry {index} in {rule_file} must define a non-empty id")
+                raise ValueError(
+                    f"Rule entry {index} in {rule_file} must define a non-empty id"
+                )
             if rule_id in rules:
                 first_defined_in = rule_sources[rule_id]
                 raise ValueError(
@@ -323,6 +414,7 @@ class TokenizedRule:
     input_tokens: tuple[str, ...]
     output_tokens: tuple[str, ...]
     order: int
+    context_tail_tokens: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -355,11 +447,33 @@ class _RuleMatchResult:
     application_position: int
 
 
-def _tokenize_rule_side(raw_value: object) -> tuple[str, ...]:
+def _tokenize_rule_side(
+    raw_value: object,
+    *,
+    phone_inventory: Iterable[str] | None = None,
+) -> tuple[str, ...]:
     """Tokenize a YAML rule side into comparable IPA tokens."""
     if not isinstance(raw_value, str) or not raw_value:
         return ()
-    return tuple(tokenize_ipa(raw_value))
+    if phone_inventory is None:
+        return tuple(tokenize_ipa(raw_value))
+    return tuple(
+        tokenize_ipa_with_inventory(raw_value, phone_inventory=phone_inventory)
+    )
+
+
+def _tokenize_context_tail(
+    context: object,
+    *,
+    phone_inventory: Iterable[str] | None = None,
+) -> tuple[str, ...] | None:
+    """Tokenize `_...tail` context notation with the rule inventory."""
+    if not isinstance(context, str):
+        return None
+    match = re.fullmatch(r"_\.\.\.(.+)", context.strip().lower())
+    if match is None:
+        return None
+    return _tokenize_rule_side(match.group(1), phone_inventory=phone_inventory)
 
 
 def _extract_scalar_node_value(
@@ -443,12 +557,26 @@ def _extract_rule_file_version(
     return None
 
 
-def _tokenize_rules(rules: list[Rule]) -> list[TokenizedRule]:
+def _tokenize_rules(
+    rules: list[Rule],
+    *,
+    phone_inventory: Iterable[str] | None = None,
+) -> list[TokenizedRule]:
     """Pre-tokenize rules and sort them for longest-match-first scanning."""
     tokenized: list[TokenizedRule] = []
     for order, rule in enumerate(rules):
-        input_tokens = _tokenize_rule_side(rule.get("input"))
-        output_tokens = _tokenize_rule_side(rule.get("output"))
+        input_tokens = _tokenize_rule_side(
+            rule.get("input"),
+            phone_inventory=phone_inventory,
+        )
+        output_tokens = _tokenize_rule_side(
+            rule.get("output"),
+            phone_inventory=phone_inventory,
+        )
+        context_tail_tokens = _tokenize_context_tail(
+            rule.get("context"),
+            phone_inventory=phone_inventory,
+        )
         if not input_tokens and not output_tokens:
             continue
         tokenized.append(
@@ -457,6 +585,7 @@ def _tokenize_rules(rules: list[Rule]) -> list[TokenizedRule]:
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
                 order=order,
+                context_tail_tokens=context_tail_tokens,
             )
         )
 
@@ -472,7 +601,11 @@ def _tokenize_rules(rules: list[Rule]) -> list[TokenizedRule]:
     )
 
 
-def tokenize_rules_for_matching(rules: list[Rule]) -> list[TokenizedRule]:
+def tokenize_rules_for_matching(
+    rules: list[Rule],
+    *,
+    phone_inventory: Iterable[str] | None = None,
+) -> list[TokenizedRule]:
     """Return reusable tokenized rule metadata for mismatch matching.
 
     Args:
@@ -483,7 +616,7 @@ def tokenize_rules_for_matching(rules: list[Rule]) -> list[TokenizedRule]:
         tokenized input/output phones, and a stable sort order for repeated
         longest-match-first scans.
     """
-    return _tokenize_rules(rules)
+    return _tokenize_rules(rules, phone_inventory=phone_inventory)
 
 
 def _rule_specificity(rule: Rule) -> int:
@@ -671,12 +804,15 @@ def _matches_same_word_lookahead(
     lemma_tokens: Sequence[str],
     *,
     lemma_end: int,
+    context_tail_tokens: tuple[str, ...] | None = None,
 ) -> bool:
     """Return True when the remaining lemma sequence contains the required tail."""
     match = re.fullmatch(r"_\.\.\.(.+)", context)
     if match is None:
         return False
-    tail_tokens = tuple(tokenize_ipa(match.group(1)))
+    tail_tokens = context_tail_tokens
+    if tail_tokens is None:
+        tail_tokens = tuple(tokenize_ipa(match.group(1)))
     if not tail_tokens:
         return False
     remaining = lemma_tokens[lemma_end:]
@@ -696,6 +832,7 @@ def _matches_context(
     lemma_end: int,
     query_start: int,
     query_end: int,
+    context_tail_tokens: tuple[str, ...] | None = None,
 ) -> bool:
     """Return True when a rule context is satisfied at the matched span."""
     if context is None:
@@ -767,7 +904,12 @@ def _matches_context(
         query_end=query_end,
     ):
         return True
-    if _matches_same_word_lookahead(normalized, lemma_tokens, lemma_end=lemma_end):
+    if _matches_same_word_lookahead(
+        normalized,
+        lemma_tokens,
+        lemma_end=lemma_end,
+        context_tail_tokens=context_tail_tokens,
+    ):
         return True
     return False
 
@@ -955,7 +1097,10 @@ def _matches_block_columns(
         lemma_token = block.aligned_lemma[column_index]
 
         if lemma_token is not None:
-            if input_index >= input_length or lemma_token != candidate.input_tokens[input_index]:
+            if (
+                input_index >= input_length
+                or lemma_token != candidate.input_tokens[input_index]
+            ):
                 return False
             input_index += 1
 
@@ -973,7 +1118,9 @@ def _matches_block_columns(
         return False
 
     # Check for crossing gaps in the matched span
-    if _has_crossing_gaps(block.aligned_query, block.aligned_lemma, start_match_column, column_index):
+    if _has_crossing_gaps(
+        block.aligned_query, block.aligned_lemma, start_match_column, column_index
+    ):
         return False
 
     if input_length == 0:
@@ -1119,9 +1266,15 @@ def _find_normal_block_match(
     """Return a normalized match result for a non-suffix block candidate."""
     input_length = len(candidate.input_tokens)
     output_length = len(candidate.output_tokens)
-    if block.lemma_tokens[lemma_index : lemma_index + input_length] != candidate.input_tokens:
+    if (
+        block.lemma_tokens[lemma_index : lemma_index + input_length]
+        != candidate.input_tokens
+    ):
         return None
-    if block.query_tokens[query_index : query_index + output_length] != candidate.output_tokens:
+    if (
+        block.query_tokens[query_index : query_index + output_length]
+        != candidate.output_tokens
+    ):
         return None
     if not _matches_block_columns(
         block,
@@ -1141,6 +1294,7 @@ def _find_normal_block_match(
         lemma_end=global_lemma_start + input_length,
         query_start=global_query_start,
         query_end=global_query_start + output_length,
+        context_tail_tokens=candidate.context_tail_tokens,
     ):
         return None
 
@@ -1281,7 +1435,9 @@ def _collect_block_applications(
     lemma_index = 0
     query_index = 0
 
-    while lemma_index < len(block.lemma_tokens) or query_index < len(block.query_tokens):
+    while lemma_index < len(block.lemma_tokens) or query_index < len(
+        block.query_tokens
+    ):
         match_result = _find_matching_rule_candidate(
             block,
             query_tokens,
@@ -1478,6 +1634,7 @@ def to_prose(explanation: Explanation) -> str:
         normalized distance, and any applied rules.  When no rules were
         recorded, the summary includes a "No rule applications" note.
     """
+
     def format_with_optional_ipa(text: str, ipa: str) -> str:
         """Render text with IPA only when it differs from the surface form."""
         if text == ipa:

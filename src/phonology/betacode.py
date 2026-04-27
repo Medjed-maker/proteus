@@ -54,7 +54,7 @@ _WORD_BOUNDARY = frozenset(
         (
             " \t\n\r,.;:!?",  # standard punctuation/whitespace
             "\u0387",  # Greek ano teleia (·)
-            "\u037E",  # Greek question mark (;)
+            "\u037e",  # Greek question mark (U+037E)
             "()[]{}\"'-",
         )
     )
@@ -136,7 +136,9 @@ def beta_to_unicode(text: str) -> str:
         if output[idx] == "σ":
             # Check if next non-combining character is a word boundary or end
             next_idx = idx + 1
-            while next_idx < len(output) and unicodedata.category(output[next_idx]).startswith("M"):
+            while next_idx < len(output) and unicodedata.category(
+                output[next_idx]
+            ).startswith("M"):
                 next_idx += 1
             if next_idx >= len(output) or output[next_idx] in _WORD_BOUNDARY:
                 output[idx] = "ς"

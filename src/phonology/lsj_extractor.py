@@ -82,7 +82,7 @@ _GENDER_MAP: dict[str, str] = {
     "to/": "neuter",
 }
 
-# Cached POS override data, loaded lazily from data/lexicon/pos_overrides.yaml.
+# Cached POS override data, loaded lazily from the Ancient Greek lexicon data directory.
 _pos_overrides: dict[str, frozenset[str]] | None = None
 
 
@@ -95,7 +95,7 @@ def _empty_pos_overrides() -> dict[str, frozenset[str]]:
 
 
 def _load_pos_overrides(*, cli_mode: bool = False) -> dict[str, frozenset[str]]:
-    """Load POS override keys from ``data/lexicon/pos_overrides.yaml`` (cached).
+    """Load POS override keys from the Ancient Greek profile lexicon directory (cached).
 
     Args:
         cli_mode: When True, exceptions from missing or malformed override files are
@@ -120,7 +120,9 @@ def _load_pos_overrides(*, cli_mode: bool = False) -> dict[str, frozenset[str]]:
         overrides_path = resolve_repo_data_dir("lexicon") / "pos_overrides.yaml"
         loaded = yaml.safe_load(overrides_path.read_text(encoding="utf-8"))
     except FileNotFoundError as err:
-        logger.error("POS overrides file not found or lexicon data dir missing: %s", err)
+        logger.error(
+            "POS overrides file not found or lexicon data dir missing: %s", err
+        )
         if cli_mode:
             raise
     except (OSError, UnicodeError) as err:
@@ -157,10 +159,13 @@ def _load_pos_overrides(*, cli_mode: bool = False) -> dict[str, frozenset[str]]:
     _pos_overrides = _empty_pos_overrides()
     if raw:
         _pos_overrides = {
-            "common_gender_keys": frozenset(_ensure_list(raw.get("common_gender_keys", []))),
+            "common_gender_keys": frozenset(
+                _ensure_list(raw.get("common_gender_keys", []))
+            ),
             "numeral_keys": frozenset(_ensure_list(raw.get("numeral_keys", []))),
         }
     return _pos_overrides
+
 
 # Dialect abbreviation → Proteus dialect label
 _DIALECT_MAP: dict[str, str] = {
@@ -169,7 +174,7 @@ _DIALECT_MAP: dict[str, str] = {
     "Dor.": "doric",
     "Aeol.": "aeolic",
     "Ep.": "ionic",  # Epic Greek is Ionic-based and pre-Attic; kept as ionic so the
-                      # Attic-only filter rejects these entries rather than silently including them.
+    # Attic-only filter rejects these entries rather than silently including them.
     "Lacon.": "doric",  # Laconian is a Doric sub-dialect
 }
 
@@ -182,6 +187,7 @@ _GENDER_REQUIRED_POS = frozenset(
 # ---------------------------------------------------------------------------
 # XML element text helpers
 # ---------------------------------------------------------------------------
+
 
 def _elem_text(element: Any) -> str:
     """Return the full text content of an element (including tail of children)."""
@@ -276,9 +282,15 @@ _INLINE_POS_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
     ("conjunction", re.compile(r"\b(?:Conj\.|Conjunction)(?=$|[.,;:])", re.IGNORECASE)),
     ("particle", re.compile(r"\b(?:Part\.(?!\w)|Particle)(?=$|[.,;:])", re.IGNORECASE)),
-    ("interjection", re.compile(r"\b(?:Interj\.|Interjection)(?=$|[.,;:])", re.IGNORECASE)),
+    (
+        "interjection",
+        re.compile(r"\b(?:Interj\.|Interjection)(?=$|[.,;:])", re.IGNORECASE),
+    ),
     ("numeral", re.compile(r"\b(?:Num\.|Numeral)(?=$|[.,;:])", re.IGNORECASE)),
-    ("participle", re.compile(r"\b(?:Partic\.|Participle)(?=$|[.,;:\s])", re.IGNORECASE)),
+    (
+        "participle",
+        re.compile(r"\b(?:Partic\.|Participle)(?=$|[.,;:\s])", re.IGNORECASE),
+    ),
 )
 _ATTIC_INLINE_RE = re.compile(r"\bAtt\.|\bAttic\b", re.IGNORECASE)
 _HEADING_NEARBY_VARIANT_CONTEXT_RE = re.compile(
@@ -562,7 +574,10 @@ def _is_heading_dialect_gramgrp(child: Any) -> bool:
     for descendant in child.iter():
         if descendant is child:
             continue
-        if _local_name(descendant) == "gram" and descendant.get("type", "") == "dialect":
+        if (
+            _local_name(descendant) == "gram"
+            and descendant.get("type", "") == "dialect"
+        ):
             return True
     return False
 
@@ -574,17 +589,27 @@ class _HeadingContext(NamedTuple):
     forward + backward pass over the heading's children list.
     """
 
-    following_greek_form_count: int  # Wide zone: number of Greek surface forms before next dialect gramGrp
+    following_greek_form_count: (
+        int  # Wide zone: number of Greek surface forms before next dialect gramGrp
+    )
     has_following_form: bool  # Narrow zone: any surface form before the first gramGrp
     has_following_surface_form: bool  # Wide zone: any orth/foreign/pron with lang=greek
     has_following_gen_marker: bool  # Wide zone: any <gen lang=greek> marker
     has_following_itype_marker: bool  # Wide zone: any <itype> inflectional marker
-    has_non_dialect_gramgrp_before_gen: bool  # Wide zone: a non-dialect gramGrp appeared before a gen marker
+    has_non_dialect_gramgrp_before_gen: (
+        bool  # Wide zone: a non-dialect gramGrp appeared before a gen marker
+    )
     has_preceding_form: bool  # Backward scan: surface form before start_index
     has_preceding_itype_marker: bool  # Backward scan: <itype> marker before start_index
-    has_prior_dialect_label: bool  # Backward scan: a dialect gramGrp exists before start_index
-    has_following_dialect_label: bool  # Full zone: any dialect gramGrp after start_index (before sense)
-    has_following_attic_label: bool  # Full zone: a dialect gramGrp with Attic label after start_index
+    has_prior_dialect_label: (
+        bool  # Backward scan: a dialect gramGrp exists before start_index
+    )
+    has_following_dialect_label: (
+        bool  # Full zone: any dialect gramGrp after start_index (before sense)
+    )
+    has_following_attic_label: (
+        bool  # Full zone: a dialect gramGrp with Attic label after start_index
+    )
 
 
 class _DialectDecisionContext(NamedTuple):
@@ -762,7 +787,9 @@ def _has_prior_heading_headword_context(children: list[Any], start_index: int) -
     return _has_heading_prose_headword_context(text)
 
 
-def _has_following_heading_headword_context(children: list[Any], start_index: int) -> bool:
+def _has_following_heading_headword_context(
+    children: list[Any], start_index: int
+) -> bool:
     """Return True when following heading content establishes the headword context.
 
     Scans forward until the next dialect ``<gramGrp>`` or top-level ``<sense>``.
@@ -799,7 +826,9 @@ def _has_heading_prose_headword_context(text: str) -> bool:
     )
 
 
-def _has_distinct_following_heading_surface_form(children: list[Any], start_index: int) -> bool:
+def _has_distinct_following_heading_surface_form(
+    children: list[Any], start_index: int
+) -> bool:
     """Return True when a following Greek spelling differs from prior heading forms."""
     prior_forms = {
         form
@@ -987,9 +1016,7 @@ def _decide_dialect_label(
     is_attic_without_prior = _is_attic_without_prior(context)
     is_single_dialect_surface_variant = _is_single_dialect_surface_variant(context)
     has_dialect_variant_chain = _has_dialect_variant_chain(context)
-    has_nominal_morphology_continuation = _has_nominal_morphology_continuation(
-        context
-    )
+    has_nominal_morphology_continuation = _has_nominal_morphology_continuation(context)
     has_distinct_nominal_surface_variant = _has_distinct_nominal_surface_variant(
         context
     )
@@ -1083,6 +1110,7 @@ def _has_multiple_intro_greek_forms(entry: Any) -> bool:
 # ---------------------------------------------------------------------------
 # Field extraction
 # ---------------------------------------------------------------------------
+
 
 def _extract_headword(entry: Any) -> str:
     """Extract the headword from the entry, trying multiple sources.
@@ -1327,6 +1355,7 @@ def _extract_dialect(entry: Any) -> str:
 # Entry processing
 # ---------------------------------------------------------------------------
 
+
 def extract_entry(entry_elem: Any) -> dict[str, Any] | None:
     """Extract a single lemma dict from an <entryFree> element.
 
@@ -1386,7 +1415,10 @@ def extract_entry(entry_elem: Any) -> dict[str, Any] | None:
     has_multiple_intro_forms = _has_multiple_intro_greek_forms(entry_elem)
     if pos in {"pronoun", "article", "numeral"} and has_multiple_intro_forms:
         gender = "common"
-    elif pos == "noun" and _normalize_headword_key(key) in _load_pos_overrides()["common_gender_keys"]:
+    elif (
+        pos == "noun"
+        and _normalize_headword_key(key) in _load_pos_overrides()["common_gender_keys"]
+    ):
         gender = "common"
     elif pos in _GENDER_REQUIRED_POS and gender is None:
         gender = "common"  # default for undetermined gender
@@ -1430,6 +1462,7 @@ def extract_entry(entry_elem: Any) -> dict[str, Any] | None:
 # XML iteration
 # ---------------------------------------------------------------------------
 
+
 def iter_xml_entries(xml_path: Path) -> Iterator[dict[str, Any]]:
     """Yield lemma dicts from a single LSJ XML file using streaming parse."""
     from lxml import etree  # type: ignore[import-untyped]
@@ -1466,15 +1499,12 @@ def find_xml_files(xml_dir: Path) -> list[Path]:
     )
     if not files:
         raise FileNotFoundError(
-            f"No LSJ XML files found in {xml_dir} "
-            f"(expected grc.lsj.perseus-eng*.xml)"
+            f"No LSJ XML files found in {xml_dir} (expected grc.lsj.perseus-eng*.xml)"
         )
     return files
 
 
-def extract_all(
-    xml_dir: Path, *, limit: int | None = None
-) -> Iterator[dict[str, Any]]:
+def extract_all(xml_dir: Path, *, limit: int | None = None) -> Iterator[dict[str, Any]]:
     """Yield lemma dicts from all LSJ XML files in order."""
     files = find_xml_files(xml_dir)
     count = 0
@@ -1497,6 +1527,7 @@ def extract_all(
 # ---------------------------------------------------------------------------
 # Document building
 # ---------------------------------------------------------------------------
+
 
 def _document_dialect(entries: list[dict[str, Any]]) -> str:
     """Return the single dialect represented in the extracted output."""
@@ -1538,7 +1569,7 @@ def build_lexicon_document(entries: list[dict[str, Any]]) -> dict[str, Any]:
                 "Perseus Digital Library, Tufts University",
                 "Proteus maintainers",
             ],
-            "data_schema_ref": "data/lexicon/greek_lemmas.schema.json",
+            "data_schema_ref": "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json",
             "description": (
                 "Ancient Greek lemma dataset extracted from the Perseus Digital "
                 f"Library LSJ XML, filtered to {dialect_label} entries with "
@@ -1553,7 +1584,9 @@ def build_lexicon_document(entries: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def validate_document(document: dict[str, Any], schema_path: Path | None = None) -> None:
+def validate_document(
+    document: dict[str, Any], schema_path: Path | None = None
+) -> None:
     """Validate the lexicon document against the JSON schema."""
     import jsonschema
 
@@ -1567,13 +1600,18 @@ def validate_document(document: dict[str, Any], schema_path: Path | None = None)
     errors = list(validator.iter_errors(document))
     if errors:
         for err in errors[:10]:
-            logger.error("Schema validation error: %s at %s", err.message, list(err.absolute_path))
+            logger.error(
+                "Schema validation error: %s at %s",
+                err.message,
+                list(err.absolute_path),
+            )
         raise ValueError(f"Schema validation failed with {len(errors)} error(s)")
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main(
     xml_dir: Path | None = None,
@@ -1648,7 +1686,7 @@ def run_cli() -> int:
         "--output",
         type=Path,
         default=None,
-        help="Output JSON path (default: data/lexicon/greek_lemmas.json)",
+        help="Output JSON path (default: data/languages/ancient_greek/lexicon/greek_lemmas.json)",
     )
     parser.add_argument(
         "--limit",

@@ -1,6 +1,7 @@
 # Phonology Rule Notation
 
-Proteus stores Ancient Greek sound changes in YAML files under `data/rules/ancient_greek/`.
+Proteus stores Ancient Greek sound changes in YAML files under
+`data/languages/ancient_greek/rules/`.
 The current Ancient Greek rule inventory is split into three categories:
 
 - `consonant_changes.yaml` for segmental consonant developments

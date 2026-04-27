@@ -3,6 +3,7 @@
 import json
 import shutil
 from pathlib import Path
+from typing import Iterator
 
 import pytest
 
@@ -275,7 +276,7 @@ class TestLoadMatrix:
     ) -> None:
         monkeypatch.delenv("PROTEUS_TRUSTED_MATRICES_DIR", raising=False)
         package_root = tmp_path / "package-root"
-        resource_dir = package_root / "data" / "matrices"
+        resource_dir = package_root / "data" / "languages" / "ancient_greek" / "matrices"
         resource_dir.mkdir(parents=True)
 
         monkeypatch.setattr(distance_module.resources, "files", lambda _: package_root)
@@ -298,6 +299,8 @@ class TestPublicApi:
             "normalized_sequence_distance",
             "word_distance",
             "normalized_word_distance",
+            "register_trusted_matrices_dir",
+            "clear_trusted_external_matrix_dirs",
             "UNKNOWN_SUBSTITUTION_COST",
         ]
 
@@ -795,3 +798,66 @@ class TestLoadMatrixDocument:
         assert isinstance(meta, dict)
         assert "version" in meta
         assert "generated_at" in meta
+
+
+class TestRegisterTrustedMatricesDir:
+    @pytest.fixture(autouse=True)
+    def restore_trusted_external_matrix_dirs(self) -> Iterator[None]:
+        with distance_module._TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
+            original_dirs = set(distance_module._TRUSTED_EXTERNAL_MATRIX_DIRS)
+        try:
+            yield
+        finally:
+            with distance_module._TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
+                distance_module._TRUSTED_EXTERNAL_MATRIX_DIRS.clear()
+                distance_module._TRUSTED_EXTERNAL_MATRIX_DIRS.update(original_dirs)
+
+    def test_registers_valid_directory(self, tmp_path: Path) -> None:
+        from phonology.distance import register_trusted_matrices_dir
+
+        matrices_dir = tmp_path / "matrices"
+        matrices_dir.mkdir()
+        register_trusted_matrices_dir(matrices_dir)
+
+        matrix_file = matrices_dir / "m.json"
+        matrix_file.write_text('{"a": {"a": 0.0}}', encoding="utf-8")
+        result = load_matrix(matrix_file)
+        assert "a" in result
+
+    def test_rejects_symlink_in_path(self, tmp_path: Path) -> None:
+        from phonology.distance import register_trusted_matrices_dir
+
+        real_dir = tmp_path / "real"
+        real_dir.mkdir()
+        link_dir = tmp_path / "link"
+        try:
+            link_dir.symlink_to(real_dir)
+        except OSError as exc:  # pragma: no cover - platform-dependent
+            pytest.skip(f"symlink creation not supported: {exc}")
+
+        with pytest.raises(ValueError, match="Symlink detected"):
+            register_trusted_matrices_dir(link_dir)
+
+    def test_allow_symlinks_permits_symlinked_path(self, tmp_path: Path) -> None:
+        from phonology.distance import register_trusted_matrices_dir
+
+        real_dir = tmp_path / "real"
+        real_dir.mkdir()
+        link_dir = tmp_path / "link"
+        try:
+            link_dir.symlink_to(real_dir)
+        except OSError as exc:  # pragma: no cover - platform-dependent
+            pytest.skip(f"symlink creation not supported: {exc}")
+
+        register_trusted_matrices_dir(link_dir, allow_symlinks=True)
+
+        matrix_file = real_dir / "m.json"
+        matrix_file.write_text('{"a": {"a": 0.0}}', encoding="utf-8")
+        result = load_matrix(link_dir / "m.json")
+        assert "a" in result
+
+    def test_rejects_nonexistent_directory(self, tmp_path: Path) -> None:
+        from phonology.distance import register_trusted_matrices_dir
+
+        with pytest.raises((ValueError, FileNotFoundError)):
+            register_trusted_matrices_dir(tmp_path / "nonexistent")

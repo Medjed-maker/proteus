@@ -23,7 +23,7 @@ from ._overlap import (
     _leading_overlap_length,
     _trailing_overlap_length,
 )
-from ._scoring import _resolve_entry_tokens
+from ._tokenization import resolve_entry_tokens
 from ._types import (
     LexiconLookup,
     LexiconMap,
@@ -56,14 +56,16 @@ def _match_partial_query(
     if partial_query.shape == "prefix":
         overlap = _leading_overlap_length(partial_query.left_tokens, lemma_tokens)
         return PartialMatchInfo(
-            full_match=overlap == len(partial_query.left_tokens) and len(partial_query.left_tokens) > 0,
+            full_match=overlap == len(partial_query.left_tokens)
+            and len(partial_query.left_tokens) > 0,
             matched_fragments=int(overlap > 0),
             overlap_score=overlap,
         )
     if partial_query.shape == "suffix":
         overlap = _trailing_overlap_length(partial_query.right_tokens, lemma_tokens)
         return PartialMatchInfo(
-            full_match=overlap == len(partial_query.right_tokens) and len(partial_query.right_tokens) > 0,
+            full_match=overlap == len(partial_query.right_tokens)
+            and len(partial_query.right_tokens) > 0,
             matched_fragments=int(overlap > 0),
             overlap_score=overlap,
         )
@@ -137,7 +139,7 @@ def _select_partial_seed_candidates(
         if record is None:
             zero_overlap_ids.append(candidate_id)
             continue
-        lemma_tokens = record.ipa_tokens
+        lemma_tokens = resolve_entry_tokens(record)
         match_info = _match_partial_query(partial_query, lemma_tokens)
         if match_info.full_match:
             exact_match_ids.append(candidate_id)
@@ -161,7 +163,9 @@ def _select_partial_seed_candidates(
     if remaining > 0:
         selected.extend(
             candidate_id
-            for _matched_fragments, _overlap, _index, candidate_id in positive_overlap[:remaining]
+            for _matched_fragments, _overlap, _index, candidate_id in positive_overlap[
+                :remaining
+            ]
         )
     remaining = window - len(selected)
     if remaining > 0:
@@ -204,7 +208,7 @@ def _filter_and_rank_partial_results(
         candidate_id = result.entry_id
         lemma_tokens: tuple[str, ...] = ()
         if candidate_id is not None and candidate_id in lexicon_lookup:
-            lemma_tokens = _resolve_entry_tokens(lexicon_lookup[candidate_id])
+            lemma_tokens = resolve_entry_tokens(lexicon_lookup[candidate_id])
         match_info = _match_partial_query(partial_query, lemma_tokens)
         rule_supported = bool(result.applied_rules)
         if match_info.full_match:

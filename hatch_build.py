@@ -36,9 +36,14 @@ class build_hook(BuildHookInterface):
             lexicon asset is excluded from the editable force-include set.
         """
         if version == "editable":
-            lexicon_source = (Path(self.root) / "data" / "lexicon" / "greek_lemmas.json").resolve(
-                strict=False
-            )
+            lexicon_source = (
+                Path(self.root)
+                / "data"
+                / "languages"
+                / "ancient_greek"
+                / "lexicon"
+                / "greek_lemmas.json"
+            ).resolve(strict=False)
             editable_force_include = {
                 source: destination
                 for source, destination in self.build_config.get_force_include().items()

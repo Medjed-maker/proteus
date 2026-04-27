@@ -82,6 +82,8 @@ data/external/
 # Generated lexicon data (regenerate with: bash scripts/extract-lsj.sh)
 data/lexicon/greek_lemmas.json
 data/lexicon/greek_lemmas.meta.json
+data/languages/ancient_greek/lexicon/greek_lemmas.json
+data/languages/ancient_greek/lexicon/greek_lemmas.meta.json
 
 # MCP
 .serena/

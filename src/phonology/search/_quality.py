@@ -1,11 +1,9 @@
 """Short-query quality filtering and ranking helpers.
 
-These helpers take a ``lookup_tokens`` callable so the caller can keep
-``_lookup_entry_tokens`` physically defined in ``phonology.search.__init__``.
-That is important because ``_lookup_entry_tokens`` uses ``tokenize_ipa`` by
-bare name in its fallback branch, and tests monkeypatch
-``search_module.tokenize_ipa`` — a direct import here would bypass the
-patch, and a package-level circular import is undesirable.
+These helpers take a ``lookup_tokens`` callable so the caller can provide
+a token resolution strategy. This typically uses ``resolve_entry_tokens``
+from ``phonology.search._tokenization``, which ensures consistent results
+across the search and scoring modules.
 """
 
 from __future__ import annotations

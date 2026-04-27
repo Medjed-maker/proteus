@@ -1,6 +1,22 @@
 # Proteus
 
-Ancient Greek phonological search engine — find lexically related forms across dialects and time periods using BLAST-like phonological alignment.
+Historical Phonological Search Infrastructure (HPSI)
+
+Proteus is a language-independent framework for explainable reverse phonological search across historical languages. The project is also developed under the working name HPSI.
+
+The current implementation includes PhonoTrace Engine and an Ancient Greek pilot plugin.
+
+## Status
+
+Pre-alpha research prototype.
+
+This repository is not yet a production scholarly tool. The Ancient Greek rules, matrices, and examples are provisional and require expert review before citation or research use.
+
+## Open-core strategy
+
+The framework code and selected rule/data specifications are developed in public to support scholarly review, reproducibility, and collaboration.
+
+Hosted APIs, high-throughput execution, MCP deployment, institution-specific integrations, and custom language rule-set development may be offered as paid services in the future.
 
 ## Overview
 
@@ -10,25 +26,24 @@ Proteus implements a three-stage search pipeline inspired by NCBI BLAST, operati
 2. **Extend** — full weighted edit distance over IPA segments
 3. **Filter** — rank by phonological distance, apply threshold
 
-Phonological distances are computed using dialect-aware rules drawn from comparative Greek linguistics (Attic, Ionic, Doric, Koine).
+Phonological distances are computed through registered language profiles. The bundled Ancient Greek profile currently provides the Attic/Koine pilot data.
 
 ## Project Structure
 
-```
+```text
 proteus/
 ├── data/
-│   ├── rules/ancient_greek/     # YAML phonological change rules
-│   │   ├── vowel_shifts.yaml
-│   │   └── consonant_changes.yaml
-│   ├── lexicon/
-│   │   └── greek_lemmas.json    # LSJ headword list with IPA
-│   └── matrices/
-│       └── attic_doric.json     # Phonological distance matrix
+│   └── languages/
+│       └── ancient_greek/
+│           ├── rules/           # YAML phonological change rules
+│           ├── lexicon/         # LSJ headword list with IPA
+│           └── matrices/        # Phonological distance matrix
 ├── docs/
 │   └── phonology_rules.md       # Rule context notation and examples
 ├── src/
 │   ├── phonology/
-│   │   ├── ipa_converter.py     # Greek script → IPA
+│   │   ├── profiles.py          # LanguageProfile registry
+│   │   ├── ipa_converter.py     # Backward-compatible Ancient Greek wrapper
 │   │   ├── distance.py          # Weighted edit distance
 │   │   ├── search.py            # Three-stage search
 │   │   └── explainer.py         # Human-readable rule explanations
@@ -83,8 +98,8 @@ bash scripts/build-css.sh
 ## Data Setup
 
 The lexicon is generated from Perseus LSJ XML and not stored in the repository.
-`uv build` reuses a fresh local `data/lexicon/greek_lemmas.json` when a matching
-`data/lexicon/greek_lemmas.meta.json` exists. It regenerates the lexicon when a local
+`uv build` reuses a fresh local `data/languages/ancient_greek/lexicon/greek_lemmas.json` when a matching
+`data/languages/ancient_greek/lexicon/greek_lemmas.meta.json` exists. It regenerates the lexicon when a local
 LSJ checkout is available. The build hook does not clone LSJ data during the build;
 if the lexicon is missing or stale, provide a local checkout via the `PROTEUS_LSJ_REPO_DIR`
 environment variable, or pre-generate the lexicon before building.
@@ -139,10 +154,16 @@ symlink-swapped directories.
 ```json
 {
   "query": "ἄνθρωπος",
+  "language": "ancient_greek",
   "dialect": "attic",
-  "max_results": 20
+  "max_results": 20,
+  "lang": "en"
 }
 ```
+
+`language` selects the phonological profile and defaults to `"ancient_greek"`.
+For backward compatibility, legacy `language: "en"` or `"ja"` is still treated
+as the response prose language; new clients should use `lang` for that purpose.
 
 **Response Model Example**
 

@@ -3,6 +3,8 @@
 import logging
 import unicodedata
 from collections.abc import Callable, Generator
+from dataclasses import replace
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -15,6 +17,11 @@ from api import _hit_formatting as api_hit_formatting
 from api._models import RuleStep, SearchHit, SearchRequest
 from phonology import search as search_module
 from phonology.explainer import RuleApplication
+from phonology.profiles import (
+    get_default_language_profile,
+    LanguageProfile,
+    register_language_profile,
+)
 from phonology.search import LexiconRecord, SearchResult
 
 
@@ -73,6 +80,9 @@ def _make_fake_search_execution(
         unigram_index: dict[str, list[str]] | None = None,
         prebuilt_lexicon_map: dict[str, object] | None = None,
         language: str = "ancient_greek",
+        converter: Callable[..., str] | None = None,
+        phone_inventory: tuple[str, ...] | None = None,
+        dialect_skeleton_builders: object | None = None,
         query_ipa: str | None = None,
         prepared_query: object | None = None,
         prebuilt_ipa_index: dict[str, list[str]] | None = None,
@@ -88,6 +98,8 @@ def _make_fake_search_execution(
         captured["unigram_index"] = unigram_index
         captured["prebuilt_lexicon_map"] = prebuilt_lexicon_map
         captured["language"] = language
+        captured["converter"] = converter
+        captured["phone_inventory"] = phone_inventory
         # Extract query_ipa from prepared_query if available, otherwise use query_ipa param
         effective_query_ipa = query_ipa
         if prepared_query is not None:
@@ -1488,6 +1500,95 @@ class TestSearchEndpoint:
         assert response.status_code == 400
         assert response.json()["detail"] == "Invalid search query"
 
+    def test_search_rejects_dialect_not_supported_by_profile(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        td = _make_test_dependencies()
+        profile = replace(
+            get_default_language_profile(),
+            supported_dialects=("attic",),
+        )
+        monkeypatch.setattr(
+            api_main,
+            "_load_search_dependencies",
+            lambda: api_main.SearchDependencies(
+                lexicon=td["lexicon"],
+                matrix=td["matrix"],
+                rules_registry=td["rules_registry"],
+                search_index=td["search_index"],
+                unigram_index=td["unigram_index"],
+                lexicon_map=td["lexicon_map"],
+                ipa_index=td["ipa_index"],
+                data_versions=api_main.DataVersions(),
+                profile=profile,
+            ),
+        )
+
+        response = client.post(
+            "/search",
+            json={"query_form": "λόγος", "dialect_hint": "koine"},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == (
+            "Invalid dialect_hint 'koine'; expected one of ('attic')"
+        )
+
+    def test_search_uses_profile_default_dialect_and_phone_inventory(
+        self,
+        client: TestClient,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        isolated_language_registry: None,
+    ) -> None:
+        td = _make_test_dependencies()
+        rules_dir = tmp_path / "rules"
+        matrix_dir = tmp_path / "matrices"
+        rules_dir.mkdir()
+        matrix_dir.mkdir()
+        profile = LanguageProfile(
+            language_id="toy_api",
+            display_name="Toy API",
+            default_dialect="toy",
+            supported_dialects=("toy",),
+            converter=lambda text, *, dialect: text if dialect == "toy" else "",
+            phone_inventory=("ts", "p", "a"),
+            lexicon_path=tmp_path / "lexicon.json",
+            matrix_path=matrix_dir / "matrix.json",
+            rules_dir=rules_dir,
+        )
+        captured: dict[str, object] = {}
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search_execution",
+            _make_fake_search_execution(captured),
+        )
+        monkeypatch.setattr(
+            api_main,
+            "_load_search_dependencies",
+            lambda _language: api_main.SearchDependencies(
+                lexicon=td["lexicon"],
+                matrix=td["matrix"],
+                rules_registry=td["rules_registry"],
+                search_index=td["search_index"],
+                unigram_index=td["unigram_index"],
+                lexicon_map=td["lexicon_map"],
+                ipa_index=td["ipa_index"],
+                data_versions=api_main.DataVersions(),
+                profile=profile,
+            ),
+        )
+        register_language_profile(profile)
+        response = client.post(
+            "/search",
+            json={"query_form": "pa", "language": "toy_api"},
+        )
+
+        assert response.status_code == 200
+        assert captured["dialect"] == "toy"
+        assert captured["language"] == "toy_api"
+        assert captured["phone_inventory"] == ("ts", "p", "a")
+
     def test_search_returns_empty_hits_when_short_query_quality_filter_drops_candidates(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -2065,9 +2166,8 @@ class TestSearchValidation:
 
         assert api_main.SearchRequest._normalize_dialect_hint(marker) is marker
 
-    def test_normalize_dialect_hint_rejects_unsupported_string(self) -> None:
-        with pytest.raises(ValueError, match="dialect_hint"):
-            api_main.SearchRequest._normalize_dialect_hint(" ionic ")
+    def test_normalize_dialect_hint_accepts_profile_specific_string(self) -> None:
+        assert api_main.SearchRequest._normalize_dialect_hint(" ionic ") == "ionic"
 
     @pytest.mark.parametrize(
         ("value", "expected"),
@@ -2090,6 +2190,23 @@ class TestSearchValidation:
     def test_normalize_lang_rejects_unsupported_string(self) -> None:
         with pytest.raises(ValueError, match="lang"):
             api_main.SearchRequest._normalize_lang(" fr ")
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (None, "ancient_greek"),
+            (" Ancient_Greek ", "ancient_greek"),
+            ("   ", "ancient_greek"),
+        ],
+    )
+    def test_normalize_language_handles_none_and_str_values(
+        self, value: object, expected: str
+    ) -> None:
+        assert api_main.SearchRequest._normalize_language(value) == expected
+
+    def test_normalize_language_rejects_non_string_values(self) -> None:
+        with pytest.raises(ValueError, match="language must be a string"):
+            api_main.SearchRequest._normalize_language(object())
 
     def test_search_rejects_blank_query_form(self, client: TestClient) -> None:
         response = client.post("/search", json={"query_form": "   "})
@@ -2454,7 +2571,6 @@ class TestLoadAppVersion:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         from importlib import metadata
-        import tomllib
 
         monkeypatch.delenv(api_main._APP_VERSION_ENV_VAR, raising=False)
         monkeypatch.setattr(
@@ -2610,3 +2726,65 @@ class TestBuildDataVersionsPartialFailure:
         assert "Failed to load lexicon data version metadata" in caplog.text
         assert "Failed to load matrix data version metadata" in caplog.text
         assert "Failed to load rules data version metadata" in caplog.text
+
+
+class TestCallWithLanguage:
+    """Regression tests for the _call_with_language cache-key coalescing invariant."""
+
+    def test_routes_default_language_to_zero_arg_cache_slot(self) -> None:
+        """Default-language calls must reuse the zero-arg lru_cache slot.
+
+        The _call_with_language wrapper is the seam that lets test fixtures
+        patch ``api.main._load_lexicon_entries()`` (zero-arg) and have explicit
+        ``language='ancient_greek'`` calls route to the same cache. Splitting
+        the cache would silently bypass test patches and double memory usage.
+        """
+        default_language_id = api_main.get_default_language_profile().language_id
+        call_count = 0
+
+        @lru_cache(maxsize=8)
+        def _mock_loader(language: str = default_language_id) -> int:
+            nonlocal call_count
+            call_count += 1
+            return call_count
+
+        result1 = api_main._call_with_language(_mock_loader, default_language_id)
+        info_after_first = _mock_loader.cache_info()
+
+        result2 = api_main._call_with_language(_mock_loader, default_language_id)
+        info_after_second = _mock_loader.cache_info()
+
+        assert info_after_first.misses == 1
+        assert info_after_second.misses == 1, (
+            "Explicit default language must reuse the zero-arg cache slot"
+        )
+        assert info_after_second.hits == 1
+        assert result1 == result2
+
+    def test_load_ipa_index_uses_default_lexicon_map_cache_slot(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Default IPA index loading must reuse the zero-arg lexicon-map slot."""
+        default_language_id = api_main.get_default_language_profile().language_id
+        call_count = 0
+
+        @lru_cache(maxsize=8)
+        def fake_load_lexicon_map(language: str = default_language_id) -> dict[str, object]:
+            nonlocal call_count
+            call_count += 1
+            return {"language": language}
+
+        monkeypatch.setattr(api_main, "_load_lexicon_map", fake_load_lexicon_map)
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "build_ipa_index",
+            lambda lexicon_map: {"lexicon_map": lexicon_map},
+        )
+        api_main._load_ipa_index.cache_clear()
+
+        cached_map = fake_load_lexicon_map()
+        result = api_main._load_ipa_index(default_language_id)
+
+        assert call_count == 1
+        assert result == {"lexicon_map": cached_map}

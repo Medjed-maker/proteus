@@ -173,15 +173,15 @@ Managed by `_load_search_dependencies()` with per-process LRU caching:
 ```python
 @lru_cache(maxsize=1)
 def _load_lexicon_entries() → tuple[dict[str, Any], ...]
-  → from data/lexicon/greek_lemmas.json
+  → from data/languages/ancient_greek/lexicon/greek_lemmas.json
 
 @lru_cache(maxsize=1)
 def _load_distance_matrix() → MatrixData
-  → from data/matrices/attic_doric.json via distance.load_matrix()
+  → from data/languages/ancient_greek/matrices/attic_doric.json via distance.load_matrix()
 
 @lru_cache(maxsize=1)
 def _load_rules_registry() → dict[str, dict[str, Any]]
-  → from data/rules/ancient_greek/*.yaml via explainer.load_rules()
+  → from data/languages/ancient_greek/rules/*.yaml via explainer.load_rules()
 
 @lru_cache(maxsize=1)
 def _load_search_index() → KmerIndex

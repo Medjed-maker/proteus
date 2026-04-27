@@ -6,20 +6,17 @@ the query mode (short-query, partial-form, or full-form).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-from ._constants import _PARTIAL_QUERY_CONFIDENCE_THRESHOLD, _SHORT_QUERY_CONFIDENCE_THRESHOLD
+from ._constants import (
+    _PARTIAL_QUERY_CONFIDENCE_THRESHOLD,
+    _SHORT_QUERY_CONFIDENCE_THRESHOLD,
+)
 from ._overlap import _is_exact_token_match
 from ._partial import _filter_and_rank_partial_results, _match_partial_query
 from ._quality import _filter_short_query_results
-# NOTE: _resolve_entry_tokens uses import-time binding for tokenize_ipa,
-# while __init__._lookup_entry_tokens uses module-level (monkeypatch-sensitive)
-# binding. Both produce identical results for LexiconRecord inputs (which carry
-# pre-tokenized IPA), but diverge for bare LexiconEntry dicts in test stubs.
-# This is intentional: callers in __init__ that pass through the Short-query
-# quality ranking use _lookup_entry_tokens explicitly to preserve test patching.
-from ._scoring import _resolve_entry_tokens
+from ._tokenization import resolve_entry_tokens
 from ._types import (
     LexiconLookup,
     PartialQueryTokens,
@@ -44,7 +41,9 @@ _PartialFormCandidate = tuple[_PartialFormSortKey, SearchResult]
 _ShortQueryPrimaryCandidateKey = tuple[bool, bool, int, float, str, int]
 _ShortQueryPrimaryCandidate = tuple[_ShortQueryPrimaryCandidateKey, SearchResult]
 _ShortQueryExploratoryCandidateKey = tuple[int, float, str, int]
-_ShortQueryExploratoryCandidate = tuple[_ShortQueryExploratoryCandidateKey, SearchResult]
+_ShortQueryExploratoryCandidate = tuple[
+    _ShortQueryExploratoryCandidateKey, SearchResult
+]
 
 
 def _merge_primary_and_exploratory_candidates(
@@ -78,12 +77,17 @@ def _short_query_candidate_features(
     query_tokens: Sequence[str],
     result: SearchResult,
     lexicon_lookup: LexiconLookup,
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> _AnnotationCandidateFeatures:
     """Build cheap pre-annotation features for a short-query candidate."""
     candidate_id = result.entry_id
     lemma_tokens: tuple[str, ...] = ()
     if candidate_id is not None and candidate_id in lexicon_lookup:
-        lemma_tokens = _resolve_entry_tokens(lexicon_lookup[candidate_id])
+        lemma_tokens = resolve_entry_tokens(
+            lexicon_lookup[candidate_id],
+            phone_inventory=phone_inventory,
+        )
     return _AnnotationCandidateFeatures(
         exact_match=_is_exact_token_match(query_tokens, lemma_tokens),
         meets_confidence=result.confidence >= _SHORT_QUERY_CONFIDENCE_THRESHOLD,
@@ -95,15 +99,22 @@ def _partial_form_candidate_features(
     partial_query: PartialQueryTokens,
     result: SearchResult,
     lexicon_lookup: LexiconLookup,
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> _AnnotationCandidateFeatures:
     """Build cheap pre-annotation features for a partial-form candidate."""
     candidate_id = result.entry_id
     lemma_tokens: tuple[str, ...] = ()
     if candidate_id is not None and candidate_id in lexicon_lookup:
-        lemma_tokens = _resolve_entry_tokens(lexicon_lookup[candidate_id])
+        lemma_tokens = resolve_entry_tokens(
+            lexicon_lookup[candidate_id],
+            phone_inventory=phone_inventory,
+        )
     match_info = _match_partial_query(partial_query, lemma_tokens)
     lemma_token_count = len(lemma_tokens)
-    context_token_count = len(partial_query.left_tokens) + len(partial_query.right_tokens)
+    context_token_count = len(partial_query.left_tokens) + len(
+        partial_query.right_tokens
+    )
     token_count_distance = abs(lemma_token_count - context_token_count)
     return _AnnotationCandidateFeatures(
         meets_confidence=result.confidence >= _PARTIAL_QUERY_CONFIDENCE_THRESHOLD,
@@ -118,15 +129,25 @@ def _apply_mode_quality_filter(
     partial_query: PartialQueryTokens | None,
     results: list[SearchResult],
     lexicon_lookup: LexiconLookup,
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> list[SearchResult]:
     """Apply mode-aware post-annotation quality controls."""
     if query_mode == "Short-query":
         return _filter_short_query_results(
-            query_tokens, results, lexicon_lookup, _resolve_entry_tokens
+            query_tokens,
+            results,
+            lexicon_lookup,
+            lambda record: resolve_entry_tokens(
+                record,
+                phone_inventory=phone_inventory,
+            ),
         )
     if query_mode == "Partial-form":
         if partial_query is None:
-            raise ValueError("partial query metadata is required for Partial-form searches")
+            raise ValueError(
+                "partial query metadata is required for Partial-form searches"
+            )
         return _filter_and_rank_partial_results(partial_query, results, lexicon_lookup)
     return results
 
@@ -138,6 +159,8 @@ def _select_annotation_candidates(
     ranked_scored: list[SearchResult],
     lexicon_lookup: LexiconLookup,
     annotation_limit: int,
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> list[SearchResult]:
     """Select a bounded, mode-aware annotation window from scored candidates.
 
@@ -161,6 +184,7 @@ def _select_annotation_candidates(
                 ranked_scored,
                 lexicon_lookup,
                 annotation_limit=annotation_limit,
+                phone_inventory=phone_inventory,
             )
         return list(ranked_scored)
     if query_mode == "Short-query":
@@ -169,16 +193,24 @@ def _select_annotation_candidates(
             ranked_scored,
             lexicon_lookup,
             annotation_limit=annotation_limit,
+            phone_inventory=phone_inventory,
         )
     if query_mode == "Partial-form":
         if partial_query is None:
-            raise ValueError("partial query metadata is required for Partial-form searches")
+            raise ValueError(
+                "partial query metadata is required for Partial-form searches"
+            )
 
         primary_candidates: list[_PartialFormCandidate] = []
         exploratory_candidates: list[_PartialFormCandidate] = []
 
         for index, result in enumerate(ranked_scored):
-            features = _partial_form_candidate_features(partial_query, result, lexicon_lookup)
+            features = _partial_form_candidate_features(
+                partial_query,
+                result,
+                lexicon_lookup,
+                phone_inventory=phone_inventory,
+            )
             match_info = features.partial_match or PartialMatchInfo(False, 0, 0)
             sort_key = (
                 not match_info.full_match,
@@ -190,14 +222,26 @@ def _select_annotation_candidates(
                 result.lemma,
                 index,
             )
-            if match_info.overlap_score > 0 or match_info.full_match or features.meets_confidence:
+            if (
+                match_info.overlap_score > 0
+                or match_info.full_match
+                or features.meets_confidence
+            ):
                 primary_candidates.append((sort_key, result))
             else:
                 exploratory_candidates.append((sort_key, result))
 
-        primary_ranked = [result for _sort_key, result in sorted(primary_candidates, key=lambda item: item[0])]
+        primary_ranked = [
+            result
+            for _sort_key, result in sorted(
+                primary_candidates, key=lambda item: item[0]
+            )
+        ]
         exploratory_ranked = [
-            result for _sort_key, result in sorted(exploratory_candidates, key=lambda item: item[0])
+            result
+            for _sort_key, result in sorted(
+                exploratory_candidates, key=lambda item: item[0]
+            )
         ]
         return _merge_primary_and_exploratory_candidates(
             primary_ranked,
@@ -213,6 +257,7 @@ def _rank_short_query_annotation_candidates(
     lexicon_lookup: LexiconLookup,
     *,
     annotation_limit: int,
+    phone_inventory: Iterable[str] | None = None,
 ) -> list[SearchResult]:
     """Rank short-query candidates before expensive rule annotation.
 
@@ -228,7 +273,12 @@ def _rank_short_query_annotation_candidates(
     exploratory_candidates: list[_ShortQueryExploratoryCandidate] = []
 
     for index, result in enumerate(ranked_scored):
-        features = _short_query_candidate_features(query_tokens, result, lexicon_lookup)
+        features = _short_query_candidate_features(
+            query_tokens,
+            result,
+            lexicon_lookup,
+            phone_inventory=phone_inventory,
+        )
         if features.exact_match or features.meets_confidence:
             primary_candidates.append(
                 (
@@ -256,9 +306,15 @@ def _rank_short_query_annotation_candidates(
             )
         )
 
-    primary_ranked = [result for _sort_key, result in sorted(primary_candidates, key=lambda item: item[0])]
+    primary_ranked = [
+        result
+        for _sort_key, result in sorted(primary_candidates, key=lambda item: item[0])
+    ]
     exploratory_ranked = [
-        result for _sort_key, result in sorted(exploratory_candidates, key=lambda item: item[0])
+        result
+        for _sort_key, result in sorted(
+            exploratory_candidates, key=lambda item: item[0]
+        )
     ]
     return _merge_primary_and_exploratory_candidates(
         primary_ranked,

@@ -57,6 +57,13 @@ class TestSearchRequestLang:
         req = SearchRequest(**{"query": "ἄνθρωπος", "language": "ja"})
 
         assert req.lang == "ja"
+        assert req.language == "ancient_greek"
+
+    def test_language_accepts_profile_id(self) -> None:
+        req = SearchRequest(**{"query": "ἄνθρωπος", "language": "ancient_greek"})
+
+        assert req.language == "ancient_greek"
+        assert req.lang == "en"
 
     @pytest.mark.parametrize(
         ("value", "expected"),

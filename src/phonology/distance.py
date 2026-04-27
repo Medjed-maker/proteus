@@ -14,12 +14,17 @@ import importlib.resources as resources
 import json
 import os
 import stat
+import threading
 from numbers import Real
 from pathlib import Path
 from typing import Any, Callable, Sequence, TypeGuard
 
-from ._paths import resolve_repo_data_dir
-from ._trusted_paths import resolve_trusted_dir_override
+from ._paths import (
+    DEFAULT_LANGUAGE_ID,
+    resolve_language_data_dir,
+    resolve_repo_data_dir,
+)
+from ._trusted_paths import resolve_trusted_dir_override, validate_no_symlinks_in_path
 from .ipa_converter import (
     get_known_phones,
     strip_ignored_ipa_combining_marks,
@@ -39,6 +44,8 @@ __all__ = [
     "normalized_sequence_distance",
     "word_distance",
     "normalized_word_distance",
+    "register_trusted_matrices_dir",
+    "clear_trusted_external_matrix_dirs",
     "UNKNOWN_SUBSTITUTION_COST",
 ]
 
@@ -47,6 +54,53 @@ MatrixMeta = dict[str, Any]
 DEFAULT_COST = 5.0
 UNKNOWN_SUBSTITUTION_COST = 1.0
 _TRUSTED_MATRICES_DIR_ENV_VAR = "PROTEUS_TRUSTED_MATRICES_DIR"
+_TRUSTED_EXTERNAL_MATRIX_DIRS: set[Path] = set()
+_TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK = threading.Lock()
+
+
+def register_trusted_matrices_dir(
+    matrices_dir: Path | str,
+    *,
+    allow_symlinks: bool = False,
+) -> None:
+    """Register an additional directory from which matrix JSON files may be loaded.
+
+    Mirror of explainer.register_trusted_rules_dir. The directory is resolved
+    with strict=True (must exist). Symlinked directories are stored by their
+    absolute lexical path only when explicitly allowed, so callers may load
+    through that registered symlink path.
+
+    Args:
+        matrices_dir: The matrices directory to trust.
+        allow_symlinks: If False (default), rejects paths containing symlinks.
+                       Set to True to allow symlinked paths.
+
+    Raises:
+        ValueError: If symlinks are detected and allow_symlinks is False,
+            or if the resolved path is not a directory.
+    """
+    matrices_path = Path(matrices_dir).expanduser()
+    if not matrices_path.is_absolute():
+        matrices_path = Path.cwd() / matrices_path
+
+    if not allow_symlinks:
+        validate_no_symlinks_in_path(
+            matrices_path,
+            description="trusted matrices directory",
+        )
+
+    resolved = matrices_path.resolve(strict=True)
+    if not resolved.is_dir():
+        raise ValueError(f"matrices_dir must be a directory: {resolved}")
+    trusted_path = Path(os.path.abspath(matrices_path)) if allow_symlinks else resolved
+    with _TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
+        _TRUSTED_EXTERNAL_MATRIX_DIRS.add(trusted_path)
+
+
+def clear_trusted_external_matrix_dirs() -> None:
+    """Test helper: clear externally-registered trusted matrix directories."""
+    with _TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
+        _TRUSTED_EXTERNAL_MATRIX_DIRS.clear()
 
 
 def _normalize_ipa_phone(phone: str) -> str:
@@ -75,7 +129,12 @@ def _get_trusted_matrices_dir() -> Path:
         return override_path
 
     try:
-        resource_dir = resources.files("phonology").joinpath("data", "matrices")
+        resource_dir = resources.files("phonology").joinpath(
+            "data",
+            "languages",
+            DEFAULT_LANGUAGE_ID,
+            "matrices",
+        )
     except (ModuleNotFoundError, FileNotFoundError):
         resource_dir = None
 
@@ -92,7 +151,10 @@ def _get_trusted_matrices_dir() -> Path:
         except TypeError:
             pass
 
-    return resolve_repo_data_dir("matrices")
+    try:
+        return resolve_language_data_dir(DEFAULT_LANGUAGE_ID, "matrices")
+    except FileNotFoundError:
+        return resolve_repo_data_dir("matrices")
 
 
 def _is_numeric_row(candidate: Any) -> TypeGuard[dict[str, Real]]:
@@ -124,7 +186,9 @@ def _flatten_rows(data: dict[str, Any], matrix: MatrixData) -> None:
         # Underscore-joined keys (e.g. "ɛː_aː" inside dialect_pairs) are
         # metadata pairs, not canonical phone rows — skip them.
         if _is_numeric_row(value) and "_" not in key:
-            matrix[key] = {column: float(distance) for column, distance in value.items()}
+            matrix[key] = {
+                column: float(distance) for column, distance in value.items()
+            }
             continue
 
         if isinstance(value, dict):
@@ -138,29 +202,69 @@ def _resolve_matrix_path(path: Path | str, trusted_dir: Path) -> Path:
         return candidate_path
 
     parts = candidate_path.parts
+    language_prefix = ("data", "languages", DEFAULT_LANGUAGE_ID, "matrices")
+    if (
+        len(parts) >= len(language_prefix)
+        and parts[: len(language_prefix)] == language_prefix
+    ):
+        candidate_path = Path(*parts[len(language_prefix) :])
+        return trusted_dir / candidate_path
     if len(parts) >= 2 and parts[:2] == ("data", "matrices"):
         candidate_path = Path(*parts[2:])
 
     return trusted_dir / candidate_path
 
 
-def _load_trusted_matrix_document(path: Path | str) -> dict[str, Any]:
-    """Load JSON from a trusted matrix file using symlink-safe validation."""
-    trusted_dir = Path(os.path.abspath(_get_trusted_matrices_dir()))
-    if not trusted_dir.is_dir():
-        raise FileNotFoundError(trusted_dir)
+def _candidate_trusted_matrix_dirs() -> list[Path]:
+    """Return all trusted matrix directories: primary (packaged/env) first, then external.
 
-    requested_path = _resolve_matrix_path(path, trusted_dir)
-    requested_path = Path(os.path.abspath(requested_path))
-    if not requested_path.is_relative_to(trusted_dir):
+    Note that returned directories may be deleted by other processes before
+    being accessed; callers must use ``is_dir()`` to skip missing paths.
+    """
+    primary = Path(os.path.abspath(_get_trusted_matrices_dir()))
+    with _TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
+        external = sorted(_TRUSTED_EXTERNAL_MATRIX_DIRS)
+    return [primary, *external]
+
+
+def _load_trusted_matrix_document(path: Path | str) -> dict[str, Any]:
+    """Load JSON from a trusted matrix file using symlink-safe validation.
+
+    Tries each candidate trusted directory in order (primary packaged dir first,
+    then externally-registered dirs). The first directory whose resolved path
+    contains the requested file is used for TOCTOU-safe loading.
+
+    Known race conditions where a directory is removed after being returned by
+    ``_candidate_trusted_matrix_dirs()`` are accepted and handled safely via
+    internal ``is_dir()`` checks.
+    """
+    # Find the first trusted dir whose lexical path contains the requested file.
+    # abspath (not realpath) is intentional: registered symlink roots may be
+    # trusted explicitly, but unregistered symlink traversal is still rejected
+    # by the lstat walk below.
+    matched_dir: Path | None = None
+    matched_path: Path | None = None
+    for candidate_dir in _candidate_trusted_matrix_dirs():
+        if not candidate_dir.is_dir():
+            continue
+        resolved = Path(os.path.abspath(_resolve_matrix_path(path, candidate_dir)))
+        if resolved.is_relative_to(candidate_dir):
+            matched_dir = candidate_dir
+            matched_path = resolved
+            break
+
+    if matched_dir is None or matched_path is None:
         raise ValueError(
-            f"Matrix path must stay within {trusted_dir}, got {path}"
+            f"Matrix path must stay within a trusted directory, got {path}"
         )
+
+    trusted_dir = matched_dir
+    trusted_dir_target = trusted_dir.resolve(strict=True)
+    requested_path = matched_path
+
     candidate_path = requested_path.resolve(strict=True)
-    if not candidate_path.is_relative_to(trusted_dir):
-        raise ValueError(
-            f"Matrix path must stay within {trusted_dir}, got {path}"
-        )
+    if not candidate_path.is_relative_to(trusted_dir_target):
+        raise ValueError(f"Matrix path must stay within {trusted_dir}, got {path}")
 
     relative_parts = requested_path.relative_to(trusted_dir).parts
 
@@ -183,7 +287,9 @@ def _load_trusted_matrix_document(path: Path | str) -> dict[str, Any]:
         file_descriptor = os.open(candidate_path, open_flags)
     except OSError as exc:
         if getattr(os, "O_NOFOLLOW", None) is not None and exc.errno == errno.ELOOP:
-            raise ValueError(f"Matrix path must not traverse symlinks, got {path}") from exc
+            raise ValueError(
+                f"Matrix path must not traverse symlinks, got {path}"
+            ) from exc
         raise
 
     with os.fdopen(file_descriptor, encoding="utf-8") as matrix_file:
@@ -331,7 +437,9 @@ def _edit_distance(
     return costs[-1][-1]
 
 
-def phonological_distance(seq1: list[str], seq2: list[str], matrix: MatrixData) -> float:
+def phonological_distance(
+    seq1: list[str], seq2: list[str], matrix: MatrixData
+) -> float:
     """Compute a raw phonological distance using weighted edit distance.
 
     Args:
@@ -410,11 +518,17 @@ def normalized_phonological_distance(
     """
     normalized_seq1 = _normalize_ipa_sequence(seq1)
     normalized_seq2 = _normalize_ipa_sequence(seq2)
-    normalized_distance = _normalized_edit_distance(normalized_seq1, normalized_seq2, matrix)
-    return _normalize_raw_distance(normalized_distance, normalized_seq1, normalized_seq2)
+    normalized_distance = _normalized_edit_distance(
+        normalized_seq1, normalized_seq2, matrix
+    )
+    return _normalize_raw_distance(
+        normalized_distance, normalized_seq1, normalized_seq2
+    )
 
 
-def sequence_distance(seq1: Sequence[str], seq2: Sequence[str], matrix: MatrixData) -> float:
+def sequence_distance(
+    seq1: Sequence[str], seq2: Sequence[str], matrix: MatrixData
+) -> float:
     """Compute phonological distance between two phone sequences.
 
     Args:
@@ -448,10 +562,14 @@ def word_distance(word1_ipa: str, word2_ipa: str, matrix: MatrixData) -> float:
     Returns:
         Raw total cost from full-sequence weighted edit distance.
     """
-    return phonological_distance(tokenize_ipa(word1_ipa), tokenize_ipa(word2_ipa), matrix)
+    return phonological_distance(
+        tokenize_ipa(word1_ipa), tokenize_ipa(word2_ipa), matrix
+    )
 
 
-def normalized_word_distance(word1_ipa: str, word2_ipa: str, matrix: MatrixData) -> float:
+def normalized_word_distance(
+    word1_ipa: str, word2_ipa: str, matrix: MatrixData
+) -> float:
     """Compute normalized phonological distance for IPA-transcribed words."""
     seq1 = tokenize_ipa(word1_ipa)
     seq2 = tokenize_ipa(word2_ipa)

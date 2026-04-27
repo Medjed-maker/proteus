@@ -27,10 +27,12 @@ _FINGERPRINT_INPUTS = (
     Path("src/phonology/build_lexicon.py"),
     Path("src/phonology/lsj_extractor.py"),
     Path("src/phonology/ipa_converter.py"),
+    Path("src/phonology/languages/ancient_greek/ipa.py"),
+    Path("src/phonology/core/ipa.py"),
     Path("src/phonology/transliterate.py"),
     Path("src/phonology/betacode.py"),
-    Path("data/lexicon/pos_overrides.yaml"),
-    Path("data/lexicon/greek_lemmas.schema.json"),
+    Path("data/languages/ancient_greek/lexicon/pos_overrides.yaml"),
+    Path("data/languages/ancient_greek/lexicon/greek_lemmas.schema.json"),
 )
 
 
@@ -41,7 +43,14 @@ def _default_project_root() -> Path:
 
 def _default_output_path(project_root: Path) -> Path:
     """Return the default generated lexicon output path."""
-    return project_root / "data" / "lexicon" / "greek_lemmas.json"
+    return (
+        project_root
+        / "data"
+        / "languages"
+        / "ancient_greek"
+        / "lexicon"
+        / "greek_lemmas.json"
+    )
 
 
 def _metadata_path_for_output(output_path: Path) -> Path:
@@ -198,7 +207,12 @@ def _clone_lsj_repo(lsj_repo_dir: Path, project_root: Path) -> None:
         try:
             _run_subprocess(clone_command, timeout=_CLONE_TIMEOUT_SECONDS)
             _run_subprocess(
-                [git_executable, "sparse-checkout", "set", "CTS_XML_TEI/perseus/pdllex/grc/lsj"],
+                [
+                    git_executable,
+                    "sparse-checkout",
+                    "set",
+                    "CTS_XML_TEI/perseus/pdllex/grc/lsj",
+                ],
                 cwd=temp_repo_dir,
                 timeout=_CLONE_TIMEOUT_SECONDS,
             )
@@ -219,7 +233,7 @@ def _clone_lsj_repo(lsj_repo_dir: Path, project_root: Path) -> None:
                 err,
             )
             _cleanup_directory(temp_repo_dir)
-            time.sleep(2 ** attempt + random.uniform(0, 1))
+            time.sleep(2**attempt + random.uniform(0, 1))
             continue
         except Exception:
             _cleanup_directory(temp_repo_dir)
@@ -258,7 +272,9 @@ def ensure_lsj_checkout(
             XML directory is missing. When False, fail fast instead of cloning.
     """
     if lsj_repo_dir is not None and resolved_lsj_repo_dir is not None:
-        raise ValueError("lsj_repo_dir and resolved_lsj_repo_dir are mutually exclusive")
+        raise ValueError(
+            "lsj_repo_dir and resolved_lsj_repo_dir are mutually exclusive"
+        )
 
     selected_lsj_repo_dir: Path | None = None
     if xml_dir is not None:
@@ -279,7 +295,9 @@ def ensure_lsj_checkout(
     if resolved_xml_dir.is_dir():
         return resolved_xml_dir
 
-    clone_repo_dir = selected_lsj_repo_dir or _infer_lsj_repo_dir(project_root, resolved_xml_dir)
+    clone_repo_dir = selected_lsj_repo_dir or _infer_lsj_repo_dir(
+        project_root, resolved_xml_dir
+    )
     if clone_repo_dir is None:
         raise FileNotFoundError(
             f"LSJ XML directory not found and no checkout root was provided: {resolved_xml_dir}"
@@ -288,7 +306,7 @@ def ensure_lsj_checkout(
     if not allow_clone:
         raise FileNotFoundError(
             "LSJ XML directory not found and build-time cloning is disabled: "
-            f"{resolved_xml_dir}. Generate data/lexicon/greek_lemmas.json ahead of time, "
+            f"{resolved_xml_dir}. Generate data/languages/ancient_greek/lexicon/greek_lemmas.json ahead of time, "
             f"or provide a local LSJ checkout via --xml-dir, --lsj-repo-dir, or {LSJ_REPO_DIR_ENV_VAR}."
         )
 
@@ -335,7 +353,9 @@ def _tracked_input_records(project_root: Path, xml_dir: Path) -> list[dict[str, 
     """Return fingerprint records for source inputs and LSJ XML files."""
     from phonology.lsj_extractor import find_xml_files
 
-    tracked_paths = [project_root / relative_path for relative_path in _FINGERPRINT_INPUTS]
+    tracked_paths = [
+        project_root / relative_path for relative_path in _FINGERPRINT_INPUTS
+    ]
     tracked_paths.extend(find_xml_files(xml_dir))
 
     records: list[dict[str, Any]] = []
@@ -411,7 +431,9 @@ def _metadata_input_records_for_reuse(
 
         path_label = raw_record.get("path")
         if not isinstance(path_label, str) or not path_label:
-            logger.info("Freshness metadata contains an input record without a valid path")
+            logger.info(
+                "Freshness metadata contains an input record without a valid path"
+            )
             return None
 
         candidate_path = Path(path_label)
@@ -423,7 +445,9 @@ def _metadata_input_records_for_reuse(
             continue
 
         if not _is_missing_lsj_xml_input(path_label, project_root):
-            logger.info("Freshness input is missing and cannot be reused: %s", path_label)
+            logger.info(
+                "Freshness input is missing and cannot be reused: %s", path_label
+            )
             return None
 
         size = raw_record.get("size")
@@ -479,7 +503,9 @@ def _is_output_fresh_without_checkout(
     metadata_path: Path,
 ) -> bool:
     """Return True when metadata proves the output is fresh without an LSJ checkout."""
-    if not _is_reusable_output_document(project_root=project_root, output_path=output_path):
+    if not _is_reusable_output_document(
+        project_root=project_root, output_path=output_path
+    ):
         return False
 
     actual_payload = _read_metadata(metadata_path)
@@ -489,7 +515,9 @@ def _is_output_fresh_without_checkout(
     current_records = _metadata_input_records_for_reuse(actual_payload, project_root)
     if current_records is None:
         return False
-    return actual_payload["fingerprint"] == _fingerprint_digest_for_records(current_records)
+    return actual_payload["fingerprint"] == _fingerprint_digest_for_records(
+        current_records
+    )
 
 
 def build_fingerprint_payload(project_root: Path, xml_dir: Path) -> dict[str, Any]:
@@ -541,7 +569,9 @@ def _read_metadata(metadata_path: Path) -> dict[str, Any] | None:
         )
         return None
     if not isinstance(raw.get("fingerprint"), str) or not raw["fingerprint"]:
-        logger.warning("Freshness metadata at %s is missing a valid fingerprint", metadata_path)
+        logger.warning(
+            "Freshness metadata at %s is missing a valid fingerprint", metadata_path
+        )
         return None
     return raw
 
@@ -554,7 +584,9 @@ def _is_output_fresh(
     expected_payload: dict[str, Any],
 ) -> bool:
     """Return True when the existing output and sidecar metadata are current."""
-    if not _is_reusable_output_document(project_root=project_root, output_path=output_path):
+    if not _is_reusable_output_document(
+        project_root=project_root, output_path=output_path
+    ):
         return False
 
     actual_payload = _read_metadata(metadata_path)
@@ -568,7 +600,7 @@ def _is_reusable_output_document(*, project_root: Path, output_path: Path) -> bo
 
     Args:
         project_root: Repository root containing the schema file at
-            ``data/lexicon/greek_lemmas.schema.json``.
+            ``data/languages/ancient_greek/lexicon/greek_lemmas.schema.json``.
         output_path: Path to the existing lexicon JSON file to validate.
 
     Returns:
@@ -588,7 +620,14 @@ def _is_reusable_output_document(*, project_root: Path, output_path: Path) -> bo
     if not output_path.is_file():
         return False
 
-    schema_path = project_root / "data" / "lexicon" / "greek_lemmas.schema.json"
+    schema_path = (
+        project_root
+        / "data"
+        / "languages"
+        / "ancient_greek"
+        / "lexicon"
+        / "greek_lemmas.schema.json"
+    )
     try:
         document = json.loads(output_path.read_text(encoding="utf-8"))
         if not isinstance(document, dict):
@@ -694,7 +733,9 @@ def ensure_generated_lexicon(
         resolved_lsj_repo_dir=resolved_lsj_repo_dir,
         allow_clone=allow_clone,
     )
-    expected_payload = build_fingerprint_payload(resolved_project_root, resolved_xml_dir)
+    expected_payload = build_fingerprint_payload(
+        resolved_project_root, resolved_xml_dir
+    )
 
     if skip_if_present and _is_output_fresh(
         project_root=resolved_project_root,
@@ -752,7 +793,7 @@ def run_cli() -> int:
         "--output",
         type=Path,
         default=None,
-        help="Output JSON path (default: data/lexicon/greek_lemmas.json).",
+        help="Output JSON path (default: data/languages/ancient_greek/lexicon/greek_lemmas.json).",
     )
     parser.add_argument(
         "--limit",

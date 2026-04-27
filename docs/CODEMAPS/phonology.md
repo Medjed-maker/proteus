@@ -94,7 +94,7 @@ explicitly.
 
 ## External Dependencies
 
-- **yaml** (PyYAML) — Parse rules files in `data/rules/ancient_greek/`
+- **yaml** (PyYAML) — Parse rules files in `data/languages/ancient_greek/rules/`
 - **pathlib** (stdlib) — Path manipulation
 - **unicodedata** (stdlib) — Unicode normalization for Greek combining marks, diacritics
 - **json** (stdlib) — Load lexicon, matrices
@@ -105,4 +105,4 @@ explicitly.
 
 - **[api.md](./api.md)** — Integrates all phonology modules; exposes via FastAPI
 - **[CLAUDE.md](../CLAUDE.md)** — Architectural decisions (dual data resolution, raw vs normalized distance, matrix flattening)
-- **Data files:** `/Users/nakamuratakahito/proteus/data/matrices/`, `/data/rules/`, `/data/lexicon/`
+- **Data files:** `data/languages/ancient_greek/matrices/`, `data/languages/ancient_greek/rules/`, `data/languages/ancient_greek/lexicon/`

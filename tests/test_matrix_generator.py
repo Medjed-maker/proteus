@@ -369,7 +369,7 @@ class TestBuildAtticDoricMatrix:
     def test_returns_expected_document_structure(self) -> None:
         document = matrix_generator.build_attic_doric_matrix()
 
-        assert set(document) == {"_meta", "sound_classes"}
+        assert set(document) == {"_meta", "sound_classes", "dialect_pairs"}
 
         meta = document["_meta"]
         assert isinstance(meta, dict)
@@ -379,7 +379,8 @@ class TestBuildAtticDoricMatrix:
         assert isinstance(sound_classes, dict)
         assert isinstance(sound_classes["vowels"], dict)
         assert isinstance(sound_classes["stops"], dict)
-        assert isinstance(sound_classes["dialect_pairs"], dict)
+
+        assert isinstance(document["dialect_pairs"], dict)
 
     def test_generated_at_includes_timezone_offset_and_milliseconds(self) -> None:
         document = matrix_generator.build_attic_doric_matrix(
@@ -429,7 +430,7 @@ class TestBuildAtticDoricMatrix:
                 generated_at=invalid_generated_at  # type: ignore[arg-type]
             )
 
-    def test_raises_when_seed_document_is_missing_dialect_pairs(
+    def test_handles_seed_document_missing_dialect_pairs(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
@@ -450,8 +451,9 @@ class TestBuildAtticDoricMatrix:
         monkeypatch.setattr(matrix_generator, "VOWEL_ORDER", ("a",))
         monkeypatch.setattr(matrix_generator, "STOP_ORDER", ("p",))
 
-        with pytest.raises(KeyError, match="dialect_pairs"):
-            matrix_generator.build_attic_doric_matrix()
+        document = matrix_generator.build_attic_doric_matrix()
+        assert "dialect_pairs" in document
+        assert document["dialect_pairs"] == {}
 
 
 class TestWriteAtticDoricMatrix:

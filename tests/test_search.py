@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Any
 
 import pytest
 
@@ -69,6 +70,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             return TestSearch._fake_score_stage(
                 query_ipa,
@@ -166,6 +168,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             return [
                 SearchResult(
@@ -176,13 +179,13 @@ class TestSearch:
             ]
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "query-ipa")
-        monkeypatch.setattr(search_module, "tokenize_ipa", fake_tokenize_ipa)
+        monkeypatch.setattr("phonology.search._tokenization.tokenize_ipa", fake_tokenize_ipa)
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
         monkeypatch.setattr(
             search_module, "filter_stage", lambda results, max_results: results[:max_results]
@@ -214,7 +217,7 @@ class TestSearch:
             }.get(ipa_text, [])
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "query-ipa")
-        monkeypatch.setattr(search_module, "tokenize_ipa", fake_tokenize_ipa)
+        monkeypatch.setattr("phonology.search._tokenization.tokenize_ipa", fake_tokenize_ipa)
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(
             search_module,
@@ -231,7 +234,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
         monkeypatch.setattr(
             search_module, "filter_stage", lambda results, max_results: results[:max_results]
@@ -275,6 +278,7 @@ class TestSearch:
             *,
             max_candidates: int | None = None,
             query_token_count: int | None = None,
+            **_kwargs: Any,
         ) -> list[str]:
             captured["rank_lookup_is_prebuilt"] = lexicon_map is prebuilt_lexicon_map
             return ["L1"]
@@ -284,6 +288,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["score_lookup_is_prebuilt"] = lexicon_map is prebuilt_lexicon_map
             return [
@@ -301,6 +306,7 @@ class TestSearch:
             lexicon_map: dict[str, object],
             matrix: object,
             language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotate_lookup_is_prebuilt"] = lexicon_map is prebuilt_lexicon_map
             return results
@@ -313,7 +319,7 @@ class TestSearch:
         }
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "aː")
-        monkeypatch.setattr(search_module, "tokenize_ipa", lambda ipa_text: ["a"])
+        monkeypatch.setattr("phonology.search._tokenization.tokenize_ipa", lambda ipa_text: ["a"])
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(search_module, "build_lexicon_map", fail_build_lexicon_map)
         monkeypatch.setattr(
@@ -350,6 +356,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             return [
                 SearchResult(lemma="alpha", confidence=0.99, entry_id="L1"),
@@ -364,6 +371,7 @@ class TestSearch:
             lexicon_map: dict[str, object],
             matrix: object,
             language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_entry_ids"] = [result.entry_id for result in results]
             return results
@@ -401,6 +409,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["candidate_ids"] = list(candidates)
             captured["lookup_keys"] = list(lexicon_map)
@@ -410,14 +419,14 @@ class TestSearch:
             raise AssertionError("should not build tokenized lexicon map")
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "query-ipa")
-        monkeypatch.setattr(search_module, "tokenize_ipa", fake_tokenize_ipa)
+        monkeypatch.setattr("phonology.search._tokenization.tokenize_ipa", fake_tokenize_ipa)
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"])
         monkeypatch.setattr(search_module, "build_lexicon_map", fail_build_lexicon_map)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
         monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
 
@@ -461,7 +470,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         search("query", lexicon, matrix={}, max_results=1)
@@ -528,7 +537,7 @@ class TestSearch:
         }
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "query-ipa")
-        monkeypatch.setattr(search_module, "tokenize_ipa", lambda ipa_text: ["q", "u", "e"])
+        monkeypatch.setattr("phonology.search._tokenization.tokenize_ipa", lambda ipa_text: ["q", "u", "e"])
         monkeypatch.setattr(
             search_module,
             "seed_stage",
@@ -579,7 +588,7 @@ class TestSearch:
         }
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "query-ipa")
-        monkeypatch.setattr(search_module, "tokenize_ipa", lambda ipa_text: ["q", "u", "e"])
+        monkeypatch.setattr("phonology.search._tokenization.tokenize_ipa", lambda ipa_text: ["q", "u", "e"])
         monkeypatch.setattr(
             search_module,
             "seed_stage",
@@ -618,7 +627,8 @@ class TestSearch:
         }
 
         def fake_build_lexicon_map(
-            lexicon_arg: list[dict[str, str]],
+            lexicon: list[dict[str, str]],
+            **_kwargs: Any,
         ) -> dict[str, LexiconRecord]:
             nonlocal build_calls
             build_calls += 1
@@ -630,6 +640,7 @@ class TestSearch:
             *,
             max_candidates: int | None = None,
             query_token_count: int | None = None,
+            **_kwargs: Any,
         ) -> list[str]:
             captured["rank_lookup_is_built"] = lexicon_map is built_lexicon_map
             return ["L1"]
@@ -639,6 +650,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["score_lookup_is_built"] = lexicon_map is built_lexicon_map
             return [
@@ -656,12 +668,13 @@ class TestSearch:
             lexicon_map: dict[str, object],
             matrix: object,
             language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotate_lookup_is_built"] = lexicon_map is built_lexicon_map
             return results
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "aː")
-        monkeypatch.setattr(search_module, "tokenize_ipa", lambda ipa_text: ["a"])
+        monkeypatch.setattr("phonology.search._tokenization.tokenize_ipa", lambda ipa_text: ["a"])
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(search_module, "build_lexicon_map", fake_build_lexicon_map)
         monkeypatch.setattr(
@@ -687,7 +700,7 @@ class TestSearch:
         """Full-form k=1 fallback should not append non-unigram lexicon entries."""
         captured: dict[str, object] = {}
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return [] if k == 2 else ["L2", *[f"L{idx:04d}" for idx in range(2500)]]
 
         def fake_score_stage(
@@ -695,6 +708,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["candidate_ids"] = list(candidates)
             return []
@@ -705,7 +719,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
         monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
 
@@ -725,7 +739,7 @@ class TestSearch:
         captured: dict[str, object] = {}
         partial_match_calls = 0
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return []
 
         def fake_rank_by_token_count_proximity(
@@ -734,6 +748,7 @@ class TestSearch:
             *,
             max_candidates: int | None = None,
             query_token_count: int | None = None,
+            **_kwargs: Any,
         ) -> list[str]:
             captured["fallback_max_candidates"] = max_candidates
             captured["fallback_query_token_count"] = query_token_count
@@ -745,6 +760,7 @@ class TestSearch:
         def tracking_match_partial_query(
             partial_query: search_module.PartialQueryTokens,
             lemma_tokens: tuple[str, ...],
+            **_kwargs: Any,
         ) -> search_module.PartialMatchInfo:
             nonlocal partial_match_calls
             partial_match_calls += 1
@@ -755,6 +771,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["candidate_ids"] = list(candidates)
             return []
@@ -768,7 +785,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -806,7 +823,7 @@ class TestSearch:
         """Explicit token fallback caps should not widen partial-form stage-2 work."""
         captured: dict[str, object] = {}
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return []
 
         def fake_score_stage(
@@ -814,6 +831,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["candidate_ids"] = list(candidates)
             return []
@@ -824,7 +842,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -858,7 +876,7 @@ class TestSearch:
         captured: dict[str, object] = {}
         unigram_hits = [f"N{index:02d}" for index in range(30)] + ["TARGET"]
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return [] if k == 2 else unigram_hits
 
         def fake_rank_by_token_count_proximity(
@@ -867,6 +885,7 @@ class TestSearch:
             *,
             max_candidates: int | None = None,
             query_token_count: int | None = None,
+            **_kwargs: Any,
         ) -> list[str]:
             captured["fallback_max_candidates"] = max_candidates
             captured["fallback_query_token_count"] = query_token_count
@@ -878,6 +897,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["candidate_ids"] = list(candidates)
             return []
@@ -889,7 +909,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -918,7 +938,7 @@ class TestSearch:
         captured: dict[str, object] = {}
         unigram_hits = [f"N{index:02d}" for index in range(30)] + ["TARGET"]
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return [] if k == 2 else unigram_hits
 
         def fake_score_stage(
@@ -926,6 +946,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["candidate_ids"] = list(candidates)
             return []
@@ -936,7 +957,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -968,11 +989,12 @@ class TestSearch:
         """Missing tokenized unigram candidates should warn and continue."""
         captured: dict[str, object] = {}
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return [] if k == 2 else ["L2", "missing", "L1", "missing"]
 
         def fake_build_lexicon_map(
             lexicon: list[dict[str, str]],
+            **_kwargs: Any,
         ) -> dict[str, LexiconRecord]:
             return {
                 "L1": LexiconRecord(entry=lexicon[0], token_count=1, ipa_tokens=("p",)),
@@ -984,6 +1006,7 @@ class TestSearch:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["candidate_ids"] = list(candidates)
             captured["lookup_keys"] = list(lexicon_map)
@@ -996,7 +1019,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
         monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
 
@@ -1048,7 +1071,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": list(results),
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(results),
         )
 
         lexicon = [{"id": "L1", "headword": "alpha", "ipa": "p t e n", "dialect": "attic"}]
@@ -1108,6 +1131,7 @@ class TestSearch:
             *,
             max_candidates: int | None = None,
             query_token_count: int | None = None,
+            **_kwargs: Any,
         ) -> list[str]:
             nonlocal rank_calls
             rank_calls += 1
@@ -1136,7 +1160,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": list(results),
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(results),
         )
 
         lexicon = [{"id": "L1", "headword": "alpha", "ipa": "aː", "dialect": "attic"}]
@@ -1170,6 +1194,7 @@ class TestSearch:
             *,
             max_candidates: int | None = None,
             query_token_count: int | None = None,
+            **_kwargs: Any,
         ) -> list[str]:
             captured["query_token_count"] = query_token_count
             captured["lookup_keys"] = list(lexicon_map)
@@ -1457,6 +1482,7 @@ class TestSearch:
             lexicon_map: dict[str, dict[str, object]],
             matrix: object,
             language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["language"] = language
             return results

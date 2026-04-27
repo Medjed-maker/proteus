@@ -19,7 +19,7 @@ def _leading_overlap_length(
 ) -> int:
     """Return the number of matching tokens from the left edge."""
     overlap = 0
-    for fragment_token, lemma_token in zip(fragment_tokens, lemma_tokens):
+    for fragment_token, lemma_token in zip(fragment_tokens, lemma_tokens, strict=False):
         if fragment_token != lemma_token:
             break
         overlap += 1
@@ -32,7 +32,9 @@ def _trailing_overlap_length(
 ) -> int:
     """Return the number of matching tokens from the right edge."""
     overlap = 0
-    for fragment_token, lemma_token in zip(reversed(fragment_tokens), reversed(lemma_tokens)):
+    for fragment_token, lemma_token in zip(
+        reversed(fragment_tokens), reversed(lemma_tokens), strict=False
+    ):
         if fragment_token != lemma_token:
             break
         overlap += 1
@@ -52,7 +54,10 @@ def _contiguous_prefix_match_length(
 
     overlap = 0
     max_length = min(len(fragment_tokens), len(lemma_tokens) - start_index)
-    while overlap < max_length and fragment_tokens[overlap] == lemma_tokens[start_index + overlap]:
+    while (
+        overlap < max_length
+        and fragment_tokens[overlap] == lemma_tokens[start_index + overlap]
+    ):
         overlap += 1
     return overlap
 

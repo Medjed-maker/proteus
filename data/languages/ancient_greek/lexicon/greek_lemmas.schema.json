@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://proteus.local/data/lexicon/greek_lemmas.schema.json",
+  "$id": "https://proteus.local/data/languages/ancient_greek/lexicon/greek_lemmas.schema.json",
   "title": "Ancient Greek lemma lexicon",
   "type": "object",
   "required": [
@@ -90,7 +90,7 @@
                   "orcid": {
                     "type": "string",
                     "minLength": 1,
-                    "pattern": "^(\\d{4}-){3}\\d{4}$"
+                    "pattern": "^(\\d{4}-){3}\\d{3}[0-9X]$"
                   }
                 }
               }

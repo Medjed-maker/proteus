@@ -5,7 +5,12 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
-from phonology.explainer import Explanation, RuleApplication, explain_alignment, to_prose
+from phonology.explainer import (
+    Explanation,
+    RuleApplication,
+    explain_alignment,
+    to_prose,
+)
 from phonology.ipa_converter import strip_ignored_ipa_combining_marks
 from phonology import search as phonology_search
 
@@ -260,7 +265,11 @@ def _fallback_edit_label(step: RuleApplication) -> FallbackEditLabel:
 
 
 def _format_counted_noun(
-    count: int, singular: str, plural: str | None = None, *, lang: Literal["en", "ja"] = "en"
+    count: int,
+    singular: str,
+    plural: str | None = None,
+    *,
+    lang: Literal["en", "ja"] = "en",
 ) -> str:
     """Format a counted noun phrase.
 
@@ -287,7 +296,9 @@ def _format_counted_phrase(
     return _format_counted_noun(count, singular, plural, lang=lang), verb
 
 
-def _format_position_summary(steps: list[RuleApplication], *, lang: Literal["en", "ja"] = "en") -> str:
+def _format_position_summary(
+    steps: list[RuleApplication], *, lang: Literal["en", "ja"] = "en"
+) -> str:
     """Describe whether the affected positions are known or unknown."""
     distinct_positions = _count_distinct_positions(steps)
     unknown_positions = sum(1 for step in steps if step.position < 0)
@@ -307,10 +318,18 @@ def _format_position_summary(steps: list[RuleApplication], *, lang: Literal["en"
         }
 
         if needs_known_noun:
-            format_args["known_noun"] = _p(lang, "known_position_s" if distinct_positions == 1 else "known_position_p")
+            format_args["known_noun"] = _p(
+                lang,
+                "known_position_s" if distinct_positions == 1 else "known_position_p",
+            )
 
         if needs_unknown_noun:
-            format_args["unknown_noun"] = _p(lang, "unknown_position_s" if unknown_positions == 1 else "unknown_position_p")
+            format_args["unknown_noun"] = _p(
+                lang,
+                "unknown_position_s"
+                if unknown_positions == 1
+                else "unknown_position_p",
+            )
 
         return template_text.format(**format_args)
     if distinct_positions == 1:
@@ -345,10 +364,14 @@ def _build_alignment_summary(
             )
         if explicit_steps:
             rules_phrase = f"{len(explicit_steps)}{_p(lang, 'rule_s')}"
-            return _p(lang, "summary_rules_only").format(rules=rules_phrase, pos=position_summary)
+            return _p(lang, "summary_rules_only").format(
+                rules=rules_phrase, pos=position_summary
+            )
         if len(observed_steps) == 1:
             return _p(lang, "summary_one_edit").format(pos=position_summary)
-        operation_counts_ja: dict[FallbackEditLabel, int] = dict.fromkeys(_FALLBACK_EDIT_LABELS, 0)
+        operation_counts_ja: dict[FallbackEditLabel, int] = dict.fromkeys(
+            _FALLBACK_EDIT_LABELS, 0
+        )
         for step in observed_steps:
             operation_counts_ja[_fallback_edit_label(step)] += 1
         ops = "・".join(
@@ -374,23 +397,32 @@ def _build_alignment_summary(
         rules_phrase = _format_counted_noun(
             len(explicit_steps), _p(lang, "rule_s"), _p(lang, "rule_p"), lang=lang
         )
-        return _p(lang, "summary_rules_only").format(rules=rules_phrase, pos=position_summary)
+        return _p(lang, "summary_rules_only").format(
+            rules=rules_phrase, pos=position_summary
+        )
 
     if len(observed_steps) == 1:
         return _p(lang, "summary_one_edit").format(pos=position_summary)
 
-    operation_counts: dict[FallbackEditLabel, int] = dict.fromkeys(_FALLBACK_EDIT_LABELS, 0)
+    operation_counts: dict[FallbackEditLabel, int] = dict.fromkeys(
+        _FALLBACK_EDIT_LABELS, 0
+    )
     for step in observed_steps:
         operation_counts[_fallback_edit_label(step)] += 1
 
     operation_summary = ", ".join(
         _format_counted_noun(
-            operation_counts[label], _p(lang, label + "_s"), _p(lang, label + "_p"), lang=lang
+            operation_counts[label],
+            _p(lang, label + "_s"),
+            _p(lang, label + "_p"),
+            lang=lang,
         )
         for label in _FALLBACK_EDIT_LABELS
         if operation_counts[label] > 0
     )
-    return _p(lang, "summary_multi_edit").format(ops=operation_summary, pos=position_summary)
+    return _p(lang, "summary_multi_edit").format(
+        ops=operation_summary, pos=position_summary
+    )
 
 
 def _similarity_line(confidence: float, *, lang: Literal["en", "ja"] = "en") -> str:
@@ -483,7 +515,9 @@ def _build_search_hit(
             distance=distance,
         )
     steps = list(explanation.steps)
-    applied_rule_count, observed_change_count = _count_explicit_and_observed_steps(steps)
+    applied_rule_count, observed_change_count = _count_explicit_and_observed_steps(
+        steps
+    )
     match_type = _build_match_type(
         source_ipa=source_ipa,
         query_ipa=query_ipa,

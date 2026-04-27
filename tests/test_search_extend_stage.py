@@ -33,21 +33,29 @@ class TestExtendStage:
     matching path end-to-end.
     """
 
-    def test_get_rules_registry_uses_requested_language(
+    def test_get_rules_registry_resolves_language_id_to_profile_rules_dir(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        captured: dict[str, object] = {}
+        from pathlib import Path
 
-        def fake_load_rules(language: str) -> dict[str, dict[str, object]]:
-            captured["language"] = language
+        fake_rules_dir = Path("/fake/rules")
+        captured: list[object] = []
+
+        def fake_get_profile(lang: str) -> object:
+            class _Profile:
+                rules_dir = fake_rules_dir
+
+            return _Profile()
+
+        def fake_load_rules(source: object) -> dict[str, dict[str, object]]:
+            captured.append(source)
             return {"RULE": {"id": "RULE"}}
 
+        monkeypatch.setattr(search_module, "get_language_profile", fake_get_profile)
         monkeypatch.setattr(search_module, "load_rules", fake_load_rules)
 
-        assert search_module.get_rules_registry("test_language") == {
-            "RULE": {"id": "RULE"}
-        }
-        assert captured == {"language": "test_language"}
+        assert search_module.get_rules_registry("test_language") == {"RULE": {"id": "RULE"}}
+        assert captured == [fake_rules_dir]
 
     def test_get_rules_registry_raises_descriptive_error_for_invalid_language(
         self, monkeypatch: pytest.MonkeyPatch

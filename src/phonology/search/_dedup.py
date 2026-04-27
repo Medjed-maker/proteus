@@ -7,7 +7,9 @@ from collections.abc import Iterable, Sequence
 from ._types import SearchResult
 
 
-def _deduplicate_by_headword_common(results: Iterable[SearchResult]) -> list[SearchResult]:
+def _deduplicate_by_headword_common(
+    results: Iterable[SearchResult],
+) -> list[SearchResult]:
     """Shared core logic for headword deduplication.
 
     Args:
