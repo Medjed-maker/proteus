@@ -32,7 +32,7 @@ RESPONSE (JSON with hits, rules applied, alignments)
 ## Quick Links
 
 - **Entry Points:** `src/api/main.py` (FastAPI app), `src/phonology/search.py` (search pipeline)
-- **Data Files:** `data/matrices/attic_doric.json`, `data/rules/ancient_greek/`, `data/lexicon/greek_lemmas.json`
+- **Data Files:** `data/languages/ancient_greek/matrices/attic_doric.json`, `data/languages/ancient_greek/rules/`, `data/languages/ancient_greek/lexicon/greek_lemmas.json`
 - **Key Dependencies:** FastAPI, Pydantic (via FastAPI), uvicorn, PyYAML, lingpy
 
 For detailed architecture rationale, see `/Users/nakamuratakahito/proteus/CLAUDE.md`.

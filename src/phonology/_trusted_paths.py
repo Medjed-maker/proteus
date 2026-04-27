@@ -24,7 +24,9 @@ def trusted_dir_overrides_enabled() -> bool:
     return raw_value.strip().lower() in _TRUTHY_ENV_VALUES
 
 
-def _raise_if_symlink_present(*, candidate: Path, env_var: str, raw_override: str) -> None:
+def _raise_if_symlink_present(
+    *, candidate: Path, env_var: str, raw_override: str
+) -> None:
     """Reject override paths that currently contain symlinked components.
 
     This is a best-effort path walk and is subject to TOCTOU races between the
@@ -41,6 +43,28 @@ def _raise_if_symlink_present(*, candidate: Path, env_var: str, raw_override: st
                 f"{env_var} must not contain a symlink, "
                 f"got {raw_override} (symlink at {part})"
             )
+
+
+def validate_no_symlinks_in_path(path: Path, *, description: str) -> None:
+    """Walk ``path`` and all its parents, raising if any component is a symlink.
+
+    This is a best-effort check subject to TOCTOU races. For stronger
+    guarantees, use OS-level atomic primitives such as ``O_NOFOLLOW``.
+
+    Raises:
+        ValueError: If any path component (including the path itself) is a symlink.
+    """
+    current = path
+    while True:
+        if current.is_symlink():
+            raise ValueError(
+                f"Symlink detected in {description} path: {current}. "
+                "Set allow_symlinks=True to permit symlinks."
+            )
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
 
 
 def resolve_trusted_dir_override(*, env_var: str, description: str) -> Path | None:
@@ -62,9 +86,7 @@ def resolve_trusted_dir_override(*, env_var: str, description: str) -> Path | No
         return None
 
     if not trusted_dir_overrides_enabled():
-        raise ValueError(
-            f"{env_var} requires {TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR}=1"
-        )
+        raise ValueError(f"{env_var} requires {TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR}=1")
 
     override_path = Path(raw_override).expanduser()
     _raise_if_symlink_present(
@@ -82,7 +104,9 @@ def resolve_trusted_dir_override(*, env_var: str, description: str) -> Path | No
         raw_override=raw_override,
     )
     if not resolved_path.exists():
-        raise FileNotFoundError(f"Could not find {description} directory {resolved_path}")
+        raise FileNotFoundError(
+            f"Could not find {description} directory {resolved_path}"
+        )
     if not resolved_path.is_dir():
         raise NotADirectoryError(
             f"{description} path is not a directory: {resolved_path}"

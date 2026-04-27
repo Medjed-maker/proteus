@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Any
 
 import pytest
 
@@ -37,6 +38,7 @@ def mock_common_search_stages(monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
         candidates: Iterable[str],
         lexicon_map: dict[str, LexiconRecord],
         matrix: object,
+        **_kwargs: Any,
     ) -> list[SearchResult]:
         captured["candidate_ids"] = list(candidates)
         return []
@@ -47,7 +49,7 @@ def mock_common_search_stages(monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
     monkeypatch.setattr(
         search_module,
         "_annotate_search_results",
-        lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+        lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
     )
     monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
     return captured
@@ -67,7 +69,7 @@ class TestSearchUnigramFallback:
         monkeypatch.setattr(
             search_module,
             "seed_stage",
-            lambda query_ipa, index, k=2: seed_calls.append(k) or ([] if k == 2 else ["L1", "L2"]),
+            lambda query_ipa, index, k=2, **_kwargs: seed_calls.append(k) or ([] if k == 2 else ["L1", "L2"]),
         )
         lexicon = [
             {"id": "L1", "headword": "πολύ", "ipa": "poly", "dialect": "attic"},
@@ -121,7 +123,7 @@ class TestSearchUnigramFallback:
         """Callers can cap the k=1 fallback after token-count re-ranking."""
         captured = mock_common_search_stages
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return [] if k == 2 else ["L1", "L2", "L3", "L4"]
 
         monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
@@ -153,7 +155,7 @@ class TestSearchUnigramFallback:
         """Direct short-query k=1 fallback should not score all unigram hits."""
         captured = mock_common_search_stages
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             if k == 2:
                 return []
             return [f"L{idx:04d}" for idx in range(2500)]
@@ -182,7 +184,7 @@ class TestSearchUnigramFallback:
         """Full-form k=1 fallback should not score all unigram hits by default."""
         captured = mock_common_search_stages
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             if k == 2:
                 return []
             return [f"L{idx:04d}" for idx in range(2500)]
@@ -212,7 +214,7 @@ class TestSearchUnigramFallback:
         """Full-form k=1 fallback should fall back to the default cap when None is passed."""
         captured = mock_common_search_stages
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             if k == 2:
                 return []
             return [f"L{idx:04d}" for idx in range(2500)]
@@ -261,7 +263,7 @@ class TestSearchUnigramFallback:
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "poi")
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return [] if k == 2 else ["L1", "L2"]
 
         monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)

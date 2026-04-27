@@ -10,9 +10,12 @@ from pydantic import (
     AliasChoices,
     BaseModel,
     Field,
+    model_validator,
     StringConstraints,
     field_validator,
 )
+from phonology._paths import DEFAULT_LANGUAGE_ID
+from phonology.profiles import get_default_language_profile, get_language_profile
 
 
 class DataVersions(BaseModel):
@@ -45,9 +48,7 @@ class DataVersions(BaseModel):
         if value == "":
             return value
         normalized = (
-            value.removesuffix("Z") + "+00:00"
-            if value.endswith("Z")
-            else value
+            value.removesuffix("Z") + "+00:00" if value.endswith("Z") else value
         )
         try:
             datetime.fromisoformat(normalized)
@@ -70,14 +71,68 @@ QueryForm = Annotated[
 class SearchRequest(BaseModel):
     """Client request for a phonological search query."""
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_language_and_dialect(cls, data: Any) -> Any:
+        """Normalize profile language and dialect, preserving legacy language aliases."""
+        if not isinstance(data, dict):
+            return data
+        payload = dict(data)
+        raw_language = payload.get("language")
+        if isinstance(raw_language, str):
+            normalized = raw_language.strip().lower()
+            if normalized in {"en", "ja"}:
+                payload.setdefault("lang", normalized)
+                payload["language"] = "ancient_greek"
+
+        language_value = payload.get("language")
+        if language_value is None:
+            language = "ancient_greek"
+        elif isinstance(language_value, str):
+            language = language_value.strip().lower() or "ancient_greek"
+        else:
+            raise ValueError("language must be a string")
+
+        try:
+            profile = get_language_profile(language)
+        except ValueError as exc:
+            if language == DEFAULT_LANGUAGE_ID:
+                profile = get_default_language_profile()
+            else:
+                raise ValueError(
+                    f"invalid language profile: {language!r}; "
+                    "requested profile must be registered in phonology.profiles"
+                ) from exc
+
+        dialect_key = "dialect_hint" if "dialect_hint" in payload else "dialect"
+        raw_dialect = payload.get(dialect_key)
+        if raw_dialect is None:
+            dialect = profile.default_dialect
+        elif isinstance(raw_dialect, str):
+            dialect = raw_dialect.strip().lower()
+            if dialect not in profile.supported_dialects:
+                allowed = ", ".join(repr(item) for item in profile.supported_dialects)
+                raise ValueError(
+                    f"dialect_hint must be one of ({allowed}) for language {language!r}"
+                )
+        else:
+            raise ValueError("dialect_hint must be a string")
+
+        payload["language"] = language
+        payload["dialect_hint"] = dialect
+        return payload
+
     query_form: QueryForm = Field(
         validation_alias=AliasChoices("query_form", "query"),
         description="Greek word to search for (Unicode, polytonic or monotonic).",
     )
-    dialect_hint: Literal["attic", "koine"] = Field(
+    dialect_hint: str = Field(
         default="attic",
         validation_alias=AliasChoices("dialect_hint", "dialect"),
-        description="Dialect hint for IPA conversion. Supports 'attic' and query-side 'koine'.",
+        description=(
+            "Dialect hint for IPA conversion. Built-in Ancient Greek values are "
+            "'attic' and 'koine'."
+        ),
     )
     max_candidates: int = Field(
         default=20,
@@ -86,9 +141,13 @@ class SearchRequest(BaseModel):
         validation_alias=AliasChoices("max_candidates", "max_results"),
         description="Maximum number of hits to return.",
     )
+    language: str = Field(
+        default="ancient_greek",
+        description="Language profile used for phonological search.",
+    )
     lang: Literal["en", "ja"] = Field(
         default="en",
-        validation_alias=AliasChoices("lang", "language"),
+        validation_alias=AliasChoices("lang"),
         description="Response language for generated prose text ('en' or 'ja').",
     )
 
@@ -109,8 +168,8 @@ class SearchRequest(BaseModel):
             return "attic"
         if isinstance(value, str):
             normalized = value.strip().lower()
-            if normalized not in {"attic", "koine"}:
-                raise ValueError("dialect_hint must be either 'attic' or 'koine'")
+            if not normalized:
+                return "attic"
             return normalized
         return value
 
@@ -122,9 +181,22 @@ class SearchRequest(BaseModel):
         if isinstance(value, str):
             normalized = value.strip().lower()
             if normalized not in {"en", "ja"}:
-                raise ValueError(f"invalid lang: {value}; expected one of {{'en', 'ja'}}")
+                raise ValueError(
+                    f"invalid lang: {value}; expected one of {{'en', 'ja'}}"
+                )
             return normalized
         return value
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def _normalize_language(cls, value: Any) -> Any:
+        """Normalize language identifier to a clean string."""
+        if value is None:
+            return "ancient_greek"
+        if not isinstance(value, str):
+            raise ValueError("language must be a string")
+        normalized = value.strip().lower()
+        return normalized or "ancient_greek"
 
 
 class RuleStep(BaseModel):
@@ -132,12 +204,14 @@ class RuleStep(BaseModel):
 
     rule_id: str = Field(description="Stable identifier for the phonological rule.")
     rule_name: str = Field(description="Human-readable display name for the rule.")
-    rule_name_en: str = Field(default="", description="English display name for the rule.")
+    rule_name_en: str = Field(
+        default="", description="English display name for the rule."
+    )
     from_phone: str = Field(description="Source IPA phone before the rule applied.")
     to_phone: str = Field(description="Target IPA phone after the rule applied.")
     position: int = Field(
         ge=-1,
-        description="Zero-based phone position in the alignment, or -1 when unknown."
+        description="Zero-based phone position in the alignment, or -1 when unknown.",
     )
 
 
@@ -174,9 +248,11 @@ class SearchHit(BaseModel):
         default="",
         description="Three-line ASCII alignment visualization.",
     )
-    match_type: Literal["Exact", "Rule-based", "Distance-only", "Low-confidence"] = Field(
-        default="Distance-only",
-        description="High-level classification describing how the candidate matched.",
+    match_type: Literal["Exact", "Rule-based", "Distance-only", "Low-confidence"] = (
+        Field(
+            default="Distance-only",
+            description="High-level classification describing how the candidate matched.",
+        )
     )
     rule_support: bool = Field(
         default=False,

@@ -16,10 +16,27 @@ from collections.abc import Sequence
 
 from ._paths import resolve_repo_data_dir
 
+PhoneDistanceMatrix = dict[str, dict[str, float]]
+
 MATRIX_PATH = resolve_repo_data_dir("matrices") / "attic_doric.json"
 logger = logging.getLogger(__name__)
 
-VOWEL_ORDER = ("a", "aː", "e", "eː", "ɛː", "i", "o", "ɔː", "oː", "y", "ai", "oi", "au", "eu")
+VOWEL_ORDER = (
+    "a",
+    "aː",
+    "e",
+    "eː",
+    "ɛː",
+    "i",
+    "o",
+    "ɔː",
+    "oː",
+    "y",
+    "ai",
+    "oi",
+    "au",
+    "eu",
+)
 _LEGACY_STOP_ORDER = ("p", "b", "pʰ", "t", "d", "tʰ", "k", "ɡ", "kʰ")
 STOP_ORDER = _LEGACY_STOP_ORDER + ("f", "θ", "x", "ð", "ɣ")
 _KOINE_STOP_BASES = {"f": "pʰ", "θ": "tʰ", "x": "kʰ", "ð": "d", "ɣ": "ɡ"}
@@ -39,8 +56,8 @@ def _load_seed_document() -> dict[str, Any]:
 
 
 def _expand_koine_stop_rows(
-    legacy_rows: dict[str, dict[str, float]],
-) -> dict[str, dict[str, float]]:
+    legacy_rows: PhoneDistanceMatrix,
+) -> PhoneDistanceMatrix:
     """Expand legacy stop rows with Koine spirantized phones."""
     rows = deepcopy(legacy_rows)
 
@@ -82,7 +99,7 @@ def _expand_koine_stop_rows(
 
 def _coerce_seed_rows(
     raw_rows: Any, order: Sequence[str], *, label: str
-) -> dict[str, dict[str, float]]:
+) -> PhoneDistanceMatrix:
     """Normalize JSON-backed matrix rows into validated float mappings."""
     if not isinstance(raw_rows, dict):
         raise ValueError(f"{label} must be a JSON object of row mappings")
@@ -92,13 +109,17 @@ def _coerce_seed_rows(
     if actual_phones != expected_phones:
         missing = sorted(expected_phones - actual_phones)
         extra = sorted(actual_phones - expected_phones)
-        raise ValueError(f"{label} must define exactly {order}; missing={missing}, extra={extra}")
+        raise ValueError(
+            f"{label} must define exactly {order}; missing={missing}, extra={extra}"
+        )
 
-    rows: dict[str, dict[str, float]] = {}
+    rows: PhoneDistanceMatrix = {}
     for row_phone in order:
         raw_row = raw_rows[row_phone]
         if not isinstance(raw_row, dict):
-            raise ValueError(f"{label}.{row_phone} must be a JSON object of column distances")
+            raise ValueError(
+                f"{label}.{row_phone} must be a JSON object of column distances"
+            )
 
         actual_columns = set(raw_row)
         if actual_columns != expected_phones:
@@ -121,14 +142,18 @@ def _coerce_seed_rows(
     return rows
 
 
-def _load_base_sound_class_rows() -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]]]:
+def _load_base_sound_class_rows() -> tuple[
+    PhoneDistanceMatrix, PhoneDistanceMatrix
+]:
     """Load the base vowel/stop rows from the committed JSON seed file."""
     try:
         seed_document = _load_seed_document()
     except FileNotFoundError as exc:
         raise RuntimeError(f"Matrix seed file not found at {MATRIX_PATH}") from exc
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Matrix seed file at {MATRIX_PATH} is not valid JSON") from exc
+        raise RuntimeError(
+            f"Matrix seed file at {MATRIX_PATH} is not valid JSON"
+        ) from exc
 
     try:
         sound_classes = seed_document["sound_classes"]
@@ -166,18 +191,22 @@ def _load_base_sound_class_rows() -> tuple[dict[str, dict[str, float]], dict[str
             f"Matrix seed file at {MATRIX_PATH} is missing required key {exc.args[0]!r}"
         ) from exc
     except ValueError as exc:
-        raise ValueError(f"Matrix seed file at {MATRIX_PATH} is malformed: {exc}") from exc
+        raise ValueError(
+            f"Matrix seed file at {MATRIX_PATH} is malformed: {exc}"
+        ) from exc
 
     return vowels, stops
 
 
 @functools.lru_cache(maxsize=1)
-def _get_cached_base_rows() -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]]]:
+def _get_cached_base_rows() -> tuple[
+    PhoneDistanceMatrix, PhoneDistanceMatrix
+]:
     """Load and cache the committed base vowel/stop rows on first use."""
     return _load_base_sound_class_rows()
 
 
-def _get_base_rows() -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]]]:
+def _get_base_rows() -> tuple[PhoneDistanceMatrix, PhoneDistanceMatrix]:
     """Return deep-copied cached base rows safe for caller mutation.
 
     ``_overlay_seed_rows()`` deep-copies its input before mutating it. This helper
@@ -199,19 +228,17 @@ _get_base_rows.cache_info = _get_cached_base_rows.cache_info  # type: ignore[att
 
 
 def _overlay_seed_rows(
-    base_rows: dict[str, dict[str, float]],
+    base_rows: PhoneDistanceMatrix,
     seed_rows: dict[str, Any],
     order: Sequence[str],
     seed_source: str = "committed matrix seed",
-) -> dict[str, dict[str, float]]:
+) -> PhoneDistanceMatrix:
     """Overlay committed seed distances onto a complete base matrix."""
     rows = deepcopy(base_rows)
 
     for row_phone, row in seed_rows.items():
         if row_phone not in rows:
-            logger.warning(
-                "Skipping unknown row %r from %s", row_phone, seed_source
-            )
+            logger.warning("Skipping unknown row %r from %s", row_phone, seed_source)
             continue
         if not isinstance(row, dict):
             logger.warning(
@@ -264,7 +291,9 @@ def _overlay_seed_rows(
     return rows
 
 
-def _validate_complete_matrix(rows: dict[str, dict[str, float]], order: Sequence[str]) -> None:
+def _validate_complete_matrix(
+    rows: PhoneDistanceMatrix, order: Sequence[str]
+) -> None:
     """Ensure matrix rows are complete, symmetric, and normalized."""
     for row_phone in order:
         row = rows[row_phone]
@@ -290,37 +319,33 @@ def _validate_complete_matrix(rows: dict[str, dict[str, float]], order: Sequence
                 raise ValueError(f"Self-distance for {row_phone!r} must be 0.0")
 
 
-def _validate_dialect_pairs(dialect_pairs: Any) -> dict[str, dict[str, float]]:
+def _validate_dialect_pairs(dialect_pairs: Any) -> PhoneDistanceMatrix:
     """Validate dialect-pair metadata before copying it into the generated document."""
     if not isinstance(dialect_pairs, dict):
-        raise ValueError("sound_classes.dialect_pairs must be a JSON object")
+        raise ValueError("dialect_pairs must be a JSON object")
 
-    validated_pairs: dict[str, dict[str, float]] = {}
+    validated_pairs: PhoneDistanceMatrix = {}
     for dialect_pair_name, raw_phone_pairs in dialect_pairs.items():
         if not isinstance(dialect_pair_name, str) or not dialect_pair_name.strip():
-            raise ValueError("sound_classes.dialect_pairs keys must be non-empty strings")
+            raise ValueError("dialect_pairs keys must be non-empty strings")
         if not isinstance(raw_phone_pairs, dict):
-            raise ValueError(
-                f"sound_classes.dialect_pairs.{dialect_pair_name} must be a JSON object"
-            )
+            raise ValueError(f"dialect_pairs.{dialect_pair_name} must be a JSON object")
 
         validated_phone_pairs: dict[str, float] = {}
         for phone_pair, distance in raw_phone_pairs.items():
             if not isinstance(phone_pair, str) or not phone_pair.strip():
                 raise ValueError(
-                    f"sound_classes.dialect_pairs.{dialect_pair_name} keys must be non-empty strings"
+                    f"dialect_pairs.{dialect_pair_name} keys must be non-empty strings"
                 )
             if not isinstance(distance, Real):
                 raise ValueError(
-                    "sound_classes.dialect_pairs."
-                    f"{dialect_pair_name}.{phone_pair} must be numeric"
+                    f"dialect_pairs.{dialect_pair_name}.{phone_pair} must be numeric"
                 )
 
             normalized_distance = float(distance)
             if not 0.0 <= normalized_distance <= 1.0:
                 raise ValueError(
-                    "sound_classes.dialect_pairs."
-                    f"{dialect_pair_name}.{phone_pair} must be within [0.0, 1.0]"
+                    f"dialect_pairs.{dialect_pair_name}.{phone_pair} must be within [0.0, 1.0]"
                 )
             validated_phone_pairs[phone_pair] = normalized_distance
 
@@ -403,10 +428,10 @@ def build_attic_doric_matrix(
         "sound_classes": {
             "vowels": vowels,
             "stops": stops,
-            "dialect_pairs": deepcopy(
-                _validate_dialect_pairs(sound_classes["dialect_pairs"])
-            ),
         },
+        "dialect_pairs": _validate_dialect_pairs(
+            seed_document.get("dialect_pairs", {})
+        ),
     }
 
 

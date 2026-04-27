@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Any
 
 import pytest
 
@@ -62,7 +63,7 @@ class TestSearchAnnotation:
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "poi")
         seed_calls: list[int] = []
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             seed_calls.append(k)
             if k == 2:
                 return []
@@ -73,7 +74,7 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
         monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
 
@@ -122,7 +123,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_count"] = len(results)
             return results
@@ -144,7 +145,7 @@ class TestSearchAnnotation:
         """Short-query annotation should be capped even when fallback scoring scans the full lexicon."""
         captured: dict[str, object] = {}
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return []
 
         def fake_score_stage(
@@ -170,7 +171,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_count"] = len(results)
             return list(results)
@@ -201,7 +202,7 @@ class TestSearchAnnotation:
         """Short-query annotation cap should still leave room for late rule-supported hits."""
         annotation_limit = search_module._annotation_candidate_limit(5)
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return []
 
         def fake_score_stage(
@@ -226,7 +227,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             annotated = list(results)
             if annotated and annotated[-1].entry_id == f"L{annotation_limit - 1:03d}":
@@ -289,7 +290,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             batch_sizes.append(len(results))
             annotated = list(results)
@@ -349,7 +350,7 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": list(results),
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(results),
         )
 
         lexicon = [
@@ -413,7 +414,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             captured_batches.append([str(result.entry_id) for result in results])
             return list(results)
@@ -481,7 +482,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             annotated = list(results)
             for result in annotated:
@@ -549,7 +550,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             captured_batches.append([str(result.entry_id) for result in results])
             return list(results)
@@ -602,7 +603,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             annotated = list(results)
             annotated[-1].applied_rules = ["RULE-010"]
@@ -649,7 +650,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_count"] = len(results)
             return list(results)
@@ -707,7 +708,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             annotated = list(results)
             annotated[1].applied_rules = ["RULE-002"]
@@ -756,7 +757,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             annotated = list(results)
             annotated[1].applied_rules = ["RULE-002"]
@@ -805,7 +806,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_ids"] = [str(result.entry_id) for result in results]
             return list(results)
@@ -858,7 +859,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_ids"] = [str(result.entry_id) for result in results]
             annotated = list(results)
@@ -917,7 +918,7 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek",
+            language: str = "ancient_greek", **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_ids"] = [str(result.entry_id) for result in results]
             return list(results)
@@ -995,7 +996,7 @@ class TestSearchAnnotation:
             counts["explain"] += 1
             return []
 
-        monkeypatch.setattr(search_module, "tokenize_ipa", tracking_tokenize)
+        monkeypatch.setattr("phonology.search._tokenization.tokenize_ipa", tracking_tokenize)
         monkeypatch.setattr(search_module, "explain_with_tokenized_rules", fake_explain)
         monkeypatch.setattr(scoring_module, "_smith_waterman_alignment", fake_alignment)
 
@@ -1011,7 +1012,7 @@ class TestSearchAnnotation:
 
         search("q", lexicon, matrix={}, max_results=5, index={}, unigram_index={})
 
-        extra_tokenize_calls = 2  # One for the query and one for tokenized rule preparation.
+        extra_tokenize_calls = 3  # Query tokenization for selection, scoring, and annotation.
         assert counts["alignment"] == len(lexicon)
         assert counts["explain"] == annotation_limit
         assert counts["tokenize"] == len(lexicon) + extra_tokenize_calls
@@ -1043,7 +1044,7 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": list(results),
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(results),
         )
 
         lexicon = [

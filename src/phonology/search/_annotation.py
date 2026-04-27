@@ -20,7 +20,11 @@ def _build_alignment_markers(
     """Build baseline visualization markers for an aligned token sequence."""
     markers: list[str] = []
     for query_token, lemma_token in zip(aligned_query, aligned_lemma, strict=True):
-        if query_token is not None and lemma_token is not None and query_token == lemma_token:
+        if (
+            query_token is not None
+            and lemma_token is not None
+            and query_token == lemma_token
+        ):
             markers.append("|")
         elif query_token is None or lemma_token is None:
             markers.append(" ")
@@ -63,7 +67,9 @@ def _format_alignment_visualization(
     lemma_cells = [token if token is not None else "-" for token in aligned_lemma]
 
     if not query_cells and not lemma_cells:
-        return f"{query_label.rstrip()}\n{marker_prefix.rstrip()}\n{lemma_label.rstrip()}"
+        return (
+            f"{query_label.rstrip()}\n{marker_prefix.rstrip()}\n{lemma_label.rstrip()}"
+        )
 
     widths = [
         max(len(query_cell), len(lemma_cell), 1)

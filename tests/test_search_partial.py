@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import replace
+from typing import Any
 
 import pytest
 
@@ -41,7 +42,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         search(
@@ -76,7 +77,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         search(
@@ -169,7 +170,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -204,7 +205,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -276,7 +277,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -307,7 +308,7 @@ class TestSearchPartial:
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return primary_seed_ids if k == 2 else supplemental_seed_ids
 
         def fake_select_partial_seed_candidates(
@@ -340,7 +341,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -369,7 +370,7 @@ class TestSearchPartial:
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2) -> list[str]:
+        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
             return ["SEED"] if k == 2 else []
 
         def fake_score_stage(
@@ -386,7 +387,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -420,7 +421,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -458,7 +459,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -506,7 +507,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -618,7 +619,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -667,7 +668,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -819,7 +820,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [

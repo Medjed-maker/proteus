@@ -16,6 +16,7 @@ import math
 from typing import Literal
 
 from ..distance import phone_distance
+from ..core.ipa import tokenize_ipa as tokenize_ipa_with_inventory
 from ..explainer import (
     Alignment,
     RuleApplication,
@@ -31,6 +32,10 @@ from ._lookup import (
     _lemma_label,
     _lookup_entry,
 )
+from ._tokenization import (
+    resolve_entry_tokens,
+    tokenize_for_inventory,
+)
 from ._types import (
     DistanceMatrix,
     LexiconLookup,
@@ -45,23 +50,9 @@ _GAP_PENALTY: float = -1.0
 _MATCH_SCORE: float = 2.0
 
 
-def _resolve_entry_tokens(record_or_entry: LexiconLookupValue) -> tuple[str, ...]:
-    """Return cached IPA tokens when available, tokenizing only as a fallback.
-
-    Unlike ``phonology.search.__init__._lookup_entry_tokens``, this copy
-    resolves ``tokenize_ipa`` from ``phonology.ipa_converter`` at import
-    time and is therefore **not affected** by monkeypatching
-    ``search_module.tokenize_ipa``.  Tests that exercise the scoring
-    internals directly (e.g. ``extend_stage``) should pass pre-tokenized
-    ``LexiconRecord`` entries.
-    """
-    if isinstance(record_or_entry, LexiconRecord) and len(record_or_entry.ipa_tokens) > 0:
-        return record_or_entry.ipa_tokens
-    entry = _lookup_entry(record_or_entry)
-    return tuple(tokenize_ipa(_entry_ipa(entry)))
-
-
-def _substitution_score(lemma_phone: str, query_phone: str, matrix: DistanceMatrix) -> float:
+def _substitution_score(
+    lemma_phone: str, query_phone: str, matrix: DistanceMatrix
+) -> float:
     """Return a Smith-Waterman substitution score for two phones."""
     if lemma_phone == query_phone:
         return _MATCH_SCORE
@@ -93,8 +84,12 @@ def _align_edge_tokens(
         remaining_lemma = list(lemma_tokens[shared_length:])
         max_length = max(len(remaining_query), len(remaining_lemma))
         return (
-            shared_query + ([None] * (max_length - len(remaining_query))) + remaining_query,
-            shared_lemma + ([None] * (max_length - len(remaining_lemma))) + remaining_lemma,
+            shared_query
+            + ([None] * (max_length - len(remaining_query)))
+            + remaining_query,
+            shared_lemma
+            + ([None] * (max_length - len(remaining_lemma)))
+            + remaining_lemma,
         )
     if side == "suffix":
         shared_length = 0
@@ -116,8 +111,12 @@ def _align_edge_tokens(
             remaining_lemma = list(lemma_tokens[:-shared_length])
         max_length = max(len(remaining_query), len(remaining_lemma))
         return (
-            remaining_query + ([None] * (max_length - len(remaining_query))) + shared_query,
-            remaining_lemma + ([None] * (max_length - len(remaining_lemma))) + shared_lemma,
+            remaining_query
+            + ([None] * (max_length - len(remaining_query)))
+            + shared_query,
+            remaining_lemma
+            + ([None] * (max_length - len(remaining_lemma)))
+            + shared_lemma,
         )
     raise ValueError(f"Unknown edge-alignment side {side!r}")
 
@@ -228,6 +227,8 @@ def _apply_rule_markers(
     aligned_query: list[str | None],
     aligned_lemma: list[str | None],
     applications: list[RuleApplication],
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> list[str]:
     """Overlay rule spans on top of baseline alignment markers."""
     local_markers = list(markers)
@@ -242,7 +243,10 @@ def _apply_rule_markers(
     for application in applications:
         if application.position < 0 or _is_observed_application(application):
             continue
-        input_tokens = tokenize_ipa(application.input_phoneme)
+        input_tokens = tokenize_for_inventory(
+            application.input_phoneme,
+            phone_inventory,
+        )
         for offset in range(len(input_tokens)):
             lemma_position = application.position + offset
             if lemma_position >= len(lemma_alignment_indices):
@@ -258,9 +262,11 @@ def _score_stage(
     candidates: Iterable[str],
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> list[SearchResult]:
     """Stage 2a: score candidates without explanation or visualization work."""
-    query_tokens = tokenize_ipa(query_ipa)
+    query_tokens = tokenize_for_inventory(query_ipa, phone_inventory)
     results: list[SearchResult] = []
 
     for candidate_id in candidates:
@@ -275,7 +281,9 @@ def _score_stage(
         entry = _lookup_entry(record_or_entry)
         lemma = _lemma_label(entry)
         lemma_ipa = _entry_ipa(entry)
-        lemma_tokens = list(_resolve_entry_tokens(record_or_entry))
+        lemma_tokens = list(
+            resolve_entry_tokens(record_or_entry, phone_inventory=phone_inventory)
+        )
         best_score, aligned_query, aligned_lemma = _smith_waterman_alignment(
             query_tokens, lemma_tokens, matrix
         )

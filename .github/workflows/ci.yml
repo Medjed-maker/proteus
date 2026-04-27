@@ -29,9 +29,9 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          matrix_files=(data/matrices/*.json)
+          matrix_files=(data/languages/ancient_greek/matrices/*.json)
           if [ ${#matrix_files[@]} -eq 0 ]; then
-            echo "No matrix files found under data/matrices/"
+            echo "No matrix files found under data/languages/ancient_greek/matrices/"
             exit 1
           fi
           failed=false
@@ -84,9 +84,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            data/lexicon/greek_lemmas.json
-            data/lexicon/greek_lemmas.meta.json
-          key: ${{ runner.os }}-lexicon-${{ hashFiles('scripts/extract-lsj.sh', 'src/phonology/lsj_extractor.py', 'src/phonology/build_lexicon.py', 'src/phonology/ipa_converter.py', 'src/phonology/transliterate.py', 'src/phonology/betacode.py', 'data/lexicon/pos_overrides.yaml', 'data/lexicon/greek_lemmas.schema.json') }}
+            data/languages/ancient_greek/lexicon/greek_lemmas.json
+            data/languages/ancient_greek/lexicon/greek_lemmas.meta.json
+          key: ${{ runner.os }}-lexicon-${{ hashFiles('scripts/extract-lsj.sh', 'src/phonology/lsj_extractor.py', 'src/phonology/build_lexicon.py', 'src/phonology/ipa_converter.py', 'src/phonology/languages/ancient_greek/ipa.py', 'src/phonology/transliterate.py', 'src/phonology/betacode.py', 'data/languages/ancient_greek/lexicon/pos_overrides.yaml', 'data/languages/ancient_greek/lexicon/greek_lemmas.schema.json') }}
           # restore-keys intentionally omitted: the generated lexicon is either
           # fully current or must be regenerated; a stale partial file is useless.
 

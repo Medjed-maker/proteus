@@ -49,7 +49,7 @@ def _minimal_lexicon_document() -> dict[str, object]:
             "last_updated": "2026-03-29T00:00:00Z",
             "license": "CC-BY-SA 4.0",
             "contributors": ["Proteus maintainers"],
-            "data_schema_ref": "data/lexicon/greek_lemmas.schema.json",
+            "data_schema_ref": "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json",
             "description": "Build helper test fixture.",
             "note": "Generated during unit tests.",
         },
@@ -69,10 +69,10 @@ def _minimal_lexicon_document() -> dict[str, object]:
 
 
 def _write_schema(project_root: Path) -> None:
-    schema_dir = project_root / "data" / "lexicon"
+    schema_dir = project_root / "data" / "languages" / "ancient_greek" / "lexicon"
     schema_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(
-        ROOT_DIR / "data" / "lexicon" / "greek_lemmas.schema.json",
+        ROOT_DIR / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.schema.json",
         schema_dir / "greek_lemmas.schema.json",
     )
 
@@ -120,7 +120,7 @@ def test_run_subprocess_propagates_command_failures() -> None:
 
 def test_default_output_path_uses_packaged_lexicon_location(tmp_path: Path) -> None:
     assert build_lexicon._default_output_path(tmp_path) == (
-        tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+        tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     )
 
 
@@ -201,7 +201,7 @@ def test_run_extractor_raises_when_pos_overrides_fail_strict_load(
     tmp_path: Path,
 ) -> None:
     xml_dir = tmp_path / "xml"
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     xml_dir.mkdir(parents=True)
 
     def fail_load(*, cli_mode: bool = False) -> dict[str, frozenset[str]]:
@@ -224,7 +224,7 @@ def test_run_extractor_forwards_arguments_to_lsj_extractor_main(
     tmp_path: Path,
 ) -> None:
     xml_dir = tmp_path / "xml"
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     xml_dir.mkdir(parents=True)
     captured: dict[str, object] = {}
 
@@ -269,7 +269,7 @@ def test_ensure_generated_lexicon_reuses_fresh_output_for_missing_custom_lsj_xml
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     _write_valid_lexicon_output(tmp_path, output_path)
 
     tracked_source = tmp_path / "src" / "phonology" / "ipa_converter.py"
@@ -319,7 +319,7 @@ def test_ensure_generated_lexicon_reuses_fresh_output_when_env_checkout_is_missi
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     _write_valid_lexicon_output(tmp_path, output_path)
 
     tracked_source = tmp_path / "src" / "phonology" / "ipa_converter.py"
@@ -360,7 +360,7 @@ def test_ensure_generated_lexicon_does_not_shortcut_offline_reuse_when_env_check
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     _write_valid_lexicon_output(tmp_path, output_path)
 
     tracked_source = tmp_path / "src" / "phonology" / "ipa_converter.py"
@@ -456,7 +456,7 @@ def test_ensure_generated_lexicon_does_not_shortcut_offline_reuse_when_env_check
 def test_ensure_generated_lexicon_rejects_missing_non_lsj_input_for_offline_reuse(
     tmp_path: Path,
 ) -> None:
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     _write_valid_lexicon_output(tmp_path, output_path)
 
     tracked_source = tmp_path / "src" / "phonology" / "ipa_converter.py"
@@ -501,7 +501,7 @@ def test_ensure_generated_lexicon_skips_existing_fresh_output_when_requested(
 ) -> None:
     xml_dir = tmp_path / "fake-xml"
     xml_dir.mkdir()
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     _write_valid_lexicon_output(tmp_path, output_path)
     freshness_payload = _freshness_payload()
     build_lexicon._write_metadata(
@@ -541,7 +541,7 @@ def test_ensure_generated_lexicon_reruns_when_output_exists_and_skip_disabled(
 ) -> None:
     xml_dir = tmp_path / "fake-xml"
     xml_dir.mkdir()
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     output_path.parent.mkdir(parents=True)
     output_path.write_text('{"stale": true}\n', encoding="utf-8")
     captured: dict[str, object] = {}
@@ -611,7 +611,7 @@ def test_ensure_generated_lexicon_reruns_when_output_exists_but_metadata_is_stal
 ) -> None:
     xml_dir = tmp_path / "fake-xml"
     xml_dir.mkdir()
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     output_path.parent.mkdir(parents=True)
     output_path.write_text('{"stale": true}\n', encoding="utf-8")
     metadata_path = build_lexicon._metadata_path_for_output(output_path)
@@ -677,7 +677,7 @@ def test_ensure_generated_lexicon_reruns_when_metadata_is_missing(
 ) -> None:
     xml_dir = tmp_path / "fake-xml"
     xml_dir.mkdir()
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     output_path.parent.mkdir(parents=True)
     output_path.write_text('{"stale": true}\n', encoding="utf-8")
     freshness_payload = _freshness_payload("new")
@@ -717,7 +717,7 @@ def test_ensure_generated_lexicon_reruns_when_metadata_is_invalid(
 ) -> None:
     xml_dir = tmp_path / "fake-xml"
     xml_dir.mkdir()
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     output_path.parent.mkdir(parents=True)
     output_path.write_text('{"stale": true}\n', encoding="utf-8")
     metadata_path = build_lexicon._metadata_path_for_output(output_path)
@@ -756,7 +756,7 @@ def test_ensure_generated_lexicon_reuses_fresh_output_without_default_lsj_checko
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     tracked_source, xml_dir = _write_default_fingerprint_inputs(tmp_path)
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     _write_valid_lexicon_output(tmp_path, output_path)
 
     monkeypatch.setattr(
@@ -795,7 +795,7 @@ def test_ensure_generated_lexicon_reruns_when_existing_output_is_invalid_json(
 ) -> None:
     xml_dir = tmp_path / "fake-xml"
     xml_dir.mkdir()
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     _write_schema(tmp_path)
     output_path.write_text("{invalid json\n", encoding="utf-8")
     freshness_payload = _freshness_payload()
@@ -854,7 +854,7 @@ def test_ensure_generated_lexicon_reruns_when_existing_output_is_schema_invalid(
 ) -> None:
     xml_dir = tmp_path / "fake-xml"
     xml_dir.mkdir()
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     _write_schema(tmp_path)
     output_path.write_text(
         json.dumps({"schema_version": "2.0.0", "_meta": {}, "lemmas": []}, indent=2) + "\n",
@@ -915,7 +915,7 @@ def test_ensure_generated_lexicon_does_not_reuse_invalid_output_without_checkout
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     tracked_source, xml_dir = _write_default_fingerprint_inputs(tmp_path)
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     _write_schema(tmp_path)
     output_path.write_text("{invalid json\n", encoding="utf-8")
 
@@ -954,7 +954,7 @@ def test_ensure_generated_lexicon_reruns_when_source_changes_and_default_lsj_che
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     tracked_source, xml_dir = _write_default_fingerprint_inputs(tmp_path)
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     output_path.parent.mkdir(parents=True)
     output_path.write_text('{"stale": true}\n', encoding="utf-8")
 
@@ -1039,7 +1039,7 @@ def test_ensure_generated_lexicon_runs_checkout_and_extractor_when_missing(
 ) -> None:
     xml_dir = tmp_path / "fake-xml"
     xml_dir.mkdir()
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     captured: dict[str, object] = {}
 
     def fake_checkout(
@@ -1108,7 +1108,7 @@ def test_ensure_generated_lexicon_raises_when_extractor_returns_nonzero(
 ) -> None:
     xml_dir = tmp_path / "fake-xml"
     xml_dir.mkdir()
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     resolved_xml_dir = xml_dir
 
     monkeypatch.setattr(
@@ -1135,7 +1135,7 @@ def test_ensure_generated_lexicon_dry_run_skips_metadata_write(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     xml_dir = tmp_path / "xml"
     xml_dir.mkdir()
     captured: dict[str, object] = {}
@@ -1178,7 +1178,7 @@ def test_ensure_generated_lexicon_fails_fast_without_checkout_when_clone_disable
     tmp_path: Path,
 ) -> None:
     """Clone disabled without existing checkout must raise with actionable hints."""
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
 
     with pytest.raises(FileNotFoundError, match="build-time cloning is disabled") as exc_info:
         build_lexicon.ensure_generated_lexicon(
@@ -1189,7 +1189,7 @@ def test_ensure_generated_lexicon_fails_fast_without_checkout_when_clone_disable
         )
 
     message = str(exc_info.value)
-    assert "data/lexicon/greek_lemmas.json" in message
+    assert "data/languages/ancient_greek/lexicon/greek_lemmas.json" in message
     assert "--xml-dir" in message
     assert "--lsj-repo-dir" in message
     assert build_lexicon.LSJ_REPO_DIR_ENV_VAR in message
@@ -1203,7 +1203,7 @@ def test_build_fingerprint_payload_tracks_xml_inputs(
     tracked_source = project_root / "src" / "phonology" / "ipa_converter.py"
     tracked_source.parent.mkdir(parents=True, exist_ok=True)
     tracked_source.write_text("# source\n", encoding="utf-8")
-    schema_path = project_root / "data" / "lexicon" / "greek_lemmas.schema.json"
+    schema_path = project_root / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.schema.json"
     schema_path.parent.mkdir(parents=True, exist_ok=True)
     schema_path.write_text("{}\n", encoding="utf-8")
     xml_dir = project_root / "xml"
@@ -1218,7 +1218,7 @@ def test_build_fingerprint_payload_tracks_xml_inputs(
         "_FINGERPRINT_INPUTS",
         (
             Path("src/phonology/ipa_converter.py"),
-            Path("data/lexicon/greek_lemmas.schema.json"),
+            Path("data/languages/ancient_greek/lexicon/greek_lemmas.schema.json"),
         ),
     )
 
@@ -1228,7 +1228,7 @@ def test_build_fingerprint_payload_tracks_xml_inputs(
     assert isinstance(payload["fingerprint"], str) and payload["fingerprint"]
     assert [record["path"] for record in payload["inputs"]] == [
         "src/phonology/ipa_converter.py",
-        "data/lexicon/greek_lemmas.schema.json",
+        "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json",
         "xml/grc.lsj.perseus-eng1.xml",
         "xml/grc.lsj.perseus-eng2.xml",
     ]
@@ -1335,7 +1335,7 @@ def test_is_output_fresh_returns_false_when_metadata_is_missing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     metadata_path = build_lexicon._metadata_path_for_output(output_path)
 
     monkeypatch.setattr(build_lexicon, "_is_reusable_output_document", lambda **kwargs: True)
@@ -1355,7 +1355,7 @@ def test_is_output_fresh_without_checkout_returns_false_when_metadata_is_missing
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     metadata_path = build_lexicon._metadata_path_for_output(output_path)
 
     monkeypatch.setattr(build_lexicon, "_is_reusable_output_document", lambda **kwargs: True)
@@ -1374,7 +1374,7 @@ def test_is_reusable_output_document_rejects_non_object_json(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    output_path = tmp_path / "data" / "lexicon" / "greek_lemmas.json"
+    output_path = tmp_path / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("[1, 2, 3]\n", encoding="utf-8")
     _write_schema(tmp_path)
@@ -1521,7 +1521,7 @@ def test_ensure_lsj_checkout_fails_fast_when_clone_disabled(
 
     message = str(exc_info.value)
     assert str(build_lexicon.default_xml_dir(tmp_path)) in message
-    assert "data/lexicon/greek_lemmas.json" in message
+    assert "data/languages/ancient_greek/lexicon/greek_lemmas.json" in message
 
 
 def test_ensure_lsj_checkout_uses_env_override_for_default_xml_dir(

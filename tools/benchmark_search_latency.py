@@ -9,9 +9,12 @@ import time
 from typing import Any
 
 from phonology.distance import load_matrix
+from phonology.profiles import register_default_profiles
 from phonology.search import build_ipa_index, build_kmer_index, build_lexicon_map, search
 
-DEFAULT_LEXICON_PATH = Path("data/lexicon/greek_lemmas.json")
+
+
+DEFAULT_LEXICON_PATH = Path("data/languages/ancient_greek/lexicon/greek_lemmas.json")
 DEFAULT_QUERIES_PATH = Path("tests/fixtures/search_benchmark_queries.txt")
 DEFAULT_OUTPUT_PATH = Path("search-latency-benchmark.json")
 DEFAULT_MATRIX_NAME = "attic_doric.json"
@@ -249,6 +252,7 @@ def write_output(output_path: Path, payload: dict[str, Any]) -> None:
 
 def main() -> int:
     """Run the benchmark CLI."""
+    register_default_profiles()
     args = parse_args()
     result = benchmark_search(
         lexicon_path=args.lexicon,

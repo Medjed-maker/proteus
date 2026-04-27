@@ -28,15 +28,21 @@ from fastapi.staticfiles import StaticFiles
 from packaging.version import InvalidVersion, Version
 
 from phonology import search as phonology_search
-from phonology._paths import resolve_repo_data_dir
 from phonology.distance import MatrixData, load_matrix_document
 from phonology.explainer import get_rules_version
 from phonology.ipa_converter import to_ipa
+from phonology.profiles import (
+    LanguageProfile,
+    get_default_language_profile,
+    get_language_profile,
+    register_default_profiles,
+)
 
 from ._models import DataVersions, SearchRequest, SearchResponse
 from ._hit_formatting import _build_search_hit
 
 logger = logging.getLogger(__name__)
+register_default_profiles()
 _ALLOWED_ORIGINS_ENV_VAR = "PROTEUS_ALLOWED_ORIGINS"
 _LOG_RAW_QUERY_ENV_VAR = "PROTEUS_LOG_RAW_SEARCH_QUERY"
 _LSJ_REPO_DIR_ENV_VAR = "PROTEUS_LSJ_REPO_DIR"
@@ -50,7 +56,12 @@ _APP_VERSION_ENV_VAR = "PROTEUS_APP_VERSION"
 # search._DEFAULT_FALLBACK_CANDIDATE_LIMIT, which was chosen to keep a hard
 # ceiling on the candidate set even for permissive partial queries.
 _API_FALLBACK_CANDIDATE_LIMIT = 2000
-_SEARCH_DEPENDENCY_LOAD_ERRORS = (ValueError, FileNotFoundError, OSError, yaml.YAMLError)
+_SEARCH_DEPENDENCY_LOAD_ERRORS = (
+    ValueError,
+    FileNotFoundError,
+    OSError,
+    yaml.YAMLError,
+)
 _SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL = (
     "Search dependencies are not ready. Verify packaged matrices, rules, and lexicon assets "
     "are available."
@@ -97,6 +108,7 @@ _APP_VERSION = _load_app_version()
 
 class SearchDependencies(NamedTuple):
     """Search dependencies loaded at startup."""
+
     lexicon: tuple[dict[str, Any], ...]
     matrix: MatrixData
     rules_registry: dict[str, dict[str, Any]]
@@ -105,6 +117,7 @@ class SearchDependencies(NamedTuple):
     lexicon_map: phonology_search.LexiconMap
     ipa_index: phonology_search.IpaIndex
     data_versions: DataVersions
+    profile: LanguageProfile | None = None
 
 
 class SearchDependenciesNotReadyError(RuntimeError):
@@ -149,9 +162,7 @@ def _get_allowed_origins() -> list[str]:
             _ALLOWED_ORIGINS_ENV_VAR,
         )
     return [
-        origin
-        for origin in (item.strip() for item in raw_origins.split(","))
-        if origin
+        origin for origin in (item.strip() for item in raw_origins.split(",")) if origin
     ]
 
 
@@ -163,7 +174,9 @@ def _summarize_query_for_logs(query: str) -> str:
 
 def _should_log_raw_search_query() -> bool:
     """Return True only when raw search queries may appear in debug logs."""
-    return logger.isEnabledFor(logging.DEBUG) and _env_flag_enabled(_LOG_RAW_QUERY_ENV_VAR)
+    return logger.isEnabledFor(logging.DEBUG) and _env_flag_enabled(
+        _LOG_RAW_QUERY_ENV_VAR
+    )
 
 
 # _env_flag_enabled is evaluated at import time here, not per-request.
@@ -173,7 +186,9 @@ app = FastAPI(
     description="Ancient Greek phonological search engine",
     version=_APP_VERSION,
     docs_url="/docs" if _env_flag_enabled(_ENABLE_API_DOCS_ENV_VAR) else None,
-    openapi_url="/openapi.json" if _env_flag_enabled(_ENABLE_API_DOCS_ENV_VAR) else None,
+    openapi_url="/openapi.json"
+    if _env_flag_enabled(_ENABLE_API_DOCS_ENV_VAR)
+    else None,
     redoc_url=None,
     lifespan=_app_lifespan,
 )
@@ -232,10 +247,50 @@ def _load_changelog_html() -> str | None:
         return None
 
 
-@lru_cache(maxsize=1)
-def _load_lexicon_document() -> dict[str, Any]:
-    """Load the packaged Greek lemma lexicon document once per process."""
-    lexicon_path = resolve_repo_data_dir("lexicon") / "greek_lemmas.json"
+def _get_profile_converter(profile: LanguageProfile) -> Callable[..., str]:
+    """Return the profile converter, preserving existing test monkeypatch seams.
+
+    Test fixtures patch ``api.main.to_ipa`` directly (see
+    ``tests/test_api_main.py::mock_search_dependencies``). For the default
+    profile, return that module-level reference so patches propagate.
+
+    Guard: if a caller registers a custom converter under the default language
+    id, we raise rather than silently returning the wrong converter.
+    """
+    default_profile = get_default_language_profile()
+    if profile.language_id == default_profile.language_id:
+        if profile.converter is not default_profile.converter:
+            raise RuntimeError(
+                f"Language id {profile.language_id!r} is registered with a custom "
+                "converter but shares the default language id. Register the profile "
+                "under a distinct language_id to avoid shadowing the default converter."
+            )
+        return to_ipa
+    return profile.converter
+
+
+def _is_default_language(language: str) -> bool:
+    """Return True when ``language`` is the built-in default profile id."""
+    return language == get_default_language_profile().language_id
+
+
+# This wrapper coordinates with @lru_cache key identity in the dependency
+# loaders: default-language calls invoke the factory with no argument so they
+# hit the same zero-arg cache slot used by tests that monkeypatch those loaders.
+# Removing it would split default-id traffic across two cache slots and bypass
+# test patches in tests/test_api_main.py.
+def _call_with_language(func: Callable[..., Any], language: str) -> Any:
+    """Call ``func`` with no language argument for the default profile fast path."""
+    if _is_default_language(language):
+        return func()
+    return func(language)
+
+
+@lru_cache(maxsize=8)
+def _load_lexicon_document(language: str = "ancient_greek") -> dict[str, Any]:
+    """Load a packaged lexicon document once per process."""
+    profile = get_language_profile(language)
+    lexicon_path = profile.lexicon_path
     try:
         raw_text = lexicon_path.read_text(encoding="utf-8")
     except FileNotFoundError as err:
@@ -249,10 +304,12 @@ def _load_lexicon_document() -> dict[str, Any]:
     return document
 
 
-@lru_cache(maxsize=1)
-def _load_lexicon_entries() -> tuple[dict[str, Any], ...]:
-    """Load the packaged Greek lemma lexicon once per process."""
-    document = _load_lexicon_document()
+@lru_cache(maxsize=8)
+def _load_lexicon_entries(
+    language: str = get_default_language_profile().language_id,
+) -> tuple[dict[str, Any], ...]:
+    """Load a packaged language lexicon once per process."""
+    document = _load_lexicon_document(language)
 
     raw_entries = document.get("lemmas")
     if not isinstance(raw_entries, list):
@@ -266,65 +323,102 @@ def _load_lexicon_entries() -> tuple[dict[str, Any], ...]:
     return tuple(entries)
 
 
-def load_lexicon_entries() -> tuple[dict[str, Any], ...]:
-    """Return the cached packaged Greek lemma lexicon."""
-    return _load_lexicon_entries()
+def load_lexicon_entries(
+    language: str = get_default_language_profile().language_id,
+) -> tuple[dict[str, Any], ...]:
+    """Return cached packaged lexicon entries for a language profile."""
+    return _call_with_language(_load_lexicon_entries, language)
 
 
-@lru_cache(maxsize=1)
-def _load_distance_matrix_with_meta() -> tuple[MatrixData, dict[str, Any]]:
-    """Load the packaged search distance matrix and its metadata once per process."""
-    return load_matrix_document("attic_doric.json")
+@lru_cache(maxsize=8)
+def _load_distance_matrix_with_meta(
+    language: str = get_default_language_profile().language_id,
+) -> tuple[MatrixData, dict[str, Any]]:
+    """Load the packaged search distance matrix and metadata once per process."""
+    profile = get_language_profile(language)
+    return load_matrix_document(profile.matrix_path)
 
 
-def _load_distance_matrix() -> MatrixData:
+def _load_distance_matrix(
+    language: str = get_default_language_profile().language_id,
+) -> MatrixData:
     """Load the packaged search distance matrix once per process."""
-    matrix, _ = _load_distance_matrix_with_meta()
+    matrix, _ = _call_with_language(_load_distance_matrix_with_meta, language)
     return matrix
 
 
-def _load_rules_registry() -> dict[str, dict[str, Any]]:
+def _load_rules_registry(
+    language: str = get_default_language_profile().language_id,
+) -> dict[str, dict[str, Any]]:
     """Return the ``lru_cache``-backed registry owned by ``phonology_search.get_rules_registry``.
 
     The returned dict is shared process-wide with the phonology search layer.
     Callers must not mutate it.
     """
-    return phonology_search.get_rules_registry("ancient_greek")
+    return phonology_search.get_rules_registry(language)
 
 
-@lru_cache(maxsize=1)
-def _load_search_index() -> phonology_search.KmerIndex:
+@lru_cache(maxsize=8)
+def _load_search_index(
+    language: str = get_default_language_profile().language_id,
+) -> phonology_search.KmerIndex:
     """Build and cache the k-mer index for the packaged lexicon."""
-    return phonology_search.build_kmer_index(load_lexicon_entries())
+    profile = get_language_profile(language)
+    return phonology_search.build_kmer_index(
+        load_lexicon_entries(language),
+        phone_inventory=profile.phone_inventory,
+        dialect_skeleton_builders=profile.dialect_skeleton_builders,
+    )
 
 
-@lru_cache(maxsize=1)
-def _load_unigram_index() -> phonology_search.KmerIndex:
+@lru_cache(maxsize=8)
+def _load_unigram_index(
+    language: str = get_default_language_profile().language_id,
+) -> phonology_search.KmerIndex:
     """Build and cache the k=1 unigram index for fallback lookup."""
-    return phonology_search.build_kmer_index(load_lexicon_entries(), k=1)
+    profile = get_language_profile(language)
+    return phonology_search.build_kmer_index(
+        load_lexicon_entries(language),
+        k=1,
+        phone_inventory=profile.phone_inventory,
+        dialect_skeleton_builders=profile.dialect_skeleton_builders,
+    )
 
 
-@lru_cache(maxsize=1)
-def _load_lexicon_map() -> phonology_search.LexiconMap:
+@lru_cache(maxsize=8)
+def _load_lexicon_map(
+    language: str = get_default_language_profile().language_id,
+) -> phonology_search.LexiconMap:
     """Build and cache the lexicon map with per-entry token counts."""
-    return phonology_search.build_lexicon_map(load_lexicon_entries())
+    profile = get_language_profile(language)
+    return phonology_search.build_lexicon_map(
+        load_lexicon_entries(language),
+        phone_inventory=profile.phone_inventory,
+    )
 
 
-@lru_cache(maxsize=1)
-def _load_ipa_index() -> phonology_search.IpaIndex:
+@lru_cache(maxsize=8)
+def _load_ipa_index(
+    language: str = get_default_language_profile().language_id,
+) -> phonology_search.IpaIndex:
     """Build and cache the IPA-to-entry-id index for the packaged lexicon."""
-    return phonology_search.build_ipa_index(_load_lexicon_map())
+    return phonology_search.build_ipa_index(
+        _call_with_language(_load_lexicon_map, language)
+    )
 
 
-def _build_data_versions() -> DataVersions:
+def _build_data_versions(
+    language: str = get_default_language_profile().language_id,
+) -> DataVersions:
     """Build DataVersions from loaded data sources.
 
     Collects version metadata from lexicon, matrix, and rules.
     """
+    profile = get_language_profile(language)
     fields: dict[str, str] = {}
 
     try:
-        document = _load_lexicon_document()
+        document = _call_with_language(_load_lexicon_document, language)
         schema_version = document.get("schema_version")
         if isinstance(schema_version, str) and schema_version.strip():
             fields["lexicon"] = schema_version
@@ -337,7 +431,7 @@ def _build_data_versions() -> DataVersions:
         logger.exception("Failed to load lexicon data version metadata: %s", err)
 
     try:
-        _, matrix_meta = _load_distance_matrix_with_meta()
+        _, matrix_meta = _call_with_language(_load_distance_matrix_with_meta, language)
         matrix_version = matrix_meta.get("version")
         if isinstance(matrix_version, str) and matrix_version.strip():
             fields["matrix"] = matrix_version
@@ -348,7 +442,7 @@ def _build_data_versions() -> DataVersions:
         logger.exception("Failed to load matrix data version metadata: %s", err)
 
     try:
-        rules_versions = get_rules_version("ancient_greek")
+        rules_versions = get_rules_version(profile.rules_dir)
         if rules_versions:
             max_version = max(Version(version) for version in rules_versions.values())
             fields["rules"] = str(max_version)
@@ -358,25 +452,29 @@ def _build_data_versions() -> DataVersions:
     return DataVersions(**fields)
 
 
-def _load_search_dependencies() -> SearchDependencies:
+def _load_search_dependencies(
+    language: str = get_default_language_profile().language_id,
+) -> SearchDependencies:
     """Load all cached search dependencies needed by /ready and /search."""
+    profile = get_language_profile(language)
     try:
-        lexicon = load_lexicon_entries()
+        lexicon = _call_with_language(load_lexicon_entries, language)
     except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
         raise SearchDependenciesNotReadyError(
             _SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL
         ) from err
 
     try:
-        data_versions = _build_data_versions()
+        data_versions = _call_with_language(_build_data_versions, language)
         return SearchDependencies(
+            profile=profile,
             lexicon=lexicon,
-            matrix=_load_distance_matrix(),
-            rules_registry=_load_rules_registry(),
-            search_index=_load_search_index(),
-            unigram_index=_load_unigram_index(),
-            lexicon_map=_load_lexicon_map(),
-            ipa_index=_load_ipa_index(),
+            matrix=_call_with_language(_load_distance_matrix, language),
+            rules_registry=_call_with_language(_load_rules_registry, language),
+            search_index=_call_with_language(_load_search_index, language),
+            unigram_index=_call_with_language(_load_unigram_index, language),
+            lexicon_map=_call_with_language(_load_lexicon_map, language),
+            ipa_index=_call_with_language(_load_ipa_index, language),
             data_versions=data_versions,
         )
     except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
@@ -476,11 +574,14 @@ async def changelog_head() -> Response:
 
 @app.post("/search", response_model=SearchResponse)
 async def search(request: SearchRequest) -> SearchResponse:
-    """Run phonological search for a Greek query word."""
+    """Run phonological search for a query word."""
     query_log_label = _summarize_query_for_logs(request.query_form)
 
     try:
-        deps = _load_search_dependencies()
+        deps = _call_with_language(_load_search_dependencies, request.language)
+    except ValueError as err:
+        logger.info("Rejected unsupported language %r: %s", request.language, err)
+        raise HTTPException(status_code=400, detail="Unsupported language") from err
     except SearchDependenciesNotReadyError as err:
         _log_search_dependencies_not_ready(
             err.detail,
@@ -490,29 +591,53 @@ async def search(request: SearchRequest) -> SearchResponse:
         )
         raise _search_dependencies_not_ready_exception(err.detail) from err
 
+    profile = deps.profile or get_default_language_profile()
     try:
+        if request.dialect_hint not in profile.supported_dialects:
+            allowed_dialects = ", ".join(
+                repr(dialect) for dialect in profile.supported_dialects
+            )
+            raise ValueError(
+                f"Invalid dialect_hint {request.dialect_hint!r}; expected one of "
+                f"({allowed_dialects})"
+            )
+        converter = _get_profile_converter(profile)
         prepared_query = phonology_search.prepare_query_ipa(
             request.query_form,
             dialect=request.dialect_hint,
-            converter=to_ipa,
+            converter=converter,
+            phone_inventory=profile.phone_inventory,
         )
         query_mode = prepared_query.query_mode
         query_ipa = prepared_query.query_ipa
         # The cached dependency bundle is reused across requests, so pass its
         # named fields directly into the core search implementation.
+        search_kwargs: dict[str, Any] = {
+            "lexicon": deps.lexicon,
+            "matrix": deps.matrix,
+            "max_results": request.max_candidates,
+            "dialect": request.dialect_hint,
+            "language": profile.language_id,
+            "index": deps.search_index,
+            "unigram_index": deps.unigram_index,
+            "prebuilt_lexicon_map": deps.lexicon_map,
+            "prepared_query": prepared_query,
+            "prebuilt_ipa_index": deps.ipa_index,
+            "phone_inventory": profile.phone_inventory,
+            "dialect_skeleton_builders": profile.dialect_skeleton_builders,
+            "similarity_fallback_limit": _API_FALLBACK_CANDIDATE_LIMIT,
+            "unigram_fallback_limit": _API_FALLBACK_CANDIDATE_LIMIT,
+        }
+        # For the default language, omit converter so the search layer picks up
+        # its own module-level to_ipa reference — coordinated with
+        # _get_profile_converter and with tests/test_search.py patches of
+        # search_module.to_ipa. Forwarding converter for the default language
+        # would decouple those two test surfaces.
+        if not _is_default_language(profile.language_id):
+            search_kwargs["converter"] = converter
         execution = phonology_search.search_execution(
             request.query_form,
-            lexicon=deps.lexicon,
-            matrix=deps.matrix,
-            max_results=request.max_candidates,
-            dialect=request.dialect_hint,
-            index=deps.search_index,
-            unigram_index=deps.unigram_index,
-            prebuilt_lexicon_map=deps.lexicon_map,
-            prepared_query=prepared_query,
-            prebuilt_ipa_index=deps.ipa_index,
-            similarity_fallback_limit=_API_FALLBACK_CANDIDATE_LIMIT,
-            unigram_fallback_limit=_API_FALLBACK_CANDIDATE_LIMIT,
+            **search_kwargs,
         )
         results = execution.results
     except ValueError as err:
@@ -525,7 +650,12 @@ async def search(request: SearchRequest) -> SearchResponse:
             debug_query,
             exc_info=True,
         )
-        raise HTTPException(status_code=400, detail="Invalid search query") from err
+        detail = (
+            str(err)
+            if str(err).startswith("Invalid dialect_hint ")
+            else "Invalid search query"
+        )
+        raise HTTPException(status_code=400, detail=detail) from err
     except OSError as err:
         logger.exception("Search execution failed for query (%s)", query_log_label)
         raise HTTPException(

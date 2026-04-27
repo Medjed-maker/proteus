@@ -5,6 +5,7 @@ The vowel phones represent the scholarly Ancient Greek IPA inventory used by Pro
 with an Attic-oriented default pronunciation as documented in README and ipa_converter.py.
 Includes both monophthongs (short and long) and diphthongs.
 """
+
 VOWEL_PHONES: frozenset[str] = frozenset(
     {
         "a",

@@ -51,21 +51,42 @@ def reset_pos_overrides_cache() -> Generator[None, None, None]:
 
 @pytest.fixture(autouse=True)
 def clear_rule_cache() -> Generator[None, None, None]:
-    """Reset cached rule registry state between tests.
+    """Reset cached rule loading and tokenization state between tests.
 
-    Autouse scoped at ``tests/`` because ``phonology.search.get_rules_registry``
+    Autouse scoped at ``tests/`` because ``phonology.search._load_rules_cached``
     and ``_get_tokenized_rules`` are shared module-level ``lru_cache`` wrappers.
     Clearing before every test guarantees test isolation for any suite that
     exercises rule loading, and is a no-op (double-clear is harmless) for
     suites that do not.
     """
-    search_module.get_rules_registry.cache_clear()
+    search_module._load_rules_cached.cache_clear()
     search_module._get_tokenized_rules.cache_clear()
 
     yield
 
-    search_module.get_rules_registry.cache_clear()
+    search_module._load_rules_cached.cache_clear()
     search_module._get_tokenized_rules.cache_clear()
+
+
+@pytest.fixture
+def isolated_language_registry() -> Generator[None, None, None]:
+    """Reset the language profile registry to empty before the test, restore after.
+
+    Use in tests that probe the registry's pre-registration state or register
+    custom toy profiles. Replaces the manual try/finally pattern that calls
+    ``_reset_language_registry_for_tests()`` and ``register_default_profiles()``.
+    """
+    from phonology.profiles import (
+        _reset_language_registry_for_tests,
+        register_default_profiles,
+    )
+
+    _reset_language_registry_for_tests()
+    try:
+        yield
+    finally:
+        _reset_language_registry_for_tests()
+        register_default_profiles()
 
 
 @pytest.fixture

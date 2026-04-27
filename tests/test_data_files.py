@@ -18,10 +18,10 @@ from phonology.matrix_generator import build_attic_doric_matrix
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-LEXICON_PATH = ROOT_DIR / "data" / "lexicon" / "greek_lemmas.json"
-LEXICON_SCHEMA_PATH = ROOT_DIR / "data" / "lexicon" / "greek_lemmas.schema.json"
-MATRIX_PATH = ROOT_DIR / "data" / "matrices" / "attic_doric.json"
-RULES_DIR = ROOT_DIR / "data" / "rules" / "ancient_greek"
+LEXICON_PATH = ROOT_DIR / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
+LEXICON_SCHEMA_PATH = ROOT_DIR / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.schema.json"
+MATRIX_PATH = ROOT_DIR / "data" / "languages" / "ancient_greek" / "matrices" / "attic_doric.json"
+RULES_DIR = ROOT_DIR / "data" / "languages" / "ancient_greek" / "rules"
 CONSONANT_RULES_PATH = RULES_DIR / "consonant_changes.yaml"
 MORPHOPHONEMIC_RULES_PATH = RULES_DIR / "morphophonemic_alternations.yaml"
 VOWEL_RULES_PATH = RULES_DIR / "vowel_shifts.yaml"
@@ -46,7 +46,7 @@ def base_meta() -> dict[str, object]:
         "last_updated": "2026-03-19T00:00:00Z",
         "license": "MIT",
         "contributors": ["Proteus maintainers"],
-        "data_schema_ref": "data/lexicon/greek_lemmas.schema.json",
+        "data_schema_ref": "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json",
         "description": "Test fixture",
     }
 
@@ -349,7 +349,7 @@ def test_lexicon_metadata_and_representative_lemma_regressions() -> None:
         return by_headword.get(hw, [])
 
     assert lexicon["schema_version"] == "2.0.0"
-    assert metadata["data_schema_ref"] == "data/lexicon/greek_lemmas.schema.json"
+    assert metadata["data_schema_ref"] == "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json"
     assert metadata["dialect"] == "attic"
     assert len(lexicon["lemmas"]) > MIN_LEMMAS_COUNT
 
@@ -585,7 +585,7 @@ def test_lexicon_schema_accepts_structured_contributors_and_rejects_extra_keys(
             "email": "maintainer@example.com",
             "role": "editor",
             "affiliation": "Proteus",
-            "orcid": "0000-0000-0000-0000",
+            "orcid": "0000-0000-0000-000X",
         }
     ]
 

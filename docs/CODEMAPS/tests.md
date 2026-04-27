@@ -24,7 +24,7 @@ Proteus tests follow a modular structure with **18 test files** organized by sou
 | test_ipa_converter.py | `phonology/ipa_converter.py` | 54 | Greek Unicode to IPA conversion (polytonic, monotonic), diphthong handling, diacritics (rough breathing, macron, diaeresis), Koine consonant shifts, IPA tokenization, strip_diacritics |
 | test_betacode.py | `phonology/betacode.py` | 18 | Beta Code (TLG/Perseus ASCII Greek) to Unicode conversion |
 | test_transliterate.py | `phonology/transliterate.py` | 21 | Greek Unicode to scholarly Latin transliteration |
-| test_explainer.py | `phonology/explainer.py` | 48 | YAML rule loading from `data/rules/ancient_greek/`, rule matching, alignment explanation, structured `RuleApplication` generation |
+| test_explainer.py | `phonology/explainer.py` | 48 | YAML rule loading from `data/languages/ancient_greek/rules/`, rule matching, alignment explanation, structured `RuleApplication` generation |
 | test_paths.py | `phonology/_paths.py` | 4 | `resolve_repo_data_dir()` path walking, data directory location |
 | test_phones.py | `phonology/_phones.py` | 6 | IPA phone inventory constants (`VOWEL_PHONES` frozenset) |
 
@@ -39,8 +39,8 @@ Proteus tests follow a modular structure with **18 test files** organized by sou
 
 | Test File | Target Module/Data | Test Count (approx) | Key Areas Covered |
 |-----------|-------------------|-------------------|-------------------|
-| test_data_files.py | `data/lexicon/greek_lemmas.json` + schema | 25 | JSON schema validation against `greek_lemmas.schema.json` (per [project.optional-dependencies].dev), metadata checks, IPA transcription validation, lexicon cardinality (≥100 lemmas), rule file structure |
-| test_validate_matrix.py | `data/matrices/attic_doric.json` | 26 | Matrix JSON structure, symmetry enforcement, phonological distance bounds [0.0, 1.0], sound class completeness (vowels, stops, dialect_pairs), matrix flattening correctness |
+| test_data_files.py | `data/languages/ancient_greek/lexicon/greek_lemmas.json` + schema | 25 | JSON schema validation against `greek_lemmas.schema.json` (per [project.optional-dependencies].dev), metadata checks, IPA transcription validation, lexicon cardinality (≥100 lemmas), rule file structure |
+| test_validate_matrix.py | `data/languages/ancient_greek/matrices/attic_doric.json` | 26 | Matrix JSON structure, symmetry enforcement, phonological distance bounds [0.0, 1.0], sound class completeness (vowels, stops, dialect_pairs), matrix flattening correctness |
 | test_buck_data_files.py | `data/buck/` reference data | 7 | Buck-normalized dialect/grammar/glossary file validation |
 | test_matrix_generator.py | `phonology/matrix_generator.py` | 25 | `generate()` function for Attic-Doric canonical matrix, matrix generation, validation, regeneration workflows |
 
@@ -114,4 +114,4 @@ Test dependencies (from `[project.optional-dependencies].dev`):
 - **[api.md](./api.md)** — FastAPI layer tested by test_api_main.py
 - **[INDEX.md](./INDEX.md)** — Codemaps index
 - **[CLAUDE.md](../CLAUDE.md)** — Build commands, architecture rationale
-- **Data files:** `/Users/nakamuratakahito/proteus/data/matrices/`, `/data/rules/`, `/data/lexicon/`, `/data/buck/`
+- **Data files:** `data/languages/ancient_greek/matrices/`, `data/languages/ancient_greek/rules/`, `data/languages/ancient_greek/lexicon/`, `data/buck/`

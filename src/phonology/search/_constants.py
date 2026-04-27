@@ -18,9 +18,9 @@ _SHORT_QUERY_CONFIDENCE_THRESHOLD = 0.65
 _PARTIAL_QUERY_CONFIDENCE_THRESHOLD = 0.70
 _PARTIAL_QUERY_MARKERS = frozenset(
     {
-        "-",        # U+002D HYPHEN-MINUS
-        "*",        # U+002A ASTERISK
-        "~",        # U+007E TILDE
+        "-",  # U+002D HYPHEN-MINUS
+        "*",  # U+002A ASTERISK
+        "~",  # U+007E TILDE
         "\u2010",  # HYPHEN
         "\u2011",  # NON-BREAKING HYPHEN
         "\u2012",  # FIGURE DASH
@@ -28,7 +28,7 @@ _PARTIAL_QUERY_MARKERS = frozenset(
         "\u2014",  # EM DASH
         "\u2015",  # HORIZONTAL BAR
         "\u2212",  # MINUS SIGN
-        "\uFF0D",  # FULLWIDTH HYPHEN-MINUS
+        "\uff0d",  # FULLWIDTH HYPHEN-MINUS
     }
 )
 _DEFAULT_FALLBACK_CANDIDATE_LIMIT = 2000
@@ -43,7 +43,9 @@ OBSERVED_PREFIX = "OBS-"
 
 def _partial_candidate_limit(max_results: int) -> int:
     """Return the candidate cap used for partial-form filtering."""
-    return max(_MIN_PARTIAL_CANDIDATE_LIMIT, max_results * _PARTIAL_CANDIDATE_MULTIPLIER)
+    return max(
+        _MIN_PARTIAL_CANDIDATE_LIMIT, max_results * _PARTIAL_CANDIDATE_MULTIPLIER
+    )
 
 
 def _annotation_candidate_limit(max_results: int) -> int:

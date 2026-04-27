@@ -2,7 +2,7 @@
   "_meta": {
     "description": "Phonological distance matrix between Attic and Doric Greek",
     "version": "1.0.0",
-    "generated_at": "2026-04-20T07:04:10.395+00:00",
+    "generated_at": "2026-04-25T07:14:06.307+00:00",
     "method": "weighted edit distance based on sound classes (Dolgopolsky/ASJP)",
     "range": "0.0 (identical) to 1.0 (maximally distant)",
     "note": "Generated from the repository sound-class inventory and validated for symmetry, completeness, and 0.0-1.0 bounds. Fricatives are included in the stop class because of their historical development from aspirated stops."
@@ -459,13 +459,13 @@
         "ð": 0.5,
         "ɣ": 0.0
       }
-    },
-    "dialect_pairs": {
-      "attic_doric": {
-        "ɛː_aː": 0.3,
-        "tt_ss": 0.4,
-        "ɔː_aː": 0.5
-      }
+    }
+  },
+  "dialect_pairs": {
+    "attic_doric": {
+      "ɛː_aː": 0.3,
+      "tt_ss": 0.4,
+      "ɔː_aː": 0.5
     }
   }
 }

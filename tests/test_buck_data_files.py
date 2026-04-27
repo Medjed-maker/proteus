@@ -11,7 +11,7 @@ import yaml
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-BUCK_RULES_DIR = ROOT_DIR / "data" / "rules" / "ancient_greek" / "buck"
+BUCK_RULES_DIR = ROOT_DIR / "data" / "languages" / "ancient_greek" / "rules" / "buck"
 BUCK_GRAMMAR_RULES_PATH = BUCK_RULES_DIR / "grammar_rules.yaml"
 BUCK_DIALECTS_PATH = BUCK_RULES_DIR / "dialects.yaml"
 BUCK_GLOSSARY_PATH = BUCK_RULES_DIR / "glossary.yaml"

@@ -26,7 +26,9 @@ def summarize_query_ipa_for_logs(
     triage. Never use as a unique key.
     """
     if not debug_enabled:
-        return f"tokens={query_token_count} chars={len(query_ipa)} sha256=<debug-disabled>"
+        return (
+            f"tokens={query_token_count} chars={len(query_ipa)} sha256=<debug-disabled>"
+        )
 
     digest = hashlib.sha256(query_ipa.encode("utf-8")).hexdigest()[:12]
     return f"tokens={query_token_count} chars={len(query_ipa)} sha256={digest}"

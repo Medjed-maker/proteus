@@ -1,10 +1,9 @@
 """Entry-id and IPA lookup helpers for the search package.
 
-Only helpers that do not call ``tokenize_ipa`` live here. Functions that
-tokenize IPA strings (``_lookup_entry_tokens``, ``build_lexicon_map``) stay
-in ``phonology.search.__init__`` because tests monkeypatch
-``search_module.tokenize_ipa`` and only the in-package definition sees that
-patched binding.
+Core lookup functions that do not depend on custom tokenization live here.
+Functions requiring tokenization (``resolve_entry_tokens``,
+``build_lexicon_map``) are located in ``_tokenization.py`` or the package
+root to support consistent tokenization and monkeypatching in tests.
 """
 
 from __future__ import annotations

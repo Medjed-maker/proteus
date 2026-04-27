@@ -7,7 +7,6 @@ import pytest
 from phonology.distance import word_distance
 from phonology.ipa_converter import (
     apply_koine_consonant_shifts,
-    _strip_ignored_ipa_combining_marks,
     greek_to_ipa,
     strip_diacritics,
     strip_ignored_ipa_combining_marks,
@@ -215,7 +214,7 @@ class TestTokenizeIpa:
         assert tokenize_ipa(ipa) == ["d", "aː", "m", "o", "s"]
 
     def test_ignored_accent_marks_are_removed_and_recomposed_to_nfc(self) -> None:
-        normalized = _strip_ignored_ipa_combining_marks("éu")
+        normalized = strip_ignored_ipa_combining_marks("éu")
 
         assert normalized == "eu"
         assert unicodedata.is_normalized("NFC", normalized)
@@ -251,7 +250,7 @@ class TestTokenizeIpa:
         assert tokenize_ipa("!̃") == ["!̃"]
 
     def test_unknown_tokens_emit_debug_logs(self, caplog: pytest.LogCaptureFixture) -> None:
-        caplog.set_level("DEBUG", logger="phonology.ipa_converter")
+        caplog.set_level("DEBUG", logger="phonology.core.ipa")
 
         assert tokenize_ipa("a!") == ["a", "!"]
 

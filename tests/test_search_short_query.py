@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import Any
 
 import pytest
 
@@ -55,7 +56,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -89,7 +90,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         # ``to_ipa`` returns "pa" and the lexicon IPA tokenizes to the same
@@ -129,6 +130,7 @@ class TestSearchShortQuery:
             lexicon_map: dict[str, object],
             matrix: object,
             language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             annotated = list(results)
             annotated[0].applied_rules = ["RULE-001"]
@@ -172,7 +174,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": list(results),
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(results),
         )
 
         lexicon = [
@@ -213,7 +215,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": list(results),
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(results),
         )
 
         lexicon = [
@@ -280,6 +282,7 @@ class TestSearchShortQuery:
             lexicon_map: object,
             matrix: object,
             language: str = "ancient_greek",
+            **_kwargs: object,
         ) -> list[SearchResult]:
             nonlocal annotation_call_count
             annotation_call_count += 1
@@ -338,6 +341,7 @@ class TestSearchShortQuery:
             lexicon_map: dict[str, object],
             matrix: object,
             language: str = "ancient_greek",
+            **_kwargs: object,
         ) -> list[SearchResult]:
             batch_entry_ids: list[str] = []
             for result in results:
@@ -403,7 +407,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [
@@ -448,7 +452,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": list(
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(
                 results
             ),
         )
@@ -504,7 +508,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek": results,
+            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
         )
 
         lexicon = [

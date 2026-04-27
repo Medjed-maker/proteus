@@ -17,7 +17,7 @@ Before:
 ```json
 {
   "_meta": {
-    "schema": "data/lexicon/greek_lemmas.schema.json"
+    "schema": "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json"
   },
   "lemmas": []
 }
@@ -29,7 +29,7 @@ After:
 {
   "schema_version": "2.0.0",
   "_meta": {
-    "data_schema_ref": "data/lexicon/greek_lemmas.schema.json"
+    "data_schema_ref": "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json"
   },
   "lemmas": []
 }
