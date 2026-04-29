@@ -461,13 +461,13 @@ class TestFrontendI18nHtml:
 
         assert response.status_code == 200
         assert 'fetch("/static/translations.json")' in response.text
-        assert "古代ギリシャ語音韻検索エンジン" not in response.text
+        assert "古代ギリシャ語パイロットを備えた歴史音韻フレームワーク" not in response.text
 
         translations_response = client.get("/static/translations.json")
 
         assert translations_response.status_code == 200
         translations = translations_response.json()
-        assert translations["ja"]["subtitle"] == "古代ギリシャ語音韻検索エンジン"
+        assert translations["ja"]["subtitle"] == "古代ギリシャ語パイロットを備えた歴史音韻フレームワーク"
         assert translations["en"]["footerLexiconLabel"] == "Lexicon data from:"
         assert translations["en"]["searchLabel"] == "Search query"
 

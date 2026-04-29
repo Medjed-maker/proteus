@@ -1,5 +1,20 @@
 # glossary.yaml - Carl Darling Buck "The Greek Dialects" に基づく実例語彙集
 
+meta:
+  source: "Carl Darling Buck, The Greek Dialects"
+  normalized_layer: "buck"
+  status: provisional
+  review_status: not_expert_reviewed
+  citation_ready: false
+  license: MIT
+  source_notes:
+    - "Provisional example glossary extracted and normalized for the Ancient Greek pilot."
+    - "Not an expert-reviewed or citation-ready dataset release."
+    - "license: MIT applies only to file structure and curation; underlying Buck-derived data follows DATA_LICENSE.md (sections 2.4 and 5)."
+  total_entries_original: 1400
+  current_entries: 15
+  note: "Entries linked to rules (rule_id) for reverse-lookup tool functionality."
+
 words:
   # --- ATTIC-IONIC 関連 ---
   - word: "λεώς"
@@ -118,9 +133,3 @@ words:
     rule_id: grc_phon_59_1
     definition: "Poseidon"
     buck_ref: { section: 59.1, page: 146 }
-
-meta:
-  source: "Carl Darling Buck, The Greek Dialects (Glossary & Summaries)"
-  total_entries_original: 1400
-  current_entries: 15
-  note: "Entries linked to rules (rule_id) for reverse-lookup tool functionality."

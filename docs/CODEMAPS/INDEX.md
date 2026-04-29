@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-04-11
 
-This index provides an overview of the Proteus codebase architecture. Proteus is an Ancient Greek phonological search engine implementing a BLAST-like three-stage search pipeline (Seed → Extend → Filter) over IPA phonological space rather than text.
+This index provides an overview of the Proteus codebase architecture. Proteus is a language-independent historical phonology framework with an Ancient Greek pilot, implementing a BLAST-like three-stage search pipeline (Seed → Extend → Filter) over IPA phonological space rather than text.
 
 ## Codemaps
 

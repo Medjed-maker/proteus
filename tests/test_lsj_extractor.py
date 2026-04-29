@@ -2075,7 +2075,7 @@ class TestBuildDocument:
         assert doc["_meta"]["dialect"] == "attic"
         assert "filtered to Attic entries" in doc["_meta"]["description"]
         assert doc["_meta"]["note"].endswith("output dialect is attic")
-        assert doc["_meta"]["license"] == "CC-BY-SA 4.0"
+        assert doc["_meta"]["license"] == "CC-BY-SA-4.0"
         assert doc["lemmas"] == entries
 
     def test_build_document_uses_single_entry_dialect_in_metadata_text(self) -> None:

@@ -1564,7 +1564,7 @@ def build_lexicon_document(entries: list[dict[str, Any]]) -> dict[str, Any]:
             "dialect": dialect,
             "version": "2.0.0",
             "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "license": "CC-BY-SA 4.0",
+            "license": "CC-BY-SA-4.0",
             "contributors": [
                 "Perseus Digital Library, Tufts University",
                 "Proteus maintainers",

@@ -1,13 +1,26 @@
-version: "1.0.0"
-updated_at: "2026-04-20"
+meta:
+  version: "1.0.0"
+  updated_at: "2026-04-20"
+  status: provisional
+  review_status: not_expert_reviewed
+  citation_ready: false
+  license: MIT
+  source_notes:
+    - "Provisional Ancient Greek pilot rules synthesized from cited scholarly references."
+    - "Not an expert-reviewed or citation-ready ruleset release."
 
 # Ancient Greek Morphophonemic Alternation Rules
 # Format: each rule records productive alternations visible in inflectional paradigms,
 # useful for search explanation across dialectal and chronological forms.
 #
-# Top-level metadata fields:
+# meta block fields:
 #   version:    semantic version string (MAJOR.MINOR.PATCH) for rule content tracking
 #   updated_at: ISO-8601 date/time string for the last rule change; documentation only
+#   status:     provisional research data status
+#   review_status: expert review state
+#   citation_ready: false until explicitly released for citation
+#   license:    SPDX or project license identifier
+#   source_notes: human-readable provenance and status notes
 #
 # Fields:
 #   id:         unique rule identifier

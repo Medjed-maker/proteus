@@ -1640,6 +1640,109 @@ def test_get_rules_version_skips_non_finite_numeric_versions(
     assert any("non-finite" in record.getMessage() for record in caplog.records)
 
 
+def test_get_rules_version_reads_version_from_meta_block(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Version is extracted from meta.version when the file uses a meta block."""
+    rules_base = tmp_path / "rules"
+    rules_dir = rules_base / "ancient_greek"
+    rules_dir.mkdir(parents=True)
+    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
+
+    (rules_dir / "with_meta.yaml").write_text(
+        "meta:\n  version: \"2.5.0\"\n  status: provisional\nrules: []\n",
+        encoding="utf-8",
+    )
+    (rules_dir / "top_level.yaml").write_text(
+        'version: "1.0.0"\nrules: []\n',
+        encoding="utf-8",
+    )
+
+    versions = explainer_module.get_rules_version("ancient_greek")
+
+    assert versions["with_meta"] == "2.5.0"
+    assert versions["top_level"] == "1.0.0"
+
+
+def test_get_rules_version_skips_non_mapping_meta_without_version(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Non-mapping meta blocks without a version are skipped without crashing."""
+    rules_base = tmp_path / "rules"
+    rules_dir = rules_base / "ancient_greek"
+    rules_dir.mkdir(parents=True)
+    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
+
+    (rules_dir / "bad_meta.yaml").write_text(
+        "meta: provisional\nrules: []\n",
+        encoding="utf-8",
+    )
+    (rules_dir / "bad_meta_with_version.yaml").write_text(
+        "meta: provisional\nversion: \"1.2.3\"\nrules: []\n",
+        encoding="utf-8",
+    )
+
+    versions = explainer_module.get_rules_version("ancient_greek")
+
+    assert versions == {"bad_meta_with_version": "1.2.3"}
+
+
+def test_get_rules_version_falls_back_to_top_level_when_meta_version_invalid(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Invalid meta.version values do not block the top-level version fallback."""
+    rules_base = tmp_path / "rules"
+    rules_dir = rules_base / "ancient_greek"
+    rules_dir.mkdir(parents=True)
+    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
+
+    (rules_dir / "invalid_meta_sequence.yaml").write_text(
+        "meta:\n"
+        "  version:\n"
+        "    - invalid\n"
+        "version: \"1.2.3\"\n"
+        "rules: []\n",
+        encoding="utf-8",
+    )
+    (rules_dir / "invalid_meta_scalar.yaml").write_text(
+        "meta:\n"
+        "  version: .nan\n"
+        "version: \"2.3.4\"\n"
+        "rules: []\n",
+        encoding="utf-8",
+    )
+
+    versions = explainer_module.get_rules_version("ancient_greek")
+
+    assert versions == {
+        "invalid_meta_scalar": "2.3.4",
+        "invalid_meta_sequence": "1.2.3",
+    }
+
+
+def test_get_rules_version_meta_version_takes_precedence_over_top_level(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """meta.version wins over a top-level version key when both are present."""
+    rules_base = tmp_path / "rules"
+    rules_dir = rules_base / "ancient_greek"
+    rules_dir.mkdir(parents=True)
+    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
+
+    (rules_dir / "both.yaml").write_text(
+        "meta:\n  version: \"3.0.0\"\nversion: \"1.0.0\"\nrules: []\n",
+        encoding="utf-8",
+    )
+
+    versions = explainer_module.get_rules_version("ancient_greek")
+
+    assert versions["both"] == "3.0.0"
+
+
 def test_explain_generates_observed_deletion() -> None:
     """Verify a gap-aligned mismatch (deletion) produces OBS-DEL."""
     applications = explain(

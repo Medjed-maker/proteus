@@ -1,13 +1,26 @@
-version: "1.0.0"
-updated_at: "2026-04-02"
+meta:
+  version: "1.0.0"
+  updated_at: "2026-04-02"
+  status: provisional
+  review_status: not_expert_reviewed
+  citation_ready: false
+  license: MIT
+  source_notes:
+    - "Provisional Ancient Greek pilot rules synthesized from cited scholarly references."
+    - "Not an expert-reviewed or citation-ready ruleset release."
 
 # Ancient Greek Vowel Shift Rules
 # Format: each rule records a historically significant vowel development.
 #
-# Top-level metadata fields:
+# meta block fields:
 #   version:    rule semantic version (e.g., "1.0.0" as MAJOR.MINOR.PATCH),
 #               used by API data-version aggregation to track rule content changes
 #   updated_at: ISO-8601 date/time string for the last rule change; documentation only
+#   status:     provisional research data status
+#   review_status: expert review state
+#   citation_ready: false until explicitly released for citation
+#   license:    SPDX or project license identifier
+#   source_notes: human-readable provenance and status notes
 #
 # Fields:
 #   id:         unique rule identifier
@@ -26,10 +39,10 @@ updated_at: "2026-04-02"
 #   note:        clarification for overlapping environments or example orientation
 #
 # Schema history:
-#   v1.0.0 added top-level `version` (rule semantic version, used by API
-#   data-version aggregation) and `updated_at` (ISO date for the last rule
+#   v1.0.0 added `meta.version` (rule semantic version, used by API
+#   data-version aggregation) and `meta.updated_at` (ISO date for the last rule
 #   change in this file; documentation metadata only, not a runtime dependency).
-#   Compared with v0.1, the new top-level fields are `version` and `updated_at`.
+#   Compared with v0.1, the new `meta` fields are `version` and `updated_at`.
 #   v0.1 fields `name`, `from`, `to`, `dialect`, `weight` were renamed/removed.
 #   `weight` (0.0-1.0 rule penalty) was removed because phonological distance
 #   is computed entirely from the substitution matrix in distance.py, making

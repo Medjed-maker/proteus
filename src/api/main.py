@@ -186,7 +186,10 @@ def _should_log_raw_search_query() -> bool:
 # Export PROTEUS_ENABLE_API_DOCS=1 before starting uvicorn to enable /docs.
 app = FastAPI(
     title="Proteus",
-    description="Ancient Greek phonological search engine",
+    description=(
+        "Language-independent historical phonology framework with an "
+        "Ancient Greek pilot"
+    ),
     version=_APP_VERSION,
     docs_url="/docs" if _env_flag_enabled(_ENABLE_API_DOCS_ENV_VAR) else None,
     openapi_url="/openapi.json"

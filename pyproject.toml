@@ -1,8 +1,9 @@
 [project]
 name = "proteus"
 version = "0.2.0"
-description = "Ancient Greek phonological search engine using BLAST-like alignment"
+description = "Language-independent framework for explainable historical phonological search"
 readme = "README.md"
+license-files = ["LICENSE", "NOTICE", "DATA_LICENSE.md"]
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",

@@ -1,4 +1,11 @@
-Proteus
+Proteus / HPSI Notice File
+
+This project may use or reference third-party linguistic resources, corpora, dictionaries, and scholarly works.
+
+No restricted third-party corpus data should be included in this repository unless redistribution is explicitly permitted.
+
+Third-party attributions will be added here as the project incorporates licensed or cited resources.
+
 Copyright 2024-2026 Medjed and contributors
 
 ---
@@ -12,3 +19,6 @@ Perseus Digital Library / LSJ
   Note:    Liddell-Scott-Jones Greek-English Lexicon (LSJ) XML, digitised
            and morphologically annotated by the Perseus Digital Library,
            Tufts University.
+           Generated wheel and sdist artifacts may include LSJ-derived lexicon
+           JSON produced from this source. Those derived artifacts remain
+           subject to the CC BY-SA 4.0 license and attribution requirements.

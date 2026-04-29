@@ -1,6 +1,15 @@
 meta:
+  version: "1.0.0"
   source: "Carl Darling Buck, The Greek Dialects"
   normalized_layer: "buck"
+  status: provisional
+  review_status: not_expert_reviewed
+  citation_ready: false
+  license: MIT
+  source_notes:
+    - "Provisional structured dialect catalog and rule cross-reference layer."
+    - "Not an expert-reviewed or citation-ready ruleset release."
+    - "license: MIT applies only to file structure and curation; underlying Buck-derived data follows DATA_LICENSE.md (sections 2.4 and 5)."
   note: "Dialect catalog plus dialect-to-rule cross-references. Rule definitions live in grammar_rules.yaml. Note: Child groups and dialects inherit rules from their parent."
   last_updated: "2026-04-07"
 

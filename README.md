@@ -39,7 +39,9 @@ proteus/
 │           ├── lexicon/         # LSJ headword list with IPA
 │           └── matrices/        # Phonological distance matrix
 ├── docs/
-│   └── phonology_rules.md       # Rule context notation and examples
+│   ├── phonology_rules.md       # Rule context notation and examples
+│   ├── OPEN_CORE_STRATEGY.md    # Public/private boundary notes
+│   └── ROADMAP.md               # Research and product roadmap
 ├── src/
 │   ├── phonology/
 │   │   ├── profiles.py          # LanguageProfile registry
@@ -52,6 +54,9 @@ proteus/
 │   └── web/
 │       └── index.html           # Frontend
 ├── tests/
+├── DATA_LICENSE.md
+├── LICENSE
+├── NOTICE
 ├── pyproject.toml
 └── README.md
 ```
@@ -105,7 +110,10 @@ if the lexicon is missing or stale, provide a local checkout via the `PROTEUS_LS
 environment variable, or pre-generate the lexicon before building.
 Generated `sdist` artifacts bundle the current `greek_lemmas.json` and
 `greek_lemmas.meta.json` so `sdist -> wheel` rebuilds can stay offline. `wheel`
-artifacts still include the lexicon JSON but omit the freshness metadata.
+artifacts still include the lexicon JSON but omit the freshness metadata. These
+generated LSJ-derived artifacts remain subject to the PerseusDL/lexica
+CC BY-SA 4.0 license and attribution requirements; see `DATA_LICENSE.md` and
+`NOTICE`.
 
 ```bash
 # Generate or refresh lexicon explicitly
@@ -240,6 +248,11 @@ Liveness probe — returns `{"status": "ok"}`.
 
 ## License
 
-MIT
+- **Source code**: MIT. See `LICENSE`.
+- **Rule specifications and provisional rule data**: see `DATA_LICENSE.md`.
+- **LSJ-derived lexicon artifacts**: generated from PerseusDL/lexica and
+  distributed under CC BY-SA 4.0 when included in wheel or sdist artifacts.
+- **Restricted corpora, private hard queries, unpublished collaborator data**:
+  not included in this public repository.
 
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/Medjed-maker/proteus?utm_source=oss&utm_medium=github&utm_campaign=Medjed-maker%2Fproteus&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)

@@ -1,3 +1,21 @@
+meta:
+  source: "Carl Darling Buck, The Greek Dialects"
+  normalized_layer: "buck"
+  status: provisional
+  review_status: not_expert_reviewed
+  citation_ready: false
+  license: MIT
+  source_notes:
+    - "Provisional structured summary of Buck-derived rule references."
+    - "Not an expert-reviewed or citation-ready ruleset release."
+    - "license: MIT applies only to file structure and curation; underlying Buck-derived data follows DATA_LICENSE.md (sections 2.4 and 5)."
+  created_from: "manual"
+  extraction_warnings:
+    - "Section summaries are synthesized from the Phonology chapter (sections 4-103)."
+    - "Citations refer to the provided page numbers in ISGD.pdf."
+    - "This YAML covers Inflection through Syntax (sections 104-179)."
+    - "Section numbers are derived from the Table of Contents and corresponding chapters."
+
 rules:
   - id: grc_orth_4_1
     buck_section: "4.1"
@@ -661,11 +679,3 @@ rules:
     description: "Position of tis before ka."
     notes: "Buck contrasts West Greek ai tis ka with the Attic-Ionic order ean tis."
     affected_dialects: [arcadian, boeotian, cyprian, lesbian, thessalian, west_greek]
-
-meta:
-  created_from: "manual"
-  extraction_warnings:
-    - "Section summaries are synthesized from the Phonology chapter (sections 4-103)."
-    - "Citations refer to the provided page numbers in ISGD.pdf."
-    - "This YAML covers Inflection through Syntax (sections 104-179)."
-    - "Section numbers are derived from the Table of Contents and corresponding chapters."
