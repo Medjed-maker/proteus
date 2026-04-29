@@ -1,6 +1,6 @@
 {
   "en": {
-    "subtitle": "Ancient Greek phonological search engine",
+    "subtitle": "Historical phonology framework with an Ancient Greek pilot",
     "searchBtn": "Search",
     "searchLabel": "Search query",
     "errEmpty": "Please enter a search term.",
@@ -62,7 +62,7 @@
     "changelogLink": "Changelog"
   },
   "ja": {
-    "subtitle": "古代ギリシャ語音韻検索エンジン",
+    "subtitle": "古代ギリシャ語パイロットを備えた歴史音韻フレームワーク",
     "searchBtn": "検索",
     "searchLabel": "検索クエリ",
     "errEmpty": "検索語を入力してください。",

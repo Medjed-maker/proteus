@@ -47,7 +47,7 @@ def _minimal_lexicon_document() -> dict[str, object]:
             "dialect": "attic",
             "version": "test",
             "last_updated": "2026-03-29T00:00:00Z",
-            "license": "CC-BY-SA 4.0",
+            "license": "CC-BY-SA-4.0",
             "contributors": ["Proteus maintainers"],
             "data_schema_ref": "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json",
             "description": "Build helper test fixture.",

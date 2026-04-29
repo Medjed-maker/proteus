@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Proteus is an Ancient Greek phonological search engine that finds lexically related word forms across dialects (Attic, Ionic, Doric, Koine) using BLAST-like phonological alignment. It implements a three-stage search pipeline (Seed → Extend → Filter) operating over IPA phonological space rather than text.
+Proteus is a language-independent historical phonology framework with an Ancient Greek pilot plugin. It finds lexically related word forms across dialects (Attic, Ionic, Doric, Koine) using BLAST-like phonological alignment and implements a three-stage search pipeline (Seed → Extend → Filter) operating over IPA phonological space rather than text.
 
 **Current status**: Early development (v0.1.0). The core phonology modules (IPA conversion, distance calculation, matrix generation, rule loading) and the three-stage search pipeline (`search.py`: seed, extend, filter) are implemented. The `POST /search` API endpoint is functional.
 

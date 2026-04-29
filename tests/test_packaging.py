@@ -54,7 +54,7 @@ def _minimal_lexicon_document() -> dict[str, object]:
             "dialect": "attic",
             "version": "test",
             "last_updated": "2026-03-29T00:00:00Z",
-            "license": "CC-BY-SA 4.0",
+            "license": "CC-BY-SA-4.0",
             "contributors": ["Proteus maintainers"],
             "data_schema_ref": "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json",
             "description": "Packaging test fixture.",
@@ -196,6 +196,9 @@ def _copy_build_project(tmp_path: Path) -> Path:
     # Validate required files exist
     required_files = [
         ROOT_DIR / ".gitignore",
+        ROOT_DIR / "DATA_LICENSE.md",
+        ROOT_DIR / "LICENSE",
+        ROOT_DIR / "NOTICE",
         ROOT_DIR / "pyproject.toml",
         ROOT_DIR / "README.md",
         ROOT_DIR / "hatch_build.py",
@@ -216,6 +219,9 @@ def _copy_build_project(tmp_path: Path) -> Path:
     # Create minimal .git directory so build hooks detect a git repository
     (project_dir / ".git").mkdir()
     shutil.copy2(ROOT_DIR / ".gitignore", project_dir / ".gitignore")
+    shutil.copy2(ROOT_DIR / "DATA_LICENSE.md", project_dir / "DATA_LICENSE.md")
+    shutil.copy2(ROOT_DIR / "LICENSE", project_dir / "LICENSE")
+    shutil.copy2(ROOT_DIR / "NOTICE", project_dir / "NOTICE")
     shutil.copy2(ROOT_DIR / "pyproject.toml", project_dir / "pyproject.toml")
     shutil.copy2(ROOT_DIR / "README.md", project_dir / "README.md")
     shutil.copy2(ROOT_DIR / "hatch_build.py", project_dir / "hatch_build.py")
@@ -313,6 +319,11 @@ def test_wheel_force_include_config_and_packaged_layout_support_runtime_loaders(
 ) -> None:
     """Verify wheel force-include assets and packaged layout both satisfy runtime loaders."""
     pyproject = tomllib.loads((ROOT_DIR / "pyproject.toml").read_text(encoding="utf-8"))
+    assert pyproject["project"]["license-files"] == [
+        "LICENSE",
+        "NOTICE",
+        "DATA_LICENSE.md",
+    ]
     force_include = pyproject["tool"]["hatch"]["build"]["targets"]["wheel"]["force-include"]
     assert force_include == {
         "data/languages/ancient_greek/lexicon/greek_lemmas.json": "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json",
@@ -617,6 +628,15 @@ def test_uv_build_generates_missing_lexicon_for_wheel(tmp_path: Path) -> None:
         asset_names = wheel_zip.namelist()
         for asset_path in EXPECTED_BUCK_RULE_ASSETS:
             assert asset_path in asset_names, f"Missing expected asset in wheel: {asset_path}"
+        expected_license_assets = (
+            ".dist-info/licenses/DATA_LICENSE.md",
+            ".dist-info/licenses/LICENSE",
+            ".dist-info/licenses/NOTICE",
+        )
+        assert all(
+            any(name.endswith(license_asset) for name in asset_names)
+            for license_asset in expected_license_assets
+        )
         assert "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json" in asset_names
         assert "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.meta.json" not in asset_names
         lexicon_document = json.loads(

@@ -503,6 +503,19 @@ def _extract_scalar_node_value(
     return None
 
 
+def _is_valid_rule_version_value(version: object) -> bool:
+    """Return whether a parsed YAML value is acceptable as rule version metadata."""
+    if isinstance(version, str):
+        return bool(version.strip())
+    if isinstance(version, int):
+        return True
+    if isinstance(version, Decimal):
+        return True
+    if isinstance(version, float):
+        return math.isfinite(version)
+    return False
+
+
 def _extract_rule_file_version(
     document: object,
     rule_file: Path,
@@ -521,6 +534,7 @@ def _extract_rule_file_version(
         return None
 
     version_node: yaml.nodes.Node | None = None
+    version_node_from_meta = False
     try:
         composed = yaml.compose(content)
     except yaml.YAMLError:
@@ -530,14 +544,40 @@ def _extract_rule_file_version(
             if (
                 isinstance(key_node, yaml.ScalarNode)
                 and key_node.tag == "tag:yaml.org,2002:str"
-                and key_node.value == "version"
+                and key_node.value == "meta"
+                and isinstance(value_node, yaml.MappingNode)
             ):
-                version_node = value_node
+                for meta_key, meta_val in value_node.value:
+                    if (
+                        isinstance(meta_key, yaml.ScalarNode)
+                        and meta_key.tag == "tag:yaml.org,2002:str"
+                        and meta_key.value == "version"
+                    ):
+                        version_node = meta_val
+                        version_node_from_meta = True
+                        break
                 break
+        if version_node is None:
+            for key_node, value_node in composed.value:
+                if (
+                    isinstance(key_node, yaml.ScalarNode)
+                    and key_node.tag == "tag:yaml.org,2002:str"
+                    and key_node.value == "version"
+                ):
+                    version_node = value_node
+                    break
 
     version = _extract_scalar_node_value(version_node)
+    if version_node_from_meta and not _is_valid_rule_version_value(version):
+        version = None
     if version is None:
-        version = document.get("version")
+        meta = document.get("meta")
+        if isinstance(meta, Mapping):
+            meta_version = meta.get("version")
+            if _is_valid_rule_version_value(meta_version):
+                version = meta_version
+        if version is None:
+            version = document.get("version")
 
     if isinstance(version, str) and version.strip():
         return version.strip()
