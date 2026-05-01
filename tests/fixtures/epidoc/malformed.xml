@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <publicationStmt>
+        <idno type="TM">77777</idno>
+      </publicationStmt>
+    </fileDesc>
+  <!-- intentionally unclosed teiHeader -->
+  <text>
+    <body>
+      <div type="edition">
+        <p>
+          <choice><reg>νόμου</reg><orig>νομου</orig></choice>
+        <!-- unclosed p and div -->
+    </body>
+  </text>
+</TEI>

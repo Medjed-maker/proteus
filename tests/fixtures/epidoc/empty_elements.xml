@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <publicationStmt>
+        <idno type="TM">33333</idno>
+      </publicationStmt>
+    </fileDesc>
+  </teiHeader>
+  <text>
+    <body>
+      <div type="edition">
+        <p>
+          <!-- Both empty — should be skipped -->
+          <choice><reg></reg><orig></orig></choice>
+          <!-- Only orig empty — should be skipped -->
+          <choice><reg>λόγος</reg><orig></orig></choice>
+          <!-- Valid pair after skipped ones -->
+          <choice><reg>λόγος</reg><orig>λογος</orig></choice>
+        </p>
+      </div>
+    </body>
+  </text>
+</TEI>
