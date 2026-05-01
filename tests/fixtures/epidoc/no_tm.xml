@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <publicationStmt>
+        <p>No TM identifier in this document.</p>
+      </publicationStmt>
+    </fileDesc>
+  </teiHeader>
+  <text>
+    <body>
+      <div type="edition">
+        <p>
+          <choice><reg>ἀγαθοῦ</reg><orig>ἀγαθου</orig></choice>
+        </p>
+      </div>
+    </body>
+  </text>
+</TEI>

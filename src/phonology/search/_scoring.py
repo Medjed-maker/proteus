@@ -16,12 +16,10 @@ import math
 from typing import Literal
 
 from ..distance import phone_distance
-from ..core.ipa import tokenize_ipa as tokenize_ipa_with_inventory
 from ..explainer import (
     Alignment,
     RuleApplication,
 )
-from ..ipa_converter import tokenize_ipa
 from ._annotation import (
     _build_dialect_attribution,
     _candidate_dialect,
@@ -39,8 +37,6 @@ from ._tokenization import (
 from ._types import (
     DistanceMatrix,
     LexiconLookup,
-    LexiconLookupValue,
-    LexiconRecord,
     SearchResult,
 )
 

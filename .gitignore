@@ -76,8 +76,9 @@ secrets.json
 # Tailwind CLI binary (downloaded on demand)
 .tailwind/
 
-# Downloaded external data (Perseus LSJ, etc.)
+# Downloaded external data (Perseus LSJ, etc.) and generated training data
 data/external/
+data/training/
 
 # Generated lexicon data (regenerate with: bash scripts/extract-lsj.sh)
 data/lexicon/greek_lemmas.json

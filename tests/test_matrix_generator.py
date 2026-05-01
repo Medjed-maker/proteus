@@ -1,7 +1,7 @@
 """Tests for phonology.matrix_generator."""
 
 from collections.abc import Generator
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import json
 import re
 from pathlib import Path

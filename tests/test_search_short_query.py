@@ -297,7 +297,7 @@ class TestSearchShortQuery:
             for i, eid in enumerate(entry_ids)
         ]
 
-        results = search(
+        search(
             "\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=5, index={},
         )
 

@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
 import pytest
+
 etree = pytest.importorskip("lxml.etree")
 
 pytestmark = pytest.mark.usefixtures("reset_pos_overrides_cache")

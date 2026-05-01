@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <publicationStmt>
+        <idno type="TM">11111</idno>
+      </publicationStmt>
+    </fileDesc>
+  </teiHeader>
+  <text>
+    <body>
+      <div type="edition">
+        <p>
+          <choice>
+            <reg><hi rend="supraline">κε</hi></reg>
+            <orig>κ<hi rend="supraline">ε</hi></orig>
+          </choice>
+        </p>
+      </div>
+    </body>
+  </text>
+</TEI>
