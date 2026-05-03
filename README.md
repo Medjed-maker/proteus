@@ -4,13 +4,18 @@ Historical Phonological Search Infrastructure (HPSI)
 
 Proteus is a language-independent framework for explainable reverse phonological search across historical languages. The project is also developed under the working name HPSI.
 
-The current implementation includes PhonoTrace Engine and an Ancient Greek pilot plugin.
+The current implementation includes PhonoTrace Engine and an Ancient Greek
+pilot plugin. The pilot is intended to support both researchers working with
+non-standard historical forms and students learning to read inscriptional
+spelling conventions.
 
 ## Status
 
 Pre-alpha research prototype.
 
-This repository is not yet a production scholarly tool. The Ancient Greek rules, matrices, and examples are provisional and require expert review before citation or research use.
+This repository is not yet a production scholarly tool. The Ancient Greek
+rules, matrices, examples, and orthographic note data are provisional and
+require expert review before citation or research use.
 
 ## Open-core strategy
 
@@ -28,6 +33,11 @@ Proteus implements a three-stage search pipeline inspired by NCBI BLAST, operati
 
 Phonological distances are computed through registered language profiles. The bundled Ancient Greek profile currently provides the Attic/Koine pilot data.
 
+Candidate cards may also include `Orthographic note` entries. These are
+student-facing and researcher-facing comments about writing systems, spelling
+conventions, or normalized-form correspondences; they are kept separate from
+phonological rule explanations.
+
 ## Project Structure
 
 ```text
@@ -37,7 +47,8 @@ proteus/
 │       └── ancient_greek/
 │           ├── rules/           # YAML phonological change rules
 │           ├── lexicon/         # LSJ headword list with IPA
-│           └── matrices/        # Phonological distance matrix
+│           ├── matrices/        # Phonological distance matrix
+│           └── orthography/     # Provisional orthographic-note seeds
 ├── docs/
 │   ├── phonology_rules.md       # Rule context notation and examples
 │   ├── OPEN_CORE_STRATEGY.md    # Public/private boundary notes
@@ -196,6 +207,7 @@ should use `response_language`.
           "position": 1
         }
       ],
+      "orthographic_notes": [],
       "explanation": "The match reflects the same lexical root with an Ionic vowel correspondence. The rules_applied entry records the segment-level eta shift behind that summary."
     }
   ]
@@ -205,6 +217,15 @@ should use `response_language`.
 `distance` is a normalized phonological distance on a 0.0-1.0 scale: `0.0` means an exact phonological match, and smaller values indicate closer similarity. As a rule of thumb, values below `0.2` are high-similarity matches, around `0.2-0.5` are plausible dialectal or historical matches, and values above `0.5` are relatively distant.
 
 Each object in `rules_applied` records one explanatory rule step: `rule_id` is the stable identifier, `rule_name` is the display label, `from_phone` and `to_phone` capture the segment change, and `position` is the zero-based aligned phone index where that step applies.
+
+Each object in `orthographic_notes` records a candidate-level writing-system
+comment. These notes explain orthographic correspondences, historical spelling
+systems, or beginner reading aids; they are not phonological rules and should
+not be merged into `rules_applied` or `explanation`.
+
+For example, a candidate for `παιδίο` may include an orthographic note whose
+`normalized_form` is `παιδίου` and whose message says that the form may
+correspond to `παιδίου (paidiou)`.
 
 `hits[].explanation` is the human-readable companion to `hits[].rules_applied` and the API field `SearchHit.explanation`. It is a readable plain-text string, not HTML or Markdown, because the packaged frontend renders it via `textContent` in `src/web/index.html`.
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from enum import Enum
 from typing import Any
 
 import pytest
@@ -19,6 +20,14 @@ from phonology.search import (
 )
 
 MATRIX_FILE = "attic_doric.json"
+GIBBERISH_CONFIDENCE_THRESHOLD = 0.5
+VOWEL_CONFIDENCE_THRESHOLD = 0.8
+
+
+class EdgeCaseExpectedBehavior(Enum):
+    RAISES_VALUE_ERR = "raises_value_err"
+    EMPTY_OR_LOW_CONFIDENCE = "empty_or_low_confidence"
+    LOW_CONFIDENCE = "low_confidence"
 
 
 @pytest.fixture(scope="module")
@@ -104,7 +113,9 @@ def test_search_surfaces_neuter_final_nu_deletion_targets(
         ipa_index=packaged_ipa_index,
     )
 
-    target = next((result for result in results if result.lemma == expected_lemma), None)
+    target = next(
+        (result for result in results if result.lemma == expected_lemma), None
+    )
 
     result_summary = [
         {
@@ -156,15 +167,15 @@ def test_search_exact_neuter_final_nu_match_stays_rule_free(
 @pytest.mark.parametrize(
     ("query", "expected_behavior"),
     [
-        ("gibberish123xyz", "empty_or_low_confidence"),
-        ("", "raises_value_err"),
-        ("   ", "raises_value_err"),
-        ("aeiou", "low_confidence"),
+        ("gibberish123xyz", EdgeCaseExpectedBehavior.EMPTY_OR_LOW_CONFIDENCE),
+        ("", EdgeCaseExpectedBehavior.RAISES_VALUE_ERR),
+        ("   ", EdgeCaseExpectedBehavior.RAISES_VALUE_ERR),
+        ("aeiou", EdgeCaseExpectedBehavior.LOW_CONFIDENCE),
     ],
 )
 def test_search_pipeline_edge_cases(
     query: str,
-    expected_behavior: str,
+    expected_behavior: EdgeCaseExpectedBehavior,
     packaged_lexicon: Sequence[dict[str, Any]],
     packaged_matrix: dict[str, dict[str, float]],
     packaged_kmer_index: KmerIndex,
@@ -172,7 +183,7 @@ def test_search_pipeline_edge_cases(
     packaged_ipa_index: IpaIndex,
 ) -> None:
     """Search should handle nonexistent, empty, and low-similarity queries gracefully."""
-    if expected_behavior == "raises_value_err":
+    if expected_behavior == EdgeCaseExpectedBehavior.RAISES_VALUE_ERR:
         with pytest.raises(ValueError, match="query must be a non-empty string"):
             _search_packaged(
                 query,
@@ -193,18 +204,19 @@ def test_search_pipeline_edge_cases(
         ipa_index=packaged_ipa_index,
     )
 
-    if expected_behavior == "empty_or_low_confidence":
-        # We expect either no results or results with very low confidence.
-        # Gibberish usually yields empty results if k-mers don't match anything.
-        for result in results:
-            assert result.confidence < 0.5, (
-                f"Expected low confidence for gibberish query {query!r}; "
-                f"got {result.confidence} for lemma {result.lemma!r}"
-            )
-    elif expected_behavior == "low_confidence":
+    if expected_behavior == EdgeCaseExpectedBehavior.EMPTY_OR_LOW_CONFIDENCE:
+        assert len(results) == 0 or all(
+            result.confidence < GIBBERISH_CONFIDENCE_THRESHOLD for result in results
+        ), (
+            f"Expected no results or low confidence for gibberish query {query!r}; "
+            f"got {[(result.lemma, result.confidence) for result in results]!r}"
+        )
+    elif expected_behavior == EdgeCaseExpectedBehavior.LOW_CONFIDENCE:
         # Pure vowel queries or low-similarity queries should have low confidence
         for result in results:
-            assert result.confidence < 0.8, (
+            assert result.confidence < VOWEL_CONFIDENCE_THRESHOLD, (
                 f"Expected low confidence for query {query!r}; "
                 f"got {result.confidence} for lemma {result.lemma!r}"
             )
+    else:
+        pytest.fail(f"Unexpected expected_behavior: {expected_behavior!r}")

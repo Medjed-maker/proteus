@@ -1,0 +1,17 @@
+_meta:
+  status: provisional
+  review_status: not_expert_reviewed
+  citation_ready: false
+  references:
+    - "Buck, Introduction to the Study of the Greek Dialects, section 4 orthography notes."
+  note: "Small curated runtime seed set for orthographic notes."
+
+entries:
+  - original: "παιδίο"
+    normalized: "παιδίου"
+    candidate_headwords: ["παιδίον"]
+    romanization: "paidiou"
+    kind: "orthographic_correspondence"
+    tags: ["beginner_aid", "inscriptional", "pre_403_2_attic"]
+    confidence: "medium"
+    references: []

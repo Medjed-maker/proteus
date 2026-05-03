@@ -1,6 +1,6 @@
 {
   "en": {
-    "subtitle": "Historical phonology framework with an Ancient Greek pilot",
+    "subtitle": "Explainable phonological search and inscriptional spelling aid, beginning with Ancient Greek",
     "searchBtn": "Search",
     "searchLabel": "Search query",
     "errEmpty": "Please enter a search term.",
@@ -19,7 +19,7 @@
     "queryModeFullLabel": "Full form mode",
     "queryModeFullDetail": "Results are ranked as full-form phonological candidates.",
     "supportedGroupTitle": "Supported candidates",
-    "supportedGroupDesc": "Exact and rule-supported candidates are shown first.",
+    "supportedGroupDesc": "Exact, rule-supported, and orthographically annotated candidates are shown first.",
     "exploratoryGroupTitle": "Exploratory candidates",
     "exploratoryShortDesc": "Very short inputs broaden the search space; exploratory candidates are shown for quick inspection.",
     "exploratoryPartialDesc": "Single-wildcard queries increase exploratory matches; these candidates are shown for review.",
@@ -27,6 +27,7 @@
     "sectionDiffSummary": "Difference summary",
     "sectionMatchedRules": "Matched rules",
     "sectionUncatalogued": "Uncatalogued differences",
+    "sectionOrthographicNote": "Orthographic note",
     "sectionAlignment": "Alignment",
     "sectionWhyCandidate": "Why this candidate?",
     "diffVisible": "Differences visible in full alignment.",
@@ -62,7 +63,7 @@
     "changelogLink": "Changelog"
   },
   "ja": {
-    "subtitle": "古代ギリシャ語パイロットを備えた歴史音韻フレームワーク",
+    "subtitle": "説明可能な音韻検索と碑文表記読解支援。まずは古代ギリシャ語から",
     "searchBtn": "検索",
     "searchLabel": "検索クエリ",
     "errEmpty": "検索語を入力してください。",
@@ -81,7 +82,7 @@
     "queryModeFullLabel": "完全形式モード",
     "queryModeFullDetail": "完全形式の音韻候補としてランキングされます。",
     "supportedGroupTitle": "支持された候補",
-    "supportedGroupDesc": "完全一致およびルール支持候補が最初に表示されます。",
+    "supportedGroupDesc": "完全一致、ルール支持、表記注記付きの候補が最初に表示されます。",
     "exploratoryGroupTitle": "探索的候補",
     "exploratoryShortDesc": "非常に短い入力は検索範囲を広げます。探索的候補が確認用に表示されます。",
     "exploratoryPartialDesc": "ワイルドカードクエリは探索的マッチを増やします。これらの候補は審査用に表示されます。",
@@ -89,6 +90,7 @@
     "sectionDiffSummary": "差異の概要",
     "sectionMatchedRules": "マッチしたルール",
     "sectionUncatalogued": "未登録の差異",
+    "sectionOrthographicNote": "表記体系コメント",
     "sectionAlignment": "アラインメント",
     "sectionWhyCandidate": "この候補の理由",
     "diffVisible": "完全なアラインメントで差異を確認できます。",

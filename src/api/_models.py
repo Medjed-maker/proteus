@@ -154,6 +154,22 @@ class SearchRequest(BaseModel):
         validation_alias=AliasChoices("response_language", "lang"),
         description="Response language for generated prose text ('en' or 'ja').",
     )
+    orthography_hint: (
+        Literal[
+            "standard",
+            "inscriptional",
+            "pre_403_2_attic",
+        ]
+        | None
+    ) = Field(
+        default=None,
+        description=(
+            "Optional writing-system hint for candidate-level orthographic notes. "
+            "Currently only 'pre_403_2_attic' has behavioral effect; "
+            "'standard' and 'inscriptional' are reserved for future use and accepted "
+            "as valid input but produce no orthographic notes."
+        ),
+    )
 
     legacy_language_alias_used: SkipJsonSchema[bool] = Field(
         default=False,
@@ -203,6 +219,16 @@ class SearchRequest(BaseModel):
             return normalized
         return value
 
+    @field_validator("orthography_hint", mode="before")
+    @classmethod
+    def _normalize_orthography_hint(cls, value: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            return normalized or None
+        return value
+
     @field_validator("language", mode="before")
     @classmethod
     def _normalize_language(cls, value: Any) -> Any:
@@ -228,6 +254,39 @@ class RuleStep(BaseModel):
     position: int = Field(
         ge=-1,
         description="Zero-based phone position in the alignment, or -1 when unknown.",
+    )
+
+
+class OrthographicNote(BaseModel):
+    """Candidate-level note about writing-system or spelling conventions."""
+
+    kind: Literal[
+        "orthographic_correspondence",
+        "beginner_aid",
+        "pre_403_2_attic",
+    ] = Field(description="Machine-readable category for the orthographic note.")
+    label: str = Field(description="Short display label for the note.")
+    messages: list[str] = Field(
+        description="Human-readable note messages for the candidate."
+    )
+    normalized_form: str | None = Field(
+        default=None,
+        description="Regularized or dictionary-facing form referenced by the note.",
+    )
+    romanization: str | None = Field(
+        default=None,
+        description="Romanized form referenced by the note.",
+    )
+    period_label: str | None = Field(
+        default=None,
+        description="Historical period or writing-system label for the note.",
+    )
+    references: list[str] = Field(
+        default_factory=list,
+        description="Short source or documentation references supporting the note.",
+    )
+    confidence: Literal["low", "medium", "high"] = Field(
+        description="Qualitative confidence assigned to the orthographic note.",
     )
 
 
@@ -303,6 +362,13 @@ class SearchHit(BaseModel):
     rules_applied: list[RuleStep] = Field(
         default_factory=list,
         description="Ordered rule steps explaining the match.",
+    )
+    orthographic_notes: list[OrthographicNote] = Field(
+        default_factory=list,
+        description=(
+            "Candidate-level notes about orthographic correspondences, historical "
+            "spelling systems, or beginner-facing reading aids."
+        ),
     )
     explanation: str = Field(
         description="Human-readable prose summary of the derivation.",

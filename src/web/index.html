@@ -10,7 +10,7 @@
 
   <header class="text-center mb-10">
     <h1 class="text-4xl tracking-wide font-bold">Πρωτεύς · Proteus</h1>
-    <p class="text-ink-light text-base mt-1" data-i18n="subtitle">Historical phonology framework with an Ancient Greek pilot</p>
+    <p class="text-ink-light text-base mt-1" data-i18n="subtitle">Explainable phonological search and inscriptional spelling aid, beginning with Ancient Greek</p>
     <button id="langToggle" type="button"
       class="mt-3 text-xs font-medium px-3 py-1 rounded-full border border-parchment-200
              bg-white text-ink-light hover:text-ink hover:border-ink-light transition-colors"
@@ -67,7 +67,7 @@
 
     let TRANSLATIONS = {
       en: {
-        subtitle: "Historical phonology framework with an Ancient Greek pilot",
+        subtitle: "Explainable phonological search and inscriptional spelling aid, beginning with Ancient Greek",
         searchBtn: "Search",
         searchLabel: "Search query",
         errEmpty: "Please enter a search term.",
@@ -86,7 +86,7 @@
         queryModeFullLabel: "Full form mode",
         queryModeFullDetail: "Results are ranked as full-form phonological candidates.",
         supportedGroupTitle: "Supported candidates",
-        supportedGroupDesc: "Exact and rule-supported candidates are shown first.",
+        supportedGroupDesc: "Exact, rule-supported, and orthographically annotated candidates are shown first.",
         exploratoryGroupTitle: "Exploratory candidates",
         exploratoryShortDesc: "Very short inputs broaden the search space; exploratory candidates are shown for quick inspection.",
         exploratoryPartialDesc: "Single-wildcard queries increase exploratory matches; these candidates are shown for review.",
@@ -94,6 +94,7 @@
         sectionDiffSummary: "Difference summary",
         sectionMatchedRules: "Matched rules",
         sectionUncatalogued: "Uncatalogued differences",
+        sectionOrthographicNote: "Orthographic note",
         sectionAlignment: "Alignment",
         sectionWhyCandidate: "Why this candidate?",
         diffVisible: "Differences visible in full alignment.",
@@ -686,6 +687,59 @@
       return details;
     }
 
+    function renderOrthographicNotes(notes) {
+      if (!Array.isArray(notes) || notes.length === 0) return null;
+
+      const list = document.createElement("div");
+      list.className = "mt-2 space-y-2";
+
+      notes.forEach((note) => {
+        const item = document.createElement("div");
+        item.className = "border-l-2 border-parchment-300 pl-3";
+
+        if (note && typeof note.label === "string" && note.label.trim()) {
+          const label = document.createElement("div");
+          label.className = "text-xs font-medium uppercase tracking-wide text-ink-muted";
+          label.textContent = note.label.trim();
+          item.appendChild(label);
+        }
+
+        const messages = Array.isArray(note?.messages) ? note.messages : [];
+        messages.forEach((message) => {
+          if (typeof message !== "string" || !message.trim()) return;
+          const text = document.createElement("p");
+          text.className = "mt-1 text-sm text-ink-light leading-relaxed break-words";
+          text.textContent = message.trim();
+          item.appendChild(text);
+        });
+
+        if (typeof note?.normalized_form === "string" && note.normalized_form.trim()) {
+          const forms = document.createElement("p");
+          forms.className = "mt-2 text-sm text-ink break-words";
+
+          const normalized = document.createElement("strong");
+          normalized.className = "font-semibold";
+          normalized.textContent = note.normalized_form.trim();
+          forms.appendChild(normalized);
+
+          if (typeof note.romanization === "string" && note.romanization.trim()) {
+            const romanization = document.createElement("span");
+            romanization.className = "ml-1 text-ink-muted";
+            romanization.textContent = "(" + note.romanization.trim() + ")";
+            forms.appendChild(romanization);
+          }
+
+          item.appendChild(forms);
+        }
+
+        if (item.childNodes.length > 0) {
+          list.appendChild(item);
+        }
+      });
+
+      return list.childNodes.length > 0 ? list : null;
+    }
+
     function splitRules(hit) {
       const rules = Array.isArray(hit.rules_applied) ? hit.rules_applied : [];
       return {
@@ -714,6 +768,12 @@
       if ((hit.observed_change_count ?? observed.length) > 0 && observed.length) {
         container.appendChild(renderSectionTitle(t("sectionUncatalogued") + " (" + (hit.observed_change_count ?? observed.length) + ")"));
         container.appendChild(renderRuleRows(observed));
+      }
+
+      const orthographicNotes = renderOrthographicNotes(hit.orthographic_notes);
+      if (orthographicNotes) {
+        container.appendChild(renderSectionTitle(t("sectionOrthographicNote")));
+        container.appendChild(orthographicNotes);
       }
 
       container.appendChild(renderSectionTitle(t("sectionAlignment")));

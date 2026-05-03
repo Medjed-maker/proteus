@@ -54,7 +54,9 @@ class TestExtendStage:
         monkeypatch.setattr(search_module, "get_language_profile", fake_get_profile)
         monkeypatch.setattr(search_module, "load_rules", fake_load_rules)
 
-        assert search_module.get_rules_registry("test_language") == {"RULE": {"id": "RULE"}}
+        assert search_module.get_rules_registry("test_language") == {
+            "RULE": {"id": "RULE"}
+        }
         assert captured == [fake_rules_dir]
 
     def test_get_rules_registry_raises_descriptive_error_for_invalid_language(
@@ -228,9 +230,14 @@ class TestExtendStage:
 
         assert updated_markers == ["."]
 
-    def test_exact_match_returns_confidence_one_and_three_line_visualization(self) -> None:
+    def test_exact_match_returns_confidence_one_and_three_line_visualization(
+        self,
+    ) -> None:
         lexicon_map = {
-            "L1": LexiconRecord(entry={"headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"}, token_count=5)
+            "L1": LexiconRecord(
+                entry={"headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},
+                token_count=5,
+            )
         }
 
         results = extend_stage("lóɡos", ["L1"], lexicon_map, matrix={})
@@ -254,23 +261,34 @@ class TestExtendStage:
     ) -> None:
         captured: dict[str, object] = {}
 
-        def fake_get_rules_registry(language: str = "ancient_greek") -> dict[str, dict[str, object]]:
+        def fake_get_rules_registry(
+            language: str = "ancient_greek",
+        ) -> dict[str, dict[str, object]]:
             captured["language"] = language
             return {}
 
-        monkeypatch.setattr(search_module, "get_rules_registry", fake_get_rules_registry)
+        monkeypatch.setattr(
+            search_module, "get_rules_registry", fake_get_rules_registry
+        )
 
         extend_stage(
             "aː",
             ["L1"],
-            {"L1": LexiconRecord(entry={"headword": "γᾱ", "ipa": "aː", "dialect": "attic"}, token_count=1)},
+            {
+                "L1": LexiconRecord(
+                    entry={"headword": "γᾱ", "ipa": "aː", "dialect": "attic"},
+                    token_count=1,
+                )
+            },
             matrix={},
             language="test_language",
         )
 
         assert captured == {"language": "test_language"}
 
-    def test_detects_single_token_rule_and_reports_dialect(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_detects_single_token_rule_and_reports_dialect(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(
             search_module,
             "load_rules",
@@ -284,13 +302,17 @@ class TestExtendStage:
             },
         )
         lexicon_map = {
-            "L1": LexiconRecord(entry={"headword": "γᾱ", "ipa": "aː", "dialect": "attic"}, token_count=1)
+            "L1": LexiconRecord(
+                entry={"headword": "γᾱ", "ipa": "aː", "dialect": "attic"}, token_count=1
+            )
         }
 
         results = extend_stage("ɛː", ["L1"], lexicon_map, matrix={"aː": {"ɛː": 0.3}})
 
         assert results[0].applied_rules == ["VSH-TEST"]
-        assert [application.position for application in results[0].rule_applications] == [0]
+        assert [
+            application.position for application in results[0].rule_applications
+        ] == [0]
         assert (
             results[0].dialect_attribution
             == "lemma dialect: attic; query-compatible dialects: ionic"
@@ -299,26 +321,37 @@ class TestExtendStage:
 
     def test_prefers_contextual_rule_from_shared_explainer_logic(self) -> None:
         lexicon_map = {
-            "L1": LexiconRecord(entry={"headword": "χώρα", "ipa": "rɛː", "dialect": "attic"}, token_count=2)
+            "L1": LexiconRecord(
+                entry={"headword": "χώρα", "ipa": "rɛː", "dialect": "attic"},
+                token_count=2,
+            )
         }
 
         results = extend_stage("raː", ["L1"], lexicon_map, matrix={"ɛː": {"aː": 0.1}})
 
         assert results[0].applied_rules == ["VSH-010"]
-        assert [application.position for application in results[0].rule_applications] == [1]
+        assert [
+            application.position for application in results[0].rule_applications
+        ] == [1]
         assert (
             results[0].dialect_attribution
             == "lemma dialect: attic; query-compatible dialects: attic"
         )
         assert ":" in results[0].alignment_visualization.splitlines()[1]
 
-    def test_extend_stage_uses_packaged_morphophonemic_rule_for_runtime_suffix_match(self) -> None:
+    def test_extend_stage_uses_packaged_morphophonemic_rule_for_runtime_suffix_match(
+        self,
+    ) -> None:
+        """Integration test verifying MPH-013 morphophonemic rule produces βασιλεύς→βασιλέος suffix transformation."""
         lexicon_map = {
-            "L1": LexiconRecord(entry={
-                "headword": "βασιλεύς",
-                "ipa": to_ipa("βασιλεύς"),
-                "dialect": "attic",
-            }, token_count=7)
+            "L1": LexiconRecord(
+                entry={
+                    "headword": "βασιλεύς",
+                    "ipa": to_ipa("βασιλεύς"),
+                    "dialect": "attic",
+                },
+                token_count=7,
+            )
         }
 
         results = extend_stage(
@@ -330,7 +363,9 @@ class TestExtendStage:
 
         assert len(results) == 1
         assert results[0].applied_rules == ["MPH-013"]
-        assert [application.rule_id for application in results[0].rule_applications] == ["MPH-013"]
+        assert [
+            application.rule_id for application in results[0].rule_applications
+        ] == ["MPH-013"]
         assert results[0].dialect_attribution == (
             "lemma dialect: attic; query-compatible dialects: attic, ionic"
         )
@@ -338,11 +373,14 @@ class TestExtendStage:
 
     def test_extend_stage_uses_packaged_neuter_ion_final_nu_absence_rule(self) -> None:
         lexicon_map = {
-            "L1": LexiconRecord(entry={
-                "headword": "παιδίον",
-                "ipa": to_ipa("παιδίον"),
-                "dialect": "attic",
-            }, token_count=6)
+            "L1": LexiconRecord(
+                entry={
+                    "headword": "παιδίον",
+                    "ipa": to_ipa("παιδίον"),
+                    "dialect": "attic",
+                },
+                token_count=6,
+            )
         }
 
         results = extend_stage(
@@ -354,7 +392,9 @@ class TestExtendStage:
 
         assert len(results) == 1
         assert results[0].applied_rules == ["MPH-015"]
-        assert [application.rule_id for application in results[0].rule_applications] == ["MPH-015"]
+        assert [
+            application.rule_id for application in results[0].rule_applications
+        ] == ["MPH-015"]
         assert results[0].rule_applications[0].input_phoneme == "ion"
         assert results[0].rule_applications[0].output_phoneme == "io"
         assert results[0].dialect_attribution == (
@@ -364,11 +404,14 @@ class TestExtendStage:
 
     def test_extend_stage_uses_packaged_neuter_eion_final_nu_absence_rule(self) -> None:
         lexicon_map = {
-            "L1": LexiconRecord(entry={
-                "headword": "μνημεῖον",
-                "ipa": to_ipa("μνημεῖον"),
-                "dialect": "attic",
-            }, token_count=7)
+            "L1": LexiconRecord(
+                entry={
+                    "headword": "μνημεῖον",
+                    "ipa": to_ipa("μνημεῖον"),
+                    "dialect": "attic",
+                },
+                token_count=7,
+            )
         }
 
         results = extend_stage(
@@ -380,7 +423,9 @@ class TestExtendStage:
 
         assert len(results) == 1
         assert results[0].applied_rules == ["MPH-016"]
-        assert [application.rule_id for application in results[0].rule_applications] == ["MPH-016"]
+        assert [
+            application.rule_id for application in results[0].rule_applications
+        ] == ["MPH-016"]
         assert results[0].rule_applications[0].input_phoneme == "eːon"
         assert results[0].rule_applications[0].output_phoneme == "eːo"
         assert results[0].dialect_attribution == (
@@ -390,12 +435,15 @@ class TestExtendStage:
 
     def test_extend_stage_uses_packaged_neuter_on_final_nu_absence_rule(self) -> None:
         lexicon_map = {
-            "L1": LexiconRecord(entry={
-                "headword": "τέκνον",
-                "ipa": to_ipa("τέκνον"),
-                "dialect": "attic",
-                "gender": "neuter",
-            }, token_count=6)
+            "L1": LexiconRecord(
+                entry={
+                    "headword": "τέκνον",
+                    "ipa": to_ipa("τέκνον"),
+                    "dialect": "attic",
+                    "gender": "neuter",
+                },
+                token_count=6,
+            )
         }
 
         results = extend_stage(
@@ -407,7 +455,9 @@ class TestExtendStage:
 
         assert len(results) == 1
         assert results[0].applied_rules == ["MPH-017"]
-        assert [application.rule_id for application in results[0].rule_applications] == ["MPH-017"]
+        assert [
+            application.rule_id for application in results[0].rule_applications
+        ] == ["MPH-017"]
         assert results[0].rule_applications[0].input_phoneme == "on"
         assert results[0].rule_applications[0].output_phoneme == "o"
         assert results[0].dialect_attribution == (
@@ -417,12 +467,15 @@ class TestExtendStage:
 
     def test_extend_stage_does_not_use_neuter_on_rule_for_common_gender(self) -> None:
         lexicon_map = {
-            "L1": LexiconRecord(entry={
-                "headword": "ἄλλον",
-                "ipa": to_ipa("ἄλλον"),
-                "dialect": "attic",
-                "gender": "common",
-            }, token_count=5)
+            "L1": LexiconRecord(
+                entry={
+                    "headword": "ἄλλον",
+                    "ipa": to_ipa("ἄλλον"),
+                    "dialect": "attic",
+                    "gender": "common",
+                },
+                token_count=5,
+            )
         }
 
         results = extend_stage(
@@ -434,18 +487,23 @@ class TestExtendStage:
 
         assert len(results) == 1
         assert results[0].applied_rules == []
-        assert [application.rule_id for application in results[0].rule_applications] == ["OBS-DEL"]
+        assert [
+            application.rule_id for application in results[0].rule_applications
+        ] == ["OBS-DEL"]
         assert results[0].dialect_attribution == "lemma dialect: attic"
         marker_line = results[0].alignment_visualization.splitlines()[1]
         assert ":" not in marker_line
 
     def test_extend_stage_uses_packaged_runtime_velar_assimilation_rule(self) -> None:
         lexicon_map = {
-            "L1": LexiconRecord(entry={
-                "headword": "ἄνκυρα",
-                "ipa": to_ipa("ἄνκυρα"),
-                "dialect": "attic",
-            }, token_count=6)
+            "L1": LexiconRecord(
+                entry={
+                    "headword": "ἄνκυρα",
+                    "ipa": to_ipa("ἄνκυρα"),
+                    "dialect": "attic",
+                },
+                token_count=6,
+            )
         }
 
         results = extend_stage(
@@ -508,7 +566,12 @@ class TestExtendStage:
         ("query_tokens", "lemma_tokens", "expected_query", "expected_lemma"),
         [
             (["f", "ɔː", "s"], ["pʰ", "ɔː", "s"], ["f", "ɔː", "s"], ["pʰ", "ɔː", "s"]),
-            (["θ", "e", "o", "s"], ["tʰ", "e", "o", "s"], ["θ", "e", "o", "s"], ["tʰ", "e", "o", "s"]),
+            (
+                ["θ", "e", "o", "s"],
+                ["tʰ", "e", "o", "s"],
+                ["θ", "e", "o", "s"],
+                ["tʰ", "e", "o", "s"],
+            ),
         ],
     )
     def test_smith_waterman_alignment_retains_edge_substitutions(
@@ -621,19 +684,26 @@ class TestExtendStage:
             },
         )
         lexicon_map = {
-            "L1": LexiconRecord(entry={"headword": "θάλασσα", "ipa": "ss", "dialect": "ionic"}, token_count=2)
+            "L1": LexiconRecord(
+                entry={"headword": "θάλασσα", "ipa": "ss", "dialect": "ionic"},
+                token_count=2,
+            )
         }
 
         results = extend_stage("tt", ["L1"], lexicon_map, matrix={"s": {"t": 0.4}})
 
         assert results[0].applied_rules == ["CCH-TEST"]
-        assert [application.position for application in results[0].rule_applications] == [0]
+        assert [
+            application.position for application in results[0].rule_applications
+        ] == [0]
         assert (
             results[0].dialect_attribution
             == "lemma dialect: ionic; query-compatible dialects: attic"
         )
 
-    def test_detects_deletion_rule_inside_alignment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_detects_deletion_rule_inside_alignment(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(
             search_module,
             "load_rules",
@@ -647,28 +717,39 @@ class TestExtendStage:
             },
         )
         lexicon_map = {
-            "L1": LexiconRecord(entry={"headword": "γένεσος", "ipa": "asa", "dialect": "attic"}, token_count=3)
+            "L1": LexiconRecord(
+                entry={"headword": "γένεσος", "ipa": "asa", "dialect": "attic"},
+                token_count=3,
+            )
         }
 
         results = extend_stage("aa", ["L1"], lexicon_map, matrix={})
 
         assert results[0].applied_rules == ["CCH-DEL"]
-        assert [application.position for application in results[0].rule_applications] == [1]
+        assert [
+            application.position for application in results[0].rule_applications
+        ] == [1]
         assert (
             results[0].dialect_attribution
             == "lemma dialect: attic; query-compatible dialects: ionic"
         )
 
-    def test_observed_steps_remain_visible_but_not_catalogued(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_observed_steps_remain_visible_but_not_catalogued(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
         lexicon_map = {
-            "L1": LexiconRecord(entry={"headword": "χ", "ipa": "a", "dialect": "attic"}, token_count=1)
+            "L1": LexiconRecord(
+                entry={"headword": "χ", "ipa": "a", "dialect": "attic"}, token_count=1
+            )
         }
 
         results = extend_stage("x", ["L1"], lexicon_map, matrix={"a": {"x": 0.5}})
 
         assert results[0].applied_rules == []
-        assert [application.rule_id for application in results[0].rule_applications] == ["OBS-SUB"]
+        assert [
+            application.rule_id for application in results[0].rule_applications
+        ] == ["OBS-SUB"]
         assert "." in results[0].alignment_visualization.splitlines()[1]
         assert ":" not in results[0].alignment_visualization.splitlines()[1]
 
@@ -699,13 +780,19 @@ class TestExtendStage:
             ),
         )
         lexicon_map = {
-            "L1": LexiconRecord(entry={"headword": "χ", "ipa": "ab", "dialect": "ionic"}, token_count=2)
+            "L1": LexiconRecord(
+                entry={"headword": "χ", "ipa": "ab", "dialect": "ionic"}, token_count=2
+            )
         }
 
-        results = extend_stage("x", ["L1"], lexicon_map, matrix={"a": {"x": 0.5}, "b": {"x": 0.4}})
+        results = extend_stage(
+            "x", ["L1"], lexicon_map, matrix={"a": {"x": 0.5}, "b": {"x": 0.4}}
+        )
 
         assert results[0].applied_rules == ["RULE-BX"]
-        assert [application.rule_id for application in results[0].rule_applications] == [
+        assert [
+            application.rule_id for application in results[0].rule_applications
+        ] == [
             "OBS-DEL",
             "RULE-BX",
         ]
@@ -715,14 +802,19 @@ class TestExtendStage:
 
     def test_skips_stale_candidates_missing_from_lexicon_map(self) -> None:
         lexicon_map = {
-            "L1": LexiconRecord(entry={"headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"}, token_count=5)
+            "L1": LexiconRecord(
+                entry={"headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},
+                token_count=5,
+            )
         }
 
         results = extend_stage("lóɡos", ["L1", "missing"], lexicon_map, matrix={})
 
         assert [result.lemma for result in results] == ["λόγος"]
 
-    def test_ignores_non_list_rule_dialects(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_ignores_non_list_rule_dialects(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(
             search_module,
             "load_rules",
@@ -736,7 +828,9 @@ class TestExtendStage:
             },
         )
         lexicon_map = {
-            "L1": LexiconRecord(entry={"headword": "γᾱ", "ipa": "aː", "dialect": "attic"}, token_count=1)
+            "L1": LexiconRecord(
+                entry={"headword": "γᾱ", "ipa": "aː", "dialect": "attic"}, token_count=1
+            )
         }
 
         results = extend_stage("ɛː", ["L1"], lexicon_map, matrix={"aː": {"ɛː": 0.3}})
@@ -749,13 +843,19 @@ class TestExtendStage:
         self, monkeypatch: pytest.MonkeyPatch, dialect: object
     ) -> None:
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
-        lexicon_map = {"L1": LexiconRecord(entry={"headword": "γᾱ", "ipa": "aː", "dialect": dialect}, token_count=1)}
+        lexicon_map = {
+            "L1": LexiconRecord(
+                entry={"headword": "γᾱ", "ipa": "aː", "dialect": dialect}, token_count=1
+            )
+        }
 
         results = extend_stage("aː", ["L1"], lexicon_map, matrix={})
 
         assert results[0].dialect_attribution == "lemma dialect: unknown"
 
-    def test_near_zero_score_prefers_diagonal_traceback(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_near_zero_score_prefers_diagonal_traceback(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(scoring_module, "_GAP_PENALTY", 1e-12)
         monkeypatch.setattr(scoring_module, "_substitution_score", lambda *_args: 0.0)
 

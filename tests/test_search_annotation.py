@@ -39,7 +39,9 @@ class TestSearchAnnotation:
 
         monkeypatch.setattr(search_module, "to_ipa", tracking_to_ipa)
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
-        lexicon = [{"id": "L1", "headword": "target", "ipa": "loɡos", "dialect": "attic"}]
+        lexicon = [
+            {"id": "L1", "headword": "target", "ipa": "loɡos", "dialect": "attic"}
+        ]
 
         search("λόγος", lexicon, matrix={}, max_results=1, query_ipa="loɡos")
 
@@ -60,10 +62,14 @@ class TestSearchAnnotation:
             captured["candidate_ids"] = list(candidates)
             return []
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "poi")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "poi"
+        )
         seed_calls: list[int] = []
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
+        def fake_seed_stage(
+            query_ipa: str, index: object, k: int = 2, **_kwargs: Any
+        ) -> list[str]:
             seed_calls.append(k)
             if k == 2:
                 return []
@@ -74,9 +80,16 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
-        monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
+        monkeypatch.setattr(
+            search_module, "filter_stage", lambda results, max_results: results
+        )
 
         lexicon = [
             {
@@ -98,7 +111,9 @@ class TestSearchAnnotation:
         """Full-form search should defer explanation work until after top-N ranking."""
         captured: dict[str, object] = {}
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "poi")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "poi"
+        )
         monkeypatch.setattr(
             search_module,
             "seed_stage",
@@ -123,15 +138,23 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_count"] = len(results)
             return results
 
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
-            {"id": f"L{index:02d}", "headword": f"lemma-{index:02d}", "ipa": "poi", "dialect": "attic"}
+            {
+                "id": f"L{index:02d}",
+                "headword": f"lemma-{index:02d}",
+                "ipa": "poi",
+                "dialect": "attic",
+            }
             for index in range(30)
         ]
 
@@ -145,7 +168,9 @@ class TestSearchAnnotation:
         """Short-query annotation should be capped even when fallback scoring scans the full lexicon."""
         captured: dict[str, object] = {}
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
+        def fake_seed_stage(
+            query_ipa: str, index: object, k: int = 2, **_kwargs: Any
+        ) -> list[str]:
             return []
 
         def fake_score_stage(
@@ -171,15 +196,20 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_count"] = len(results)
             return list(results)
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "poi")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "poi"
+        )
         monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {
@@ -194,7 +224,9 @@ class TestSearchAnnotation:
         search("ποι", lexicon, matrix={}, max_results=5, index={}, unigram_index={})
 
         assert captured["candidate_count"] == len(lexicon)
-        assert captured["annotated_count"] == search_module._annotation_candidate_limit(5)
+        assert captured["annotated_count"] == search_module._annotation_candidate_limit(
+            5
+        )
 
     def test_short_query_annotation_window_keeps_rule_supported_tail_candidate(
         self, monkeypatch: pytest.MonkeyPatch
@@ -202,7 +234,9 @@ class TestSearchAnnotation:
         """Short-query annotation cap should still leave room for late rule-supported hits."""
         annotation_limit = search_module._annotation_candidate_limit(5)
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
+        def fake_seed_stage(
+            query_ipa: str, index: object, k: int = 2, **_kwargs: Any
+        ) -> list[str]:
             return []
 
         def fake_score_stage(
@@ -227,7 +261,8 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             annotated = list(results)
             if annotated and annotated[-1].entry_id == f"L{annotation_limit - 1:03d}":
@@ -237,7 +272,9 @@ class TestSearchAnnotation:
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
         monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {
@@ -258,7 +295,9 @@ class TestSearchAnnotation:
             unigram_index={},
         )
 
-        assert [result.entry_id for result in results] == [f"L{annotation_limit - 1:03d}"]
+        assert [result.entry_id for result in results] == [
+            f"L{annotation_limit - 1:03d}"
+        ]
         assert results[0].applied_rules == ["RULE-TAIL"]
 
     def test_short_query_annotation_does_not_continue_past_bounded_window(
@@ -290,7 +329,8 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             batch_sizes.append(len(results))
             annotated = list(results)
@@ -302,7 +342,9 @@ class TestSearchAnnotation:
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {
@@ -314,7 +356,9 @@ class TestSearchAnnotation:
             for index in range(annotation_limit + 1)
         ]
 
-        results = search("q", lexicon, matrix={}, max_results=5, index={}, unigram_index={})
+        results = search(
+            "q", lexicon, matrix={}, max_results=5, index={}, unigram_index={}
+        )
 
         assert batch_sizes == [annotation_limit]
         assert results == []
@@ -330,9 +374,10 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
-            lambda query_ipa, lexicon_map, max_candidates=None, query_token_count=None: [
-                f"L{index:03d}" for index in range(150)
-            ],
+            lambda query_ipa,
+            lexicon_map,
+            max_candidates=None,
+            query_token_count=None: [f"L{index:03d}" for index in range(150)],
         )
         monkeypatch.setattr(
             search_module,
@@ -350,7 +395,12 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(results),
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: list(results),
         )
 
         lexicon = [
@@ -363,7 +413,9 @@ class TestSearchAnnotation:
             for index in range(150)
         ]
 
-        results = search("q", lexicon, matrix={}, max_results=1, index={}, unigram_index={})
+        results = search(
+            "q", lexicon, matrix={}, max_results=1, index={}, unigram_index={}
+        )
 
         assert [result.entry_id for result in results] == [exact_id]
 
@@ -381,9 +433,10 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
-            lambda query_ipa, lexicon_map, max_candidates=None, query_token_count=None: [
-                f"L{index:03d}" for index in range(150)
-            ],
+            lambda query_ipa,
+            lexicon_map,
+            max_candidates=None,
+            query_token_count=None: [f"L{index:03d}" for index in range(150)],
         )
 
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
@@ -414,13 +467,16 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured_batches.append([str(result.entry_id) for result in results])
             return list(results)
 
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {
@@ -451,9 +507,10 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
-            lambda query_ipa, lexicon_map, max_candidates=None, query_token_count=None: [
-                f"L{index:03d}" for index in range(350)
-            ],
+            lambda query_ipa,
+            lexicon_map,
+            max_candidates=None,
+            query_token_count=None: [f"L{index:03d}" for index in range(350)],
         )
 
         def fake_score_stage(
@@ -466,7 +523,9 @@ class TestSearchAnnotation:
             target_num = int(target_id[1:])
             for candidate_id in candidates:
                 candidate_num = int(candidate_id[1:])
-                confidence = threshold + 0.05 if candidate_num < target_num else threshold - 0.20
+                confidence = (
+                    threshold + 0.05 if candidate_num < target_num else threshold - 0.20
+                )
                 scored.append(
                     SearchResult(
                         lemma=str(candidate_id),
@@ -482,7 +541,8 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             annotated = list(results)
             for result in annotated:
@@ -491,7 +551,9 @@ class TestSearchAnnotation:
             return annotated
 
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {
@@ -503,7 +565,9 @@ class TestSearchAnnotation:
             for index in range(350)
         ]
 
-        results = search("q", lexicon, matrix={}, max_results=1, index={}, unigram_index={})
+        results = search(
+            "q", lexicon, matrix={}, max_results=1, index={}, unigram_index={}
+        )
 
         assert [result.entry_id for result in results] == [target_id]
         assert results[0].applied_rules == ["RULE-RESCUE"]
@@ -521,9 +585,10 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
-            lambda query_ipa, lexicon_map, max_candidates=None, query_token_count=None: [
-                f"L{index:03d}" for index in range(150)
-            ],
+            lambda query_ipa,
+            lexicon_map,
+            max_candidates=None,
+            query_token_count=None: [f"L{index:03d}" for index in range(150)],
         )
 
         def fake_score_stage(
@@ -534,7 +599,9 @@ class TestSearchAnnotation:
         ) -> list[SearchResult]:
             scored: list[SearchResult] = []
             for index, candidate_id in enumerate(candidates):
-                confidence = threshold + 0.05 if index < annotation_limit else threshold - 0.20
+                confidence = (
+                    threshold + 0.05 if index < annotation_limit else threshold - 0.20
+                )
                 scored.append(
                     SearchResult(
                         lemma=f"lemma-{index:03d}",
@@ -550,13 +617,16 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured_batches.append([str(result.entry_id) for result in results])
             return list(results)
 
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {
@@ -568,7 +638,9 @@ class TestSearchAnnotation:
             for index in range(150)
         ]
 
-        results = search("q", lexicon, matrix={}, max_results=5, index={}, unigram_index={})
+        results = search(
+            "q", lexicon, matrix={}, max_results=5, index={}, unigram_index={}
+        )
 
         expected_primary_ids = [f"L{index:03d}" for index in range(annotation_limit)]
         assert captured_batches == [expected_primary_ids]
@@ -578,7 +650,9 @@ class TestSearchAnnotation:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Partial-form results should survive even when support is found after rank 10."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
         monkeypatch.setattr(
             search_module,
             "seed_stage",
@@ -603,16 +677,24 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             annotated = list(results)
             annotated[-1].applied_rules = ["RULE-010"]
             return annotated
 
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
-            {"id": f"L{index:02d}", "headword": f"lemma-{index:02d}", "ipa": "pai", "dialect": "attic"}
+            {
+                "id": f"L{index:02d}",
+                "headword": f"lemma-{index:02d}",
+                "ipa": "pai",
+                "dialect": "attic",
+            }
             for index in range(11)
         ]
 
@@ -650,7 +732,8 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_count"] = len(results)
             return list(results)
@@ -658,10 +741,14 @@ class TestSearchAnnotation:
         def fake_seed_stage(*args: object, **kwargs: object) -> list[str]:
             return [f"L{index:03d}" for index in range(150)]
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": query
+        )
         monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {
@@ -675,15 +762,23 @@ class TestSearchAnnotation:
 
         search("a*c", lexicon, matrix={}, max_results=5, index={})
 
-        assert captured["candidate_count"] == search_module._annotation_candidate_limit(5)
-        assert captured["annotated_count"] == search_module._annotation_candidate_limit(5)
+        assert captured["candidate_count"] == search_module._annotation_candidate_limit(
+            5
+        )
+        assert captured["annotated_count"] == search_module._annotation_candidate_limit(
+            5
+        )
 
     def test_partial_query_deduplicates_after_rule_supported_reordering(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Partial-form dedup should keep the post-filter top candidate per headword."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "p a")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "p a"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -708,13 +803,16 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             annotated = list(results)
             annotated[1].applied_rules = ["RULE-002"]
             return annotated
 
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {"id": "L1", "headword": "same", "ipa": "p a", "dialect": "attic"},
@@ -731,8 +829,12 @@ class TestSearchAnnotation:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Partial-form ordering should keep full matches ahead of rule-supported overlap hits."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "p a")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "p a"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -757,17 +859,25 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             annotated = list(results)
             annotated[1].applied_rules = ["RULE-002"]
             return annotated
 
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {"id": "L1", "headword": "full-match", "ipa": "p a", "dialect": "attic"},
-            {"id": "L2", "headword": "rule-supported-overlap", "ipa": "p i", "dialect": "attic"},
+            {
+                "id": "L2",
+                "headword": "rule-supported-overlap",
+                "ipa": "p i",
+                "dialect": "attic",
+            },
         ]
 
         results = search("ζηταω-", lexicon, matrix={}, max_results=2, index={})
@@ -781,7 +891,9 @@ class TestSearchAnnotation:
         captured: dict[str, object] = {}
         target_id = "L095"
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "a c")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "a c"
+        )
         monkeypatch.setattr(
             search_module,
             "seed_stage",
@@ -806,12 +918,15 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_ids"] = [str(result.entry_id) for result in results]
             return list(results)
 
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {
@@ -834,7 +949,9 @@ class TestSearchAnnotation:
         target_id = "L095"
         captured: dict[str, object] = {}
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "a c")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "a c"
+        )
         monkeypatch.setattr(
             search_module,
             "seed_stage",
@@ -859,7 +976,8 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_ids"] = [str(result.entry_id) for result in results]
             annotated = list(results)
@@ -868,7 +986,9 @@ class TestSearchAnnotation:
                     result.applied_rules = ["RULE-ZERO-OVERLAP"]
             return annotated
 
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {
@@ -880,7 +1000,9 @@ class TestSearchAnnotation:
             for index in range(150)
         ]
 
-        results = search("a*c", lexicon, matrix={}, max_results=1, index={}, unigram_index={})
+        results = search(
+            "a*c", lexicon, matrix={}, max_results=1, index={}, unigram_index={}
+        )
 
         assert target_id in captured["annotated_ids"]
         assert results == []
@@ -893,7 +1015,11 @@ class TestSearchAnnotation:
         annotation_limit = search_module._annotation_candidate_limit(max_results)
         captured: dict[str, object] = {}
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query.replace("*", ""))
+        monkeypatch.setattr(
+            search_module,
+            "to_ipa",
+            lambda query, dialect="attic": query.replace("*", ""),
+        )
         monkeypatch.setattr(
             search_module,
             "seed_stage",
@@ -918,12 +1044,15 @@ class TestSearchAnnotation:
             results: list[SearchResult],
             lexicon_map: dict[str, object],
             matrix: object,
-            language: str = "ancient_greek", **_kwargs: Any,
+            language: str = "ancient_greek",
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["annotated_ids"] = [str(result.entry_id) for result in results]
             return list(results)
 
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
             {
@@ -946,7 +1075,9 @@ class TestSearchAnnotation:
 
         expected_primary_ids = [f"L{index:03d}" for index in range(annotation_limit)]
         assert captured["annotated_ids"] == expected_primary_ids
-        assert [result.entry_id for result in results] == expected_primary_ids[:max_results]
+        assert [result.entry_id for result in results] == expected_primary_ids[
+            :max_results
+        ]
 
     def test_short_query_annotation_call_counts_stay_bounded_by_annotation_window(
         self, monkeypatch: pytest.MonkeyPatch
@@ -964,12 +1095,17 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
-            lambda query_ipa, lexicon_map, max_candidates=None, query_token_count=None: [
-                f"L{index:03d}" for index in range(150)
-            ],
+            lambda query_ipa,
+            lexicon_map,
+            max_candidates=None,
+            query_token_count=None: [f"L{index:03d}" for index in range(150)],
         )
-        monkeypatch.setattr(search_module, "get_rules_registry", lambda language="ancient_greek": {})
-        monkeypatch.setattr(search_module, "tokenize_rules_for_matching", lambda rules: [])
+        monkeypatch.setattr(
+            search_module, "get_rules_registry", lambda language="ancient_greek": {}
+        )
+        monkeypatch.setattr(
+            search_module, "tokenize_rules_for_matching", lambda rules: []
+        )
 
         original_tokenize = search_module.tokenize_ipa
 
@@ -996,7 +1132,9 @@ class TestSearchAnnotation:
             counts["explain"] += 1
             return []
 
-        monkeypatch.setattr("phonology.search._tokenization.tokenize_ipa", tracking_tokenize)
+        monkeypatch.setattr(
+            "phonology.search._tokenization.tokenize_ipa", tracking_tokenize
+        )
         monkeypatch.setattr(search_module, "explain_with_tokenized_rules", fake_explain)
         monkeypatch.setattr(scoring_module, "_smith_waterman_alignment", fake_alignment)
 
@@ -1012,7 +1150,9 @@ class TestSearchAnnotation:
 
         search("q", lexicon, matrix={}, max_results=5, index={}, unigram_index={})
 
-        extra_tokenize_calls = 3  # Query tokenization for selection, scoring, and annotation.
+        extra_tokenize_calls = (
+            3  # Query tokenization for selection, scoring, and annotation.
+        )
         assert counts["alignment"] == len(lexicon)
         assert counts["explain"] == annotation_limit
         assert counts["tokenize"] == len(lexicon) + extra_tokenize_calls
@@ -1021,8 +1161,12 @@ class TestSearchAnnotation:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Short-query dedup should happen after weak same-headword hits are dropped."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -1044,7 +1188,12 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(results),
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: list(results),
         )
 
         lexicon = [
@@ -1068,16 +1217,40 @@ class TestSearchAnnotation:
             tokenize_calls.append(len(rules))
             return []
 
-        monkeypatch.setattr(search_module, "get_rules_registry", lambda language="ancient_greek": {})
+        monkeypatch.setattr(
+            search_module, "get_rules_registry", lambda language="ancient_greek": {}
+        )
         monkeypatch.setattr(
             search_module,
             "tokenize_rules_for_matching",
             mock_tokenize_rules,
         )
         lexicon_map = {
-            "L1": LexiconRecord(entry={"id": "L1", "headword": "alpha", "ipa": "pa", "dialect": "attic"}, token_count=2, ipa_tokens=("p", "a")),
-            "L2": LexiconRecord(entry={"id": "L2", "headword": "beta", "ipa": "pi", "dialect": "attic"}, token_count=2, ipa_tokens=("p", "i")),
-            "L3": LexiconRecord(entry={"id": "L3", "headword": "gamma", "ipa": "po", "dialect": "attic"}, token_count=2, ipa_tokens=("p", "o")),
+            "L1": LexiconRecord(
+                entry={
+                    "id": "L1",
+                    "headword": "alpha",
+                    "ipa": "pa",
+                    "dialect": "attic",
+                },
+                token_count=2,
+                ipa_tokens=("p", "a"),
+            ),
+            "L2": LexiconRecord(
+                entry={"id": "L2", "headword": "beta", "ipa": "pi", "dialect": "attic"},
+                token_count=2,
+                ipa_tokens=("p", "i"),
+            ),
+            "L3": LexiconRecord(
+                entry={
+                    "id": "L3",
+                    "headword": "gamma",
+                    "ipa": "po",
+                    "dialect": "attic",
+                },
+                token_count=2,
+                ipa_tokens=("p", "o"),
+            ),
         }
 
         extend_stage("poi", ["L1", "L2", "L3"], lexicon_map, matrix={})
@@ -1088,7 +1261,9 @@ class TestSearchAnnotation:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Single-consonant fallback should still annotate the surviving top hit."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "poi")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "poi"
+        )
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
         lexicon = [
             {"id": "L1", "headword": "ποι", "ipa": "poi", "dialect": "attic"},
@@ -1115,12 +1290,21 @@ class TestSearchAnnotation:
             return 2.0, list(query_tokens), list(lemma_tokens)
 
         monkeypatch.setattr(scoring_module, "_smith_waterman_alignment", fake_alignment)
-        monkeypatch.setattr(search_module, "get_rules_registry", lambda language="ancient_greek": {})
-        monkeypatch.setattr(search_module, "tokenize_rules_for_matching", lambda rules: [])
+        monkeypatch.setattr(
+            search_module, "get_rules_registry", lambda language="ancient_greek": {}
+        )
+        monkeypatch.setattr(
+            search_module, "tokenize_rules_for_matching", lambda rules: []
+        )
 
         lexicon_map = {
             "L1": LexiconRecord(
-                entry={"id": "L1", "headword": "alpha", "ipa": "pa", "dialect": "attic"},
+                entry={
+                    "id": "L1",
+                    "headword": "alpha",
+                    "ipa": "pa",
+                    "dialect": "attic",
+                },
                 token_count=2,
                 ipa_tokens=("p", "a"),
             ),

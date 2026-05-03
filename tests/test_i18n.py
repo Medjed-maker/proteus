@@ -20,9 +20,23 @@ def capture_lang(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
     captured: dict[str, str] = {}
     original_build = api_main_module._build_search_hit
 
-    def patched_build(result, query_ipa, rules_registry, query_mode, lang="en"):
+    def patched_build(
+        result,
+        query_ipa,
+        rules_registry,
+        query_mode,
+        lang="en",
+        **kwargs,
+    ):
         captured["lang"] = lang
-        return original_build(result, query_ipa, rules_registry, query_mode, lang=lang)
+        return original_build(
+            result,
+            query_ipa,
+            rules_registry,
+            query_mode,
+            lang=lang,
+            **kwargs,
+        )
 
     monkeypatch.setattr(api_main_module, "_build_search_hit", patched_build)
     return captured
@@ -77,7 +91,9 @@ class TestSearchRequestLang:
 
     def test_language_alias_conflict_precedence(self) -> None:
         # 1. response_language vs legacy language alias
-        req1 = SearchRequest(**{"query": "ἄνθρωπος", "language": "ja", "response_language": "en"})
+        req1 = SearchRequest(
+            **{"query": "ἄνθρωπος", "language": "ja", "response_language": "en"}
+        )
         assert req1.response_language == "en"
         assert req1.lang == "en"
         assert req1.language == "ancient_greek"
@@ -98,7 +114,9 @@ class TestSearchRequestLang:
             (" JA ", "ja"),
         ],
     )
-    def test_lang_normalizes_case_and_whitespace(self, value: str, expected: str) -> None:
+    def test_lang_normalizes_case_and_whitespace(
+        self, value: str, expected: str
+    ) -> None:
         req = SearchRequest(**{"query": "ἄνθρωπος", "lang": value})
 
         assert req.lang == expected
@@ -121,7 +139,9 @@ class TestSimilarityLineI18n:
             (0.3, "音韻的類似度：低。"),
         ],
     )
-    def test_returns_japanese_strings(self, confidence: float, expected_ja: str) -> None:
+    def test_returns_japanese_strings(
+        self, confidence: float, expected_ja: str
+    ) -> None:
         assert hit_fmt._similarity_line(confidence, lang="ja") == expected_ja
 
     @pytest.mark.parametrize(
@@ -134,7 +154,9 @@ class TestSimilarityLineI18n:
             (0.3, "Weak phonological similarity."),
         ],
     )
-    def test_returns_english_strings_by_default(self, confidence: float, expected_en: str) -> None:
+    def test_returns_english_strings_by_default(
+        self, confidence: float, expected_en: str
+    ) -> None:
         assert hit_fmt._similarity_line(confidence) == expected_en
         assert hit_fmt._similarity_line(confidence, lang="en") == expected_en
 
@@ -449,7 +471,9 @@ class TestFrontendI18nHtml:
         assert response.status_code == 200
         assert 'id="langToggle"' in response.text
 
-    def test_lang_toggle_uses_event_listener_not_onclick(self, client: TestClient) -> None:
+    def test_lang_toggle_uses_event_listener_not_onclick(
+        self, client: TestClient
+    ) -> None:
         response = client.get("/")
 
         assert response.status_code == 200
@@ -461,13 +485,19 @@ class TestFrontendI18nHtml:
 
         assert response.status_code == 200
         assert 'fetch("/static/translations.json")' in response.text
-        assert "古代ギリシャ語パイロットを備えた歴史音韻フレームワーク" not in response.text
+        assert (
+            "説明可能な音韻検索と碑文表記読解支援。まずは古代ギリシャ語から"
+            not in response.text
+        )
 
         translations_response = client.get("/static/translations.json")
 
         assert translations_response.status_code == 200
         translations = translations_response.json()
-        assert translations["ja"]["subtitle"] == "古代ギリシャ語パイロットを備えた歴史音韻フレームワーク"
+        assert (
+            translations["ja"]["subtitle"]
+            == "説明可能な音韻検索と碑文表記読解支援。まずは古代ギリシャ語から"
+        )
         assert translations["en"]["footerLexiconLabel"] == "Lexicon data from:"
         assert translations["en"]["searchLabel"] == "Search query"
 
@@ -490,7 +520,9 @@ class TestFrontendI18nHtml:
 
         assert response.status_code == 200
         assert "const requestedLang = _currentLang;" in response.text
-        assert "body: JSON.stringify({ ...payload, lang: requestedLang })" in response.text
+        assert (
+            "body: JSON.stringify({ ...payload, lang: requestedLang })" in response.text
+        )
 
     def test_last_successful_search_state_is_kept_for_language_switch(
         self, client: TestClient
@@ -518,17 +550,24 @@ class TestFrontendI18nHtml:
 
         assert response.status_code == 200
         assert "const requestedLang = _currentLang;" in response.text
-        assert "body: JSON.stringify({ ...payload, lang: requestedLang })" in response.text
+        assert (
+            "body: JSON.stringify({ ...payload, lang: requestedLang })" in response.text
+        )
         assert "renderResults(lastSuccessfulSearch" not in response.text
 
-    def test_stale_language_responses_are_not_rendered(self, client: TestClient) -> None:
+    def test_stale_language_responses_are_not_rendered(
+        self, client: TestClient
+    ) -> None:
         response = client.get("/")
 
         assert response.status_code == 200
         assert "const requestSeq = ++searchRequestSeq;" in response.text
-        assert response.text.count(
-            "if (requestedLang !== _currentLang || requestSeq !== searchRequestSeq)"
-        ) >= 3
+        assert (
+            response.text.count(
+                "if (requestedLang !== _currentLang || requestSeq !== searchRequestSeq)"
+            )
+            >= 3
+        )
         assert "renderResults(data);" in response.text
 
     def test_only_latest_search_clears_loading_state(self, client: TestClient) -> None:

@@ -5,6 +5,11 @@ Downloads the papyri/idp.data tarball (or uses an existing local checkout),
 streams through all EpiDoc XML files, and writes a JSON array of spelling-
 variant pairs suitable as training data for Proteus phonological distance matrices.
 
+The generated records are training data, not runtime orthographic-note data.
+Do not load this output directly in the note builder: promote candidate
+correspondences to ``data/languages/ancient_greek/orthography/*.yaml`` only
+after source review.
+
 Usage:
 
     # Download corpus and extract (first run)

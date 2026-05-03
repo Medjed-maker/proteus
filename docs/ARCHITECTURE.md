@@ -32,7 +32,8 @@ HPSI / Proteus
 │   │   ├── phoneme inventory
 │   │   ├── rules
 │   │   ├── matrices
-│   │   └── lexicon
+│   │   ├── lexicon
+│   │   └── orthographic note builder
 │   └── future languages
 │       ├── latin
 │       ├── coptic
@@ -86,6 +87,7 @@ A language plugin provides:
 - phonological rules
 - phonological distance matrices
 - lexicon data
+- optional orthographic note builder
 - examples and test cases
 
 Example:
@@ -95,6 +97,7 @@ data/languages/ancient_greek/
 ├── rules/
 ├── matrices/
 ├── lexicon/
+├── orthography/
 └── examples/
 
 ## 5. LanguageProfile
@@ -115,9 +118,16 @@ class LanguageProfile:
     lexicon_path: Path
     matrix_path: Path
     rules_dir: Path
+    orthographic_note_builder: OrthographicNoteBuilder | None = None
 ```
 
 The search engine must receive all language-dependent behavior through this profile.
+
+`orthographic_note_builder` is an optional language-specific hook. It may add
+candidate-level comments about writing systems, spelling conventions,
+normalized forms, or beginner reading aids. The core search engine treats the
+hook as optional and receives an empty note list for languages that do not
+provide one.
 
 ## 6. Corpus Adapter Layer
 Corpus adapters connect the framework to external corpora or corpus-derived metadata.
@@ -190,6 +200,7 @@ A search result should include:
 - candidate lemma
 - alignment
 - applied rules
+- orthographic notes
 - rule references
 - score
 - confidence level

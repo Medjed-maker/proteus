@@ -12,9 +12,10 @@ from phonology.explainer import (
     to_prose,
 )
 from phonology.ipa_converter import strip_ignored_ipa_combining_marks
+from phonology.orthography_notes import OrthographicNoteBuilder, OrthographicNoteDataError
 from phonology import search as phonology_search
 
-from ._models import RuleStep, SearchHit
+from ._models import OrthographicNote, RuleStep, SearchHit
 
 logger = logging.getLogger(__name__)
 
@@ -233,6 +234,20 @@ def _build_candidate_bucket(
     if match_type in {"Exact", "Rule-based"} or uncertainty == "Low":
         return "Supported"
     return "Exploratory"
+
+
+def _promote_bucket_for_orthographic_notes(
+    base_bucket: Literal["Supported", "Exploratory"],
+    notes: list[OrthographicNote],
+) -> Literal["Supported", "Exploratory"]:
+    """Promote a candidate to Supported when an orthographic correspondence applies.
+
+    Only ``orthographic_correspondence`` notes trigger promotion; ``beginner_aid``
+    and ``pre_403_2_attic`` notes do not affect the bucket.
+    """
+    if any(note.kind == "orthographic_correspondence" for note in notes):
+        return "Supported"
+    return base_bucket
 
 
 def _count_distinct_positions(steps: list[RuleApplication]) -> int | None:
@@ -489,6 +504,9 @@ def _build_search_hit(
     query_mode: Literal["Full-form", "Short-query", "Partial-form"],
     *,
     lang: Literal["en", "ja"] = "en",
+    query_form: str | None = None,
+    orthographic_note_builder: OrthographicNoteBuilder | None = None,
+    orthography_hint: str | None = None,
 ) -> SearchHit:
     """Convert a core search result into the public API response shape."""
     source_ipa = result.ipa or ""
@@ -530,6 +548,40 @@ def _build_search_hit(
         applied_rule_count=applied_rule_count,
         confidence=result.confidence,
     )
+    orthographic_notes: list[OrthographicNote] = []
+    if orthographic_note_builder is not None and query_form is not None:
+        try:
+            orthographic_notes = [
+                OrthographicNote(
+                    kind=note.kind,
+                    label=note.label,
+                    messages=list(note.messages),
+                    normalized_form=note.normalized_form,
+                    romanization=note.romanization,
+                    period_label=note.period_label,
+                    references=list(note.references),
+                    confidence=note.confidence,
+                )
+                for note in orthographic_note_builder(
+                    query_form=query_form,
+                    candidate_headword=result.lemma,
+                    candidate_ipa=source_ipa,
+                    query_ipa=query_ipa,
+                    response_language=lang,
+                    orthography_hint=orthography_hint,
+                )
+            ]
+        except OrthographicNoteDataError:
+            logger.error(
+                "orthographic note builder failed for headword %r (this should have "
+                "failed at startup); returning empty notes",
+                result.lemma,
+                exc_info=True,
+            )
+    candidate_bucket = _promote_bucket_for_orthographic_notes(
+        _build_candidate_bucket(match_type, query_mode=query_mode, uncertainty=uncertainty),
+        orthographic_notes,
+    )
     return SearchHit(
         headword=result.lemma,
         ipa=source_ipa,
@@ -555,11 +607,7 @@ def _build_search_hit(
             lang=lang,
         ),
         uncertainty=uncertainty,
-        candidate_bucket=_build_candidate_bucket(
-            match_type,
-            query_mode=query_mode,
-            uncertainty=uncertainty,
-        ),
+        candidate_bucket=candidate_bucket,
         rules_applied=[
             RuleStep(
                 rule_id=step.rule_id,
@@ -571,5 +619,6 @@ def _build_search_hit(
             )
             for step in steps
         ],
+        orthographic_notes=orthographic_notes,
         explanation=to_prose(explanation),
     )

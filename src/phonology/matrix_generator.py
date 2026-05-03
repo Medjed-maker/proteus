@@ -142,9 +142,7 @@ def _coerce_seed_rows(
     return rows
 
 
-def _load_base_sound_class_rows() -> tuple[
-    PhoneDistanceMatrix, PhoneDistanceMatrix
-]:
+def _load_base_sound_class_rows() -> tuple[PhoneDistanceMatrix, PhoneDistanceMatrix]:
     """Load the base vowel/stop rows from the committed JSON seed file."""
     try:
         seed_document = _load_seed_document()
@@ -199,9 +197,7 @@ def _load_base_sound_class_rows() -> tuple[
 
 
 @functools.lru_cache(maxsize=1)
-def _get_cached_base_rows() -> tuple[
-    PhoneDistanceMatrix, PhoneDistanceMatrix
-]:
+def _get_cached_base_rows() -> tuple[PhoneDistanceMatrix, PhoneDistanceMatrix]:
     """Load and cache the committed base vowel/stop rows on first use."""
     return _load_base_sound_class_rows()
 
@@ -291,9 +287,7 @@ def _overlay_seed_rows(
     return rows
 
 
-def _validate_complete_matrix(
-    rows: PhoneDistanceMatrix, order: Sequence[str]
-) -> None:
+def _validate_complete_matrix(rows: PhoneDistanceMatrix, order: Sequence[str]) -> None:
     """Ensure matrix rows are complete, symmetric, and normalized."""
     for row_phone in order:
         row = rows[row_phone]

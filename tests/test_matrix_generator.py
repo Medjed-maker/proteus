@@ -72,7 +72,9 @@ class TestOverlaySeedRows:
 
         assert rows == base_rows
         assert "Skipping non-mapping row 'a' (type list) from seed.json" in caplog.text
-        assert "Skipping non-numeric distance for 'b' -> 'a' from seed.json" in caplog.text
+        assert (
+            "Skipping non-numeric distance for 'b' -> 'a' from seed.json" in caplog.text
+        )
 
     def test_raises_clear_error_when_reverse_distance_is_missing(self) -> None:
         base_rows = {
@@ -81,7 +83,9 @@ class TestOverlaySeedRows:
         }
 
         with pytest.raises(ValueError, match="Missing symmetric distance"):
-            matrix_generator._overlay_seed_rows(base_rows, {}, ["a", "b"], seed_source="seed.json")
+            matrix_generator._overlay_seed_rows(
+                base_rows, {}, ["a", "b"], seed_source="seed.json"
+            )
 
 
 class TestCoerceSeedRows:
@@ -102,7 +106,10 @@ class TestCoerceSeedRows:
             matrix_generator._coerce_seed_rows({"a": []}, ("a",), label="rows")
 
     def test_rejects_missing_and_extra_columns(self) -> None:
-        with pytest.raises(ValueError, match=r"rows.a must define exactly.*missing=\['b'\].*extra=\['c'\]"):
+        with pytest.raises(
+            ValueError,
+            match=r"rows.a must define exactly.*missing=\['b'\].*extra=\['c'\]",
+        ):
             matrix_generator._coerce_seed_rows(
                 {"a": {"a": 0.0, "c": 0.2}, "b": {"a": 0.1, "b": 0.0}},
                 ("a", "b"),
@@ -111,7 +118,9 @@ class TestCoerceSeedRows:
 
     def test_rejects_non_numeric_distance(self) -> None:
         with pytest.raises(ValueError, match=r"rows\.a\.a must be numeric, got str"):
-            matrix_generator._coerce_seed_rows({"a": {"a": "0.0"}}, ("a",), label="rows")
+            matrix_generator._coerce_seed_rows(
+                {"a": {"a": "0.0"}}, ("a",), label="rows"
+            )
 
 
 class TestExpandKoineStopRows:
@@ -231,7 +240,9 @@ class TestLoadBaseSoundClassRows:
                 {
                     "sound_classes": {
                         "vowels": {
-                            phone: {column: 0.0 for column in matrix_generator.VOWEL_ORDER}
+                            phone: {
+                                column: 0.0 for column in matrix_generator.VOWEL_ORDER
+                            }
                             for phone in matrix_generator.VOWEL_ORDER
                         },
                         "stops": {"p": {"p": 0.0}},
@@ -296,7 +307,9 @@ class TestGetBaseRows:
         vowels = {"a": {"a": 0.0}}
         stops = {"p": {"p": 0.0}}
 
-        def fake_load() -> tuple[dict[str, dict[str, float]], dict[str, dict[str, float]]]:
+        def fake_load() -> tuple[
+            dict[str, dict[str, float]], dict[str, dict[str, float]]
+        ]:
             nonlocal calls
             calls += 1
             return vowels, stops
@@ -335,26 +348,22 @@ class TestValidateDialectPairs:
 
     @pytest.mark.parametrize("bad_key", ["", 123])
     def test_rejects_invalid_phone_pair_names(self, bad_key: object) -> None:
-        with pytest.raises(ValueError, match="attic_doric keys must be non-empty strings"):
+        with pytest.raises(
+            ValueError, match="attic_doric keys must be non-empty strings"
+        ):
             matrix_generator._validate_dialect_pairs({"attic_doric": {bad_key: 0.1}})
 
     def test_rejects_non_numeric_distance(self) -> None:
         with pytest.raises(ValueError, match="must be numeric"):
-            matrix_generator._validate_dialect_pairs(
-                {"attic_doric": {"ɛː_aː": "0.3"}}
-            )
+            matrix_generator._validate_dialect_pairs({"attic_doric": {"ɛː_aː": "0.3"}})
 
     def test_rejects_negative_distance(self) -> None:
         with pytest.raises(ValueError, match=r"within \[0.0, 1.0\]"):
-            matrix_generator._validate_dialect_pairs(
-                {"attic_doric": {"ɛː_aː": -0.1}}
-            )
+            matrix_generator._validate_dialect_pairs({"attic_doric": {"ɛː_aː": -0.1}})
 
     def test_rejects_distance_outside_unit_interval(self) -> None:
         with pytest.raises(ValueError, match=r"within \[0.0, 1.0\]"):
-            matrix_generator._validate_dialect_pairs(
-                {"attic_doric": {"ɛː_aː": 1.5}}
-            )
+            matrix_generator._validate_dialect_pairs({"attic_doric": {"ɛː_aː": 1.5}})
 
     @pytest.mark.parametrize("distance", [0.0, 1.0])
     def test_accepts_boundary_distances(self, distance: float) -> None:
@@ -415,9 +424,7 @@ class TestBuildAtticDoricMatrix:
                 f"{invalid_generated_at!r}"
             ),
         ):
-            matrix_generator.build_attic_doric_matrix(
-                generated_at=invalid_generated_at
-            )
+            matrix_generator.build_attic_doric_matrix(generated_at=invalid_generated_at)
 
     def test_rejects_non_string_generated_at(self) -> None:
         invalid_generated_at = 123
@@ -488,7 +495,9 @@ class TestWriteAtticDoricMatrix:
         )
 
         with pytest.raises(FileNotFoundError):
-            matrix_generator.write_attic_doric_matrix(tmp_path / "missing" / "matrix.json")
+            matrix_generator.write_attic_doric_matrix(
+                tmp_path / "missing" / "matrix.json"
+            )
 
 
 class TestRunCli:
@@ -497,13 +506,19 @@ class TestRunCli:
         monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str],
     ) -> None:
-        monkeypatch.setattr(matrix_generator, "write_attic_doric_matrix", lambda: matrix_generator.MATRIX_PATH)
+        monkeypatch.setattr(
+            matrix_generator,
+            "write_attic_doric_matrix",
+            lambda: matrix_generator.MATRIX_PATH,
+        )
 
         assert matrix_generator.main() == 0
         captured = capsys.readouterr()
         assert "Attic-Doric matrix regenerated successfully." in captured.out
 
-    def test_returns_main_exit_code_on_success(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_returns_main_exit_code_on_success(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setattr(matrix_generator, "main", lambda: 7)
 
         assert matrix_generator.run_cli() == 7

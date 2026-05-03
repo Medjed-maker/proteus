@@ -49,7 +49,12 @@ def test_load_buck_data_reads_packaged_documents() -> None:
     assert set(data) == {"grammar_rules", "dialects", "glossary"}
     rule_ids = {rule["id"] for rule in data["grammar_rules"]["rules"]}
 
-    assert {"grc_phon_41_4", "grc_phon_60_1", "grc_synt_175", "grc_morph_134_3"} <= rule_ids
+    assert {
+        "grc_phon_41_4",
+        "grc_phon_60_1",
+        "grc_synt_175",
+        "grc_morph_134_3",
+    } <= rule_ids
 
 
 def test_load_buck_data_returns_defensive_copy() -> None:
@@ -80,11 +85,7 @@ def test_load_buck_data_supports_override_directory(
             "      - form: x\n"
             "        dialects: [test_dialect]\n"
         ),
-        dialects=(
-            "dialects:\n"
-            "  - id: test_dialect\n"
-            "    rules: [TEST-BUCK-001]\n"
-        ),
+        dialects=("dialects:\n  - id: test_dialect\n    rules: [TEST-BUCK-001]\n"),
         glossary=(
             "words:\n"
             "  - word: test\n"
@@ -136,11 +137,7 @@ def test_load_buck_data_rejects_duplicate_rule_ids(
     buck_dir = tmp_path / "buck"
     _write_buck_fixture(
         buck_dir,
-        grammar_rules=(
-            "rules:\n"
-            "  - id: DUP-001\n"
-            "  - id: DUP-001\n"
-        ),
+        grammar_rules=("rules:\n  - id: DUP-001\n  - id: DUP-001\n"),
         dialects="dialects:\n  - id: test_dialect\n    rules: []\n",
         glossary="words:\n  - word: test\n    dialect: test_dialect\n",
     )
@@ -207,7 +204,9 @@ def test_load_buck_data_rejects_unknown_glossary_dialect(
     )
     monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
 
-    with pytest.raises(ValueError, match="references unknown dialect id 'missing_dialect'"):
+    with pytest.raises(
+        ValueError, match="references unknown dialect id 'missing_dialect'"
+    ):
         load_buck_data()
 
 
@@ -224,7 +223,9 @@ def test_load_buck_data_rejects_unknown_grammar_dialect_reference(
     )
     monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
 
-    with pytest.raises(ValueError, match="references unknown dialect id 'missing_dialect'"):
+    with pytest.raises(
+        ValueError, match="references unknown dialect id 'missing_dialect'"
+    ):
         load_buck_data()
 
 

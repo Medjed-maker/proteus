@@ -28,6 +28,7 @@ WEB_ASSET_KEYS = [
     "sectionDiffSummary",
     "sectionMatchedRules",
     "sectionUncatalogued",
+    "sectionOrthographicNote",
     "sectionAlignment",
     "sectionWhyCandidate",
     "diffVisible",

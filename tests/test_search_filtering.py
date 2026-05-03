@@ -25,7 +25,9 @@ def _record(entry_id: str, ipa_tokens: tuple[str, ...]) -> LexiconRecord:
     )
 
 
-def _result(entry_id: str, lemma: str, confidence: float, **kwargs: object) -> SearchResult:
+def _result(
+    entry_id: str, lemma: str, confidence: float, **kwargs: object
+) -> SearchResult:
     return SearchResult(
         lemma=lemma,
         confidence=confidence,
@@ -57,7 +59,11 @@ class TestApplyModeQualityFilter:
             lexicon_lookup,
         )
 
-        assert [result.entry_id for result in filtered] == ["exact", "rule", "confident"]
+        assert [result.entry_id for result in filtered] == [
+            "exact",
+            "rule",
+            "confident",
+        ]
 
     def test_partial_form_filters_and_ranks_by_fragment_match_quality(self) -> None:
         partial_query = PartialQueryTokens("prefix", ("a", "b"), ())
@@ -133,7 +139,9 @@ class TestSelectAnnotationCandidates:
 
         assert [result.entry_id for result in selected] == ["exact", "far"]
 
-    def test_short_query_ranking_prioritizes_exact_then_confident_then_exploratory(self) -> None:
+    def test_short_query_ranking_prioritizes_exact_then_confident_then_exploratory(
+        self,
+    ) -> None:
         lexicon_lookup = {
             "beta": _record("beta", ("a",)),
             "alpha": _record("alpha", ("a",)),
@@ -161,7 +169,9 @@ class TestSelectAnnotationCandidates:
             "exploratory",
         ]
 
-    def test_short_query_limit_uses_primary_window_before_exploratory_candidates(self) -> None:
+    def test_short_query_limit_uses_primary_window_before_exploratory_candidates(
+        self,
+    ) -> None:
         lexicon_lookup = {
             "exact": _record("exact", ("a",)),
             "confident": _record("confident", ("x", "y")),
@@ -184,9 +194,15 @@ class TestSelectAnnotationCandidates:
             annotation_limit=3,
         )
 
-        assert [result.entry_id for result in selected] == ["exact", "confident", "near"]
+        assert [result.entry_id for result in selected] == [
+            "exact",
+            "confident",
+            "near",
+        ]
 
-    def test_partial_form_ranking_keeps_primary_matches_before_exploratory(self) -> None:
+    def test_partial_form_ranking_keeps_primary_matches_before_exploratory(
+        self,
+    ) -> None:
         partial_query = PartialQueryTokens("infix", ("a",), ("c",))
         lexicon_lookup = {
             "full": _record("full", ("a", "b", "c")),
@@ -210,7 +226,11 @@ class TestSelectAnnotationCandidates:
             annotation_limit=3,
         )
 
-        assert [result.entry_id for result in selected] == ["full", "left", "confident_zero"]
+        assert [result.entry_id for result in selected] == [
+            "full",
+            "left",
+            "confident_zero",
+        ]
 
     def test_partial_form_requires_metadata_when_selection_is_capped(self) -> None:
         with pytest.raises(ValueError, match="partial query metadata is required"):

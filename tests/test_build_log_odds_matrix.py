@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from scripts.build_log_odds_matrix import DEFAULT_INPUT
 from scripts.build_log_odds_matrix import DEFAULT_OUTPUT
 from scripts.build_log_odds_matrix import main
 
@@ -17,11 +18,31 @@ from scripts.build_log_odds_matrix import main
 
 _GREEK_PAIRS = [
     # original, regularized — real Ancient Greek pairs from test corpus
-    {"original": "νομου", "regularized": "νόμου", "source_file": "f1.xml", "tm_id": "1"},
+    {
+        "original": "νομου",
+        "regularized": "νόμου",
+        "source_file": "f1.xml",
+        "tm_id": "1",
+    },
     {"original": "θιου", "regularized": "θεοῦ", "source_file": "f2.xml", "tm_id": "2"},
-    {"original": "πατρος", "regularized": "πατρός", "source_file": "f3.xml", "tm_id": "3"},
-    {"original": "λογου", "regularized": "λόγου", "source_file": "f4.xml", "tm_id": "4"},
-    {"original": "νομον", "regularized": "νόμον", "source_file": "f5.xml", "tm_id": "5"},
+    {
+        "original": "πατρος",
+        "regularized": "πατρός",
+        "source_file": "f3.xml",
+        "tm_id": "3",
+    },
+    {
+        "original": "λογου",
+        "regularized": "λόγου",
+        "source_file": "f4.xml",
+        "tm_id": "4",
+    },
+    {
+        "original": "νομον",
+        "regularized": "νόμον",
+        "source_file": "f5.xml",
+        "tm_id": "5",
+    },
 ]
 
 
@@ -29,6 +50,19 @@ def test_default_output_uses_language_scoped_matrix_dir():
     assert DEFAULT_OUTPUT == Path(
         "data/languages/ancient_greek/matrices/log_odds_epidoc_choices.json"
     )
+
+
+def test_default_input_uses_training_epidoc_choices():
+    assert DEFAULT_INPUT == Path("data/training/epidoc_choices.json")
+
+
+def test_default_output_stays_in_matrix_data_not_runtime_orthography():
+    assert DEFAULT_OUTPUT.parts[-3:] == (
+        "ancient_greek",
+        "matrices",
+        DEFAULT_OUTPUT.name,
+    )
+    assert "orthography" not in DEFAULT_OUTPUT.parts
 
 
 @pytest.fixture()
@@ -65,9 +99,19 @@ class TestRoundtrip:
             doc = json.load(f)
 
         meta = doc["_meta"]
-        for field in ("description", "version", "generated_at", "method",
-                      "source_pair_count", "alignments_used", "alphabet",
-                      "smoothing", "nw_params", "indel_counts", "totals"):
+        for field in (
+            "description",
+            "version",
+            "generated_at",
+            "method",
+            "source_pair_count",
+            "alignments_used",
+            "alphabet",
+            "smoothing",
+            "nw_params",
+            "indel_counts",
+            "totals",
+        ):
             assert field in meta, f"Missing _meta.{field}"
 
     def test_source_pair_count_recorded(self, input_file, output_file):
@@ -120,10 +164,16 @@ class TestRoundtrip:
             encoding="utf-8",
         )
 
-        main([
-            "--input", str(jsonl_input), "--output", str(output_file),
-            "--input-format", "jsonl",
-        ])
+        main(
+            [
+                "--input",
+                str(jsonl_input),
+                "--output",
+                str(output_file),
+                "--input-format",
+                "jsonl",
+            ]
+        )
 
         with output_file.open(encoding="utf-8") as f:
             doc = json.load(f)
@@ -136,16 +186,24 @@ class TestRoundtrip:
             encoding="utf-8",
         )
 
-        main([
-            "--input", str(jsonl_input), "--output", str(output_file),
-            "--input-format", "auto",
-        ])
+        main(
+            [
+                "--input",
+                str(jsonl_input),
+                "--output",
+                str(output_file),
+                "--input-format",
+                "auto",
+            ]
+        )
 
         with output_file.open(encoding="utf-8") as f:
             doc = json.load(f)
         assert doc["_meta"]["source_pair_count"] == len(_GREEK_PAIRS)
 
-    def test_auto_rejects_jsonl_content_with_json_extension(self, tmp_path, output_file):
+    def test_auto_rejects_jsonl_content_with_json_extension(
+        self, tmp_path, output_file
+    ):
         json_input = tmp_path / "input.json"
         json_input.write_text(
             "\n".join(json.dumps(pair) for pair in _GREEK_PAIRS) + "\n",
@@ -153,10 +211,16 @@ class TestRoundtrip:
         )
 
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(json_input), "--output", str(output_file),
-                "--input-format", "auto",
-            ])
+            main(
+                [
+                    "--input",
+                    str(json_input),
+                    "--output",
+                    str(output_file),
+                    "--input-format",
+                    "auto",
+                ]
+            )
         assert exc_info.value.code != 0
 
     def test_input_format_json_rejects_jsonl_extension(self, tmp_path, output_file):
@@ -167,10 +231,16 @@ class TestRoundtrip:
         )
 
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(jsonl_input), "--output", str(output_file),
-                "--input-format", "json",
-            ])
+            main(
+                [
+                    "--input",
+                    str(jsonl_input),
+                    "--output",
+                    str(output_file),
+                    "--input-format",
+                    "json",
+                ]
+            )
         assert exc_info.value.code != 0
 
 
@@ -187,7 +257,9 @@ class TestLimitFlag:
         assert doc["_meta"]["alignments_used"] <= 2
 
     def test_limit_larger_than_input_processes_all(self, input_file, output_file):
-        main(["--input", str(input_file), "--output", str(output_file), "--limit", "999"])
+        main(
+            ["--input", str(input_file), "--output", str(output_file), "--limit", "999"]
+        )
         with output_file.open(encoding="utf-8") as f:
             doc = json.load(f)
         assert doc["_meta"]["alignments_used"] == len(_GREEK_PAIRS)
@@ -200,19 +272,33 @@ class TestLimitFlag:
 
 class TestSmoothingFlag:
     def test_laplace_smoothing_strategy_recorded(self, input_file, output_file):
-        main([
-            "--input", str(input_file), "--output", str(output_file),
-            "--smoothing", "laplace",
-        ])
+        main(
+            [
+                "--input",
+                str(input_file),
+                "--output",
+                str(output_file),
+                "--smoothing",
+                "laplace",
+            ]
+        )
         with output_file.open(encoding="utf-8") as f:
             doc = json.load(f)
         assert doc["_meta"]["smoothing"]["strategy"] == "laplace"
 
     def test_lidstone_smoothing_strategy_recorded(self, input_file, output_file):
-        main([
-            "--input", str(input_file), "--output", str(output_file),
-            "--smoothing", "lidstone", "--lidstone-alpha", "0.3",
-        ])
+        main(
+            [
+                "--input",
+                str(input_file),
+                "--output",
+                str(output_file),
+                "--smoothing",
+                "lidstone",
+                "--lidstone-alpha",
+                "0.3",
+            ]
+        )
         with output_file.open(encoding="utf-8") as f:
             doc = json.load(f)
         meta_smoothing = doc["_meta"]["smoothing"]
@@ -220,10 +306,18 @@ class TestSmoothingFlag:
         assert meta_smoothing["params"]["alpha"] == pytest.approx(0.3)
 
     def test_floor_smoothing_strategy_recorded(self, input_file, output_file):
-        main([
-            "--input", str(input_file), "--output", str(output_file),
-            "--smoothing", "floor", "--floor", "-5.0",
-        ])
+        main(
+            [
+                "--input",
+                str(input_file),
+                "--output",
+                str(output_file),
+                "--smoothing",
+                "floor",
+                "--floor",
+                "-5.0",
+            ]
+        )
         with output_file.open(encoding="utf-8") as f:
             doc = json.load(f)
         meta_smoothing = doc["_meta"]["smoothing"]
@@ -231,10 +325,18 @@ class TestSmoothingFlag:
         assert meta_smoothing["params"]["floor"] == pytest.approx(-5.0)
 
     def test_zero_lidstone_alpha_is_allowed(self, input_file, output_file):
-        main([
-            "--input", str(input_file), "--output", str(output_file),
-            "--smoothing", "lidstone", "--lidstone-alpha", "0",
-        ])
+        main(
+            [
+                "--input",
+                str(input_file),
+                "--output",
+                str(output_file),
+                "--smoothing",
+                "lidstone",
+                "--lidstone-alpha",
+                "0",
+            ]
+        )
         with output_file.open(encoding="utf-8") as f:
             doc = json.load(f)
         assert doc["_meta"]["smoothing"]["params"]["alpha"] == pytest.approx(0.0)
@@ -247,10 +349,16 @@ class TestSmoothingFlag:
 
 class TestMinCountFlag:
     def test_min_count_zero_keeps_all(self, input_file, output_file):
-        main([
-            "--input", str(input_file), "--output", str(output_file),
-            "--min-count", "0",
-        ])
+        main(
+            [
+                "--input",
+                str(input_file),
+                "--output",
+                str(output_file),
+                "--min-count",
+                "0",
+            ]
+        )
         with output_file.open(encoding="utf-8") as f:
             doc = json.load(f)
         # With min_count=0 every observed phone pair should be present
@@ -258,19 +366,31 @@ class TestMinCountFlag:
 
     def test_min_count_filters_rare_pairs(self, input_file, output_file):
         # First run with min_count=0 to get baseline
-        main([
-            "--input", str(input_file), "--output", str(output_file),
-            "--min-count", "0",
-        ])
+        main(
+            [
+                "--input",
+                str(input_file),
+                "--output",
+                str(output_file),
+                "--min-count",
+                "0",
+            ]
+        )
         with output_file.open(encoding="utf-8") as f:
             baseline = json.load(f)
 
         # Run with a high min_count — most cells should disappear
         filtered_output = output_file.parent / "filtered.json"
-        main([
-            "--input", str(input_file), "--output", str(filtered_output),
-            "--min-count", "999",
-        ])
+        main(
+            [
+                "--input",
+                str(input_file),
+                "--output",
+                str(filtered_output),
+                "--min-count",
+                "999",
+            ]
+        )
         with filtered_output.open(encoding="utf-8") as f:
             filtered = json.load(f)
 
@@ -286,10 +406,16 @@ class TestMinCountFlag:
 
 class TestGapCostFlag:
     def test_gap_cost_recorded_in_meta(self, input_file, output_file):
-        main([
-            "--input", str(input_file), "--output", str(output_file),
-            "--gap-cost", "2.5",
-        ])
+        main(
+            [
+                "--input",
+                str(input_file),
+                "--output",
+                str(output_file),
+                "--gap-cost",
+                "2.5",
+            ]
+        )
         with output_file.open(encoding="utf-8") as f:
             doc = json.load(f)
         assert doc["_meta"]["nw_params"]["gap"] == pytest.approx(2.5)
@@ -309,70 +435,124 @@ class TestGapCostFlag:
 class TestInvalidArgs:
     def test_negative_min_count_exits(self, input_file, output_file):
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(input_file), "--output", str(output_file),
-                "--min-count", "-1",
-            ])
+            main(
+                [
+                    "--input",
+                    str(input_file),
+                    "--output",
+                    str(output_file),
+                    "--min-count",
+                    "-1",
+                ]
+            )
         assert exc_info.value.code != 0
 
     def test_non_numeric_gap_cost_exits(self, input_file, output_file):
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(input_file), "--output", str(output_file),
-                "--gap-cost", "abc",
-            ])
+            main(
+                [
+                    "--input",
+                    str(input_file),
+                    "--output",
+                    str(output_file),
+                    "--gap-cost",
+                    "abc",
+                ]
+            )
         assert exc_info.value.code != 0
 
     @pytest.mark.parametrize("gap_cost", ["-1", "0"])
     def test_non_positive_gap_cost_exits(self, input_file, output_file, gap_cost):
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(input_file), "--output", str(output_file),
-                "--gap-cost", gap_cost,
-            ])
+            main(
+                [
+                    "--input",
+                    str(input_file),
+                    "--output",
+                    str(output_file),
+                    "--gap-cost",
+                    gap_cost,
+                ]
+            )
         assert exc_info.value.code != 0
 
     @pytest.mark.parametrize("gap_cost", ["nan", "inf", "-inf"])
     def test_non_finite_gap_cost_exits(self, input_file, output_file, gap_cost):
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(input_file), "--output", str(output_file),
-                "--gap-cost", gap_cost,
-            ])
+            main(
+                [
+                    "--input",
+                    str(input_file),
+                    "--output",
+                    str(output_file),
+                    "--gap-cost",
+                    gap_cost,
+                ]
+            )
         assert exc_info.value.code != 0
 
     def test_negative_lidstone_alpha_exits(self, input_file, output_file):
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(input_file), "--output", str(output_file),
-                "--smoothing", "lidstone", "--lidstone-alpha", "-0.1",
-            ])
+            main(
+                [
+                    "--input",
+                    str(input_file),
+                    "--output",
+                    str(output_file),
+                    "--smoothing",
+                    "lidstone",
+                    "--lidstone-alpha",
+                    "-0.1",
+                ]
+            )
         assert exc_info.value.code != 0
 
     @pytest.mark.parametrize("alpha", ["nan", "inf", "-inf"])
     def test_non_finite_lidstone_alpha_exits(self, input_file, output_file, alpha):
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(input_file), "--output", str(output_file),
-                "--smoothing", "lidstone", "--lidstone-alpha", alpha,
-            ])
+            main(
+                [
+                    "--input",
+                    str(input_file),
+                    "--output",
+                    str(output_file),
+                    "--smoothing",
+                    "lidstone",
+                    "--lidstone-alpha",
+                    alpha,
+                ]
+            )
         assert exc_info.value.code != 0
 
     @pytest.mark.parametrize("floor", ["nan", "inf", "-inf"])
     def test_non_finite_floor_exits(self, input_file, output_file, floor):
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(input_file), "--output", str(output_file),
-                "--smoothing", "floor", "--floor", floor,
-            ])
+            main(
+                [
+                    "--input",
+                    str(input_file),
+                    "--output",
+                    str(output_file),
+                    "--smoothing",
+                    "floor",
+                    "--floor",
+                    floor,
+                ]
+            )
         assert exc_info.value.code != 0
 
     def test_zero_limit_exits(self, input_file, output_file):
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(input_file), "--output", str(output_file),
-                "--limit", "0",
-            ])
+            main(
+                [
+                    "--input",
+                    str(input_file),
+                    "--output",
+                    str(output_file),
+                    "--limit",
+                    "0",
+                ]
+            )
         assert exc_info.value.code != 0
 
 
@@ -384,20 +564,28 @@ class TestInvalidArgs:
 class TestErrorHandling:
     def test_missing_input_exits_with_error(self, tmp_path):
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(tmp_path / "nonexistent.json"),
-                "--output", str(tmp_path / "out.json"),
-            ])
+            main(
+                [
+                    "--input",
+                    str(tmp_path / "nonexistent.json"),
+                    "--output",
+                    str(tmp_path / "out.json"),
+                ]
+            )
         assert exc_info.value.code != 0
 
     def test_non_array_input_exits_with_error(self, tmp_path):
         bad_input = tmp_path / "bad.json"
         bad_input.write_text('{"key": "value"}', encoding="utf-8")
         with pytest.raises(SystemExit) as exc_info:
-            main([
-                "--input", str(bad_input),
-                "--output", str(tmp_path / "out.json"),
-            ])
+            main(
+                [
+                    "--input",
+                    str(bad_input),
+                    "--output",
+                    str(tmp_path / "out.json"),
+                ]
+            )
         assert exc_info.value.code != 0
 
     def test_empty_input_produces_empty_scores(self, tmp_path, output_file):

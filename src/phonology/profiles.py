@@ -14,6 +14,11 @@ from .languages.ancient_greek.ipa import (
     get_known_phones,
     to_ipa,
 )
+from .languages.ancient_greek.orthography_notes import (
+    build_orthographic_notes as build_ancient_greek_orthographic_notes,
+    prepare_orthographic_data as prepare_ancient_greek_orthographic_data,
+)
+from .orthography_notes import OrthographicNoteBuilder
 
 
 class IpaConverter(Protocol):
@@ -38,6 +43,8 @@ class LanguageProfile:
     matrix_path: Path
     rules_dir: Path
     dialect_skeleton_builders: tuple[Callable[[list[str]], list[str]], ...] = ()
+    orthographic_note_builder: OrthographicNoteBuilder | None = None
+    orthographic_data_preparer: Callable[[], None] | None = None
 
 
 _REGISTRY: dict[str, LanguageProfile] = {}
@@ -125,6 +132,8 @@ def _build_ancient_greek_profile() -> LanguageProfile:
         matrix_path=matrix_dir / "attic_doric.json",
         rules_dir=rules_dir,
         dialect_skeleton_builders=(apply_koine_consonant_shifts,),
+        orthographic_note_builder=build_ancient_greek_orthographic_notes,
+        orthographic_data_preparer=prepare_ancient_greek_orthographic_data,
     )
 
 

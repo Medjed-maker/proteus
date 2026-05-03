@@ -311,7 +311,9 @@ class TestComputeLogOdds:
             pair_counts={("a", "a"): 5, ("b", "b"): 3},
             phone_totals={"a": 10, "b": 6},
         )
-        scores = compute_log_odds(counts, smoothing="lidstone", lidstone_alpha=0.0, floor=-9.0)
+        scores = compute_log_odds(
+            counts, smoothing="lidstone", lidstone_alpha=0.0, floor=-9.0
+        )
         assert scores["a"]["b"] == pytest.approx(-9.0)
 
     def test_alphabet_order_is_unicode_sorted(self):

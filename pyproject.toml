@@ -47,6 +47,7 @@ exclude = ["data/languages/ancient_greek/lexicon/greek_lemmas.meta.json"]
 "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json" = "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.schema.json"
 "data/languages/ancient_greek/lexicon/pos_overrides.yaml" = "phonology/data/languages/ancient_greek/lexicon/pos_overrides.yaml"
 "data/languages/ancient_greek/matrices" = "phonology/data/languages/ancient_greek/matrices"
+"data/languages/ancient_greek/orthography" = "phonology/data/languages/ancient_greek/orthography"
 "data/languages/ancient_greek/rules" = "phonology/data/languages/ancient_greek/rules"
 "src/web/index.html" = "web/index.html"
 "src/web/changelog.html" = "web/changelog.html"

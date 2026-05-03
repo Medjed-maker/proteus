@@ -18,6 +18,7 @@ from phonology.explainer import (
     to_prose,
 )
 from phonology.ipa_converter import to_ipa, tokenize_ipa
+
 # Intentional private import: these packaged-rule tests need the exact
 # Smith-Waterman alignment used at runtime before calling explain(), so they
 # depend on _smith_waterman_alignment and may need updates after refactors.
@@ -395,7 +396,9 @@ def test_explain_uses_context_to_choose_between_competing_rules() -> None:
     )
 
     assert [application.rule_id for application in after_result] == ["RET-AFTER"]
-    assert [application.rule_id for application in elsewhere_result] == ["RET-ELSEWHERE"]
+    assert [application.rule_id for application in elsewhere_result] == [
+        "RET-ELSEWHERE"
+    ]
 
 
 def test_explain_prefers_specific_context_over_generic_rule() -> None:
@@ -586,7 +589,10 @@ def test_explain_rejects_word_final_context_when_tokens_remain_after_suffix() ->
         ],
     )
 
-    assert [application.rule_id for application in applications] == ["OBS-SUB", "OBS-INS"]
+    assert [application.rule_id for application in applications] == [
+        "OBS-SUB",
+        "OBS-INS",
+    ]
 
 
 def test_explain_rejects_word_final_context_when_later_mismatch_block_remains() -> None:
@@ -609,7 +615,10 @@ def test_explain_rejects_word_final_context_when_later_mismatch_block_remains() 
         ],
     )
 
-    assert [application.rule_id for application in applications] == ["OBS-SUB", "OBS-SUB"]
+    assert [application.rule_id for application in applications] == [
+        "OBS-SUB",
+        "OBS-SUB",
+    ]
     assert [application.position for application in applications] == [0, 2]
 
 
@@ -622,7 +631,14 @@ def test_explain_supports_gap_spanning_one_to_two_token_rule() -> None:
             aligned_query=("e", "o"),
             aligned_lemma=("eu", None),
         ),
-        rules=[_rule(rule_id="GAP-1TO2", input_phoneme="eu", output_phoneme="eo", context=None)],
+        rules=[
+            _rule(
+                rule_id="GAP-1TO2",
+                input_phoneme="eu",
+                output_phoneme="eo",
+                context=None,
+            )
+        ],
     )
 
     assert [application.rule_id for application in applications] == ["GAP-1TO2"]
@@ -637,7 +653,14 @@ def test_explain_supports_gap_spanning_two_to_one_token_rule() -> None:
             aligned_query=("ɛː", None),
             aligned_lemma=("e", "a"),
         ),
-        rules=[_rule(rule_id="GAP-2TO1", input_phoneme="ea", output_phoneme="ɛː", context=None)],
+        rules=[
+            _rule(
+                rule_id="GAP-2TO1",
+                input_phoneme="ea",
+                output_phoneme="ɛː",
+                context=None,
+            )
+        ],
     )
 
     assert [application.rule_id for application in applications] == ["GAP-2TO1"]
@@ -658,7 +681,14 @@ def test_explain_supports_gap_spanning_two_to_three_token_expansion() -> None:
             aligned_query=("e", "a", "b"),
             aligned_lemma=("ɛː", None, "p"),
         ),
-        rules=[_rule(rule_id="GAP-2TO3", input_phoneme="ɛːp", output_phoneme="eab", context=None)],
+        rules=[
+            _rule(
+                rule_id="GAP-2TO3",
+                input_phoneme="ɛːp",
+                output_phoneme="eab",
+                context=None,
+            )
+        ],
     )
 
     assert [application.rule_id for application in applications] == ["GAP-2TO3"]
@@ -674,7 +704,14 @@ def test_explain_supports_gap_spanning_three_to_two_token_contraction() -> None:
             aligned_query=("ɛː", None, "m"),
             aligned_lemma=("e", "a", "n"),
         ),
-        rules=[_rule(rule_id="GAP-3TO2", input_phoneme="ean", output_phoneme="ɛːm", context=None)],
+        rules=[
+            _rule(
+                rule_id="GAP-3TO2",
+                input_phoneme="ean",
+                output_phoneme="ɛːm",
+                context=None,
+            )
+        ],
     )
 
     assert [application.rule_id for application in applications] == ["GAP-3TO2"]
@@ -689,10 +726,21 @@ def test_explain_rejects_crossing_gap_match_for_multi_token_rule() -> None:
             aligned_query=("t", None, "t"),
             aligned_lemma=(None, "s", "s"),
         ),
-        rules=[_rule(rule_id="CCH-LONG", input_phoneme="ss", output_phoneme="tt", context=None)],
+        rules=[
+            _rule(
+                rule_id="CCH-LONG",
+                input_phoneme="ss",
+                output_phoneme="tt",
+                context=None,
+            )
+        ],
     )
 
-    assert [application.rule_id for application in applications] == ["OBS-INS", "OBS-DEL", "OBS-SUB"]
+    assert [application.rule_id for application in applications] == [
+        "OBS-INS",
+        "OBS-DEL",
+        "OBS-SUB",
+    ]
     assert [application.position for application in applications] == [0, 0, 1]
 
 
@@ -705,10 +753,21 @@ def test_explain_rejects_crossing_gap_match_for_two_to_two_rule() -> None:
             aligned_query=("e", None, "oː"),
             aligned_lemma=(None, "eː", "o"),
         ),
-        rules=[_rule(rule_id="VSH-004", input_phoneme="eːo", output_phoneme="eoː", context=None)],
+        rules=[
+            _rule(
+                rule_id="VSH-004",
+                input_phoneme="eːo",
+                output_phoneme="eoː",
+                context=None,
+            )
+        ],
     )
 
-    assert [application.rule_id for application in applications] == ["OBS-INS", "OBS-DEL", "OBS-SUB"]
+    assert [application.rule_id for application in applications] == [
+        "OBS-INS",
+        "OBS-DEL",
+        "OBS-SUB",
+    ]
 
 
 def test_explain_rejects_crossing_gap_match_for_word_final_suffix_rule() -> None:
@@ -720,10 +779,21 @@ def test_explain_rejects_crossing_gap_match_for_word_final_suffix_rule() -> None
             aligned_query=("e", None, "oː"),
             aligned_lemma=(None, "eː", "o"),
         ),
-        rules=[_rule(rule_id="CTX-FINAL", input_phoneme="eːo", output_phoneme="eoː", context="_#")],
+        rules=[
+            _rule(
+                rule_id="CTX-FINAL",
+                input_phoneme="eːo",
+                output_phoneme="eoː",
+                context="_#",
+            )
+        ],
     )
 
-    assert [application.rule_id for application in applications] == ["OBS-INS", "OBS-DEL", "OBS-SUB"]
+    assert [application.rule_id for application in applications] == [
+        "OBS-INS",
+        "OBS-DEL",
+        "OBS-SUB",
+    ]
 
 
 def test_explain_supports_nc_context_with_query_side_fallback_after_lemma_end() -> None:
@@ -847,7 +917,14 @@ def test_find_matching_rule_candidate_returns_word_final_suffix_match_result() -
         query_start_position=4,
     )
     tokenized_rules = explainer_module.tokenize_rules_for_matching(
-        [_rule(rule_id="MPH-014", input_phoneme="stin", output_phoneme="sti", context="_#")]
+        [
+            _rule(
+                rule_id="MPH-014",
+                input_phoneme="stin",
+                output_phoneme="sti",
+                context="_#",
+            )
+        ]
     )
 
     match = explainer_module._find_matching_rule_candidate(
@@ -902,7 +979,9 @@ def test_find_matching_rule_candidate_rejects_context_mismatch() -> None:
 
 def test_find_matching_rule_candidate_rejects_lemma_constraint_mismatch() -> None:
     """Verify lemma constraints are checked before returning a helper match."""
-    constrained_rule = _rule(rule_id="MPH-017", input_phoneme="on", output_phoneme="o", context="_#")
+    constrained_rule = _rule(
+        rule_id="MPH-017", input_phoneme="on", output_phoneme="o", context="_#"
+    )
     constrained_rule["lemma_constraints"] = {"gender": "neuter"}
     block = explainer_module._MismatchBlock(
         aligned_query=("o", None),
@@ -990,7 +1069,9 @@ def test_advance_block_cursors_supports_insertion_only_rule() -> None:
         query_start_position=0,
     )
     match = explainer_module._RuleMatchResult(
-        matched_rule=explainer_module.TokenizedRule(rule={}, input_tokens=(), output_tokens=("a",), order=0),
+        matched_rule=explainer_module.TokenizedRule(
+            rule={}, input_tokens=(), output_tokens=("a",), order=0
+        ),
         word_final_suffix_match=None,
         consumed_lemma_tokens=0,
         consumed_query_tokens=1,
@@ -1016,7 +1097,9 @@ def test_advance_block_cursors_supports_deletion_only_rule() -> None:
         query_start_position=0,
     )
     match = explainer_module._RuleMatchResult(
-        matched_rule=explainer_module.TokenizedRule(rule={}, input_tokens=("a",), output_tokens=(), order=0),
+        matched_rule=explainer_module.TokenizedRule(
+            rule={}, input_tokens=("a",), output_tokens=(), order=0
+        ),
         word_final_suffix_match=None,
         consumed_lemma_tokens=1,
         consumed_query_tokens=0,
@@ -1104,7 +1187,9 @@ def test_advance_block_cursors_rejects_non_advancing_iteration() -> None:
         query_start_position=0,
     )
     match = explainer_module._RuleMatchResult(
-        matched_rule=explainer_module.TokenizedRule(rule={}, input_tokens=(), output_tokens=(), order=0),
+        matched_rule=explainer_module.TokenizedRule(
+            rule={}, input_tokens=(), output_tokens=(), order=0
+        ),
         word_final_suffix_match=None,
         consumed_lemma_tokens=0,
         consumed_query_tokens=0,
@@ -1192,15 +1277,11 @@ def test_load_rules_reads_yaml_rules_from_temp_rules_directory(
     monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
 
     (rules_dir / "consonants.yaml").write_text(
-        "rules:\n"
-        "  - id: TEST-CCH-001\n"
-        "    name: consonant shift\n",
+        "rules:\n  - id: TEST-CCH-001\n    name: consonant shift\n",
         encoding="utf-8",
     )
     (rules_dir / "vowels.yaml").write_text(
-        "rules:\n"
-        "  - id: TEST-VSH-001\n"
-        "    name: vowel shift\n",
+        "rules:\n  - id: TEST-VSH-001\n    name: vowel shift\n",
         encoding="utf-8",
     )
 
@@ -1224,9 +1305,7 @@ def test_load_rules_accepts_bare_relative_directory_name(
     monkeypatch.chdir(elsewhere_dir)
 
     (rules_dir / "rules.yaml").write_text(
-        "rules:\n"
-        "  - id: TEST-001\n"
-        "    name: relative lookup\n",
+        "rules:\n  - id: TEST-001\n    name: relative lookup\n",
         encoding="utf-8",
     )
 
@@ -1249,9 +1328,7 @@ def test_load_rules_accepts_legacy_repo_style_relative_directory(
     monkeypatch.chdir(elsewhere_dir)
 
     (rules_dir / "rules.yaml").write_text(
-        "rules:\n"
-        "  - id: TEST-LEGACY-001\n"
-        "    name: legacy relative lookup\n",
+        "rules:\n  - id: TEST-LEGACY-001\n    name: legacy relative lookup\n",
         encoding="utf-8",
     )
 
@@ -1279,7 +1356,9 @@ def test_resolve_and_validate_rules_dir_accepts_packaged_relative_inputs(
     packaged_dir.mkdir(parents=True)
     monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
 
-    resolved = explainer_module._resolve_and_validate_rules_dir(rules_dir, "test_helper")
+    resolved = explainer_module._resolve_and_validate_rules_dir(
+        rules_dir, "test_helper"
+    )
 
     assert resolved == packaged_dir.resolve()
 
@@ -1408,7 +1487,9 @@ def test_packaged_rules_match_runtime_ipa_regressions(
     assert actual_rule_ids.isdisjoint({"OBS-SUB", "OBS-DEL"})
     if "MPH-014" in expected_rule_ids:
         mph_014 = next(
-            application for application in applications if application.rule_id == "MPH-014"
+            application
+            for application in applications
+            if application.rule_id == "MPH-014"
         )
         assert mph_014.position == 1
 
@@ -1451,7 +1532,9 @@ def test_neuter_on_final_nu_absence_requires_neuter_lemma_metadata(
     )
 
     assert {application.rule_id for application in without_metadata} == {"OBS-DEL"}
-    assert {application.rule_id for application in with_non_neuter_metadata} == {"OBS-DEL"}
+    assert {application.rule_id for application in with_non_neuter_metadata} == {
+        "OBS-DEL"
+    }
     assert [application.rule_id for application in with_neuter_metadata] == ["MPH-017"]
     assert with_neuter_metadata[0].input_phoneme == "on"
     assert with_neuter_metadata[0].output_phoneme == "o"
@@ -1524,7 +1607,9 @@ def test_load_rules_reports_missing_rules_base(
     missing_rules_base = tmp_path / "missing-rules-base"
     rules_dir = missing_rules_base / "ancient_greek"
 
-    monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", missing_rules_base)
+    monkeypatch.setattr(
+        explainer_module, "_RULES_BASE_DIR_OVERRIDE", missing_rules_base
+    )
 
     with pytest.raises(ValueError, match="Configured rules base directory is missing"):
         load_rules(rules_dir)
@@ -1541,15 +1626,11 @@ def test_load_rules_duplicate_error_includes_both_files(
     monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
 
     (rules_dir / "first.yaml").write_text(
-        "rules:\n"
-        "  - id: DUP-001\n"
-        "    name: first\n",
+        "rules:\n  - id: DUP-001\n    name: first\n",
         encoding="utf-8",
     )
     (rules_dir / "second.yaml").write_text(
-        "rules:\n"
-        "  - id: DUP-001\n"
-        "    name: second\n",
+        "rules:\n  - id: DUP-001\n    name: second\n",
         encoding="utf-8",
     )
 
@@ -1572,7 +1653,9 @@ def test_get_rules_version_logs_skipped_invalid_metadata(
     rules_dir.mkdir(parents=True)
     monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
 
-    (rules_dir / "valid.yaml").write_text('version: "1.2.3"\nrules: []\n', encoding="utf-8")
+    (rules_dir / "valid.yaml").write_text(
+        'version: "1.2.3"\nrules: []\n', encoding="utf-8"
+    )
     (rules_dir / "missing.yaml").write_text("rules: []\n", encoding="utf-8")
     (rules_dir / "scalar.yaml").write_text("- not-a-mapping\n", encoding="utf-8")
 
@@ -1612,7 +1695,9 @@ def test_get_rules_version_supports_integer_and_decimal_numeric_versions(
     monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
 
     (rules_dir / "integer.yaml").write_text("version: 2\nrules: []\n", encoding="utf-8")
-    (rules_dir / "decimal.yaml").write_text("version: 1.10\nrules: []\n", encoding="utf-8")
+    (rules_dir / "decimal.yaml").write_text(
+        "version: 1.10\nrules: []\n", encoding="utf-8"
+    )
 
     versions = explainer_module.get_rules_version("ancient_greek")
 
@@ -1651,7 +1736,7 @@ def test_get_rules_version_reads_version_from_meta_block(
     monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
 
     (rules_dir / "with_meta.yaml").write_text(
-        "meta:\n  version: \"2.5.0\"\n  status: provisional\nrules: []\n",
+        'meta:\n  version: "2.5.0"\n  status: provisional\nrules: []\n',
         encoding="utf-8",
     )
     (rules_dir / "top_level.yaml").write_text(
@@ -1680,7 +1765,7 @@ def test_get_rules_version_skips_non_mapping_meta_without_version(
         encoding="utf-8",
     )
     (rules_dir / "bad_meta_with_version.yaml").write_text(
-        "meta: provisional\nversion: \"1.2.3\"\nrules: []\n",
+        'meta: provisional\nversion: "1.2.3"\nrules: []\n',
         encoding="utf-8",
     )
 
@@ -1700,18 +1785,11 @@ def test_get_rules_version_falls_back_to_top_level_when_meta_version_invalid(
     monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
 
     (rules_dir / "invalid_meta_sequence.yaml").write_text(
-        "meta:\n"
-        "  version:\n"
-        "    - invalid\n"
-        "version: \"1.2.3\"\n"
-        "rules: []\n",
+        'meta:\n  version:\n    - invalid\nversion: "1.2.3"\nrules: []\n',
         encoding="utf-8",
     )
     (rules_dir / "invalid_meta_scalar.yaml").write_text(
-        "meta:\n"
-        "  version: .nan\n"
-        "version: \"2.3.4\"\n"
-        "rules: []\n",
+        'meta:\n  version: .nan\nversion: "2.3.4"\nrules: []\n',
         encoding="utf-8",
     )
 
@@ -1734,7 +1812,7 @@ def test_get_rules_version_meta_version_takes_precedence_over_top_level(
     monkeypatch.setattr(explainer_module, "_RULES_BASE_DIR_OVERRIDE", rules_base)
 
     (rules_dir / "both.yaml").write_text(
-        "meta:\n  version: \"3.0.0\"\nversion: \"1.0.0\"\nrules: []\n",
+        'meta:\n  version: "3.0.0"\nversion: "1.0.0"\nrules: []\n',
         encoding="utf-8",
     )
 
@@ -1793,7 +1871,9 @@ def test_explain_preserves_column_order_for_leading_query_gap() -> None:
         rules=[],
     )
 
-    assert [(app.rule_id, app.input_phoneme, app.output_phoneme) for app in applications] == [
+    assert [
+        (app.rule_id, app.input_phoneme, app.output_phoneme) for app in applications
+    ] == [
         ("OBS-DEL", "a", ""),
         ("OBS-SUB", "b", "x"),
     ]
@@ -1812,7 +1892,9 @@ def test_explain_preserves_column_order_for_leading_lemma_gap() -> None:
         rules=[],
     )
 
-    assert [(app.rule_id, app.input_phoneme, app.output_phoneme) for app in applications] == [
+    assert [
+        (app.rule_id, app.input_phoneme, app.output_phoneme) for app in applications
+    ] == [
         ("OBS-INS", "", "x"),
         ("OBS-SUB", "a", "y"),
     ]
@@ -1838,7 +1920,9 @@ def test_explain_matches_catalogued_rule_after_leading_query_gap() -> None:
         ],
     )
 
-    assert [(app.rule_id, app.input_phoneme, app.output_phoneme) for app in applications] == [
+    assert [
+        (app.rule_id, app.input_phoneme, app.output_phoneme) for app in applications
+    ] == [
         ("OBS-DEL", "a", ""),
         ("RULE-BX", "b", "x"),
     ]

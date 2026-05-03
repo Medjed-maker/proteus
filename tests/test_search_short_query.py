@@ -33,8 +33,12 @@ class TestSearchShortQuery:
     ) -> None:
         """Short-query post-filtering should remove weak distance-only hits."""
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -56,7 +60,12 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
@@ -64,7 +73,9 @@ class TestSearchShortQuery:
             {"id": "L2", "headword": "keep-me", "ipa": "pu", "dialect": "attic"},
         ]
 
-        results = search("\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=2, index={})
+        results = search(
+            "\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=2, index={}
+        )
 
         assert [result.lemma for result in results] == ["keep-me"]
 
@@ -73,8 +84,12 @@ class TestSearchShortQuery:
     ) -> None:
         """Short-query exact token matches should bypass the confidence floor."""
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -90,17 +105,29 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         # ``to_ipa`` returns "pa" and the lexicon IPA tokenizes to the same
         # phones, so the mocked low-confidence SearchResult is still an exact
         # token match and should bypass the short-query confidence floor.
         lexicon = [
-            {"id": "L1", "headword": "exact-low-confidence", "ipa": "p a", "dialect": "attic"},
+            {
+                "id": "L1",
+                "headword": "exact-low-confidence",
+                "ipa": "p a",
+                "dialect": "attic",
+            },
         ]
 
-        results = search("\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=1, index={})
+        results = search(
+            "\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=1, index={}
+        )
 
         assert [result.lemma for result in results] == ["exact-low-confidence"]
 
@@ -109,8 +136,12 @@ class TestSearchShortQuery:
     ) -> None:
         """Short-query explicit rule support should bypass the confidence floor."""
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -136,13 +167,22 @@ class TestSearchShortQuery:
             annotated[0].applied_rules = ["RULE-001"]
             return annotated
 
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
-            {"id": "L1", "headword": "rule-low-confidence", "ipa": "p i", "dialect": "attic"},
+            {
+                "id": "L1",
+                "headword": "rule-low-confidence",
+                "ipa": "p i",
+                "dialect": "attic",
+            },
         ]
 
-        results = search("\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=1, index={})
+        results = search(
+            "\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=1, index={}
+        )
 
         assert [result.lemma for result in results] == ["rule-low-confidence"]
         assert results[0].applied_rules == ["RULE-001"]
@@ -151,8 +191,12 @@ class TestSearchShortQuery:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Short-query dedup should keep an exact homograph variant over a weaker heuristic one."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -174,7 +218,12 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(results),
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: list(results),
         )
 
         lexicon = [
@@ -182,7 +231,9 @@ class TestSearchShortQuery:
             {"id": "L2", "headword": "same", "ipa": "p a", "dialect": "attic"},
         ]
 
-        results = search("\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=1, index={})
+        results = search(
+            "\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=1, index={}
+        )
 
         assert len(results) == 1
         assert results[0].entry_id == "L2"
@@ -191,8 +242,12 @@ class TestSearchShortQuery:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Short-query dedup should not let weak rule support bypass confidence."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -215,7 +270,12 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(results),
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: list(results),
         )
 
         lexicon = [
@@ -223,7 +283,9 @@ class TestSearchShortQuery:
             {"id": "L2", "headword": "same", "ipa": "p u", "dialect": "attic"},
         ]
 
-        results = search("\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=1, index={})
+        results = search(
+            "\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=1, index={}
+        )
 
         assert len(results) == 1
         assert results[0].entry_id == "L1"
@@ -252,11 +314,13 @@ class TestSearchShortQuery:
         entry_ids = [f"L{i}" for i in range(scored_count)]
 
         monkeypatch.setattr(
-            search_module, "to_ipa",
+            search_module,
+            "to_ipa",
             lambda query, dialect="attic": "zz",
         )
         monkeypatch.setattr(
-            search_module, "seed_stage",
+            search_module,
+            "seed_stage",
             lambda *_args, **_kwargs: list(entry_ids[:50]),
         )
         # Return all 400 entries regardless of the candidates passed in,
@@ -289,7 +353,9 @@ class TestSearchShortQuery:
             return list(results)
 
         monkeypatch.setattr(
-            search_module, "_annotate_search_results", fake_annotate_counting,
+            search_module,
+            "_annotate_search_results",
+            fake_annotate_counting,
         )
 
         lexicon = [
@@ -298,12 +364,18 @@ class TestSearchShortQuery:
         ]
 
         search(
-            "\u03bd\u03c5\u03bd", lexicon, matrix={}, max_results=5, index={},
+            "\u03bd\u03c5\u03bd",
+            lexicon,
+            matrix={},
+            max_results=5,
+            index={},
         )
 
         # The annotation function should have been called at most
         # _SHORT_QUERY_MAX_ANNOTATION_BATCHES times, not ceil(400/100) = 4.
-        assert annotation_call_count >= 1, "Batch loop should process at least one batch"
+        assert annotation_call_count >= 1, (
+            "Batch loop should process at least one batch"
+        )
         assert annotation_call_count <= _SHORT_QUERY_MAX_ANNOTATION_BATCHES
 
     def test_short_query_finalization_bounded_to_annotation_window(
@@ -317,8 +389,12 @@ class TestSearchShortQuery:
         entry_ids = [f"E{i:03d}" for i in range(scored_count)]
         annotated_batches: list[list[str]] = []
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "zz")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: entry_ids)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "zz"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: entry_ids
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -355,19 +431,32 @@ class TestSearchShortQuery:
                 for result in results
             ]
 
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
-            {"id": entry_id, "headword": f"word-{index:03d}", "ipa": "x", "dialect": "attic"}
+            {
+                "id": entry_id,
+                "headword": f"word-{index:03d}",
+                "ipa": "x",
+                "dialect": "attic",
+            }
             for index, entry_id in enumerate(entry_ids)
         ]
 
         results = search("ααα", lexicon, matrix={}, max_results=2, index={})
 
-        assert len(annotated_batches) == 1, "bounded-window policy must annotate exactly one batch"
+        assert len(annotated_batches) == 1, (
+            "bounded-window policy must annotate exactly one batch"
+        )
         assert len(annotated_batches[0]) == annotation_limit
-        assert beyond_window_id not in annotated_batches[0], "out-of-window candidate must not be annotated"
-        assert results == [], "candidates below quality threshold must not appear in results"
+        assert beyond_window_id not in annotated_batches[0], (
+            "out-of-window candidate must not be annotated"
+        )
+        assert results == [], (
+            "candidates below quality threshold must not appear in results"
+        )
 
     def test_short_query_result_marked_truncated_when_annotation_window_bounded(
         self, monkeypatch: pytest.MonkeyPatch
@@ -401,13 +490,22 @@ class TestSearchShortQuery:
                 )
             return results
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "zz")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: entry_ids)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "zz"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: entry_ids
+        )
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
@@ -417,7 +515,11 @@ class TestSearchShortQuery:
 
         # Request more results than we'll get due to filtering
         results = search(
-            "ααα", lexicon, matrix={}, max_results=5, index={},
+            "ααα",
+            lexicon,
+            matrix={},
+            max_results=5,
+            index={},
         )
 
         # E0000 has above-threshold confidence and survives the quality filter
@@ -434,8 +536,12 @@ class TestSearchShortQuery:
         annotation_limit = search_module._annotation_candidate_limit(2)
         entry_ids = [f"E{i:03d}" for i in range(annotation_limit + 50)]
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "zz")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: entry_ids)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "zz"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: entry_ids
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -452,9 +558,12 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: list(
-                results
-            ),
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: list(results),
         )
 
         lexicon = [
@@ -502,13 +611,22 @@ class TestSearchShortQuery:
                 for cid in candidates[:3]  # Only return a few high-confidence results
             ]
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "zz")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["E1", "E2", "E3"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "zz"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["E1", "E2", "E3"]
+        )
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
@@ -518,7 +636,11 @@ class TestSearchShortQuery:
         ]
 
         results = search(
-            "ααα", lexicon, matrix={}, max_results=5, index={},
+            "ααα",
+            lexicon,
+            matrix={},
+            max_results=5,
+            index={},
         )
 
         # Results found without hitting batch cap
