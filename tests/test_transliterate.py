@@ -118,5 +118,7 @@ class TestTransliterate:
             ("ᾅδω", "haidō"),
         ],
     )
-    def test_iota_subscript_is_expanded_to_explicit_i(self, greek: str, expected: str) -> None:
+    def test_iota_subscript_is_expanded_to_explicit_i(
+        self, greek: str, expected: str
+    ) -> None:
         assert transliterate(greek) == expected

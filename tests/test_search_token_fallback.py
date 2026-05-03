@@ -1,4 +1,5 @@
 """Tests for token-count proximity fallback behavior in phonology.search."""
+# ruff: noqa: RUF001, RUF003 — IPA length mark ː (U+02D0) triggers false positives.
 # Several tests define monkeypatch stubs whose parameter names must mirror the
 # real signatures of the functions they replace (e.g. `_score_stage(query_ipa,
 # candidates, lexicon_map, matrix)`). Renaming the unused params to `_prefix`
@@ -269,10 +270,17 @@ class TestSearchTokenFallback:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
         monkeypatch.setattr(
-            search_module, "filter_stage", lambda results, max_results: results[:max_results]
+            search_module,
+            "filter_stage",
+            lambda results, max_results: results[:max_results],
         )
         lexicon = [
             {
@@ -335,7 +343,9 @@ class TestSearchTokenFallback:
             }
             for index in range(20)
         ]
-        lexicon.append({"id": "L99", "headword": "target", "ipa": "aː", "dialect": "attic"})
+        lexicon.append(
+            {"id": "L99", "headword": "target", "ipa": "aː", "dialect": "attic"}
+        )
 
         results = search("ἄ", lexicon, matrix={}, max_results=1)
 
@@ -379,13 +389,22 @@ class TestSearchTokenFallback:
 
         mock_to_ipa_factory(to_ipa_return)
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
-        monkeypatch.setattr(search_module, "_score_stage", _make_fake_score_stage(captured))
+        monkeypatch.setattr(
+            search_module, "_score_stage", _make_fake_score_stage(captured)
+        )
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
-        monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
+        monkeypatch.setattr(
+            search_module, "filter_stage", lambda results, max_results: results
+        )
 
         lexicon = [
             {
@@ -397,7 +416,14 @@ class TestSearchTokenFallback:
             for index in range(2500)
         ]
 
-        search(query, lexicon, matrix={}, max_results=max_results, index={}, unigram_index={})
+        search(
+            query,
+            lexicon,
+            matrix={},
+            max_results=max_results,
+            index={},
+            unigram_index={},
+        )
 
         # For partial-form, the effective limit is _partial_candidate_limit(max_results)
         # which controls the stage-2 window, while _DEFAULT_FALLBACK_CANDIDATE_LIMIT
@@ -422,13 +448,22 @@ class TestSearchTokenFallback:
 
         mock_to_ipa_factory("loɡos")
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
-        monkeypatch.setattr(search_module, "_score_stage", _make_fake_score_stage(captured))
+        monkeypatch.setattr(
+            search_module, "_score_stage", _make_fake_score_stage(captured)
+        )
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
-        monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
+        monkeypatch.setattr(
+            search_module, "filter_stage", lambda results, max_results: results
+        )
 
         lexicon = [
             {
@@ -451,7 +486,10 @@ class TestSearchTokenFallback:
             similarity_fallback_limit=None,
         )
 
-        assert len(captured["candidate_ids"]) == search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT
+        assert (
+            len(captured["candidate_ids"])
+            == search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT
+        )
         expected_label = search_module._summarize_query_ipa_for_logs(
             "loɡos",
             query_token_count=len(search_module.tokenize_ipa("loɡos")),
@@ -475,13 +513,22 @@ class TestSearchTokenFallback:
 
         mock_to_ipa_factory("aː")
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
-        monkeypatch.setattr(search_module, "_score_stage", _make_fake_score_stage(captured))
+        monkeypatch.setattr(
+            search_module, "_score_stage", _make_fake_score_stage(captured)
+        )
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
-        monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
+        monkeypatch.setattr(
+            search_module, "filter_stage", lambda results, max_results: results
+        )
 
         lexicon = [
             {
@@ -521,9 +568,13 @@ class TestSearchTokenFallback:
             }
             for index in range(30)
         ]
-        lexicon.append({"id": "ZZZ", "headword": "target", "ipa": "e", "dialect": "attic"})
+        lexicon.append(
+            {"id": "ZZZ", "headword": "target", "ipa": "e", "dialect": "attic"}
+        )
         matrix = {"e": {"a": 0.1}, "i": {"a": 0.9}, "a": {"e": 0.1, "i": 0.9}}
 
-        results = search("dummy", lexicon, matrix=matrix, max_results=1, index={}, unigram_index={})
+        results = search(
+            "dummy", lexicon, matrix=matrix, max_results=1, index={}, unigram_index={}
+        )
 
         assert [result.lemma for result in results] == ["target"]

@@ -15,9 +15,29 @@ import pytest
 try:
     from scripts import extract_epidoc_choices as edc
 except ImportError:
-    pytest.skip("lxml not available; install with --extra extract", allow_module_level=True)
+    pytest.skip(
+        "lxml not available; install with --extra extract", allow_module_level=True
+    )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "epidoc"
+
+
+# ---------------------------------------------------------------------------
+# Data boundaries
+# ---------------------------------------------------------------------------
+
+
+def test_default_output_is_training_data_not_runtime_orthography():
+    assert edc.DEFAULT_OUTPUT == Path("data/training/epidoc_choices.json")
+    assert "orthography" not in edc.DEFAULT_OUTPUT.parts
+
+
+def test_choice_records_preserve_future_reference_metadata():
+    records = edc.extract_choices_from_file(FIXTURES / "simple.xml", "simple.xml")
+
+    assert records
+    assert records[0].source_file == "simple.xml"
+    assert records[0].tm_id == "12345"
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +118,9 @@ def test_simple_pair():
 
 def test_reversed_order():
     """<orig> before <reg> should still yield a record."""
-    records = edc.extract_choices_from_file(FIXTURES / "reversed_order.xml", "reversed_order.xml")
+    records = edc.extract_choices_from_file(
+        FIXTURES / "reversed_order.xml", "reversed_order.xml"
+    )
     assert len(records) == 1
     assert records[0].original == "κυρίου"
     assert records[0].regularized == "κυριου"
@@ -112,14 +134,18 @@ def test_nested_hi_text_extracted():
 
 
 def test_multiple_choice_elements():
-    records = edc.extract_choices_from_file(FIXTURES / "multiple_pairs.xml", "multiple_pairs.xml")
+    records = edc.extract_choices_from_file(
+        FIXTURES / "multiple_pairs.xml", "multiple_pairs.xml"
+    )
     assert len(records) == 2
     originals = {r.original for r in records}
     assert originals == {"αὐτου", "τουτο"}
 
 
 def test_empty_elements_skipped():
-    records = edc.extract_choices_from_file(FIXTURES / "empty_elements.xml", "empty_elements.xml")
+    records = edc.extract_choices_from_file(
+        FIXTURES / "empty_elements.xml", "empty_elements.xml"
+    )
     assert len(records) == 1
     assert records[0].original == "λογος"
     assert records[0].regularized == "λόγος"
@@ -176,7 +202,9 @@ def test_extract_choices_from_file_reraises_fatal_parse_error(monkeypatch):
 
 
 def test_pair_index_assigned():
-    records = edc.extract_choices_from_file(FIXTURES / "multiple_pairs.xml", "multiple_pairs.xml")
+    records = edc.extract_choices_from_file(
+        FIXTURES / "multiple_pairs.xml", "multiple_pairs.xml"
+    )
     assert all(isinstance(r.pair_index, int) for r in records)
 
 
@@ -260,7 +288,10 @@ def test_tarball_needs_download_uses_cache_when_head_fails(monkeypatch, tmp_path
 
     monkeypatch.setattr(edc.urllib.request, "urlopen", fail_head)
 
-    assert edc._tarball_needs_download("https://example.com/data.tar.gz", tmp_path) is False
+    assert (
+        edc._tarball_needs_download("https://example.com/data.tar.gz", tmp_path)
+        is False
+    )
 
 
 def test_stream_tarball_replaces_stale_extracted_corpus(monkeypatch, tmp_path):
@@ -314,6 +345,7 @@ def test_extract_tarball_uses_filter_on_python_312_or_newer(monkeypatch, tmp_pat
 
 def test_extract_tarball_safe_extraction_before_python_312(monkeypatch, tmp_path):
     """On Python < 3.12, _extract_tarball manually validates and extracts members."""
+
     class FakeMember:
         def __init__(self, name, *, is_file=True, is_dir=False, mtime=0, data=b""):
             self.name = name
@@ -322,7 +354,11 @@ def test_extract_tarball_safe_extraction_before_python_312(monkeypatch, tmp_path
             self._is_dir = is_dir
             self._data = data
             # tarfile member type constants
-            self.type = tarfile.REGTYPE if is_file else (tarfile.DIRTYPE if is_dir else tarfile.SYMTYPE)
+            self.type = (
+                tarfile.REGTYPE
+                if is_file
+                else (tarfile.DIRTYPE if is_dir else tarfile.SYMTYPE)
+            )
 
         def isfile(self):
             return self._is_file
@@ -334,7 +370,9 @@ def test_extract_tarball_safe_extraction_before_python_312(monkeypatch, tmp_path
     safe_dir = FakeMember("project/", is_file=False, is_dir=True)
     abs_path = FakeMember("/etc/passwd", is_file=True, data=b"bad")
     traversal = FakeMember("project/../../etc/passwd", is_file=True, data=b"bad")
-    symlink = FakeMember("project/link", is_file=False, is_dir=False)  # neither file nor dir
+    symlink = FakeMember(
+        "project/link", is_file=False, is_dir=False
+    )  # neither file nor dir
 
     class DummyTar:
         def __iter__(self):
@@ -587,9 +625,7 @@ def test_process_corpus_no_resume_resets_stale_checkpoint_for_jsonl(tmp_path):
     """A fresh JSONL run must replace stale checkpoint state before later resume."""
     output = tmp_path / "output" / "choices.jsonl"
     output.parent.mkdir(parents=True)
-    stale_files = sorted(
-        str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.xml")
-    )
+    stale_files = sorted(str(p.relative_to(FIXTURES)) for p in FIXTURES.rglob("*.xml"))
     (output.parent / "processed_files.txt").write_text(
         "\n".join(stale_files) + "\n",
         encoding="utf-8",
@@ -609,7 +645,8 @@ def test_process_corpus_no_resume_resets_stale_checkpoint_for_jsonl(tmp_path):
 
     checkpoint = output.parent / "processed_files.txt"
     processed_after_fresh_run = [
-        line for line in checkpoint.read_text(encoding="utf-8").splitlines()
+        line
+        for line in checkpoint.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
     assert len(processed_after_fresh_run) == 1
@@ -628,7 +665,8 @@ def test_process_corpus_no_resume_resets_stale_checkpoint_for_jsonl(tmp_path):
 
     lines_total = output.read_text(encoding="utf-8").count("\n")
     processed_after_resume = [
-        line for line in checkpoint.read_text(encoding="utf-8").splitlines()
+        line
+        for line in checkpoint.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
     assert lines_total == pairs_run1 + pairs_run2
@@ -759,9 +797,7 @@ def test_process_corpus_worker_failure_is_logged_and_not_checkpointed(tmp_path):
 
     assert stats["parse_failures"] == 1
     assert stats["total_pairs"] == 0
-    assert "bad.xml" in (output.parent / "failed_files.log").read_text(
-        encoding="utf-8"
-    )
+    assert "bad.xml" in (output.parent / "failed_files.log").read_text(encoding="utf-8")
     assert not (output.parent / "processed_files.txt").exists()
     assert json.loads(output.read_text(encoding="utf-8")) == []
 

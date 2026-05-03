@@ -30,6 +30,7 @@ from packaging.version import InvalidVersion, Version
 from phonology import search as phonology_search
 from phonology.distance import MatrixData, load_matrix_document
 from phonology.explainer import get_rules_version
+from phonology.orthography_notes import OrthographicNoteDataError
 from phonology.profiles import (
     LanguageProfile,
     get_default_language_profile,
@@ -60,6 +61,7 @@ _SEARCH_DEPENDENCY_LOAD_ERRORS = (
     FileNotFoundError,
     OSError,
     yaml.YAMLError,
+    OrthographicNoteDataError,
 )
 _SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL = (
     "Search dependencies are not ready. Verify packaged matrices, rules, and lexicon assets "
@@ -246,7 +248,7 @@ def _build_deprecation_link_header(base_url: str, docs_path: str) -> str:
     """Return an absolute URI Link header value per RFC 8288."""
     base = base_url.rstrip("/")
     path = docs_path.lstrip("/")
-    return f"<{base}/{path}>; rel=\"deprecation\""
+    return f'<{base}/{path}>; rel="deprecation"'
 
 
 def _load_changelog_html() -> str | None:
@@ -438,6 +440,8 @@ def _load_search_dependencies(
 
     try:
         data_versions = _build_data_versions(language)
+        if profile.orthographic_data_preparer is not None:
+            profile.orthographic_data_preparer()
         return SearchDependencies(
             profile=profile,
             lexicon=lexicon,
@@ -636,6 +640,9 @@ async def search(
                 rules_registry=deps.rules_registry,
                 query_mode=query_mode,
                 lang=request.response_language,
+                query_form=request.query_form,
+                orthographic_note_builder=profile.orthographic_note_builder,
+                orthography_hint=request.orthography_hint,
             )
             for result in results
         ],

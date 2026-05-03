@@ -1,6 +1,6 @@
 # API Codemap
 
-**Last Updated:** 2026-04-11  
+**Last Updated:** 2026-05-02
 **Entry Points:** `src/api/main.py` (FastAPI app instance)
 
 ## Architecture
@@ -30,19 +30,20 @@ HTTP RESPONSE (JSON or HTML)
 
 ## Endpoints
 
-| Endpoint | Method | Handler | Input | Output | Behavior |
-|----------|--------|---------|-------|--------|----------|
-| `/` | GET | `root()` | None | `HTMLResponse` | Serves `src/web/index.html` (frontend) |
-| `/search` | POST | `search()` | `SearchRequest` (Pydantic) | `SearchResponse` (Pydantic) | Three-stage pipeline with full dependency loading, query normalization, dialect-aware search |
-| `/health` | GET | `health()` | None | `{"status": "ok"}` | Liveness probe (always succeeds if server is running) |
-| `/ready` | GET | `ready()` | None | `{"status": "ok"}` | Readiness probe (checks all search dependencies loaded; returns 503 if not) |
-| `/static/*` | GET | StaticFiles | Any | Static file | Maps `src/web/static/` directory |
+| Endpoint    | Method | Handler     | Input                      | Output                      | Behavior                                                                                     |
+| ----------- | ------ | ----------- | -------------------------- | --------------------------- | -------------------------------------------------------------------------------------------- |
+| `/`         | GET    | `root()`    | None                       | `HTMLResponse`              | Serves `src/web/index.html` (frontend)                                                       |
+| `/search`   | POST   | `search()`  | `SearchRequest` (Pydantic) | `SearchResponse` (Pydantic) | Three-stage pipeline with full dependency loading, query normalization, dialect-aware search |
+| `/health`   | GET    | `health()`  | None                       | `{"status": "ok"}`          | Liveness probe (always succeeds if server is running)                                        |
+| `/ready`    | GET    | `ready()`   | None                       | `{"status": "ok"}`          | Readiness probe (checks all search dependencies loaded; returns 503 if not)                  |
+| `/static/*` | GET    | StaticFiles | Any                        | Static file                 | Maps `src/web/static/` directory                                                             |
 
 ## Pydantic Models
 
 ### Inbound (Request)
 
 **`SearchRequest`**
+
 ```
 - query_form: str (non-empty after strip_whitespace)
 - dialect_hint: Literal["attic", "koine"] = "attic"
@@ -52,6 +53,7 @@ HTTP RESPONSE (JSON or HTML)
 ### Outbound (Response)
 
 **`SearchResponse`**
+
 ```
 - query: str (the original query)
 - query_ipa: str (normalized IPA transcription)
@@ -60,6 +62,7 @@ HTTP RESPONSE (JSON or HTML)
 ```
 
 **`SearchHit`**
+
 ```
 - headword: str (display headword)
 - ipa: str (IPA for lexicon entry)
@@ -76,10 +79,24 @@ HTTP RESPONSE (JSON or HTML)
 - uncertainty: Literal["Low", "Medium", "High"]
 - candidate_bucket: Literal["Supported", "Exploratory"]
 - rules_applied: list[RuleStep]
+- orthographic_notes: list[OrthographicNote]
 - explanation: str (human-readable prose summary of the derivation)
 ```
 
+**`candidate_bucket` determination**
+
+The bucket is computed in two steps:
+
+1. *Default bucket* (`_build_candidate_bucket` in `api/_hit_formatting.py`):
+   - Short-query / Partial-form mode: "Supported" for Exact or Rule-based matches only; otherwise "Exploratory"
+   - Full-form mode: "Supported" for Exact, Rule-based, or Low-uncertainty matches; otherwise "Exploratory"
+
+2. *Orthographic promotion* (`_promote_bucket_for_orthographic_notes`):
+   - If `orthographic_notes` contains any note with `kind == "orthographic_correspondence"`, the candidate is unconditionally promoted to "Supported" regardless of step 1.
+   - `beginner_aid` and `pre_403_2_attic` notes do **not** affect the bucket.
+
 **`RuleStep`** (element of `rules_applied`)
+
 ```
 - rule_id: str (unique rule identifier)
 - rule_name: str (human-readable rule name)
@@ -88,6 +105,25 @@ HTTP RESPONSE (JSON or HTML)
 - to_phone: str (IPA phone it became)
 - position: int (alignment position, or -1 if unknown)
 ```
+
+**`OrthographicNote`** (element of `orthographic_notes`)
+
+```text
+- kind: Literal["orthographic_correspondence", "beginner_aid", "pre_403_2_attic"]
+- label: str (short display label)
+- messages: list[str] (candidate-level writing-system or spelling comments)
+- normalized_form: str | None
+- romanization: str | None
+- period_label: str | None
+- references: list[str]
+- confidence: Literal["low", "medium", "high"]
+```
+
+`orthographic_notes` is separate from `rules_applied`: it explains writing
+systems, spelling conventions, normalized-form correspondences, and
+beginner-facing reading aids rather than phonological rule steps. However,
+`orthographic_correspondence` notes are an exception: they affect
+`candidate_bucket` (see **`candidate_bucket` determination** above).
 
 ## Data Flow: POST /search
 
@@ -120,8 +156,11 @@ search(request: SearchRequest):
     6. For each result:
        - _build_search_hit(result, query_ipa, rules_registry, query_mode)
          • Extract IPA, apply rule-matching via explain_alignment()
-         • Classify match_type, uncertainty, candidate_bucket
+         • Classify match_type, uncertainty, base candidate_bucket
          • Generate alignment summary & visualization
+         • Call the language profile's orthographic_note_builder when present
+         • Use [] for orthographic_notes when the profile has no builder or no note matches
+         • Promote candidate_bucket to "Supported" if any orthographic_correspondence note present
          • Return SearchHit (Pydantic model)
     7. Return SearchResponse([SearchHit, SearchHit, ...])
     ↓
@@ -160,6 +199,7 @@ HTTP 200 JSON
           "position": 2
         }
       ],
+      "orthographic_notes": [],
       "explanation": "Applied CCH-001 to explain the consonant correspondence; distance 0.250."
     }
   ]
@@ -197,6 +237,7 @@ def _load_lexicon_map() → LexiconMap
 ```
 
 On `/ready` or first `/search`, if any loading fails:
+
 - Raise `SearchDependenciesNotReadyError` with detail message
 - Return HTTP 503 Service Unavailable with actionable guidance
 
@@ -212,14 +253,14 @@ Mounts `src/web/static/` at `/static/*`. Conditional on directory existence.
 
 ## Environment Variables
 
-| Variable | Purpose | Example |
-|----------|---------|---------|
-| `PROTEUS_ALLOWED_ORIGINS` | CORS allowlist (comma-separated) | `"http://localhost:3000,https://example.com"` |
-| `PROTEUS_LOG_RAW_SEARCH_QUERY` | Enable raw query logging (debug only) | `"true"` |
-| `PROTEUS_LSJ_REPO_DIR` | Override LSJ checkout location (used by build_lexicon) | `"/path/to/lexica"` |
-| `PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES` | Must be enabled before `PROTEUS_TRUSTED_*_DIR` runtime overrides are honored | `"true"` |
-| `PROTEUS_TRUSTED_BUCK_DIR` | Override Buck rules directory when `PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES` is enabled | `"/path/to/buck"` |
-| `PROTEUS_TRUSTED_MATRICES_DIR` | Override matrix directory when `PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES` is enabled | `"/path/to/matrices"` |
+| Variable                              | Purpose                                                                             | Example                                       |
+| ------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------- |
+| `PROTEUS_ALLOWED_ORIGINS`             | CORS allowlist (comma-separated)                                                    | `"http://localhost:3000,https://example.com"` |
+| `PROTEUS_LOG_RAW_SEARCH_QUERY`        | Enable raw query logging (debug only)                                               | `"true"`                                      |
+| `PROTEUS_LSJ_REPO_DIR`                | Override LSJ checkout location (used by build_lexicon)                              | `"/path/to/lexica"`                           |
+| `PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES` | Must be enabled before `PROTEUS_TRUSTED_*_DIR` runtime overrides are honored        | `"true"`                                      |
+| `PROTEUS_TRUSTED_BUCK_DIR`            | Override Buck rules directory when `PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES` is enabled | `"/path/to/buck"`                             |
+| `PROTEUS_TRUSTED_MATRICES_DIR`        | Override matrix directory when `PROTEUS_ALLOW_TRUSTED_DIR_OVERRIDES` is enabled     | `"/path/to/matrices"`                         |
 
 ## Related Areas
 

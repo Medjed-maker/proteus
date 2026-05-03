@@ -49,9 +49,16 @@ def mock_common_search_stages(monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
     monkeypatch.setattr(
         search_module,
         "_annotate_search_results",
-        lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+        lambda query_ipa,
+        results,
+        lexicon_map,
+        matrix,
+        language="ancient_greek",
+        **_kwargs: results,
     )
-    monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results)
+    monkeypatch.setattr(
+        search_module, "filter_stage", lambda results, max_results: results
+    )
     return captured
 
 
@@ -64,12 +71,15 @@ class TestSearchUnigramFallback:
         """A query with 1 consonant should invoke the k=1 fallback path."""
         seed_calls: list[int] = []
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "poi")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "poi"
+        )
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
         monkeypatch.setattr(
             search_module,
             "seed_stage",
-            lambda query_ipa, index, k=2, **_kwargs: seed_calls.append(k) or ([] if k == 2 else ["L1", "L2"]),
+            lambda query_ipa, index, k=2, **_kwargs: seed_calls.append(k)
+            or ([] if k == 2 else ["L1", "L2"]),
         )
         lexicon = [
             {"id": "L1", "headword": "πολύ", "ipa": "poly", "dialect": "attic"},
@@ -78,7 +88,11 @@ class TestSearchUnigramFallback:
         unigram_idx = build_kmer_index(lexicon, k=1)
 
         search(
-            "ποι", lexicon, matrix={}, max_results=2, unigram_index=unigram_idx,
+            "ποι",
+            lexicon,
+            matrix={},
+            max_results=2,
+            unigram_index=unigram_idx,
         )
 
         assert seed_calls == [2, 1]
@@ -87,7 +101,9 @@ class TestSearchUnigramFallback:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Short-query k=1 fallback should not pull in non-unigram tail matches."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
         lexicon = [
             {"id": "L1", "headword": "same-consonant", "ipa": "pi", "dialect": "attic"},
@@ -103,13 +119,22 @@ class TestSearchUnigramFallback:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Direct search() calls should get k=1 fallback without explicit index injection."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "poi")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "poi"
+        )
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
         lexicon = [
-            {"id": f"L{index:02d}", "headword": f"noise-{index:02d}", "ipa": "kai", "dialect": "attic"}
+            {
+                "id": f"L{index:02d}",
+                "headword": f"noise-{index:02d}",
+                "ipa": "kai",
+                "dialect": "attic",
+            }
             for index in range(29)
         ]
-        lexicon.append({"id": "L99", "headword": "target", "ipa": "poi", "dialect": "attic"})
+        lexicon.append(
+            {"id": "L99", "headword": "target", "ipa": "poi", "dialect": "attic"}
+        )
 
         results = search("ποι", lexicon, matrix={}, max_results=1)
 
@@ -123,7 +148,9 @@ class TestSearchUnigramFallback:
         """Callers can cap the k=1 fallback after token-count re-ranking."""
         captured = mock_common_search_stages
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
+        def fake_seed_stage(
+            query_ipa: str, index: object, k: int = 2, **_kwargs: Any
+        ) -> list[str]:
             return [] if k == 2 else ["L1", "L2", "L3", "L4"]
 
         monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
@@ -155,7 +182,9 @@ class TestSearchUnigramFallback:
         """Direct short-query k=1 fallback should not score all unigram hits."""
         captured = mock_common_search_stages
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
+        def fake_seed_stage(
+            query_ipa: str, index: object, k: int = 2, **_kwargs: Any
+        ) -> list[str]:
             if k == 2:
                 return []
             return [f"L{idx:04d}" for idx in range(2500)]
@@ -184,7 +213,9 @@ class TestSearchUnigramFallback:
         """Full-form k=1 fallback should not score all unigram hits by default."""
         captured = mock_common_search_stages
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
+        def fake_seed_stage(
+            query_ipa: str, index: object, k: int = 2, **_kwargs: Any
+        ) -> list[str]:
             if k == 2:
                 return []
             return [f"L{idx:04d}" for idx in range(2500)]
@@ -214,7 +245,9 @@ class TestSearchUnigramFallback:
         """Full-form k=1 fallback should fall back to the default cap when None is passed."""
         captured = mock_common_search_stages
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
+        def fake_seed_stage(
+            query_ipa: str, index: object, k: int = 2, **_kwargs: Any
+        ) -> list[str]:
             if k == 2:
                 return []
             return [f"L{idx:04d}" for idx in range(2500)]
@@ -242,7 +275,10 @@ class TestSearchUnigramFallback:
             unigram_fallback_limit=None,
         )
 
-        assert len(captured["candidate_ids"]) == search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT
+        assert (
+            len(captured["candidate_ids"])
+            == search_module._DEFAULT_FALLBACK_CANDIDATE_LIMIT
+        )
         expected_label = search_module._summarize_query_ipa_for_logs(
             "pa",
             query_token_count=len(search_module.tokenize_ipa("pa")),
@@ -260,10 +296,14 @@ class TestSearchUnigramFallback:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """A capped k=1 fallback should still keep the closest-length exact match."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "poi")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "poi"
+        )
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
+        def fake_seed_stage(
+            query_ipa: str, index: object, k: int = 2, **_kwargs: Any
+        ) -> list[str]:
             return [] if k == 2 else ["L1", "L2"]
 
         monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
@@ -288,7 +328,9 @@ class TestSearchUnigramFallback:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Unigram fallback should find exact match among candidates within stage2_limit."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "poi")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "poi"
+        )
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
         lexicon = [
             {
@@ -299,7 +341,9 @@ class TestSearchUnigramFallback:
             }
             for index in range(20)
         ]
-        lexicon.append({"id": "ZZZ", "headword": "target", "ipa": "poi", "dialect": "attic"})
+        lexicon.append(
+            {"id": "ZZZ", "headword": "target", "ipa": "poi", "dialect": "attic"}
+        )
 
         results = search("ποι", lexicon, matrix={}, max_results=1)
 
@@ -309,7 +353,9 @@ class TestSearchUnigramFallback:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Default short-query k=1 fallback should not widen into non-hit rule candidates."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": query
+        )
         monkeypatch.setattr(
             search_module,
             "load_rules",
@@ -342,7 +388,9 @@ class TestSearchUnigramFallback:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Default short-query token fallback should keep late rule-supported candidates."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": query
+        )
         monkeypatch.setattr(
             search_module,
             "load_rules",
@@ -356,10 +404,17 @@ class TestSearchUnigramFallback:
             },
         )
         lexicon = [
-            {"id": f"L{index:02d}", "headword": f"noise-{index:02d}", "ipa": "t", "dialect": "attic"}
+            {
+                "id": f"L{index:02d}",
+                "headword": f"noise-{index:02d}",
+                "ipa": "t",
+                "dialect": "attic",
+            }
             for index in range(18)
         ]
-        lexicon.append({"id": "ZZZ", "headword": "rule-hit", "ipa": "p", "dialect": "attic"})
+        lexicon.append(
+            {"id": "ZZZ", "headword": "rule-hit", "ipa": "p", "dialect": "attic"}
+        )
 
         results = search(
             "q",

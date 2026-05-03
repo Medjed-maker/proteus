@@ -100,12 +100,14 @@ Validate whether the tool solves real research pain.
 - Compare manual search vs tool-assisted search
 - Track false positives and false negatives
 - Improve rule set based on feedback
+- Add student-facing inscriptional orthography aid for documented spelling systems
 - Prepare benchmark dataset
 - Prepare documentation for scholarly collaborators
 
 ### Acceptance Criteria
 - At least 20 real or semi-real hard query cases documented
 - Each case includes input form, expected candidate, reasoning, and source notes
+- Student-facing inscriptional orthography aid is clearly marked provisional
 - Expert feedback is recorded separately from public code if needed
 - Sensitive or unpublished research data is not committed to the public repository
 
@@ -134,6 +136,8 @@ Connect search results to real source metadata without violating data licenses.
 - Restricted corpora are linked rather than redistributed
 - Data source attribution is documented
 - Corpus adapter logic is separate from core search logic
+- pre-403/2 BCE Attic orthographic notes use expert-reviewed inscriptional
+  data sources and are not inferred from papyri.info metadata alone
 
 ## 7. Phase 5: Multi-Language Expansion
 

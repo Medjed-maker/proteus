@@ -64,7 +64,7 @@ class TestQueryModeHelpers:
             ("ζηταω\u2014", "Partial-form"),  # U+2014 EM DASH
             ("ζηταω\u2015", "Partial-form"),  # U+2015 HORIZONTAL BAR
             ("ζηταω\u2212", "Partial-form"),  # U+2212 MINUS SIGN
-            ("ζηταω\uFF0D", "Partial-form"),  # U+FF0D FULLWIDTH HYPHEN-MINUS
+            ("ζηταω\uff0d", "Partial-form"),  # U+FF0D FULLWIDTH HYPHEN-MINUS
         ],
     )
     def test_classify_query_mode(self, query: str, expected: str) -> None:
@@ -84,7 +84,7 @@ class TestQueryModeHelpers:
             # hyphen, leaving only the fragment to hand to IPA conversion.
             ("ζηταω\u2013", "ζηταω"),  # U+2013 EN DASH
             ("ζηταω\u2014", "ζηταω"),  # U+2014 EM DASH
-            ("ζηταω\uFF0D", "ζηταω"),  # U+FF0D FULLWIDTH HYPHEN-MINUS
+            ("ζηταω\uff0d", "ζηταω"),  # U+FF0D FULLWIDTH HYPHEN-MINUS
         ],
     )
     def test_normalize_query_for_search(self, query: str, expected: str) -> None:
@@ -107,12 +107,15 @@ class TestQueryModeHelpers:
             "a*b*c",
         ],
     )
-    def test_classify_query_mode_rejects_invalid_partial_syntax(self, query: str) -> None:
-        with pytest.raises(ValueError, match="wildcard marker|non-empty string"):
+    def test_classify_query_mode_rejects_invalid_partial_syntax(
+        self, query: str
+    ) -> None:
+        with pytest.raises(ValueError, match=r"wildcard marker|non-empty string"):
             classify_query_mode(query)
 
     @pytest.mark.parametrize(
-        ("query", "expected"), [
+        ("query", "expected"),
+        [
             ("*", "*"),
             ("~", "~"),
             ("-", "-"),
@@ -123,9 +126,11 @@ class TestQueryModeHelpers:
             ("a-*", "a-*"),
             ("a*-", "a*-"),
             ("a*b*c", "a*b*c"),
-        ]
+        ],
     )
-    def test_normalize_query_tolerates_invalid_partial_syntax(self, query: str, expected: str) -> None:
+    def test_normalize_query_tolerates_invalid_partial_syntax(
+        self, query: str, expected: str
+    ) -> None:
         assert normalize_query_for_search(query) == expected
 
 
@@ -178,7 +183,9 @@ class TestBuildLexiconMap:
             build_lexicon_map(lexicon)
 
     @pytest.mark.parametrize("ipa_text", ["!?", "ã"])
-    def test_builds_map_for_non_empty_special_character_ipa(self, ipa_text: str) -> None:
+    def test_builds_map_for_non_empty_special_character_ipa(
+        self, ipa_text: str
+    ) -> None:
         lexicon = [
             {"id": "L1", "headword": "test", "ipa": ipa_text, "dialect": "attic"},
         ]
@@ -221,7 +228,10 @@ class TestBuildKmerIndex:
         ("entry", "message"),
         [
             ({"ipa": "pten"}, "non-empty 'id' or 'headword'"),
-            ({"id": "   ", "headword": "   ", "ipa": "pten"}, "non-empty 'id' or 'headword'"),
+            (
+                {"id": "   ", "headword": "   ", "ipa": "pten"},
+                "non-empty 'id' or 'headword'",
+            ),
             ({"id": "L1", "headword": "πτην"}, "non-empty 'ipa'"),
             ({"id": "L1", "headword": "πτην", "ipa": "   "}, "non-empty 'ipa'"),
         ],
@@ -247,7 +257,9 @@ class TestSeedStage:
 
         assert candidates == ["L1", "L2", "L3"]
 
-    def test_returns_empty_list_when_query_has_no_seedable_consonant_skeleton(self) -> None:
+    def test_returns_empty_list_when_query_has_no_seedable_consonant_skeleton(
+        self,
+    ) -> None:
         assert seed_stage("aː", {"p t": ["L1"]}, k=2) == []
 
     def test_k1_finds_candidates_for_single_consonant_query(self) -> None:

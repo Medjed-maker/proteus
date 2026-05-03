@@ -10,10 +10,6 @@ from unittest.mock import Mock
 
 import pytest
 
-etree = pytest.importorskip("lxml.etree")
-
-pytestmark = pytest.mark.usefixtures("reset_pos_overrides_cache")
-
 from phonology.betacode import beta_to_unicode
 import phonology.lsj_extractor as lsj_extractor_module
 from phonology.lsj_extractor import (
@@ -21,6 +17,10 @@ from phonology.lsj_extractor import (
     extract_entry,
     validate_document,
 )
+
+etree = pytest.importorskip("lxml.etree")
+
+pytestmark = pytest.mark.usefixtures("reset_pos_overrides_cache")
 
 if TYPE_CHECKING:
     from lxml.etree import _Element
@@ -112,9 +112,7 @@ class TestDialectVariantPredicates:
             prior_headword_context=True,
         )
 
-        assert (
-            lsj_extractor_module._is_single_dialect_surface_variant(context) is True
-        )
+        assert lsj_extractor_module._is_single_dialect_surface_variant(context) is True
 
     def test_has_dialect_variant_chain(self) -> None:
         context = _make_dialect_decision_context(
@@ -136,8 +134,7 @@ class TestDialectVariantPredicates:
         )
 
         assert (
-            lsj_extractor_module._has_nominal_morphology_continuation(context)
-            is True
+            lsj_extractor_module._has_nominal_morphology_continuation(context) is True
         )
 
     def test_has_distinct_nominal_surface_variant(self) -> None:
@@ -147,8 +144,7 @@ class TestDialectVariantPredicates:
         )
 
         assert (
-            lsj_extractor_module._has_distinct_nominal_surface_variant(context)
-            is True
+            lsj_extractor_module._has_distinct_nominal_surface_variant(context) is True
         )
 
     def test_qualifies_by_context_with_inherited_variant_chain(self) -> None:
@@ -257,7 +253,7 @@ class TestLeadingDialectLabels:
             '<orth extent="full" lang="greek">a)bohti/</orth>, '
             '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
             '<orth extent="suff" lang="greek">a)bohq-a_ti/</orth>, '
-            '<pos>Adv.</pos> '
+            "<pos>Adv.</pos> "
             '<sense id="s1" n="A" level="1"><tr>without summons</tr></sense>'
             "</entryFree>"
         )
@@ -299,7 +295,7 @@ class TestLeadingDialectLabels:
             '<orth extent="full" lang="greek">a)mfagapa/zw</orth>, '
             '<tns>impf.</tns> <foreign lang="greek">a)mfaga/pazon</foreign>, '
             '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> only in '
-            '<tns>pres.</tns>, '
+            "<tns>pres.</tns>, "
             '<sense id="s1" n="A" level="1"><tr>embrace</tr></sense>'
             "</entryFree>"
         )
@@ -325,7 +321,12 @@ class TestLeadingDialectLabels:
     @pytest.mark.parametrize(
         ("dialect_label", "tail", "following_markup", "expected"),
         [
-            ("Dor.", " mostly ", '<orth lang="greek">dw/rion</orth><pos>Noun</pos>', []),
+            (
+                "Dor.",
+                " mostly ",
+                '<orth lang="greek">dw/rion</orth><pos>Noun</pos>',
+                [],
+            ),
             ("Ion.", " form of ", '<orth lang="greek">dw/rion</orth>', ["ionic"]),
             ("Att.", " ", '<orth lang="greek">dw/rion</orth>', ["attic"]),
         ],
@@ -359,7 +360,9 @@ class TestLoadPosOverrides:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(lsj_extractor_module, "_pos_overrides", None)
-        monkeypatch.setattr(lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path)
+        monkeypatch.setattr(
+            lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path
+        )
 
         caplog.set_level("ERROR", logger="phonology.lsj_extractor")
         result = lsj_extractor_module._load_pos_overrides()
@@ -378,7 +381,9 @@ class TestLoadPosOverrides:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(lsj_extractor_module, "_pos_overrides", None)
-        monkeypatch.setattr(lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path)
+        monkeypatch.setattr(
+            lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path
+        )
         (tmp_path / "pos_overrides.yaml").write_text(
             "common_gender_keys: [unterminated\n",
             encoding="utf-8",
@@ -401,7 +406,9 @@ class TestLoadPosOverrides:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(lsj_extractor_module, "_pos_overrides", None)
-        monkeypatch.setattr(lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path)
+        monkeypatch.setattr(
+            lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path
+        )
         (tmp_path / "pos_overrides.yaml").write_bytes(b"\xff\xfe")
 
         caplog.set_level("ERROR", logger="phonology.lsj_extractor")
@@ -457,8 +464,12 @@ class TestLoadPosOverrides:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(lsj_extractor_module, "_pos_overrides", None)
-        monkeypatch.setattr(lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path)
-        (tmp_path / "pos_overrides.yaml").write_text("common_gender_keys: []\n", encoding="utf-8")
+        monkeypatch.setattr(
+            lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path
+        )
+        (tmp_path / "pos_overrides.yaml").write_text(
+            "common_gender_keys: []\n", encoding="utf-8"
+        )
 
         def _raise_oserror(self: Path, **_kwargs: object) -> str:
             raise OSError("read failed")
@@ -482,10 +493,11 @@ class TestLoadPosOverrides:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(lsj_extractor_module, "_pos_overrides", None)
-        monkeypatch.setattr(lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path)
+        monkeypatch.setattr(
+            lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path
+        )
         (tmp_path / "pos_overrides.yaml").write_text(
-            "common_gender_keys: [a)/nqrwpos, 123]\n"
-            "numeral_keys: [de/ka, false]\n",
+            "common_gender_keys: [a)/nqrwpos, 123]\nnumeral_keys: [de/ka, false]\n",
             encoding="utf-8",
         )
         caplog.set_level("WARNING", logger="phonology.lsj_extractor")
@@ -569,7 +581,9 @@ class TestExtractEntry:
         assert result is None
 
     def test_skips_non_numeric_id(self) -> None:
-        elem = _make_entry_xml(entry_id="not-numeric", orth="lo/gos", gen="o(", tr="word")
+        elem = _make_entry_xml(
+            entry_id="not-numeric", orth="lo/gos", gen="o(", tr="word"
+        )
 
         assert extract_entry(elem) is None
 
@@ -585,22 +599,20 @@ class TestExtractEntry:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         elem = _make_entry_xml(entry_id="n102", orth="lo/gos", gen="o(", tr="word")
-        monkeypatch.setattr(lsj_extractor_module, "to_ipa", lambda *_args, **_kwargs: "")
+        monkeypatch.setattr(
+            lsj_extractor_module, "to_ipa", lambda *_args, **_kwargs: ""
+        )
 
         assert extract_entry(elem) is None
 
     def test_feminine_gender(self) -> None:
-        elem = _make_entry_xml(
-            entry_id="n400", orth="yuxh/", gen="h(", tr="soul"
-        )
+        elem = _make_entry_xml(entry_id="n400", orth="yuxh/", gen="h(", tr="soul")
         result = extract_entry(elem)
         assert result is not None
         assert result["gender"] == "feminine"
 
     def test_neuter_gender(self) -> None:
-        elem = _make_entry_xml(
-            entry_id="n500", orth="sw=ma", gen="to/", tr="body"
-        )
+        elem = _make_entry_xml(entry_id="n500", orth="sw=ma", gen="to/", tr="body")
         result = extract_entry(elem)
         assert result is not None
         assert result["gender"] == "neuter"
@@ -612,9 +624,7 @@ class TestExtractEntry:
     def test_unicode_article_gender_fallback(
         self, gen_value: str, expected_gender: str
     ) -> None:
-        elem = _make_entry_xml(
-            entry_id="n550", orth="lo/gos", gen=gen_value, tr="word"
-        )
+        elem = _make_entry_xml(entry_id="n550", orth="lo/gos", gen=gen_value, tr="word")
         result = extract_entry(elem)
         assert result is not None
         assert result["gender"] == expected_gender
@@ -630,9 +640,7 @@ class TestExtractEntry:
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        elem = _make_entry_xml(
-            entry_id="n605", orth="lo/gos", gen="o(", tr="word"
-        )
+        elem = _make_entry_xml(entry_id="n605", orth="lo/gos", gen="o(", tr="word")
         captured: dict[str, str] = {}
 
         def fake_to_ipa(greek_text: str, dialect: str = "attic") -> str:
@@ -752,9 +760,14 @@ class TestExtractEntry:
         result = extract_entry(elem)
 
         assert result is None
-        assert "IPA conversion failed for LSJ-000700 (λόγος): ValueError: bad conversion" in caplog.text
+        assert (
+            "IPA conversion failed for LSJ-000700 (λόγος): ValueError: bad conversion"
+            in caplog.text
+        )
 
-    @pytest.mark.parametrize("error", [TypeError("bad type"), AttributeError("missing attr")])
+    @pytest.mark.parametrize(
+        "error", [TypeError("bad type"), AttributeError("missing attr")]
+    )
     def test_unexpected_ipa_conversion_errors_are_reraised(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -797,9 +810,13 @@ class TestExtractEntry:
             "</entryFree>"
         )
 
-        assert lsj_extractor_module._find_texts(elem, "orth", lang="greek") == ["lo/gos"]
+        assert lsj_extractor_module._find_texts(elem, "orth", lang="greek") == [
+            "lo/gos"
+        ]
 
-    def test_extract_gloss_falls_back_to_direct_tr_and_truncates_long_text(self) -> None:
+    def test_extract_gloss_falls_back_to_direct_tr_and_truncates_long_text(
+        self,
+    ) -> None:
         long_gloss = "x" * 250
         elem = etree.fromstring(
             f'<entryFree id="n1" key="lo/gos" type="main"><tr>{long_gloss}</tr></entryFree>'
@@ -818,7 +835,7 @@ class TestExtractEntry:
             '<orth extent="full" lang="greek">*persiko/s</orth>'
             '<itype lang="greek">h/</itype>'
             '<itype lang="greek">o/n</itype>'
-            '<pos>Adv.</pos>'
+            "<pos>Adv.</pos>"
             '<sense id="s1" n="A" level="1"><tr>Persianly</tr></sense>'
             "</entryFree>"
         )
@@ -875,7 +892,7 @@ class TestExtractEntry:
             '<itype lang="greek">a</itype>'
             '<itype lang="greek">on</itype>'
             '<sense id="s1" n="A" level="1"><tr>beloved</tr>'
-            '<mood>inf.</mood></sense>'
+            "<mood>inf.</mood></sense>"
             "</entryFree>"
         )
 
@@ -886,7 +903,7 @@ class TestExtractEntry:
             '<entryFree id="n25205" key="a)ke/w" type="main">'
             '<orth extent="full" lang="greek">a)ke/w</orth>'
             '<sense id="s1" n="A" level="1">'
-            '<mood>inf.</mood><tr>to be silent</tr>: Pron. of another form'
+            "<mood>inf.</mood><tr>to be silent</tr>: Pron. of another form"
             "</sense>"
             "</entryFree>"
         )
@@ -899,7 +916,7 @@ class TestExtractEntry:
             '<orth extent="full" lang="greek">o)/nta</orth>, '
             '<mood>part.</mood> of <foreign lang="greek">ei)mi/</foreign> '
             '<sense id="s1" n="A" level="1">'
-            '<tr>beings</tr>: Pron. of another form'
+            "<tr>beings</tr>: Pron. of another form"
             "</sense>"
             "</entryFree>"
         )
@@ -968,7 +985,7 @@ class TestExtractEntry:
             '<entryFree id="n25000" key="w(sanei/" type="main">'
             '<orth extent="full" lang="greek">w(sanei/</orth>'
             '<sense id="s1" n="A" level="1"><tr>as if, as it were</tr>'
-            '<mood>part.</mood></sense>'
+            "<mood>part.</mood></sense>"
             "</entryFree>"
         )
         result = extract_entry(elem)
@@ -983,7 +1000,7 @@ class TestExtractEntry:
             '<entryFree id="n25001" key="*dhmosqeni/zw" type="main">'
             '<orth extent="full" lang="greek">*dhmosqeni/zw</orth>'
             '<sense id="s1" n="A" level="1"><tr>imitate Demosthenes</tr>'
-            '<mood>inf.</mood></sense>'
+            "<mood>inf.</mood></sense>"
             "</entryFree>"
         )
         result = extract_entry(elem)
@@ -998,7 +1015,7 @@ class TestExtractEntry:
             '<entryFree id="n25010" key="a)ke/w2" type="main">'
             '<orth extent="full" lang="greek">a)ke/w</orth>'
             '<sense id="s1" n="A" level="1"><tr>to be silent</tr>'
-            '<tns>pres.</tns></sense>'
+            "<tns>pres.</tns></sense>"
             "</entryFree>"
         )
         result = extract_entry(elem)
@@ -1060,8 +1077,8 @@ class TestExtractEntry:
         elem = etree.fromstring(
             '<entryFree id="n25012" key="au)to/s" type="main">'
             '<orth extent="full" lang="greek">au)to/s</orth>'
-            "(Cret. <orth extent=\"full\" lang=\"greek\">a)vto/s</orth>, al.), "
-            "<foreign lang=\"greek\">au)th/, au)to/</foreign> reflexive Pron., "
+            '(Cret. <orth extent="full" lang="greek">a)vto/s</orth>, al.), '
+            '<foreign lang="greek">au)th/, au)to/</foreign> reflexive Pron., '
             '<sense id="s1" n="A" level="1"><tr>self</tr></sense>'
             "</entryFree>"
         )
@@ -1079,7 +1096,7 @@ class TestExtractEntry:
             '<orth extent="full" lang="greek">au)to/s</orth> '
             '<sense id="s1" n="A" level="1">'
             '<cit><quote lang="greek">au)to/n</quote></cit>, reflexive Pron., '
-            '<tr>self</tr>'
+            "<tr>self</tr>"
             "</sense>"
             "</entryFree>"
         )
@@ -1095,7 +1112,7 @@ class TestExtractEntry:
         elem = etree.fromstring(
             '<entryFree id="n25013" key="kai/1" type="main">'
             '<orth extent="full" lang="greek">kai/</orth>, Conj., copulative, '
-            'joining words and sentences, '
+            "joining words and sentences, "
             '<sense id="s1" n="A" level="1">'
             "<tr>and</tr>; also <pos>Adv.</pos>, <tr>even</tr>"
             "</sense>"
@@ -1133,7 +1150,7 @@ class TestExtractEntry:
             '<gen lang="greek">to/</gen>, '
             '<sense id="s1" n="A" level="1">demonstr. Pronoun.</sense>'
             '<sense id="s2" n="B" level="1">in <gramGrp><gram type="dialect">Att.</gram></gramGrp>, '
-            'definite or prepositive Article.</sense>'
+            "definite or prepositive Article.</sense>"
             '<sense id="s3" n="C" level="1"><tr>the</tr></sense>'
             "</entryFree>"
         )
@@ -1164,7 +1181,7 @@ class TestExtractEntry:
         elem = etree.fromstring(
             '<entryFree id="n25016" key="e)gw/" type="main">'
             '<orth extent="full" lang="greek">e)gw/</orth>, <title>I</title>: Pron. '
-            'of the first person: '
+            "of the first person: "
             '<sense id="s1" n="A" level="1">'
             '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> mostly '
             '<orth extent="full" lang="greek">e)gw/n</orth> before vowels; '
@@ -1172,7 +1189,7 @@ class TestExtractEntry:
             '<orth extent="full" lang="greek">e)gw/nga</orth>; '
             '<gramGrp><gram type="dialect">Boeot.</gram></gramGrp> '
             '<orth extent="full" lang="greek">i(w/nga</orth>; '
-            '<tr>I at least, for my part</tr>'
+            "<tr>I at least, for my part</tr>"
             "</sense>"
             "</entryFree>"
         )
@@ -1203,7 +1220,7 @@ class TestExtractEntry:
         elem = etree.fromstring(
             '<entryFree id="n25026" key="e)gw/" type="main">'
             '<orth extent="full" lang="greek">e)gw/</orth>, <title>I</title>: '
-            'Pron. of the first person:—'
+            "Pron. of the first person:—"
             '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> mostly '
             '<orth extent="full" lang="greek">e)gw/n</orth> before vowels; '
             '<gramGrp><gram type="dialect">Boeot.</gram></gramGrp> '
@@ -1223,16 +1240,16 @@ class TestExtractEntry:
         elem = etree.fromstring(
             '<entryFree id="n25030" key="e)gw/" type="main">'
             '<orth extent="full" lang="greek">e)gw/</orth>, <title>I</title>: '
-            'Pron. of the first person:—'
+            "Pron. of the first person:—"
             '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> mostly '
             '<orth extent="full" lang="greek">e)gw/n</orth> before vowels (so in '
             '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> before consonants), '
-            'rarely in Trag.; '
+            "rarely in Trag.; "
             '<gramGrp><gram type="dialect">Boeot.</gram></gramGrp> '
             '<orth extent="full" lang="greek">i(w/n</orth>:— strengthd. '
             '<orth extent="full" lang="greek">e)/gwge</orth>, '
             '<sense id="s1" n="A" level="1">'
-            '<tr>I at least, for my part</tr> (more freq. in '
+            "<tr>I at least, for my part</tr> (more freq. in "
             '<gramGrp><gram type="dialect">Att.</gram></gramGrp> than in Hom.)'
             "</sense>"
             "</entryFree>"
@@ -1244,13 +1261,15 @@ class TestExtractEntry:
         assert result["dialect"] == "attic"
         assert result["gender"] == "common"
 
-    def test_heading_variant_dialect_after_title_pos_text_keeps_attic_entry(self) -> None:
+    def test_heading_variant_dialect_after_title_pos_text_keeps_attic_entry(
+        self,
+    ) -> None:
         """Title-wrapped heading prose should count as prior context for variant notes."""
 
         elem = etree.fromstring(
             '<entryFree id="n25045" key="e)gw/" type="main">'
             '<orth extent="full" lang="greek">e)gw/</orth>'
-            '<title>Pron. of the first person</title>'
+            "<title>Pron. of the first person</title>"
             '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> '
             '<orth extent="full" lang="greek">e)gw/n</orth>, '
             '<sense id="s1" n="A" level="1"><tr>I</tr></sense>'
@@ -1269,7 +1288,7 @@ class TestExtractEntry:
         elem = etree.fromstring(
             '<entryFree id="n25056" key="dw=ron" type="main">'
             '<orth extent="full" lang="greek">dw=ron</orth>, '
-            '<title>gift</title>, '
+            "<title>gift</title>, "
             '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
             '<gen lang="greek">to/</gen>, '
             '<sense id="s1" n="A" level="1"><tr>gift</tr></sense>'
@@ -1309,7 +1328,9 @@ class TestExtractEntry:
         assert result["dialect"] == "attic"
         assert "gender" not in result
 
-    def test_heading_single_non_attic_surface_form_without_context_skips_entry(self) -> None:
+    def test_heading_single_non_attic_surface_form_without_context_skips_entry(
+        self,
+    ) -> None:
         """A bare dialect label plus one surface form still marks a non-Attic entry."""
 
         elem = etree.fromstring(
@@ -1385,7 +1406,7 @@ class TestExtractEntry:
             '<itype lang="greek">o/n</itype>, '
             '<gramGrp><gram type="dialect">Lacon.</gram></gramGrp> '
             '<orth extent="full" lang="greek">a)gaso/s</orth> '
-            '<bibl><author>Ar.</author><title>Lys.</title><biblScope>1301</biblScope></bibl>, '
+            "<bibl><author>Ar.</author><title>Lys.</title><biblScope>1301</biblScope></bibl>, "
             '<orth extent="full" lang="greek">a)zaqo/s</orth>:—'
             '<sense id="s1" n="A" level="1"><tr>good</tr></sense>'
             "</entryFree>"
@@ -1442,7 +1463,7 @@ class TestExtractEntry:
             '<orth extent="full" lang="greek">a)ru/tw</orth> '
             '<pron extent="full" lang="greek">[u^]</pron>; '
             '<gramGrp><gram type="dialect">Aeol.</gram></gramGrp> '
-            '<mood>part.</mood> '
+            "<mood>part.</mood> "
             '<sense id="s1" n="A" level="1"><tr>draw</tr></sense>'
             "</entryFree>"
         )
@@ -1452,13 +1473,15 @@ class TestExtractEntry:
         assert result["pos"] == "verb"
         assert result["dialect"] == "attic"
 
-    def test_heading_variant_dialect_after_explicit_pos_tag_keeps_attic_entry(self) -> None:
+    def test_heading_variant_dialect_after_explicit_pos_tag_keeps_attic_entry(
+        self,
+    ) -> None:
         """Tagged heading POS labels should count as prior prose for variant dialect notes."""
 
         elem = etree.fromstring(
             '<entryFree id="n25032" key="e)gw/" type="main">'
             '<orth extent="full" lang="greek">e)gw/</orth>, '
-            '<pos>Pron.</pos>'
+            "<pos>Pron.</pos>"
             '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> '
             '<orth extent="full" lang="greek">e)gw/n</orth>, '
             '<sense id="s1" n="A" level="1"><tr>I</tr></sense>'
@@ -1471,7 +1494,9 @@ class TestExtractEntry:
         assert result["dialect"] == "attic"
         assert result["gender"] == "common"
 
-    def test_strengthd_variant_context_with_non_dialect_gramgrp_keeps_attic_entry(self) -> None:
+    def test_strengthd_variant_context_with_non_dialect_gramgrp_keeps_attic_entry(
+        self,
+    ) -> None:
         """A standalone ``strengthd.`` cue should keep variant dialect labels from flipping the entry."""
 
         elem = etree.fromstring(
@@ -1523,7 +1548,9 @@ class TestExtractEntry:
         )
         assert extract_entry(elem) is None
 
-    def test_heading_pos_then_var_label_before_gen_keeps_non_attic_dialect(self) -> None:
+    def test_heading_pos_then_var_label_before_gen_keeps_non_attic_dialect(
+        self,
+    ) -> None:
         """Tagged POS before a dialect note must not reclassify var-plus-gen headings as Attic."""
 
         elem = etree.fromstring(
@@ -1564,10 +1591,10 @@ class TestExtractEntry:
             '<orth extent="full" lang="greek">a)di^ke/w</orth>, '
             '<gramGrp><gram type="dialect">Aeol.</gram></gramGrp> '
             '<orth extent="suff" lang="greek">a)di-h/w</orth> '
-            '<bibl><author>Sapph.</author><biblScope>1.20</biblScope></bibl>, '
+            "<bibl><author>Sapph.</author><biblScope>1.20</biblScope></bibl>, "
             '<gramGrp><gram type="dialect">Dor.</gram></gramGrp> '
             '<orth extent="suff" lang="greek">a)di-i/w</orth> '
-            '<bibl><title>Tab.Heracl.</title><biblScope>1.138</biblScope></bibl>, '
+            "<bibl><title>Tab.Heracl.</title><biblScope>1.138</biblScope></bibl>, "
             '<sense id="s1" n="A" level="1"><tr>do wrong</tr><tns>impf.</tns></sense>'
             "</entryFree>"
         )
@@ -1638,14 +1665,16 @@ class TestExtractEntry:
         assert result["dialect"] == "attic"
         assert result["gender"] == "feminine"
 
-    def test_pos_from_trailing_sense_prose_handles_second_person_plural_pronoun(self) -> None:
+    def test_pos_from_trailing_sense_prose_handles_second_person_plural_pronoun(
+        self,
+    ) -> None:
         """POS notes after a gloss inside a sense should still classify pronouns."""
 
         elem = etree.fromstring(
             '<entryFree id="n25031" key="u(mei=s" type="main">'
             '<orth extent="full" lang="greek">u(mei=s</orth>, '
             '<sense id="s1" n="A" level="1">'
-            '<tr>ye</tr>: Pron. of the second pers. pl.:—'
+            "<tr>ye</tr>: Pron. of the second pers. pl.:—"
             '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> nom. '
             '<orth extent="full" lang="greek">u)/mmes</orth>;'
             "</sense>"
@@ -1665,7 +1694,7 @@ class TestExtractEntry:
             '<entryFree id="n25033" key="u(mei=s" type="main">'
             '<orth extent="full" lang="greek">u(mei=s</orth>, '
             '<sense id="s1" n="A" level="1">'
-            '<tr>ye</tr>: <pos>Pron.</pos> of the second pers. pl.:—'
+            "<tr>ye</tr>: <pos>Pron.</pos> of the second pers. pl.:—"
             '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> nom. '
             '<orth extent="full" lang="greek">u)/mmes</orth>;'
             "</sense>"
@@ -1687,7 +1716,7 @@ class TestExtractEntry:
             '<itype lang="greek">a</itype>'
             '<itype lang="greek">on</itype>'
             '<sense id="s1" n="A" level="1">'
-            '<tr>such</tr>; also <pos>Pron.</pos>, <tr>such a one</tr>'
+            "<tr>such</tr>; also <pos>Pron.</pos>, <tr>such a one</tr>"
             "</sense>"
             "</entryFree>"
         )
@@ -1706,7 +1735,7 @@ class TestExtractEntry:
             '<itype lang="greek">a</itype>'
             '<itype lang="greek">on</itype>'
             '<sense id="s1" n="A" level="1">'
-            '<tr>such</tr>: Pron. of the correlative form in late usage'
+            "<tr>such</tr>: Pron. of the correlative form in late usage"
             "</sense>"
             "</entryFree>"
         )
@@ -1716,17 +1745,19 @@ class TestExtractEntry:
         assert result["pos"] == "adjective"
         assert result["gender"] == "common"
 
-    def test_heading_entry_level_non_attic_dialect_after_morphology_skips_entry(self) -> None:
+    def test_heading_entry_level_non_attic_dialect_after_morphology_skips_entry(
+        self,
+    ) -> None:
         """Heading dialect labels without a following variant form should filter the entry."""
 
         elem = etree.fromstring(
             '<entryFree id="n25028" key="a)mfagapa/zw" type="main">'
             '<orth extent="full" lang="greek">a)mfagapa/zw</orth>, '
             '<tns>impf.</tns> <foreign lang="greek">a)mfaga/pazon</foreign>, '
-            '<tns>pres.</tns> <mood>part.</mood> '
+            "<tns>pres.</tns> <mood>part.</mood> "
             '<foreign lang="greek">-omenos</foreign>; by later '
             '<gramGrp><gram type="dialect">Ep.</gram></gramGrp> only in '
-            '<tns>pres.</tns>, <tns>impf.</tns> '
+            "<tns>pres.</tns>, <tns>impf.</tns> "
             '<sense id="s1" n="A" level="1"><tr>embrace with love</tr></sense>'
             "</entryFree>"
         )
@@ -1746,7 +1777,7 @@ class TestExtractEntry:
             '<foreign lang="greek">w(/nqrwpos</foreign>:'
             '<sense id="s1" n="A" level="1"><tr>man</tr></sense>'
             '<sense id="s2" n="2" level="3">uses it both with and without the Art. '
-            'to denote <tr>man generically</tr></sense>'
+            "to denote <tr>man generically</tr></sense>"
             "</entryFree>"
         )
         result = extract_entry(elem)
@@ -1762,7 +1793,7 @@ class TestExtractEntry:
             '<entryFree id="n25022" key="a)ski/on" type="main">'
             '<orth extent="full" lang="greek">a)ski/on</orth>, '
             '<gen lang="greek">to/</gen>, '
-            '<bibl><author>Plu.</author><title>Art.</title><biblScope>12</biblScope></bibl>: '
+            "<bibl><author>Plu.</author><title>Art.</title><biblScope>12</biblScope></bibl>: "
             '<sense id="s1" n="A" level="1"><tr>empty threats</tr></sense>'
             "</entryFree>"
         )
@@ -1778,7 +1809,7 @@ class TestExtractEntry:
             '<entryFree id="n25023" key="e)pi/memptos" type="main">'
             '<orth extent="suff" lang="greek">e)pi/mempt-os</orth>'
             '<itype lang="greek">on</itype>, '
-            '<bibl><author>A.D.</author><title>Pron.</title><biblScope>86.2</biblScope></bibl>, '
+            "<bibl><author>A.D.</author><title>Pron.</title><biblScope>86.2</biblScope></bibl>, "
             'al. <sense id="s1" n="2" level="3">. <tr>blaming</tr></sense>'
             "</entryFree>"
         )
@@ -1794,8 +1825,8 @@ class TestExtractEntry:
             '<entryFree id="n25024" key="a)po/llumi" type="main">'
             '<orth extent="full" lang="greek">a)po/llu_mi</orth>, '
             '<tns>impf.</tns> <sense id="s1" n="A" level="1">'
-            'freq. in tmesi; Prep. postponed in some constructions. '
-            '<tr>destroy utterly</tr>'
+            "freq. in tmesi; Prep. postponed in some constructions. "
+            "<tr>destroy utterly</tr>"
             "</sense>"
             "</entryFree>"
         )
@@ -1829,7 +1860,7 @@ class TestExtractEntry:
             '<gen lang="greek">ta/</gen>, neut. pl. '
             '<mood>part.</mood> of <foreign lang="greek">ei)mi/</foreign> '
             '<sense id="s1" n="A" level="1">'
-            '<tr>the things which actually exist</tr>'
+            "<tr>the things which actually exist</tr>"
             "</sense>"
             "</entryFree>"
         )
@@ -1848,7 +1879,7 @@ class TestExtractEntry:
             '<gen lang="greek">ta/</gen>, neut. pl. '
             '<mood>Participle</mood> of <foreign lang="greek">ei)mi/</foreign> '
             '<sense id="s1" n="A" level="1">'
-            '<tr>the things which actually exist</tr>'
+            "<tr>the things which actually exist</tr>"
             "</sense>"
             "</entryFree>"
         )
@@ -1865,7 +1896,7 @@ class TestExtractEntry:
             '<entryFree id="n25060" key="pa/qwn" type="main">'
             '<orth extent="full" lang="greek">pa/qwn</orth>, '
             '<gen lang="greek">o(</gen>, '
-            '<mood>Participle</mood> pres. act. '
+            "<mood>Participle</mood> pres. act. "
             '<sense id="s1" n="A" level="1"><tr>suffering</tr></sense>'
             "</entryFree>"
         )
@@ -1881,7 +1912,7 @@ class TestExtractEntry:
             '<entryFree id="n25061" key="pa/qwn2" type="main">'
             '<orth extent="full" lang="greek">pa/qwn</orth>, '
             '<gen lang="greek">o(</gen>, '
-            '<mood>Partic.</mood> pres. act. '
+            "<mood>Partic.</mood> pres. act. "
             '<sense id="s1" n="A" level="1"><tr>suffering</tr></sense>'
             "</entryFree>"
         )
@@ -1898,7 +1929,7 @@ class TestExtractEntry:
             '<orth extent="full" lang="greek">*persiko/s</orth>'
             '<itype lang="greek">h/</itype>'
             '<itype lang="greek">o/n</itype>'
-            '<pos>Adv.</pos>'
+            "<pos>Adv.</pos>"
             '<sense id="s1" n="A" level="1"><tr>Persianly</tr></sense>'
             "</entryFree>"
         )
@@ -2000,7 +2031,9 @@ class TestExtractEntry:
         assert result["pos"] == "noun"
         assert result["gender"] == "common"
 
-    def test_attic_inline_conjunction_outranks_earlier_general_particle_label(self) -> None:
+    def test_attic_inline_conjunction_outranks_earlier_general_particle_label(
+        self,
+    ) -> None:
         """Attic-specific POS labels should only upgrade the matching candidate."""
 
         elem = etree.fromstring(
@@ -2241,12 +2274,18 @@ class TestXmlIterationAndCli:
 
         assert [entry["id"] for entry in entries] == ["LSJ-000001"]
 
-    def test_extract_all_deduplicates_ids_and_honors_limit(self, tmp_path: Path) -> None:
+    def test_extract_all_deduplicates_ids_and_honors_limit(
+        self, tmp_path: Path
+    ) -> None:
         xml_dir = tmp_path / "xml"
         self._write_xml_file(
             xml_dir,
             "grc.lsj.perseus-eng.xml",
-            [self._entry_xml("n1"), self._entry_xml("n1"), self._entry_xml("n2", "a)/nqrwpos")],
+            [
+                self._entry_xml("n1"),
+                self._entry_xml("n1"),
+                self._entry_xml("n2", "a)/nqrwpos"),
+            ],
         )
 
         entries = list(lsj_extractor_module.extract_all(xml_dir, limit=2))
@@ -2259,10 +2298,17 @@ class TestXmlIterationAndCli:
         monkeypatch: pytest.MonkeyPatch,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        monkeypatch.setattr(lsj_extractor_module, "extract_all", lambda *_args, **_kwargs: iter(()))
+        monkeypatch.setattr(
+            lsj_extractor_module, "extract_all", lambda *_args, **_kwargs: iter(())
+        )
         caplog.set_level("ERROR", logger="phonology.lsj_extractor")
 
-        assert lsj_extractor_module.main(xml_dir=tmp_path, output_path=tmp_path / "out.json") == 1
+        assert (
+            lsj_extractor_module.main(
+                xml_dir=tmp_path, output_path=tmp_path / "out.json"
+            )
+            == 1
+        )
         assert "No entries extracted" in caplog.text
 
     def test_main_returns_one_when_validation_fails(
@@ -2283,7 +2329,12 @@ class TestXmlIterationAndCli:
         )
         caplog.set_level("ERROR", logger="phonology.lsj_extractor")
 
-        assert lsj_extractor_module.main(xml_dir=tmp_path, output_path=tmp_path / "out.json") == 1
+        assert (
+            lsj_extractor_module.main(
+                xml_dir=tmp_path, output_path=tmp_path / "out.json"
+            )
+            == 1
+        )
         assert "Validation failed: bad schema" in caplog.text
 
     def test_main_dry_run_prints_counts_without_writing(
@@ -2298,7 +2349,9 @@ class TestXmlIterationAndCli:
             "extract_all",
             lambda *_args, **_kwargs: iter(_sample_document_entries()),
         )
-        monkeypatch.setattr(lsj_extractor_module, "validate_document", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(
+            lsj_extractor_module, "validate_document", lambda *_args, **_kwargs: None
+        )
 
         assert (
             lsj_extractor_module.main(
@@ -2327,11 +2380,16 @@ class TestXmlIterationAndCli:
             "extract_all",
             lambda *_args, **_kwargs: iter([_sample_document_entries()[0]]),
         )
-        monkeypatch.setattr(lsj_extractor_module, "validate_document", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(
+            lsj_extractor_module, "validate_document", lambda *_args, **_kwargs: None
+        )
 
         assert lsj_extractor_module.main(xml_dir=tmp_path, output_path=output_path) == 0
 
-        assert json.loads(output_path.read_text(encoding="utf-8"))["lemmas"][0]["id"] == "LSJ-000001"
+        assert (
+            json.loads(output_path.read_text(encoding="utf-8"))["lemmas"][0]["id"]
+            == "LSJ-000001"
+        )
         assert "Lexicon written: 1 entries" in capsys.readouterr().out
 
     def test_main_requires_xml_dir(self) -> None:
@@ -2348,7 +2406,9 @@ class TestXmlIterationAndCli:
             "extract_all",
             lambda *_args, **_kwargs: iter([_sample_document_entries()[0]]),
         )
-        monkeypatch.setattr(lsj_extractor_module, "validate_document", lambda *_args, **_kwargs: None)
+        monkeypatch.setattr(
+            lsj_extractor_module, "validate_document", lambda *_args, **_kwargs: None
+        )
 
         with pytest.raises(FileNotFoundError):
             lsj_extractor_module.main(
@@ -2365,7 +2425,9 @@ class TestXmlIterationAndCli:
         xml_dir = tmp_path / "xml"
         output_path = tmp_path / "out.json"
 
-        def fake_load_pos_overrides(*, cli_mode: bool = False) -> dict[str, frozenset[str]]:
+        def fake_load_pos_overrides(
+            *, cli_mode: bool = False
+        ) -> dict[str, frozenset[str]]:
             captured["cli_mode"] = cli_mode
             return lsj_extractor_module._empty_pos_overrides()
 
@@ -2373,7 +2435,9 @@ class TestXmlIterationAndCli:
             captured.update(kwargs)
             return 0
 
-        monkeypatch.setattr(lsj_extractor_module, "_load_pos_overrides", fake_load_pos_overrides)
+        monkeypatch.setattr(
+            lsj_extractor_module, "_load_pos_overrides", fake_load_pos_overrides
+        )
         monkeypatch.setattr(lsj_extractor_module, "main", fake_main)
         monkeypatch.setattr(
             sys,

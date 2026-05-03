@@ -35,7 +35,9 @@ class TestSummarizeQueryIpaForLogs:
         sha_value = match.group(1)
 
         assert len(sha_value) == 12, f"Expected 12 hex chars, got {len(sha_value)}"
-        assert all(c in "0123456789abcdef" for c in sha_value), "Should be lowercase hex"
+        assert all(c in "0123456789abcdef" for c in sha_value), (
+            "Should be lowercase hex"
+        )
 
     def test_returns_expected_format(self) -> None:
         """Result should match the expected 'tokens=N chars=M sha256=...' format."""
@@ -43,8 +45,12 @@ class TestSummarizeQueryIpaForLogs:
         token_count = 2
         result = summarize_query_ipa_for_logs(query, query_token_count=token_count)
 
-        expected_pattern = rf"tokens={token_count} chars={len(query)} sha256=[a-f0-9]{{12}}"
-        assert re.fullmatch(expected_pattern, result), f"Result '{result}' didn't match pattern"
+        expected_pattern = (
+            rf"tokens={token_count} chars={len(query)} sha256=[a-f0-9]{{12}}"
+        )
+        assert re.fullmatch(expected_pattern, result), (
+            f"Result '{result}' didn't match pattern"
+        )
 
     def test_different_inputs_produce_different_hashes(self) -> None:
         """Different queries should produce different SHA-256 prefixes."""
@@ -99,7 +105,9 @@ class TestSummarizeQueryIpaForLogs:
         )
         assert result1 == result2
 
-    def test_debug_disabled_skips_hashing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_debug_disabled_skips_hashing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Disabled debug summaries should not compute SHA-256 digests."""
 
         def fail_sha256(_value: bytes) -> object:
@@ -135,7 +143,9 @@ class TestPerfCounterIfDebug:
 
         result = perf_counter_if_debug(logger)
 
-        assert result > 0.0, "Should return positive perf_counter value when DEBUG enabled"
+        assert result > 0.0, (
+            "Should return positive perf_counter value when DEBUG enabled"
+        )
 
 
 class TestLogHelpersWhenDebugDisabled:
@@ -225,13 +235,15 @@ class TestLogHelpersWhenDebugEnabled:
         mock_logger_enabled.debug.assert_called_once()
         call_args = mock_logger_enabled.debug.call_args[0]
 
-        # Verify the message format string and arguments
         message_format = call_args[0]
         assert "candidate selection completed" in message_format
-        # The actual values are passed as separate args (printf-style formatting)
         args = call_args[1:]
-        assert any(a == "query_123" for a in args)
-        assert any(a == "partial" for a in args)
+        assert args[0] == "query_123"
+        assert args[1] == "partial"
+        assert args[2] == "partial_path"
+        assert args[3] == 20
+        assert args[4] == 10
+        assert args[5] == 15
 
     def test_log_scoring_calls_debug_when_enabled(
         self, mock_logger_enabled: MagicMock
@@ -251,9 +263,9 @@ class TestLogHelpersWhenDebugEnabled:
         message_format = call_args[0]
         assert "scoring completed" in message_format
         args = call_args[1:]
-        assert any(a == "query_456" for a in args)
-        assert any(a == 25 or a == "25" for a in args)
-        assert any(a == 20 or a == "20" for a in args)
+        assert args[0] == "query_456"
+        assert args[1] == 25
+        assert args[2] == 20
 
     def test_log_finalization_calls_debug_when_enabled(
         self, mock_logger_enabled: MagicMock

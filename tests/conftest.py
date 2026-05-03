@@ -93,9 +93,15 @@ def isolated_language_registry() -> Generator[None, None, None]:
 def sample_search_results() -> list[SearchResult]:
     """Return a small unsorted result list for ranking tests."""
     return [
-        SearchResult(lemma="γ", confidence=0.5, dialect_attribution="lemma dialect: attic"),
-        SearchResult(lemma="α", confidence=0.9, dialect_attribution="lemma dialect: attic"),
-        SearchResult(lemma="β", confidence=0.9, dialect_attribution="lemma dialect: attic"),
+        SearchResult(
+            lemma="γ", confidence=0.5, dialect_attribution="lemma dialect: attic"
+        ),
+        SearchResult(
+            lemma="α", confidence=0.9, dialect_attribution="lemma dialect: attic"
+        ),
+        SearchResult(
+            lemma="β", confidence=0.9, dialect_attribution="lemma dialect: attic"
+        ),
     ]
 
 

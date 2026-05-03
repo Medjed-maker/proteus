@@ -17,6 +17,8 @@ from phonology.profiles import (
     register_default_profiles,
     register_language_profile,
 )
+from phonology.orthography_notes import OrthographicNotePayload
+from phonology.languages.ancient_greek import build_orthographic_notes
 
 # Import test-only function directly
 from phonology.profiles import _reset_language_registry_for_tests
@@ -75,6 +77,94 @@ def test_search_request_still_rejects_unknown_language_after_registry_reset(
     """Only the built-in default profile gets the lazy fallback."""
     with pytest.raises(ValidationError, match="invalid language profile"):
         SearchRequest(query_form="pa", language="missing_profile")
+
+
+def test_language_profile_defaults_orthographic_note_builder_to_none(
+    tmp_path: Path,
+) -> None:
+    rules_dir = tmp_path / "rules"
+    matrix_dir = tmp_path / "matrices"
+    rules_dir.mkdir()
+    matrix_dir.mkdir()
+    profile = LanguageProfile(
+        language_id="toy_no_notes",
+        display_name="Toy No Notes",
+        default_dialect="toy",
+        supported_dialects=("toy",),
+        converter=_toy_converter,
+        phone_inventory=("p", "a"),
+        lexicon_path=tmp_path / "lexicon.json",
+        matrix_path=matrix_dir / "matrix.json",
+        rules_dir=rules_dir,
+    )
+
+    assert profile.orthographic_note_builder is None
+
+
+def test_language_profile_preserves_custom_orthographic_note_builder(
+    tmp_path: Path,
+    isolated_language_registry: None,
+) -> None:
+    rules_dir = tmp_path / "rules"
+    matrix_dir = tmp_path / "matrices"
+    rules_dir.mkdir()
+    matrix_dir.mkdir()
+
+    def toy_builder(
+        *,
+        query_form: str,
+        candidate_headword: str,
+        candidate_ipa: str,
+        query_ipa: str,
+        response_language: str,
+        orthography_hint: str | None = None,
+    ) -> list[OrthographicNotePayload]:
+        return [
+            OrthographicNotePayload(
+                kind="beginner_aid",
+                label="Toy note",
+                messages=[f"{query_form} -> {candidate_headword}"],
+                confidence="low",
+            )
+        ]
+
+    profile = LanguageProfile(
+        language_id="toy_notes",
+        display_name="Toy Notes",
+        default_dialect="toy",
+        supported_dialects=("toy",),
+        converter=_toy_converter,
+        phone_inventory=("p", "a"),
+        lexicon_path=tmp_path / "lexicon.json",
+        matrix_path=matrix_dir / "matrix.json",
+        rules_dir=rules_dir,
+        orthographic_note_builder=toy_builder,
+    )
+    register_language_profile(profile)
+
+    registered = get_language_profile("toy_notes")
+
+    assert registered.orthographic_note_builder is toy_builder
+    assert registered.orthographic_note_builder(
+        query_form="pa",
+        candidate_headword="ba",
+        candidate_ipa="ba",
+        query_ipa="pa",
+        response_language="en",
+    ) == [
+        OrthographicNotePayload(
+            kind="beginner_aid",
+            label="Toy note",
+            messages=["pa -> ba"],
+            confidence="low",
+        )
+    ]
+
+
+def test_default_ancient_greek_profile_sets_orthographic_note_builder() -> None:
+    profile = get_default_language_profile()
+
+    assert profile.orthographic_note_builder is build_orthographic_notes
 
 
 def test_toy_language_profile_runs_search_execution_without_core_changes(
@@ -153,7 +243,9 @@ rules:
         )
     )
     profile = get_language_profile("toy_language")
-    lexicon = tuple(json.loads(profile.lexicon_path.read_text(encoding="utf-8"))["lemmas"])
+    lexicon = tuple(
+        json.loads(profile.lexicon_path.read_text(encoding="utf-8"))["lemmas"]
+    )
     matrix_document = json.loads(profile.matrix_path.read_text(encoding="utf-8"))
     matrix = {
         phone: row
@@ -437,9 +529,7 @@ def test_custom_profile_does_not_apply_koine_skeleton(
     (rules_dir / "rules.yaml").write_text(
         "schema_version: '1.0.0'\nrules: []\n", encoding="utf-8"
     )
-    lexicon = (
-        {"id": "toy-1", "headword": "aba", "ipa": "aba", "dialect": "toy"},
-    )
+    lexicon = ({"id": "toy-1", "headword": "aba", "ipa": "aba", "dialect": "toy"},)
     profile = LanguageProfile(
         language_id="toy_no_koine",
         display_name="Toy No Koine",
@@ -472,9 +562,7 @@ def test_custom_profile_does_not_apply_koine_skeleton(
 def test_default_language_id_can_use_custom_converter_without_api_guard() -> None:
     """Custom converters are passed through the public search boundary."""
     default_profile = get_default_language_profile()
-    custom_profile = replace(
-        default_profile, converter=lambda t, **_: "custom"
-    )
+    custom_profile = replace(default_profile, converter=lambda t, **_: "custom")
     result = search_execution(
         "anything",
         lexicon=(),

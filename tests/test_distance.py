@@ -34,9 +34,7 @@ def enable_trusted_dir_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def committed_matrix_copy(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> Path:
+def committed_matrix_copy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.delenv("PROTEUS_TRUSTED_MATRICES_DIR", raising=False)
     source_matrix = distance_module._get_trusted_matrices_dir() / "attic_doric.json"
     assert source_matrix.is_file(), f"Expected committed matrix at {source_matrix}"
@@ -216,7 +214,9 @@ class TestLoadMatrix:
     ) -> None:
         monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(tmp_path / "missing"))
 
-        with pytest.raises(FileNotFoundError, match="Could not find trusted matrices directory"):
+        with pytest.raises(
+            FileNotFoundError, match="Could not find trusted matrices directory"
+        ):
             distance_module._get_trusted_matrices_dir()
 
     def test_environment_override_rejects_without_opt_in(
@@ -240,7 +240,9 @@ class TestLoadMatrix:
         matrix_file.write_text("{}", encoding="utf-8")
         monkeypatch.setenv("PROTEUS_TRUSTED_MATRICES_DIR", str(matrix_file))
 
-        with pytest.raises(NotADirectoryError, match="trusted matrices path is not a directory"):
+        with pytest.raises(
+            NotADirectoryError, match="trusted matrices path is not a directory"
+        ):
             distance_module._get_trusted_matrices_dir()
 
     def test_environment_override_rejects_parent_symlink(
@@ -276,7 +278,9 @@ class TestLoadMatrix:
     ) -> None:
         monkeypatch.delenv("PROTEUS_TRUSTED_MATRICES_DIR", raising=False)
         package_root = tmp_path / "package-root"
-        resource_dir = package_root / "data" / "languages" / "ancient_greek" / "matrices"
+        resource_dir = (
+            package_root / "data" / "languages" / "ancient_greek" / "matrices"
+        )
         resource_dir.mkdir(parents=True)
 
         monkeypatch.setattr(distance_module.resources, "files", lambda _: package_root)
@@ -332,7 +336,9 @@ class TestPhoneDistance:
     def test_known_unmapped_pair_uses_unknown_substitution_cost(self) -> None:
         assert phone_distance("s", "n", {}) == UNKNOWN_SUBSTITUTION_COST
 
-    def test_accented_known_unmapped_pair_still_uses_unknown_substitution_cost(self) -> None:
+    def test_accented_known_unmapped_pair_still_uses_unknown_substitution_cost(
+        self,
+    ) -> None:
         assert phone_distance("ó", "ɛ́ː", {}) == UNKNOWN_SUBSTITUTION_COST
 
 
@@ -380,7 +386,9 @@ class TestPhonologicalDistance:
             matrix,
         ) == pytest.approx(2.0)
 
-    def test_accented_matrix_backed_substitution_uses_sequence_normalization(self) -> None:
+    def test_accented_matrix_backed_substitution_uses_sequence_normalization(
+        self,
+    ) -> None:
         matrix = {"o": {"ɛː": 0.5}, "ɛː": {"o": 0.5}}
 
         assert phonological_distance(["ó"], ["ɛ́ː"], matrix) == pytest.approx(0.5)
@@ -397,10 +405,14 @@ class TestPhonologicalDistance:
         ) == pytest.approx(DEFAULT_COST)
 
     def test_suffix_overhang_is_penalized(self) -> None:
-        assert phonological_distance(["a"], ["a", "b"], {}) == pytest.approx(DEFAULT_COST)
+        assert phonological_distance(["a"], ["a", "b"], {}) == pytest.approx(
+            DEFAULT_COST
+        )
 
     def test_prefix_overhang_is_penalized(self) -> None:
-        assert phonological_distance(["b", "a"], ["a"], {}) == pytest.approx(DEFAULT_COST)
+        assert phonological_distance(["b", "a"], ["a"], {}) == pytest.approx(
+            DEFAULT_COST
+        )
 
 
 class TestSequenceDistance:
@@ -416,9 +428,9 @@ class TestSequenceDistance:
         assert sequence_distance(["a"], ["a", "b"], {}) == pytest.approx(DEFAULT_COST)
 
     def test_normalized_sequence_distance_is_zero_for_identical_sequences(self) -> None:
-        assert normalized_sequence_distance(["a", "b"], ["a", "b"], {}) == pytest.approx(
-            0.0
-        )
+        assert normalized_sequence_distance(
+            ["a", "b"], ["a", "b"], {}
+        ) == pytest.approx(0.0)
 
     def test_normalized_sequence_distance_counts_single_insertion(self) -> None:
         assert normalized_sequence_distance(["a"], ["a", "b"], {}) == pytest.approx(0.5)
@@ -436,7 +448,9 @@ class TestSequenceDistance:
             captured["matrix"] = matrix
             return 1.25
 
-        monkeypatch.setattr(distance_module, "phonological_distance", fake_phonological_distance)
+        monkeypatch.setattr(
+            distance_module, "phonological_distance", fake_phonological_distance
+        )
 
         result = sequence_distance(("a", "b"), ("a", "c"), {"a": {"c": 0.5}})
 
@@ -497,9 +511,15 @@ class TestWordDistance:
     def test_converter_output_matches_stressed_lexicon_ipa(self) -> None:
         assert word_distance(to_ipa("λόγος"), "lóɡos", {}) == pytest.approx(0.0)
 
-    def test_word_distance_keeps_non_accent_combining_marks_attached_to_phone(self) -> None:
-        assert word_distance("n̩", "n", {}) == pytest.approx(sequence_distance(["n̩"], ["n"], {}))
-        assert word_distance("ã", "a", {}) == pytest.approx(sequence_distance(["ã"], ["a"], {}))
+    def test_word_distance_keeps_non_accent_combining_marks_attached_to_phone(
+        self,
+    ) -> None:
+        assert word_distance("n̩", "n", {}) == pytest.approx(
+            sequence_distance(["n̩"], ["n"], {})
+        )
+        assert word_distance("ã", "a", {}) == pytest.approx(
+            sequence_distance(["ã"], ["a"], {})
+        )
 
     def test_normalized_word_distance_is_clamped_to_one(self) -> None:
         assert normalized_word_distance("x q", "! ?", {}) == pytest.approx(1.0)
@@ -533,7 +553,9 @@ class TestWordDistance:
             return 2.5
 
         monkeypatch.setattr(distance_module, "tokenize_ipa", fake_tokenize_ipa)
-        monkeypatch.setattr(distance_module, "phonological_distance", fake_phonological_distance)
+        monkeypatch.setattr(
+            distance_module, "phonological_distance", fake_phonological_distance
+        )
 
         result = word_distance("λόγος", "λογος", {"a": {"b": 0.5}})
 
@@ -591,7 +613,9 @@ class TestNormalizedPhonologicalDistance:
     def test_matrix_backed_substitution_keeps_unit_scale_matrix_value(self) -> None:
         matrix = {"a": {"b": 0.5}, "b": {"a": 0.5}}
 
-        assert normalized_phonological_distance(["a"], ["b"], matrix) == pytest.approx(0.5)
+        assert normalized_phonological_distance(["a"], ["b"], matrix) == pytest.approx(
+            0.5
+        )
 
     def test_known_unmapped_substitution_uses_full_unit_cost(self) -> None:
         assert normalized_phonological_distance(["s"], ["n"], {}) == pytest.approx(1.0)
@@ -602,9 +626,7 @@ class TestNormalizedPhonologicalDistance:
     def test_completely_different_sequences_normalize_to_one(self) -> None:
         assert normalized_phonological_distance(
             ["x", "q"], ["!", "?"], {}
-        ) == pytest.approx(
-            1.0
-        )
+        ) == pytest.approx(1.0)
 
     @pytest.mark.parametrize(
         ("seq1", "seq2", "matrix"),
@@ -723,9 +745,15 @@ class TestLoadMatrixDocument:
         matrix_file.write_text(
             json.dumps(
                 {
-                    "_meta": {"version": "1.0.0", "generated_at": "2026-04-20T00:00:00+00:00"},
+                    "_meta": {
+                        "version": "1.0.0",
+                        "generated_at": "2026-04-20T00:00:00+00:00",
+                    },
                     "sound_classes": {
-                        "vowels": {"a": {"a": 0.0, "e": 0.3}, "e": {"a": 0.3, "e": 0.0}},
+                        "vowels": {
+                            "a": {"a": 0.0, "e": 0.3},
+                            "e": {"a": 0.3, "e": 0.0},
+                        },
                     },
                 }
             ),

@@ -70,7 +70,9 @@ def test_buck_directory_contains_expected_three_yaml_files() -> None:
 def test_buck_yaml_documents_are_top_level_mappings() -> None:
     for path in (BUCK_GRAMMAR_RULES_PATH, BUCK_DIALECTS_PATH, BUCK_GLOSSARY_PATH):
         document = _load_yaml(path)
-        assert isinstance(document, dict), f"{path.name} must contain a top-level mapping"
+        assert isinstance(document, dict), (
+            f"{path.name} must contain a top-level mapping"
+        )
 
 
 def test_buck_dialects_file_is_catalog_only(dialects_document: dict[str, Any]) -> None:
@@ -136,7 +138,9 @@ def test_buck_glossary_refs_resolve_to_known_rules_and_dialects(
     )
 
     assert missing_rule_ids == [], f"Missing rule IDs in glossary: {missing_rule_ids}"
-    assert missing_dialect_ids == [], f"Missing dialect IDs in glossary: {missing_dialect_ids}"
+    assert missing_dialect_ids == [], (
+        f"Missing dialect IDs in glossary: {missing_dialect_ids}"
+    )
 
 
 def test_buck_grammar_rule_dialect_refs_resolve_to_catalog_entries(

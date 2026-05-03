@@ -5,6 +5,11 @@ Reads JSON or JSONL (original, regularized) Greek word pairs produced by
 Needleman-Wunsch, accumulates aligned-column frequencies, and computes a
 BLOSUM-style log-odds substitution score matrix.
 
+``data/training/epidoc_choices.json`` is treated as phonological matrix
+training input. Record metadata such as ``source_file`` and ``tm_id`` is kept
+for future review/reference promotion, but this script does not promote
+EpiDoc pairs into runtime orthographic-note YAML.
+
 Output schema (``scores`` key distinguishes this from the distance matrix):
 
 .. code-block:: json

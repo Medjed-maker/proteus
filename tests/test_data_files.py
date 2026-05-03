@@ -18,9 +18,20 @@ from phonology.matrix_generator import build_attic_doric_matrix
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-LEXICON_PATH = ROOT_DIR / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
-LEXICON_SCHEMA_PATH = ROOT_DIR / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.schema.json"
-MATRIX_PATH = ROOT_DIR / "data" / "languages" / "ancient_greek" / "matrices" / "attic_doric.json"
+LEXICON_PATH = (
+    ROOT_DIR / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
+)
+LEXICON_SCHEMA_PATH = (
+    ROOT_DIR
+    / "data"
+    / "languages"
+    / "ancient_greek"
+    / "lexicon"
+    / "greek_lemmas.schema.json"
+)
+MATRIX_PATH = (
+    ROOT_DIR / "data" / "languages" / "ancient_greek" / "matrices" / "attic_doric.json"
+)
 RULES_DIR = ROOT_DIR / "data" / "languages" / "ancient_greek" / "rules"
 CONSONANT_RULES_PATH = RULES_DIR / "consonant_changes.yaml"
 MORPHOPHONEMIC_RULES_PATH = RULES_DIR / "morphophonemic_alternations.yaml"
@@ -84,18 +95,19 @@ def morphophonemic_rules() -> list[dict[str, object]]:
 @pytest.fixture
 def all_rule_documents() -> dict[str, dict[str, object]]:
     """mapping of rule file name to parsed YAML document."""
-    return {
-        path.name: _load_yaml(path)
-        for path in sorted(RULES_DIR.glob("*.yaml"))
-    }
+    return {path.name: _load_yaml(path) for path in sorted(RULES_DIR.glob("*.yaml"))}
 
 
 @pytest.fixture
-def all_rules(all_rule_documents: dict[str, dict[str, object]]) -> list[dict[str, object]]:
+def all_rules(
+    all_rule_documents: dict[str, dict[str, object]],
+) -> list[dict[str, object]]:
     """flattened list of all rule dicts across documents."""
     rules: list[dict[str, object]] = []
     for document_name, document in all_rule_documents.items():
-        assert "rules" in document, f"missing 'rules' key in rule document {document_name}"
+        assert "rules" in document, (
+            f"missing 'rules' key in rule document {document_name}"
+        )
         rules.extend(document["rules"])
     return rules
 
@@ -121,7 +133,9 @@ def remove_generated_at(container: dict[str, Any]) -> dict[str, Any]:
 def _find_rule(rules: list[dict], rule_id: str) -> dict:
     rule = next((candidate for candidate in rules if candidate["id"] == rule_id), None)
     if rule is None:
-        raise LookupError(f"Rule {rule_id!r} not found in rule list of length {len(rules)}")
+        raise LookupError(
+            f"Rule {rule_id!r} not found in rule list of length {len(rules)}"
+        )
     return rule
 
 
@@ -149,7 +163,13 @@ def _assert_rule_schema(
         "examples",
     }
     legacy_keys = {"name", "from", "to", "dialect", "weight", "priority"}
-    valid_example_keys = {"standard", "dialect", "meaning", "phonetic", "reconstruction"}
+    valid_example_keys = {
+        "standard",
+        "dialect",
+        "meaning",
+        "phonetic",
+        "reconstruction",
+    }
     required_example_keys = {"standard", "meaning"}
 
     actual_ids = {rule["id"] for rule in rules}
@@ -160,9 +180,13 @@ def _assert_rule_schema(
     for rule in rules:
         rule_id = rule.get("id", "unknown")
         missing_keys = required_keys - set(rule)
-        assert required_keys <= set(rule), f"rule {rule_id}: missing required keys {missing_keys}"
+        assert required_keys <= set(rule), (
+            f"rule {rule_id}: missing required keys {missing_keys}"
+        )
         forbidden_keys = legacy_keys & set(rule)
-        assert not forbidden_keys, f"rule {rule_id}: contains legacy keys {forbidden_keys}"
+        assert not forbidden_keys, (
+            f"rule {rule_id}: contains legacy keys {forbidden_keys}"
+        )
         assert_nonempty_str(rule["id"], "id", rule_id)
         assert_nonempty_str(rule["name_en"], "name_en", rule_id)
         assert_nonempty_str(rule["name_ja"], "name_ja", rule_id)
@@ -172,13 +196,15 @@ def _assert_rule_schema(
         # If other prefixes need empty output in the future, consider adding an
         # allow_empty_output parameter instead of extending the prefix check.
         if rule["id"].startswith("CCH-"):
-            assert isinstance(rule["output"], str), f"rule {rule_id}: 'output' must be a string"
+            assert isinstance(rule["output"], str), (
+                f"rule {rule_id}: 'output' must be a string"
+            )
         else:
             assert_nonempty_str(rule["output"], "output", rule_id)
 
-        assert rule["context"] is None or (isinstance(rule["context"], str) and rule["context"]), (
-            f"rule {rule_id}: 'context' must be a non-empty string or null"
-        )
+        assert rule["context"] is None or (
+            isinstance(rule["context"], str) and rule["context"]
+        ), f"rule {rule_id}: 'context' must be a non-empty string or null"
         assert_nonempty_str(rule["period"], "period", rule_id)
         assert_nonempty_list_of_str(rule["dialects"], "dialects", rule_id)
         assert_nonempty_list_of_str(rule["references"], "references", rule_id)
@@ -197,12 +223,16 @@ def _assert_rule_schema(
 
 def assert_nonempty_str(value: Any, name: str, rule_id: Any) -> None:
     """Assert *value* is a non-empty string; raises AssertionError mentioning *name* and *rule_id*."""
-    assert isinstance(value, str) and value, f"rule {rule_id}: '{name}' must be a non-empty string"
+    assert isinstance(value, str) and value, (
+        f"rule {rule_id}: '{name}' must be a non-empty string"
+    )
 
 
 def assert_nonempty_list_of_str(value: Any, name: str, rule_id: Any) -> None:
     """Assert *value* is a non-empty list of non-empty strings."""
-    assert isinstance(value, list) and value, f"rule {rule_id}: '{name}' must be a non-empty list"
+    assert isinstance(value, list) and value, (
+        f"rule {rule_id}: '{name}' must be a non-empty list"
+    )
     assert all(isinstance(item, str) and item for item in value), (
         f"rule {rule_id}: all {name} must be non-empty strings"
     )
@@ -238,28 +268,20 @@ def _validate_rule_examples(
         )
         unknown_example_keys = set(example) - valid_example_keys
         assert not unknown_example_keys, (
-            f"rule {rule_id}: example contains unknown keys"
-            f" {unknown_example_keys}"
+            f"rule {rule_id}: example contains unknown keys {unknown_example_keys}"
         )
         missing_example_keys = required_example_keys - set(example)
         assert not missing_example_keys, (
-            f"rule {rule_id}: example missing required keys"
-            f" {missing_example_keys}"
+            f"rule {rule_id}: example missing required keys {missing_example_keys}"
         )
         has_form_contrast = (
-            "dialect" in example
-            or "reconstruction" in example
-            or is_koine_rule
+            "dialect" in example or "reconstruction" in example or is_koine_rule
         )
         assert has_form_contrast, (
-            f"rule {rule_id}: example must have"
-            f" 'dialect' or 'reconstruction'"
+            f"rule {rule_id}: example must have 'dialect' or 'reconstruction'"
         )
-        assert all(
-            isinstance(v, str) and v for v in example.values()
-        ), (
-            f"rule {rule_id}: all example values"
-            f" must be non-empty strings"
+        assert all(isinstance(v, str) and v for v in example.values()), (
+            f"rule {rule_id}: all example values must be non-empty strings"
         )
 
 
@@ -288,7 +310,9 @@ def assert_dicts_close(
         message on the first mismatch encountered.
     """
     if isinstance(expected, dict):
-        assert isinstance(actual, dict), f"{path}: expected dict, got {type(actual).__name__}"
+        assert isinstance(actual, dict), (
+            f"{path}: expected dict, got {type(actual).__name__}"
+        )
         assert set(expected) == set(actual), f"{path}: keys differ"
         for key in expected:
             assert_dicts_close(
@@ -301,9 +325,13 @@ def assert_dicts_close(
         return
 
     if isinstance(expected, list):
-        assert isinstance(actual, list), f"{path}: expected list, got {type(actual).__name__}"
+        assert isinstance(actual, list), (
+            f"{path}: expected list, got {type(actual).__name__}"
+        )
         assert len(expected) == len(actual), f"{path}: lengths differ"
-        for index, (expected_item, actual_item) in enumerate(zip(expected, actual, strict=True)):
+        for index, (expected_item, actual_item) in enumerate(
+            zip(expected, actual, strict=True)
+        ):
             assert_dicts_close(
                 expected_item,
                 actual_item,
@@ -349,7 +377,10 @@ def test_lexicon_metadata_and_representative_lemma_regressions() -> None:
         return by_headword.get(hw, [])
 
     assert lexicon["schema_version"] == "2.0.0"
-    assert metadata["data_schema_ref"] == "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json"
+    assert (
+        metadata["data_schema_ref"]
+        == "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json"
+    )
     assert metadata["dialect"] == "attic"
     assert len(lexicon["lemmas"]) > MIN_LEMMAS_COUNT
 
@@ -362,15 +393,15 @@ def test_lexicon_metadata_and_representative_lemma_regressions() -> None:
 
     abelteros = find("ἀβέλτερος")
     assert abelteros is not None, "Lemma 'ἀβέλτερος' not found in lexicon"
-    assert (
-        abelteros["pos"] == "adjective"
-    ), f"Expected POS 'adjective' for lemma 'ἀβέλτερος' but got {abelteros['pos']}"
+    assert abelteros["pos"] == "adjective", (
+        f"Expected POS 'adjective' for lemma 'ἀβέλτερος' but got {abelteros['pos']}"
+    )
 
     hosanei = find("ὡσανεί")
     assert hosanei is not None, "Lemma 'ὡσανεί' not found in lexicon"
-    assert (
-        hosanei["pos"] == "adverb"
-    ), f"Expected POS 'adverb' for lemma 'ὡσανεί' but got {hosanei['pos']}"
+    assert hosanei["pos"] == "adverb", (
+        f"Expected POS 'adverb' for lemma 'ὡσανεί' but got {hosanei['pos']}"
+    )
 
     hopos = find_all("ὅπως")
     assert hopos, "Lemma 'ὅπως' not found in lexicon"
@@ -387,38 +418,38 @@ def test_lexicon_metadata_and_representative_lemma_regressions() -> None:
 
     anelees = find("ἀνελεής")
     assert anelees is not None, "Lemma 'ἀνελεής' not found in lexicon"
-    assert (
-        anelees["pos"] == "adverb"
-    ), f"Expected POS 'adverb' for lemma 'ἀνελεής' but got {anelees['pos']}"
+    assert anelees["pos"] == "adverb", (
+        f"Expected POS 'adverb' for lemma 'ἀνελεής' but got {anelees['pos']}"
+    )
 
     psykhe = find("ψυχή")
     assert psykhe is not None, "Lemma 'ψυχή' not found in lexicon"
-    assert psykhe["ipa"] == "psykʰɛ́ː", (
-        f"Expected IPA 'psykʰɛ́ː', got {psykhe['ipa']!r}"
-    )
+    assert psykhe["ipa"] == "psykʰɛ́ː", f"Expected IPA 'psykʰɛ́ː', got {psykhe['ipa']!r}"
 
     anaklisis = find("ἀνάκλισις")
     assert anaklisis is not None, "Lemma 'ἀνάκλισις' not found in lexicon"
     assert anaklisis["pos"] == "noun", "Expected POS 'noun' for lemma 'ἀνάκλισις'"
-    assert anaklisis["gender"] == "feminine", "Expected gender 'feminine' for lemma 'ἀνάκλισις'"
+    assert anaklisis["gender"] == "feminine", (
+        "Expected gender 'feminine' for lemma 'ἀνάκλισις'"
+    )
 
     apoteikhisma = find("ἀποτείχισμα")
     assert apoteikhisma is not None, "Lemma 'ἀποτείχισμα' not found in lexicon"
     assert apoteikhisma["pos"] == "noun", "Expected POS 'noun' for lemma 'ἀποτείχισμα'"
-    assert apoteikhisma["gender"] == "neuter", "Expected gender 'neuter' for lemma 'ἀποτείχισμα'"
+    assert apoteikhisma["gender"] == "neuter", (
+        "Expected gender 'neuter' for lemma 'ἀποτείχισμα'"
+    )
 
     aeropetes = find("ἀεροπέτης")
     assert aeropetes is not None, "Lemma 'ἀεροπέτης' not found in lexicon"
-    assert find("ἀεροπέτησ2") is None, (
-        "Lemma 'ἀεροπέτησ2' should not exist in lexicon"
-    )
+    assert find("ἀεροπέτησ2") is None, "Lemma 'ἀεροπέτησ2' should not exist in lexicon"
     assert find("εως") is None, "Suffix-only lemma 'εως' should not exist"
     assert find("ατος") is None, "Suffix-only lemma 'ατος' should not exist"
 
     thymiatizo = find("θυμιατίζω")
-    assert (
-        thymiatizo is None or thymiatizo["pos"] != "adjective"
-    ), "Lemma 'θυμιατίζω' should not be classified as an adjective"
+    assert thymiatizo is None or thymiatizo["pos"] != "adjective", (
+        "Lemma 'θυμιατίζω' should not be classified as an adjective"
+    )
 
     apollymi = find("ἀπόλλυμι")
     assert apollymi is not None, "Lemma 'ἀπόλλυμι' not found in lexicon"
@@ -431,7 +462,9 @@ def test_lexicon_metadata_and_representative_lemma_regressions() -> None:
 
     epimemptos = find("ἐπίμεμπτος")
     assert epimemptos is not None, "Lemma 'ἐπίμεμπτος' not found in lexicon"
-    assert epimemptos["pos"] == "adjective", "Expected POS 'adjective' for lemma 'ἐπίμεμπτος'"
+    assert epimemptos["pos"] == "adjective", (
+        "Expected POS 'adjective' for lemma 'ἐπίμεμπτος'"
+    )
 
     arkhon = find("ἄρχων")
     assert arkhon is not None, "Lemma 'ἄρχων' not found in lexicon"
@@ -482,7 +515,9 @@ def test_lexicon_metadata_and_representative_lemma_regressions() -> None:
     theos = find("θεός")
     assert theos is not None, "Lemma 'θεός' not found in lexicon"
     assert theos["pos"] == "noun", "Expected POS 'noun' for lemma 'θεός'"
-    assert theos["gender"] == "masculine", "Expected gender 'masculine' for lemma 'θεός'"
+    assert theos["gender"] == "masculine", (
+        "Expected gender 'masculine' for lemma 'θεός'"
+    )
 
     for pos in (
         "pronoun",
@@ -807,12 +842,18 @@ def test_phonology_rules_doc_defines_context_notation_examples() -> None:
     document = PHONOLOGY_RULES_DOC_PATH.read_text(encoding="utf-8")
 
     assert "morphophonemic_alternations.yaml" in document
-    assert "Consonant rules generally use a compact notation in the `context` field:" in document
+    assert (
+        "Consonant rules generally use a compact notation in the `context` field:"
+        in document
+    )
     assert "Vowel rules may instead use short descriptive English phrases" in document
     assert "Morphophonemic rules use the same `input`/`output` schema" in document
     assert "runtime IPA token space produced by `to_ipa()`" in document
     assert 'dialect="koine"' in document
-    assert "Accent-related patterns are not currently encoded as executable rules." in document
+    assert (
+        "Accent-related patterns are not currently encoded as executable rules."
+        in document
+    )
     assert "`#_V`" in document
     assert "`_#`" in document
     assert "`{p,t,k}_`" in document
@@ -827,7 +868,6 @@ def test_renamed_rules_match_expected_fields(
     vowel_rules: list[dict[str, object]],
     consonant_rules: list[dict[str, object]],
 ) -> None:
-
     cch_006 = _find_rule(consonant_rules, "CCH-006")
     vowel_shift = _find_rule(vowel_rules, "VSH-001")
 

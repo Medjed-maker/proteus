@@ -42,7 +42,12 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         search(
@@ -69,6 +74,7 @@ class TestSearchPartial:
 
         monkeypatch.setattr(search_module, "to_ipa", fake_to_ipa)
         monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+
         def fake_score_stage(query_ipa, candidates, lexicon_map, matrix):
             scored.setdefault("query_ipa", query_ipa)
             return []
@@ -77,7 +83,12 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         search(
@@ -98,7 +109,9 @@ class TestSearchPartial:
         """A wildcard between Greek letters should block cross-boundary diphthongs."""
         captured: dict[str, object] = {}
 
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"])
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"]
+        )
 
         def fake_score_stage(
             query_ipa: str,
@@ -147,8 +160,12 @@ class TestSearchPartial:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Partial-form final ordering should prefer exact prefix matches."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2", "L3"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2", "L3"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -170,7 +187,12 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
@@ -188,8 +210,12 @@ class TestSearchPartial:
     ) -> None:
         """Partial-form should keep longer exact-prefix hits below the confidence floor."""
         threshold = search_module._PARTIAL_QUERY_CONFIDENCE_THRESHOLD
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -205,11 +231,21 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
-            {"id": "L1", "headword": "longer-prefix", "ipa": "p a i", "dialect": "attic"},
+            {
+                "id": "L1",
+                "headword": "longer-prefix",
+                "ipa": "p a i",
+                "dialect": "attic",
+            },
         ]
 
         results = search("ζηταω-", lexicon, matrix={}, max_results=1, index={})
@@ -242,7 +278,12 @@ class TestSearchPartial:
             for index in range(40)
         ]
         lexicon.append(
-            {"id": "TARGET", "headword": "target", "ipa": target_ipa, "dialect": "attic"}
+            {
+                "id": "TARGET",
+                "headword": "target",
+                "ipa": target_ipa,
+                "dialect": "attic",
+            }
         )
         lexicon_map = build_lexicon_map(lexicon)
 
@@ -262,7 +303,9 @@ class TestSearchPartial:
         """Infix partial search should not stop at seed hits spanning the wildcard."""
         captured: dict[str, object] = {}
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": query
+        )
 
         def fake_score_stage(
             query_ipa: str,
@@ -277,11 +320,21 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
-            {"id": "ADJACENT", "headword": "adjacent", "ipa": "k n", "dialect": "attic"},
+            {
+                "id": "ADJACENT",
+                "headword": "adjacent",
+                "ipa": "k n",
+                "dialect": "attic",
+            },
             {"id": "GAPPED", "headword": "gapped", "ipa": "k r n", "dialect": "attic"},
             {"id": "TAIL", "headword": "tail", "ipa": "x y z", "dialect": "attic"},
         ]
@@ -306,9 +359,13 @@ class TestSearchPartial:
         primary_seed_ids = [f"P{index:02d}" for index in range(annotation_limit - 1)]
         supplemental_seed_ids = ["SUPP", "TAIL"]
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": query
+        )
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
+        def fake_seed_stage(
+            query_ipa: str, index: object, k: int = 2, **_kwargs: Any
+        ) -> list[str]:
             return primary_seed_ids if k == 2 else supplemental_seed_ids
 
         def fake_select_partial_seed_candidates(
@@ -341,11 +398,21 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
-            {"id": candidate_id, "headword": candidate_id, "ipa": "a c", "dialect": "attic"}
+            {
+                "id": candidate_id,
+                "headword": candidate_id,
+                "ipa": "a c",
+                "dialect": "attic",
+            }
             for candidate_id in [*primary_seed_ids, *supplemental_seed_ids]
         ]
 
@@ -368,9 +435,13 @@ class TestSearchPartial:
         """Partial-form k=2 seeds should not force wildcard matching over every entry."""
         captured: dict[str, object] = {}
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": query
+        )
 
-        def fake_seed_stage(query_ipa: str, index: object, k: int = 2, **_kwargs: Any) -> list[str]:
+        def fake_seed_stage(
+            query_ipa: str, index: object, k: int = 2, **_kwargs: Any
+        ) -> list[str]:
             return ["SEED"] if k == 2 else []
 
         def fake_score_stage(
@@ -387,7 +458,12 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
@@ -405,8 +481,12 @@ class TestSearchPartial:
         """Partial-form candidate generation should defer zero-overlap pruning until annotation."""
         captured: dict[str, object] = {}
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+        )
 
         def fake_score_stage(
             query_ipa: str,
@@ -421,7 +501,12 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
@@ -439,11 +524,14 @@ class TestSearchPartial:
         """Partial-form preselection should leave room for some zero-overlap tail candidates."""
         captured: dict[str, object] = {}
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
         monkeypatch.setattr(
             search_module,
             "seed_stage",
-            lambda *_args, **_kwargs: ["L1", "L2"] + [f"L{index:03d}" for index in range(3, 121)],
+            lambda *_args, **_kwargs: ["L1", "L2"]
+            + [f"L{index:03d}" for index in range(3, 121)],
         )
 
         def fake_score_stage(
@@ -459,12 +547,22 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
             {"id": "L1", "headword": "exact-prefix", "ipa": "pai", "dialect": "attic"},
-            {"id": "L2", "headword": "positive-overlap", "ipa": "pi", "dialect": "attic"},
+            {
+                "id": "L2",
+                "headword": "positive-overlap",
+                "ipa": "pi",
+                "dialect": "attic",
+            },
         ]
         lexicon.extend(
             {
@@ -478,9 +576,13 @@ class TestSearchPartial:
 
         search("ζηταω-", lexicon, matrix={}, max_results=1, index={})
 
-        assert len(captured["candidate_ids"]) == search_module._MIN_PARTIAL_STAGE2_CANDIDATES
+        assert (
+            len(captured["candidate_ids"])
+            == search_module._MIN_PARTIAL_STAGE2_CANDIDATES
+        )
         expected_candidate_ids = ["L1", "L2"] + [
-            f"L{index:03d}" for index in range(3, search_module._MIN_PARTIAL_STAGE2_CANDIDATES + 1)
+            f"L{index:03d}"
+            for index in range(3, search_module._MIN_PARTIAL_STAGE2_CANDIDATES + 1)
         ]
         assert captured["candidate_ids"] == expected_candidate_ids
 
@@ -490,9 +592,13 @@ class TestSearchPartial:
         """Partial-form preselection should not exceed the configured stage-2 window."""
         captured: dict[str, object] = {}
 
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
         exact_ids = [f"L{index:03d}" for index in range(120)]
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: exact_ids)
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: exact_ids
+        )
 
         def fake_score_stage(
             query_ipa: str,
@@ -507,7 +613,12 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
@@ -522,15 +633,25 @@ class TestSearchPartial:
 
         search("ζηταω-", lexicon, matrix={}, max_results=1, index={})
 
-        assert len(captured["candidate_ids"]) == search_module._MIN_PARTIAL_STAGE2_CANDIDATES
-        assert captured["candidate_ids"] == exact_ids[: search_module._MIN_PARTIAL_STAGE2_CANDIDATES]
+        assert (
+            len(captured["candidate_ids"])
+            == search_module._MIN_PARTIAL_STAGE2_CANDIDATES
+        )
+        assert (
+            captured["candidate_ids"]
+            == exact_ids[: search_module._MIN_PARTIAL_STAGE2_CANDIDATES]
+        )
 
     def test_partial_query_rule_supported_candidate_survives_confidence_floor(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Rule-supported partial-form hits should remain when fragment evidence exists."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -569,8 +690,12 @@ class TestSearchPartial:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Rule support alone should not keep fragment-free partial-form hits."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -598,7 +723,12 @@ class TestSearchPartial:
         monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate)
 
         lexicon = [
-            {"id": "L1", "headword": "rule-only-no-overlap", "ipa": "sa", "dialect": "attic"},
+            {
+                "id": "L1",
+                "headword": "rule-only-no-overlap",
+                "ipa": "sa",
+                "dialect": "attic",
+            },
         ]
 
         results = search("ζηταω-", lexicon, matrix={}, max_results=1, index={})
@@ -609,8 +739,12 @@ class TestSearchPartial:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Partial-form precision mode should prefer no result over bad matches."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "pa"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -619,7 +753,12 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
@@ -640,7 +779,9 @@ class TestSearchPartial:
             "to_ipa",
             lambda query, dialect="attic": {"bc": "b c", "a": "a"}.get(query, query),
         )
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2", "L3"])
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2", "L3"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -668,13 +809,28 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
             {"id": "L1", "headword": "full-suffix", "ipa": "a b c", "dialect": "attic"},
-            {"id": "L2", "headword": "high-confidence-noise", "ipa": "b a x", "dialect": "attic"},
-            {"id": "L3", "headword": "partial-suffix", "ipa": "x c", "dialect": "attic"},
+            {
+                "id": "L2",
+                "headword": "high-confidence-noise",
+                "ipa": "b a x",
+                "dialect": "attic",
+            },
+            {
+                "id": "L3",
+                "headword": "partial-suffix",
+                "ipa": "x c",
+                "dialect": "attic",
+            },
         ]
 
         results = search("*bc", lexicon, matrix={}, max_results=2, index={})
@@ -685,8 +841,12 @@ class TestSearchPartial:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Partial-form ordering should rank rule-supported overlap above raw confidence."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "p a")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "p a"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -717,11 +877,23 @@ class TestSearchPartial:
             annotated[1].applied_rules = ["RULE-002"]
             return annotated
 
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
-            {"id": "L1", "headword": "rule-supported-overlap", "ipa": "p i", "dialect": "attic"},
-            {"id": "L2", "headword": "high-confidence-overlap", "ipa": "p u", "dialect": "attic"},
+            {
+                "id": "L1",
+                "headword": "rule-supported-overlap",
+                "ipa": "p i",
+                "dialect": "attic",
+            },
+            {
+                "id": "L2",
+                "headword": "high-confidence-overlap",
+                "ipa": "p u",
+                "dialect": "attic",
+            },
         ]
 
         results = search("ζηταω-", lexicon, matrix={}, max_results=2, index={})
@@ -733,8 +905,12 @@ class TestSearchPartial:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Partial-form rule support should not outrank stronger wildcard coverage."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "p a")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"])
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "p a"
+        )
+        monkeypatch.setattr(
+            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -765,11 +941,23 @@ class TestSearchPartial:
             annotated[0].applied_rules = ["RULE-001"]
             return annotated
 
-        monkeypatch.setattr(search_module, "_annotate_search_results", fake_annotate_results)
+        monkeypatch.setattr(
+            search_module, "_annotate_search_results", fake_annotate_results
+        )
 
         lexicon = [
-            {"id": "L1", "headword": "rule-supported-weak-overlap", "ipa": "p i", "dialect": "attic"},
-            {"id": "L2", "headword": "full-prefix-match", "ipa": "p a", "dialect": "attic"},
+            {
+                "id": "L1",
+                "headword": "rule-supported-weak-overlap",
+                "ipa": "p i",
+                "dialect": "attic",
+            },
+            {
+                "id": "L2",
+                "headword": "full-prefix-match",
+                "ipa": "p a",
+                "dialect": "attic",
+            },
         ]
 
         results = search("ζηταω-", lexicon, matrix={}, max_results=2, index={})
@@ -784,9 +972,15 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "to_ipa",
-            lambda query, dialect="attic": {"ac": "a c", "a": "a", "c": "c"}.get(query, query),
+            lambda query, dialect="attic": {"ac": "a c", "a": "a", "c": "c"}.get(
+                query, query
+            ),
         )
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2", "L3", "L4"])
+        monkeypatch.setattr(
+            search_module,
+            "seed_stage",
+            lambda *_args, **_kwargs: ["L1", "L2", "L3", "L4"],
+        )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -820,19 +1014,33 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module,
             "_annotate_search_results",
-            lambda query_ipa, results, lexicon_map, matrix, language="ancient_greek", **_kwargs: results,
+            lambda query_ipa,
+            results,
+            lexicon_map,
+            matrix,
+            language="ancient_greek",
+            **_kwargs: results,
         )
 
         lexicon = [
             {"id": "L1", "headword": "zero-gap", "ipa": "a c", "dialect": "attic"},
             {"id": "L2", "headword": "with-gap", "ipa": "a b c", "dialect": "attic"},
             {"id": "L3", "headword": "wrong-order", "ipa": "c a", "dialect": "attic"},
-            {"id": "L4", "headword": "right-only-fragment", "ipa": "x c", "dialect": "attic"},
+            {
+                "id": "L4",
+                "headword": "right-only-fragment",
+                "ipa": "x c",
+                "dialect": "attic",
+            },
         ]
 
         results = search("a*c", lexicon, matrix={}, max_results=3, index={})
 
-        assert [result.lemma for result in results] == ["zero-gap", "with-gap", "right-only-fragment"]
+        assert [result.lemma for result in results] == [
+            "zero-gap",
+            "with-gap",
+            "right-only-fragment",
+        ]
 
     def test_search_rejects_invalid_partial_query_syntax(self) -> None:
         with pytest.raises(ValueError, match="wildcard marker|non-empty string"):

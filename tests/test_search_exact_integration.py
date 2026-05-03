@@ -27,7 +27,9 @@ class TestSearchExactMatchIntegration:
     def test_search_returns_empty_list_when_short_query_has_no_quality_match(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": query
+        )
         lexicon = [
             {"id": "L1", "headword": "alpha", "ipa": "aaa", "dialect": "attic"},
             {"id": "L2", "headword": "beta", "ipa": "bbb", "dialect": "attic"},
@@ -38,8 +40,12 @@ class TestSearchExactMatchIntegration:
 
         assert results == []
 
-    def test_search_trims_headword_labels(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
+    def test_search_trims_headword_labels(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": query
+        )
         lexicon = [
             {"id": "L1", "headword": " alpha ", "ipa": "alpha", "dialect": "attic"},
         ]
@@ -56,7 +62,12 @@ class TestSearchExactMatchIntegration:
         target = {"id": "TARGET", "headword": "τεστ", "ipa": "test", "dialect": "attic"}
         # Create 30 entries sharing k-mers (consonant skeleton "t s t" has k-mers "t s" and "s t")
         filler = [
-            {"id": f"F{i:03d}", "headword": f"filler{i}", "ipa": f"t{'a' * i}st", "dialect": "attic"}
+            {
+                "id": f"F{i:03d}",
+                "headword": f"filler{i}",
+                "ipa": f"t{'a' * i}st",
+                "dialect": "attic",
+            }
             for i in range(1, 31)
         ]
         lexicon = filler + [target]  # target last so its ID sorts late
@@ -75,7 +86,9 @@ class TestSearchExactMatchIntegration:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Verify that duplicate headwords are deduplicated in results."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": query
+        )
         lexicon = [
             {"id": "L1", "headword": "dup", "ipa": "dup", "dialect": "attic"},
             {"id": "L2", "headword": "dup", "ipa": "dup", "dialect": "attic"},
@@ -86,7 +99,9 @@ class TestSearchExactMatchIntegration:
         headwords = [r.lemma for r in results]
         assert headwords.count("dup") == 1
 
-    def test_exact_match_injection_preserves_stage2_limit(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_exact_match_injection_preserves_stage2_limit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Exact-match injection must not expand Stage 2 past its hard candidate cap.
 
         NOTE: This test intentionally mocks private functions (_score_stage,
@@ -95,7 +110,12 @@ class TestSearchExactMatchIntegration:
         the injection logic from full pipeline execution.
         """
         lexicon = [
-            {"id": f"E{i:02d}", "headword": f"dup{i:02d}", "ipa": "tat", "dialect": "attic"}
+            {
+                "id": f"E{i:02d}",
+                "headword": f"dup{i:02d}",
+                "ipa": "tat",
+                "dialect": "attic",
+            }
             for i in range(40)
         ]
         captured: dict[str, list[str]] = {}
@@ -123,9 +143,19 @@ class TestSearchExactMatchIntegration:
             ]
 
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
-        monkeypatch.setattr(search_module, "_annotate_search_results", lambda **kwargs: kwargs["results"])
-        monkeypatch.setattr(search_module, "filter_stage", lambda results, max_results: results[:max_results])
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "tat")
+        monkeypatch.setattr(
+            search_module,
+            "_annotate_search_results",
+            lambda **kwargs: kwargs["results"],
+        )
+        monkeypatch.setattr(
+            search_module,
+            "filter_stage",
+            lambda results, max_results: results[:max_results],
+        )
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": "tat"
+        )
 
         search("dummy", lexicon, matrix={}, max_results=1, dialect="attic")
 
@@ -144,7 +174,9 @@ class TestSearchExactMatchIntegration:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Dedup before truncation: max_results unique entries are returned."""
-        monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": query)
+        monkeypatch.setattr(
+            search_module, "to_ipa", lambda query, dialect="attic": query
+        )
         # 2 duplicate headwords + 3 unique = 5 entries.
         # With max_results=3, dedup-before-truncation should yield 3 unique results
         # (not 2 if dedup were applied after truncation).

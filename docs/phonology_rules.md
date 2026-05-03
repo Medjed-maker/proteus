@@ -28,6 +28,13 @@ Koine consonant normalization, so searches can compare a Koine-style query IPA
 form against the existing Attic-oriented lexicon IPA and surface the matching
 Koine consonant rules during explanation.
 
+Phonological rule YAML files are limited to phonological and morphophonemic
+explanations. Writing-system comments, spelling conventions, normalized-form
+correspondences, and beginner reading aids belong in `orthographic_notes`
+runtime data and are displayed separately as `Orthographic note` /
+`表記体系コメント`. Do not add a spelling-system note to a phonological rule
+just to make it visible in `Applied rules`.
+
 Consonant rules generally use a compact notation in the `context` field:
 
 - `_` marks the position of the segment being transformed.

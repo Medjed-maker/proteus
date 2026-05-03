@@ -12,7 +12,9 @@ from tools import validate_matrix as validate_matrix_tool
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-COMMITTED_MATRIX_PATH = ROOT_DIR / "data" / "languages" / "ancient_greek" / "matrices" / "attic_doric.json"
+COMMITTED_MATRIX_PATH = (
+    ROOT_DIR / "data" / "languages" / "ancient_greek" / "matrices" / "attic_doric.json"
+)
 
 
 def _valid_matrix_document() -> dict[str, object]:
@@ -140,7 +142,9 @@ class TestValidateMatrix:
         document = _valid_matrix_document()
         document["sound_classes"]["vowels"] = []  # type: ignore[index]
 
-        with pytest.raises(ValueError, match="sound_classes.vowels must be a JSON object"):
+        with pytest.raises(
+            ValueError, match=r"sound_classes\.vowels must be a JSON object"
+        ):
             validate_matrix_tool.validate_matrix(_write_matrix(tmp_path, document))
 
     def test_uses_sound_classes_constant(
@@ -195,7 +199,9 @@ class TestRunCli:
         captured = capsys.readouterr()
         assert "Error:" in captured.err
 
-    def test_propagates_unexpected_exceptions(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_propagates_unexpected_exceptions(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         def _raise_runtime_error(argv: list[str] | None = None) -> int:
             raise RuntimeError("unexpected failure")
 

@@ -55,9 +55,7 @@ class TestGreekToIpa:
             ("ηυ", "ɛːy"),
         ],
     )
-    def test_maps_basic_letters_and_diphthongs(
-        self, text: str, expected: str
-    ) -> None:
+    def test_maps_basic_letters_and_diphthongs(self, text: str, expected: str) -> None:
         assert "".join(greek_to_ipa(text)) == expected
 
     def test_handles_mixed_case_after_stripping(self) -> None:
@@ -77,7 +75,9 @@ class TestGreekToIpa:
     def test_mixed_alphanumeric_input_keeps_only_known_greek_letters(self) -> None:
         assert "".join(greek_to_ipa("α1β?")) == "ab"
 
-    def test_unknown_characters_emit_debug_logs(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_unknown_characters_emit_debug_logs(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         caplog.set_level("DEBUG", logger="phonology.ipa_converter")
 
         assert "".join(greek_to_ipa("α1?")) == "a"
@@ -179,7 +179,9 @@ class TestToIpa:
     def test_compact_output_can_be_compared_against_stressed_ipa(self) -> None:
         assert word_distance(to_ipa("λόγος"), "lóɡos", {}) == pytest.approx(0.0)
 
-    def test_rough_breathed_diphthongs_compare_without_extra_phone_penalty(self) -> None:
+    def test_rough_breathed_diphthongs_compare_without_extra_phone_penalty(
+        self,
+    ) -> None:
         assert word_distance(to_ipa("αὑτός"), "autos", {}) == pytest.approx(0.0)
 
     def test_digamma_is_converted_to_w(self) -> None:
@@ -189,7 +191,9 @@ class TestToIpa:
         with pytest.raises(NotImplementedError, match="ionic"):
             to_ipa("λόγος", dialect="ionic")
 
-    def test_invalid_dialect_fails_before_conversion(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_invalid_dialect_fails_before_conversion(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         def fail_if_called(_: str) -> list[str]:
             raise AssertionError("greek_to_ipa should not be called")
 
@@ -204,7 +208,11 @@ class TestApplyKoineConsonantShifts:
         assert apply_koine_consonant_shifts(["kʰ\u0301"]) == ["x\u0301"]
 
     def test_preserves_accent_for_intervocalic_shift(self) -> None:
-        assert apply_koine_consonant_shifts(["a", "d\u0301", "a"]) == ["a", "ð\u0301", "a"]
+        assert apply_koine_consonant_shifts(["a", "d\u0301", "a"]) == [
+            "a",
+            "ð\u0301",
+            "a",
+        ]
 
 
 class TestTokenizeIpa:
@@ -249,7 +257,9 @@ class TestTokenizeIpa:
     def test_attaches_combining_marks_to_preceding_literal_token(self) -> None:
         assert tokenize_ipa("!̃") == ["!̃"]
 
-    def test_unknown_tokens_emit_debug_logs(self, caplog: pytest.LogCaptureFixture) -> None:
+    def test_unknown_tokens_emit_debug_logs(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
         caplog.set_level("DEBUG", logger="phonology.core.ipa")
 
         assert tokenize_ipa("a!") == ["a", "!"]

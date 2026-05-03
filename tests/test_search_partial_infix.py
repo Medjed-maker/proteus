@@ -22,7 +22,9 @@ class TestPartialQueryInfixOrdering:
     """
 
     @staticmethod
-    def _infix_tokens(left: tuple[str, ...], right: tuple[str, ...]) -> PartialQueryTokens:
+    def _infix_tokens(
+        left: tuple[str, ...], right: tuple[str, ...]
+    ) -> PartialQueryTokens:
         return PartialQueryTokens(
             shape="infix",
             left_tokens=left,

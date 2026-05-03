@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -56,10 +57,13 @@ def test_trusted_dir_overrides_enabled_rejects_falsy_values(
 
 
 def test_resolve_trusted_dir_override_returns_none_when_unset() -> None:
-    assert resolve_trusted_dir_override(
-        env_var=_TEST_ENV_VAR,
-        description="test data",
-    ) is None
+    assert (
+        resolve_trusted_dir_override(
+            env_var=_TEST_ENV_VAR,
+            description="test data",
+        )
+        is None
+    )
 
 
 def test_resolve_trusted_dir_override_rejects_override_without_opt_in(
@@ -72,9 +76,8 @@ def test_resolve_trusted_dir_override_rejects_override_without_opt_in(
 
     with pytest.raises(
         ValueError,
-        match=(
-            f"{_TEST_ENV_VAR} requires "
-            f"{TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR}=1"
+        match=re.escape(
+            f"{_TEST_ENV_VAR} requires {TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR}=1"
         ),
     ):
         resolve_trusted_dir_override(env_var=_TEST_ENV_VAR, description="test data")

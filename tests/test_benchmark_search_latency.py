@@ -42,7 +42,9 @@ def test_benchmark_script_writes_json(tmp_path: Path) -> None:
             timeout=SUBPROCESS_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired as exc:
-        pytest.fail(f"benchmark CLI timed out in test_benchmark_script_writes_json: {exc}")
+        pytest.fail(
+            f"benchmark CLI timed out in test_benchmark_script_writes_json: {exc}"
+        )
 
     assert completed.returncode == 0, completed.stderr
     assert output_path.exists()
@@ -56,7 +58,9 @@ def test_benchmark_script_writes_json(tmp_path: Path) -> None:
     assert benchmark["max_ms"] >= 0.0
 
 
-def test_benchmark_script_fails_when_baseline_threshold_is_exceeded(tmp_path: Path) -> None:
+def test_benchmark_script_fails_when_baseline_threshold_is_exceeded(
+    tmp_path: Path,
+) -> None:
     """CLI should exit non-zero when the saved baseline is much faster."""
     baseline_path = tmp_path / "baseline.json"
     output_path = tmp_path / "result.json"
@@ -186,7 +190,9 @@ def test_compare_against_baseline_rejects_missing_metric() -> None:
         )
 
 
-def test_benchmark_script_warns_when_baseline_json_lacks_benchmark_key(tmp_path: Path) -> None:
+def test_benchmark_script_warns_when_baseline_json_lacks_benchmark_key(
+    tmp_path: Path,
+) -> None:
     """CLI should warn when falling back to a legacy whole-payload baseline format."""
     baseline_path = tmp_path / "baseline.json"
     output_path = tmp_path / "result.json"
