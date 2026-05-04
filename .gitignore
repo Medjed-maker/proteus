@@ -89,6 +89,7 @@ data/languages/ancient_greek/lexicon/greek_lemmas.meta.json
 # MCP
 .serena/
 .playwright-mcp/
+.claude/worktrees/
 
 # Screenshots
 proteus-*.png
