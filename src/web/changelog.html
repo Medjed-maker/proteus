@@ -17,8 +17,24 @@
       <p class="text-ink-light text-base mt-2">Current version: {{APP_VERSION}}</p>
     </header>
 
-    <section class="bg-white border border-parchment-200 rounded-lg p-5 shadow-sm">
+    <section class="bg-white border border-parchment-200 rounded-lg p-5 shadow-sm mb-4">
       <h2 class="text-xl font-bold">v{{APP_VERSION}}</h2>
+      <p class="mt-2 text-xs text-ink-muted uppercase tracking-wide">Orthographic notes &amp; inscriptional spelling aid</p>
+      <ul class="mt-3 text-sm text-ink-light leading-relaxed list-disc list-inside space-y-1">
+        <li>Added <strong>Orthographic note</strong> section to each result card, displayed between Matched rules and Alignment.</li>
+        <li>Result cards for Ancient Greek now show orthographic correspondence notes — e.g. <code>παιδίο</code> is annotated as potentially corresponding to <code>παιδίου (paidiou)</code>.</li>
+        <li>Added <strong>pre-403/2 BCE Attic spelling</strong> note kind: forms that may reflect pre-reform Attic inscriptional orthography are identified when data or <code>orthography_hint</code> supports it.</li>
+        <li>Added <strong>reading aid</strong> note kind to help students map inscriptional forms to dictionary headwords.</li>
+        <li>New <code>orthography_hint</code> parameter on <code>POST /search</code> — accepted values: <code>"standard"</code>, <code>"inscriptional"</code>, <code>"pre_403_2_attic"</code>.</li>
+        <li>Search hit responses include a new <code>orthographic_notes</code> array (empty by default; does not break existing clients).</li>
+        <li>EN/JA translations added for all orthographic note labels and messages.</li>
+        <li>Orthographic note data is marked <em>provisional</em> and not yet expert-reviewed.</li>
+      </ul>
+    </section>
+
+    <section class="bg-white border border-parchment-200 rounded-lg p-5 shadow-sm">
+      <h2 class="text-xl font-bold">v0.1.x</h2>
+      <p class="mt-2 text-xs text-ink-muted uppercase tracking-wide">Earlier changes</p>
       <ul class="mt-3 text-sm text-ink-light leading-relaxed list-disc list-inside space-y-1">
         <li>Search responses now include lexicon, distance matrix, and rule version metadata in <code>data_versions</code>.</li>
         <li>Footer now reports the running application version with a link to this page.</li>

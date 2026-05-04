@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "proteus-api",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "uvicorn", "api.main:app", "--reload"],
+      "port": 8000
+    }
+  ]
+}
