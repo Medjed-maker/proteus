@@ -38,6 +38,11 @@ student-facing and researcher-facing comments about writing systems, spelling
 conventions, or normalized-form correspondences; they are kept separate from
 phonological rule explanations.
 
+Runtime orthographic notes carry internal review metadata in the packaged YAML,
+but the public API currently exposes only display-oriented note fields such as
+`references`. A note should not be treated as citation-ready unless the source
+data explicitly records expert review and citation readiness.
+
 ## Project Structure
 
 ```text

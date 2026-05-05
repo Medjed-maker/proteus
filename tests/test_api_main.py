@@ -2,6 +2,7 @@
 
 import logging
 import unicodedata
+import warnings
 from collections.abc import Callable, Generator
 from dataclasses import replace
 from functools import lru_cache
@@ -809,7 +810,6 @@ class TestSearchHit:
             "candidate_ipa": "paidiu",
             "query_ipa": "paidio",
             "response_language": "en",
-            "orthography_hint": "pre_403_2_attic",
         }
         assert [note.model_dump() for note in hit.orthographic_notes] == [
             {
@@ -1772,7 +1772,6 @@ class TestSearchEndpoint:
         notes = response.json()["hits"][0]["orthographic_notes"]
         assert [note["kind"] for note in notes] == [
             "orthographic_correspondence",
-            "pre_403_2_attic",
             "beginner_aid",
         ]
         assert notes[0]["normalized_form"] == "παιδίου"
@@ -1780,6 +1779,8 @@ class TestSearchEndpoint:
         assert notes[0]["messages"] == [
             "παιδίο may correspond to normalized form παιδίου (paidiou)."
         ]
+        assert all("review_status" not in note for note in notes)
+        assert all("citation_ready" not in note for note in notes)
         assert response.json()["hits"][0]["candidate_bucket"] == "Supported"
         assert "phonological explanation" == response.json()["hits"][0]["explanation"]
 
@@ -1822,8 +1823,7 @@ class TestSearchEndpoint:
         assert response.status_code == 200
         hit = response.json()["hits"][0]
         notes = hit["orthographic_notes"]
-        assert len(notes) == 1
-        assert notes[0]["kind"] == "pre_403_2_attic"
+        assert notes == []
         assert hit["candidate_bucket"] == "Exploratory"
 
     def test_search_returns_japanese_orthographic_notes(
@@ -1873,7 +1873,7 @@ class TestSearchEndpoint:
             in messages
         )
 
-    def test_search_applies_pre_403_2_attic_orthography_hint(
+    def test_search_accepts_pre_403_2_attic_orthography_hint_without_note_fallback(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         mock_search_dependencies(monkeypatch)
@@ -1911,10 +1911,48 @@ class TestSearchEndpoint:
 
         assert response.status_code == 200
         notes = response.json()["hits"][0]["orthographic_notes"]
-        assert [note["kind"] for note in notes] == ["pre_403_2_attic"]
-        assert notes[0]["messages"] == [
-            "This form may reflect a pre-403/2 BCE Attic inscriptional spelling."
-        ]
+        assert notes == []
+
+    def test_search_orthography_hint_does_not_warn_when_warnings_are_errors(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+        monkeypatch.setattr(
+            api_hit_formatting, "explain_alignment", lambda **kwargs: FakeExplanation()
+        )
+        monkeypatch.setattr(
+            api_hit_formatting,
+            "to_prose",
+            lambda explanation: "phonological explanation",
+        )
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search_execution",
+            lambda *args, **kwargs: search_module.SearchExecutionResult(
+                results=[
+                    SearchResult(
+                        lemma="λόγος",
+                        confidence=1.0,
+                        dialect_attribution="lemma dialect: attic",
+                        applied_rules=[],
+                        ipa="loɡos",
+                    )
+                ],
+                query_ipa="loɡos",
+                query_mode="Full-form",
+                truncated=False,
+            ),
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            response = client.post(
+                "/search",
+                json={"query_form": "λόγος", "orthography_hint": "pre_403_2_attic"},
+            )
+
+        assert response.status_code == 200
+        assert response.json()["hits"][0]["orthographic_notes"] == []
 
     def test_search_marks_short_query_distance_only_hits_as_exploratory(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
@@ -2846,7 +2884,7 @@ class TestSearchValidation:
     ) -> None:
         request = SearchRequest(query_form="λόγος", orthography_hint=orthography_hint)
 
-        assert request.orthography_hint == orthography_hint
+        assert request.model_dump()["orthography_hint"] == orthography_hint
 
     def test_search_request_normalizes_supported_orthography_hint(self) -> None:
         request = SearchRequest(
@@ -2854,7 +2892,7 @@ class TestSearchValidation:
             orthography_hint=" PRE_403_2_ATTIC ",
         )
 
-        assert request.orthography_hint == "pre_403_2_attic"
+        assert request.model_dump()["orthography_hint"] == "pre_403_2_attic"
 
     def test_search_rejects_unsupported_orthography_hint(
         self, client: TestClient
@@ -2866,6 +2904,13 @@ class TestSearchValidation:
 
         assert response.status_code == 422
         assert "orthography_hint" in response.text
+
+    def test_search_request_marks_orthography_hint_as_deprecated(self) -> None:
+        from api.main import app
+
+        schema = app.openapi()
+        properties = schema["components"]["schemas"]["SearchRequest"]["properties"]
+        assert properties["orthography_hint"]["deprecated"] is True
 
     @pytest.mark.parametrize(
         ("value", "expected"),

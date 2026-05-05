@@ -163,11 +163,12 @@ class SearchRequest(BaseModel):
         | None
     ) = Field(
         default=None,
+        deprecated=True,
         description=(
-            "Optional writing-system hint for candidate-level orthographic notes. "
-            "Currently only 'pre_403_2_attic' has behavioral effect; "
-            "'standard' and 'inscriptional' are reserved for future use and accepted "
-            "as valid input but produce no orthographic notes."
+            "Deprecated: hints are accepted for backward compatibility but no "
+            "longer affect orthographic note generation. Notes are produced "
+            "exclusively from curated runtime orthography data. This field will "
+            "be removed in a future release; remove it from your requests."
         ),
     )
 

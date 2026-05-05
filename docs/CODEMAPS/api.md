@@ -125,6 +125,11 @@ beginner-facing reading aids rather than phonological rule steps. However,
 `orthographic_correspondence` notes are an exception: they affect
 `candidate_bucket` (see **`candidate_bucket` determination** above).
 
+`references` contains short citation strings loaded from runtime orthography
+data when available. Entry-level review metadata such as `review_status` and
+`citation_ready` is validated at load time but is not exposed in this API shape.
+An `orthographic_notes` entry is therefore not automatically citation-ready.
+
 ## Data Flow: POST /search
 
 ```

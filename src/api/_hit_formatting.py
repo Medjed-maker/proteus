@@ -568,7 +568,6 @@ def _build_search_hit(
                     candidate_ipa=source_ipa,
                     query_ipa=query_ipa,
                     response_language=lang,
-                    orthography_hint=orthography_hint,
                 )
             ]
         except OrthographicNoteDataError:
