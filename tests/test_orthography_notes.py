@@ -34,6 +34,20 @@ ALLOWED_KINDS = {
     "pre_403_2_attic",
 }
 ALLOWED_CONFIDENCE = {"low", "medium", "high"}
+ALLOWED_REVIEW_STATUS = {
+    "not_expert_reviewed",
+    "source_located",
+    "needs_expert_review",
+    "expert_reviewed",
+    "rejected",
+}
+ALLOWED_SOURCE_TYPES = {
+    "aio",
+    "phi",
+    "ig",
+    "secondary_literature",
+    "expert_note",
+}
 
 
 def _load_orthography_yaml() -> dict[str, Any]:
@@ -42,6 +56,29 @@ def _load_orthography_yaml() -> dict[str, Any]:
     )
     assert isinstance(document, dict)
     return document
+
+
+def _valid_raw_entry(**overrides: object) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "original": "παιδίο",
+        "normalized": "παιδίου",
+        "candidate_headwords": ["παιδίον"],
+        "romanization": "paidiou",
+        "kind": "orthographic_correspondence",
+        "tags": ["beginner_aid", "inscriptional"],
+        "confidence": "medium",
+        "review_status": "needs_expert_review",
+        "citation_ready": False,
+        "source_type": [],
+        "source_ids": [],
+        "references": [],
+        "reference_urls": [],
+        "review_notes": "",
+        "reviewed_by": "",
+        "reviewed_at": "",
+    }
+    entry.update(overrides)
+    return entry
 
 
 def test_orthographic_correspondence_yaml_has_expected_schema() -> None:
@@ -73,6 +110,20 @@ def test_orthographic_correspondence_yaml_has_expected_schema() -> None:
         assert all(isinstance(tag, str) for tag in entry["tags"])
         assert isinstance(entry.get("references"), list)
         assert all(isinstance(reference, str) for reference in entry["references"])
+        assert isinstance(entry.get("review_status"), str)
+        assert entry["review_status"] in ALLOWED_REVIEW_STATUS - {"rejected"}
+        assert isinstance(entry.get("citation_ready"), bool)
+        assert isinstance(entry.get("source_type"), list)
+        assert all(
+            source_type in ALLOWED_SOURCE_TYPES for source_type in entry["source_type"]
+        )
+        assert isinstance(entry.get("source_ids"), list)
+        assert all(isinstance(source_id, str) for source_id in entry["source_ids"])
+        assert isinstance(entry.get("reference_urls"), list)
+        assert all(isinstance(url, str) for url in entry["reference_urls"])
+        assert isinstance(entry.get("review_notes"), str)
+        assert isinstance(entry.get("reviewed_by"), str)
+        assert isinstance(entry.get("reviewed_at"), str)
 
 
 def test_orthographic_correspondence_yaml_contains_only_provisional_seed() -> None:
@@ -86,9 +137,20 @@ def test_orthographic_correspondence_yaml_contains_only_provisional_seed() -> No
             "candidate_headwords": ["παιδίον"],
             "romanization": "paidiou",
             "kind": "orthographic_correspondence",
-            "tags": ["beginner_aid", "inscriptional", "pre_403_2_attic"],
+            "tags": ["beginner_aid", "inscriptional"],
             "confidence": "medium",
+            "review_status": "needs_expert_review",
+            "citation_ready": False,
+            "source_type": [],
+            "source_ids": [],
             "references": [],
+            "reference_urls": [],
+            "review_notes": (
+                "Direct source evidence for a pre-403/2 BCE Attic inscriptional "
+                "reading is not yet confirmed."
+            ),
+            "reviewed_by": "",
+            "reviewed_at": "",
         }
     ]
 
@@ -114,7 +176,6 @@ def test_ancient_greek_builder_returns_curated_correspondence_notes() -> None:
 
     assert kinds == [
         "orthographic_correspondence",
-        "pre_403_2_attic",
         "beginner_aid",
     ]
     correspondence = notes[0]
@@ -124,7 +185,7 @@ def test_ancient_greek_builder_returns_curated_correspondence_notes() -> None:
     assert correspondence.messages == (
         "παιδίο may correspond to normalized form παιδίου (paidiou).",
     )
-    reading_aid = notes[2]
+    reading_aid = notes[1]
     assert reading_aid.label == "Reading aid"
     assert reading_aid.messages == (
         "Reading aid: this form may correspond to παιδίου (paidiou).",
@@ -143,10 +204,6 @@ def test_ancient_greek_builder_returns_japanese_messages() -> None:
     messages = [message for note in notes for message in note.messages]
 
     assert "παιδίο は正規化形 παιδίου (paidiou) に対応する可能性があります。" in messages
-    assert (
-        "この形は、紀元前403/2年以前のアッティカ碑文表記を反映している可能性があります。"
-        in messages
-    )
     assert (
         "読み替え補助: この形は παιδίου (paidiou) に対応する可能性があります。"
         in messages
@@ -180,34 +237,46 @@ def test_ancient_greek_builder_requires_curated_candidate_headword() -> None:
     assert notes == []
 
 
-def test_pre_403_2_attic_hint_returns_historical_note_without_correspondence() -> None:
-    notes = build_orthographic_notes(
-        query_form="λόγος",
-        candidate_headword="λόγος",
-        candidate_ipa="loɡos",
-        query_ipa="loɡos",
-        response_language="en",
-        orthography_hint="pre_403_2_attic",
-    )
+def test_ancient_greek_builder_warns_for_deprecated_orthography_hint() -> None:
+    with pytest.warns(DeprecationWarning, match="orthography_hint"):
+        notes = build_orthographic_notes(
+            query_form="λόγος",
+            candidate_headword="λόγος",
+            candidate_ipa="loɡos",
+            query_ipa="loɡos",
+            response_language="en",
+            orthography_hint="standard",
+        )
 
-    assert [note.kind for note in notes] == ["pre_403_2_attic"]
-    assert notes[0].confidence == "low"
-    assert notes[0].messages == (
-        "This form may reflect a pre-403/2 BCE Attic inscriptional spelling.",
-    )
+    assert notes == []
+
+
+def test_pre_403_2_attic_hint_without_yaml_entry_returns_no_note() -> None:
+    with pytest.warns(DeprecationWarning, match="orthography_hint"):
+        notes = build_orthographic_notes(
+            query_form="λόγος",
+            candidate_headword="λόγος",
+            candidate_ipa="loɡos",
+            query_ipa="loɡos",
+            response_language="en",
+            orthography_hint="pre_403_2_attic",
+        )
+
+    assert notes == []
 
 
 def test_pre_403_2_attic_note_is_not_duplicated_for_tagged_correspondence() -> None:
-    notes = build_orthographic_notes(
-        query_form="παιδίο",
-        candidate_headword="παιδίον",
-        candidate_ipa="paidiu",
-        query_ipa="paidio",
-        response_language="en",
-        orthography_hint="pre_403_2_attic",
-    )
+    with pytest.warns(DeprecationWarning, match="orthography_hint"):
+        notes = build_orthographic_notes(
+            query_form="παιδίο",
+            candidate_headword="παιδίον",
+            candidate_ipa="paidiu",
+            query_ipa="paidio",
+            response_language="en",
+            orthography_hint="pre_403_2_attic",
+        )
 
-    assert [note.kind for note in notes].count("pre_403_2_attic") == 1
+    assert [note.kind for note in notes].count("pre_403_2_attic") == 0
 
 
 def test_beginner_aid_requires_beginner_tag(
@@ -348,6 +417,45 @@ def test_pre_403_2_attic_kind_returns_note_without_tag(
     assert notes[0].confidence == "medium"
 
 
+def test_pre_403_2_attic_kind_returns_japanese_historical_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry = orthography_notes_module._CorrespondenceEntry(
+        original=orthography_notes_module._nfc("παιδίο"),
+        normalized=orthography_notes_module._nfc("παιδίου"),
+        candidate_headwords=(orthography_notes_module._nfc("παιδίον"),),
+        romanization="paidiou",
+        kind="pre_403_2_attic",
+        tags=(),
+        confidence="medium",
+        references=("IG I^3 000",),
+        review_status="expert_reviewed",
+        citation_ready=True,
+        source_type=("ig",),
+        source_ids=("IG I^3 000",),
+        reviewed_by="tm",
+        reviewed_at="2026-05-05",
+    )
+    monkeypatch.setattr(
+        orthography_notes_module,
+        "_load_correspondence_entries",
+        lambda: (entry,),
+    )
+
+    notes = build_orthographic_notes(
+        query_form="παιδίο",
+        candidate_headword="παιδίον",
+        candidate_ipa="paidiu",
+        query_ipa="paidio",
+        response_language="ja",
+    )
+
+    assert [note.kind for note in notes] == ["pre_403_2_attic"]
+    assert notes[0].messages == (
+        "この形は、紀元前403/2年以前のアッティカ碑文表記を反映している可能性があります。",
+    )
+
+
 def test_beginner_aid_kind_and_tag_do_not_duplicate_note(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -381,15 +489,7 @@ def test_beginner_aid_kind_and_tag_do_not_duplicate_note(
 def test_parse_entry_whitespace_romanization_uses_transliteration() -> None:
     """Verify _parse_entry treats whitespace-only romanization as missing."""
     # Entry with whitespace-only romanization should fall back to transliteration
-    raw_entry = {
-        "original": "παιδίο",
-        "normalized": "παιδίου",
-        "romanization": "   ",  # whitespace-only
-        "kind": "orthographic_correspondence",
-        "tags": [],
-        "confidence": "medium",
-        "references": [],
-    }
+    raw_entry = _valid_raw_entry(romanization="   ")
     entry = _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
 
     # Should use auto-generated transliteration, not empty string
@@ -399,14 +499,8 @@ def test_parse_entry_whitespace_romanization_uses_transliteration() -> None:
 
 
 def test_parse_entry_defaults_candidate_headwords_to_normalized_form() -> None:
-    raw_entry = {
-        "original": "παιδίο",
-        "normalized": "παιδίου",
-        "kind": "orthographic_correspondence",
-        "tags": [],
-        "confidence": "medium",
-        "references": [],
-    }
+    raw_entry = _valid_raw_entry(candidate_headwords=None)
+    raw_entry.pop("candidate_headwords")
 
     entry = _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
 
@@ -425,18 +519,132 @@ def test_parse_entry_defaults_candidate_headwords_to_normalized_form() -> None:
 def test_parse_entry_rejects_invalid_candidate_headwords(
     candidate_headwords: object,
 ) -> None:
-    raw_entry = {
-        "original": "παιδίο",
-        "normalized": "παιδίου",
-        "candidate_headwords": candidate_headwords,
-        "kind": "orthographic_correspondence",
-        "tags": [],
-        "confidence": "medium",
-        "references": [],
-    }
+    raw_entry = _valid_raw_entry(candidate_headwords=candidate_headwords)
 
     with pytest.raises(ValueError, match="candidate"):
         _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
+
+
+def test_parse_entry_accepts_valid_review_metadata() -> None:
+    raw_entry = _valid_raw_entry(
+        review_status="source_located",
+        source_type=["aio", "expert_note"],
+        source_ids=["AIO IG I^3 000"],
+        references=["AIO, IG I^3 000"],
+        reference_urls=["https://example.test/aio/ig-i3-000"],
+        review_notes="Source located; expert review pending.",
+    )
+
+    entry = _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
+
+    assert entry.review_status == "source_located"
+    assert entry.citation_ready is False
+    assert entry.source_type == ("aio", "expert_note")
+    assert entry.source_ids == ("AIO IG I^3 000",)
+    assert entry.references == ("AIO, IG I^3 000",)
+    assert entry.reference_urls == ("https://example.test/aio/ig-i3-000",)
+    assert entry.review_notes == "Source located; expert review pending."
+
+
+@pytest.mark.parametrize(
+    ("key", "match"),
+    [
+        ("review_status", "directly define"),
+        ("citation_ready", "directly define"),
+        ("source_type", "directly define"),
+        ("source_ids", "directly define"),
+        ("references", "directly define"),
+    ],
+)
+def test_parse_entry_rejects_missing_required_review_metadata(
+    key: str,
+    match: str,
+) -> None:
+    raw_entry = _valid_raw_entry()
+    raw_entry.pop(key)
+
+    with pytest.raises(ValueError, match=match):
+        _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "match"),
+    [
+        ({"review_status": "reviewed"}, "unsupported review_status"),
+        ({"review_status": "rejected"}, "rejected review_status"),
+        ({"source_type": ["unknown"]}, "unsupported source_type"),
+        ({"source_type": "aio"}, "list of strings"),
+        ({"citation_ready": "false"}, "boolean"),
+        ({"reviewed_at": "05/05/2026"}, "ISO date"),
+        (
+            {"review_status": "source_located", "source_type": [], "source_ids": []},
+            "source_located",
+        ),
+        (
+            {"review_status": "expert_reviewed", "reviewed_by": "", "reviewed_at": ""},
+            "expert_reviewed",
+        ),
+        (
+            {
+                "review_status": "expert_reviewed",
+                "reviewed_by": "tm",
+                "reviewed_at": "2026-05-05",
+            },
+            "expert_reviewed",
+        ),
+        (
+            {
+                "citation_ready": True,
+                "review_status": "source_located",
+                "source_type": ["ig"],
+                "source_ids": ["IG I^3 000"],
+                "references": ["IG I^3 000"],
+            },
+            "citation_ready true",
+        ),
+        (
+            {
+                "citation_ready": True,
+                "review_status": "expert_reviewed",
+                "source_type": ["ig"],
+                "source_ids": [],
+                "references": ["IG I^3 000"],
+                "reviewed_by": "tm",
+                "reviewed_at": "2026-05-05",
+            },
+            "expert_reviewed",
+        ),
+        ({"tags": ["pre_403_2_attic"]}, "pre_403_2_attic"),
+        ({"kind": "pre_403_2_attic"}, "pre_403_2_attic"),
+    ],
+)
+def test_parse_entry_rejects_invalid_review_metadata(
+    overrides: dict[str, object],
+    match: str,
+) -> None:
+    raw_entry = _valid_raw_entry(**overrides)
+
+    with pytest.raises(ValueError, match=match):
+        _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
+
+
+def test_parse_entry_accepts_citation_ready_entry_with_complete_review_metadata() -> None:
+    raw_entry = _valid_raw_entry(
+        review_status="expert_reviewed",
+        citation_ready=True,
+        source_type=["ig", "expert_note"],
+        source_ids=["IG I^3 000"],
+        references=["IG I^3 000"],
+        reviewed_by="tm",
+        reviewed_at="2026-05-05",
+    )
+
+    entry = _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
+
+    assert entry.review_status == "expert_reviewed"
+    assert entry.citation_ready is True
+    assert entry.reviewed_by == "tm"
+    assert entry.reviewed_at == "2026-05-05"
 
 
 def test_orthographic_note_payload_normalizes_list_messages_to_tuple() -> None:
@@ -460,7 +668,9 @@ def test_orthographic_note_data_error_is_raised_on_invalid_yaml(
         "_meta:\n  status: provisional\n  review_status: not_expert_reviewed\n"
         "  citation_ready: false\n  references: []\n  note: test\n"
         "entries:\n  - original: x\n    normalized: y\n    kind: invalid_kind\n"
-        "    confidence: medium\n    tags: []\n    references: []\n",
+        "    confidence: medium\n    tags: []\n    review_status: needs_expert_review\n"
+        "    citation_ready: false\n    source_type: []\n    source_ids: []\n"
+        "    references: []\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(

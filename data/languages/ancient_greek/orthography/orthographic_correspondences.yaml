@@ -12,6 +12,14 @@ entries:
     candidate_headwords: ["παιδίον"]
     romanization: "paidiou"
     kind: "orthographic_correspondence"
-    tags: ["beginner_aid", "inscriptional", "pre_403_2_attic"]
+    tags: ["beginner_aid", "inscriptional"]
     confidence: "medium"
+    review_status: needs_expert_review
+    citation_ready: false
+    source_type: []
+    source_ids: []
     references: []
+    reference_urls: []
+    review_notes: "Direct source evidence for a pre-403/2 BCE Attic inscriptional reading is not yet confirmed."
+    reviewed_by: ""
+    reviewed_at: ""

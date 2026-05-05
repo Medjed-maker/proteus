@@ -129,6 +129,13 @@ normalized forms, or beginner reading aids. The core search engine treats the
 hook as optional and receives an empty note list for languages that do not
 provide one.
 
+Runtime orthographic-note YAML stores entry-level review metadata such as
+`review_status`, `citation_ready`, source identifiers, reviewer fields, and
+short references. That metadata is validated by the language plugin loader, but
+it is not part of the current public `OrthographicNote` API shape. The API may
+return provisional notes, so consumers must not infer citation readiness from
+the presence of an `orthographic_notes` entry.
+
 ## 6. Corpus Adapter Layer
 Corpus adapters connect the framework to external corpora or corpus-derived metadata.
 

@@ -642,7 +642,6 @@ async def search(
                 lang=request.response_language,
                 query_form=request.query_form,
                 orthographic_note_builder=profile.orthographic_note_builder,
-                orthography_hint=request.orthography_hint,
             )
             for result in results
         ],
