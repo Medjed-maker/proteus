@@ -41,7 +41,14 @@ phonological rule explanations.
 Runtime orthographic notes carry internal review metadata in the packaged YAML,
 but the public API currently exposes only display-oriented note fields such as
 `references`. A note should not be treated as citation-ready unless the source
-data explicitly records expert review and citation readiness.
+data explicitly records expert review and citation readiness. Non-empty
+`references` are short source labels, not a guarantee that the full note has
+passed expert review.
+
+Citation-ready orthographic notes are a data-review roadmap item. The current
+packaged Ancient Greek orthographic-note seeds remain provisional until their
+source evidence, reviewer decision, and citation-ready metadata are recorded in
+runtime data.
 
 ## Project Structure
 

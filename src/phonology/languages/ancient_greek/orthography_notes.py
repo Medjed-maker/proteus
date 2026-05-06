@@ -8,6 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, TypedDict, cast, get_args
 import unicodedata
+from urllib.parse import urlparse
 import warnings
 
 import yaml  # type: ignore[import-untyped]
@@ -171,6 +172,40 @@ def _validate_iso_date(value: str, *, key: str, path: Path, index: int) -> None:
         ) from exc
 
 
+def _looks_like_url(value: str) -> bool:
+    parsed = urlparse(value)
+    return bool(parsed.scheme and parsed.netloc) or value.lower().startswith("www.")
+
+
+def _validate_no_urls(
+    values: tuple[str, ...],
+    *,
+    key: str,
+    path: Path,
+    index: int,
+) -> None:
+    if any(_looks_like_url(value) for value in values):
+        raise ValueError(
+            f"Orthographic entry {index} in {path} must keep URLs out of {key!r}; "
+            "use 'reference_urls' instead"
+        )
+
+
+def _validate_reference_urls(
+    values: tuple[str, ...],
+    *,
+    path: Path,
+    index: int,
+) -> None:
+    for value in values:
+        parsed = urlparse(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError(
+                f"Orthographic entry {index} in {path} must define "
+                "'reference_urls' as http(s) URLs"
+            )
+
+
 def _validate_review_metadata(
     raw_entry: dict[str, Any],
     *,
@@ -186,6 +221,11 @@ def _validate_review_metadata(
     by the caller; this function uses them only for cross-field invariant
     checks (e.g. pre_403_2_attic requires source_type/ids/references).
     """
+    if "evidence_excerpt" in raw_entry:
+        raise ValueError(
+            f"Orthographic entry {index} in {path} must not define "
+            "'evidence_excerpt' in runtime data"
+        )
     for key in _REQUIRED_REVIEW_METADATA_KEYS:
         _require_direct_key(raw_entry, key, path=path, index=index)
 
@@ -215,12 +255,15 @@ def _validate_review_metadata(
             f"{unsupported_source_types!r}"
         )
     source_ids = _require_str_list(raw_entry, "source_ids", path=path, index=index)
+    _validate_no_urls(source_ids, key="source_ids", path=path, index=index)
+    _validate_no_urls(references, key="references", path=path, index=index)
     reference_urls = _require_str_list(
         raw_entry,
         "reference_urls",
         path=path,
         index=index,
     )
+    _validate_reference_urls(reference_urls, path=path, index=index)
     review_notes = _optional_str(raw_entry, "review_notes", path=path, index=index)
     reviewed_by = _optional_str(raw_entry, "reviewed_by", path=path, index=index)
     reviewed_at = _optional_str(raw_entry, "reviewed_at", path=path, index=index)

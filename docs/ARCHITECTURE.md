@@ -136,6 +136,19 @@ it is not part of the current public `OrthographicNote` API shape. The API may
 return provisional notes, so consumers must not infer citation readiness from
 the presence of an `orthographic_notes` entry.
 
+Runtime orthographic-note evidence is intentionally compact. Entries should
+store canonical source identifiers, short citation strings, and optional
+verification URLs; they must not store long source text or unbounded excerpts.
+This keeps packaged runtime data reviewable without redistributing third-party
+corpus text.
+
+papyri.info / EpiDoc `choice`-derived data belongs to corpus-adapter or
+candidate-generation workflows until reviewed. It must not be treated as direct
+evidence for Attic inscriptional orthographic notes, and it must not be merged
+with runtime orthographic-note evidence without source review. In particular,
+pre-403/2 BCE Attic notes require inscriptional source evidence or explicit
+expert judgment rather than papyrological normalization metadata alone.
+
 ## 6. Corpus Adapter Layer
 Corpus adapters connect the framework to external corpora or corpus-derived metadata.
 

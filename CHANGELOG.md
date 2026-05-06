@@ -29,5 +29,7 @@
   orthographic-note YAML.
 - `ReviewStatus` and `SourceType` literal type aliases in the Ancient Greek
   orthography-note module.
-
+- Runtime validation now keeps orthographic-note `references` and `source_ids`
+  URL-free, restricts `reference_urls` to `http` / `https`, and rejects
+  `evidence_excerpt` in packaged YAML.
 

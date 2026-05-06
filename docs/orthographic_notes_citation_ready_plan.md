@@ -338,43 +338,59 @@ Implemented validation policy: the five direct fields `review_status`, `citation
 
 ## Phase 7: References 実運用
 
-- [ ] citation 文字列の形式を決める。
-  - [ ] `IG I^3 000`
-  - [ ] `AIO, IG I^3 000`
-  - [ ] `PHI Greek Inscriptions, [publication reference]`
-  - [ ] `Buck, section 4`
-- [ ] URL の扱いを決める。
-  - [ ] `source_ids` には canonical identifier (IG citation / AIO record id / PHI text id / 著者+書名+節) を保存する。
-  - [ ] URL は optional な `reference_urls` に分離する。
-  - [ ] link rot 時は canonical id 優先で再解決可能にする。
-  - [ ] `references` には人間可読な短い citation 文字列を入れ、URL は混ぜない。
-  - [ ] UI に出す可能性がある文字列は短く保つ。
-- [ ] source text の扱いを決める。
-  - [ ] YAML に長い Greek text を保存しない。
-  - [ ] `evidence_excerpt` フィールドは初期スコープでは導入しない (drop)。`references` + canonical id + 外部再確認で運用する。
-  - [ ] 将来的に excerpt が必要になった場合は、文字数上限・著作権・利用条件を含めた別 RFC で議論する。
-  - [ ] 原則として source ID と citation で再確認できる形にする。
-- [ ] reviewer note と public reference を分ける。
-  - [ ] `review_notes` は内部用。
-  - [ ] `references` は API/UI に出してもよい短い出典。
+- [x] citation 文字列の形式を決める。
+  - [x] `IG I^3 000`
+  - [x] `AIO, IG I^3 000`
+  - [x] `PHI Greek Inscriptions, [publication reference]`
+  - [x] `Buck, section 4`
+- [x] URL の扱いを決める。
+  - [x] `source_ids` には canonical identifier (IG citation / AIO record id / PHI text id / 著者+書名+節) を保存する。
+  - [x] URL は optional な `reference_urls` に分離する。
+  - [x] link rot 時は canonical id 優先で再解決可能にする。
+  - [x] `references` には人間可読な短い citation 文字列を入れ、URL は混ぜない。
+  - [x] UI に出す可能性がある文字列は短く保つ。
+- [x] source text の扱いを決める。
+  - [x] YAML に長い Greek text を保存しない。
+  - [x] `evidence_excerpt` フィールドは初期スコープでは導入しない (drop)。`references` + canonical id + 外部再確認で運用する。
+  - [x] 将来的に excerpt が必要になった場合は、文字数上限・著作権・利用条件を含めた別 RFC で議論する。
+  - [x] 原則として source ID と citation で再確認できる形にする。
+- [x] reviewer note と public reference を分ける。
+  - [x] `review_notes` は内部用。
+  - [x] `references` は API/UI に出してもよい短い出典。
+
+Phase 7 implementation result: runtime YAML validation now rejects URL-like
+strings in `references` and `source_ids`; URLs must be stored in
+`reference_urls`, and `reference_urls` accepts only `http` / `https` URLs. The
+loader also rejects `evidence_excerpt` in runtime data so source text is not
+introduced accidentally. Citation string shape remains deliberately light:
+short, human-readable, URL-free labels such as `IG I^3 000`, `AIO, IG I^3 000`,
+`PHI Greek Inscriptions, [publication reference]`, and `Buck, section 4`.
 
 ## Phase 8: Documentation 更新
 
-- [ ] `docs/ARCHITECTURE.md` を更新する。
-  - [ ] runtime orthographic note data と evidence metadata の関係を説明する。
-  - [ ] papyri.info training data と runtime note data を分ける理由を説明する。
-- [ ] `docs/REQUIREMENTS.md` を更新する。
-  - [ ] citation-ready note の要件を追加する。
-  - [ ] provisional note の表示上の制約を明記する。
-- [ ] `docs/CODEMAPS/api.md` を更新する。
-  - [ ] `OrthographicNote.references` の意味を明記する。
-  - [ ] `review_status` が API に出ない場合は、その理由を明記する。
-- [ ] `README.md` を更新する。
-  - [ ] current status は provisional のまま維持する。
-  - [ ] citation-ready 化は roadmap / data review task として説明する。
-- [ ] `docs/ROADMAP.md` を更新する。
-  - [ ] expert review workflow を短期 roadmap に追加する。
-  - [ ] source ingestion automation は中長期に残す。
+- [x] `docs/ARCHITECTURE.md` を更新する。
+  - [x] runtime orthographic note data と evidence metadata の関係を説明する。
+  - [x] papyri.info training data と runtime note data を分ける理由を説明する。
+- [x] `docs/REQUIREMENTS.md` を更新する。
+  - [x] citation-ready note の要件を追加する。
+  - [x] provisional note の表示上の制約を明記する。
+- [x] `docs/CODEMAPS/api.md` を更新する。
+  - [x] `OrthographicNote.references` の意味を明記する。
+  - [x] `review_status` が API に出ない場合は、その理由を明記する。
+- [x] `README.md` を更新する。
+  - [x] current status は provisional のまま維持する。
+  - [x] citation-ready 化は roadmap / data review task として説明する。
+- [x] `docs/ROADMAP.md` を更新する。
+  - [x] expert review workflow を短期 roadmap に追加する。
+  - [x] source ingestion automation は中長期に残す。
+
+Phase 8 implementation result: architecture, requirements, API codemap,
+README, and roadmap docs now describe citation-ready orthographic notes as a
+reviewed data state rather than a public API guarantee. The docs distinguish
+runtime Attic inscription evidence from papyri.info / EpiDoc-derived
+candidate-generation data, keep current packaged notes provisional, and explain
+that `references` are short citation labels while review metadata and
+`reference_urls` remain outside the current API shape.
 
 ## Phase 9: Expert review workflow
 
