@@ -675,6 +675,9 @@ data/languages/latin/matrices/early_late_latin.json
 - `rules_applied` / `Applied rules` には音韻・形態音韻ルールだけを入れる
 - 表記注記は `orthographic_notes` として構造化して返す
 - 初期データは provisional とし、expert review 前の研究引用可能データとして扱わない
+- provisional な表記注記は API / UI に表示される可能性があるが、専門家確認済みまたは引用可能なデータとして表示・説明しない
+- citation-ready note は entry 単位で `citation_ready: true` とし、`review_status: expert_reviewed`、source identifiers、短い references、reviewer metadata が揃っている場合に限る
+- `orthography_hint` だけを根拠に未確認の historical spelling note を生成しない
 - EpiDoc choice 抽出データは未レビューのまま runtime 表記注記へ投入しない
 
 ### 5.5 検索履歴・再現性機能
@@ -1157,4 +1160,3 @@ Phase 0〜1では以下を優先する。
 ## 12. 一文要約
 
 Proteus / HPSI は、古代ギリシャ語専用検索アプリではなく、古代ギリシャ語を初期プラグインとして搭載した、言語非依存の歴史音韻変異検索・説明・グラウンディング基盤である。
-

@@ -614,6 +614,50 @@ def test_parse_entry_rejects_missing_required_review_metadata(
             },
             "expert_reviewed",
         ),
+        (
+            {
+                "review_status": "source_located",
+                "source_type": ["ig"],
+                "source_ids": ["IG I^3 000"],
+                "references": ["https://example.test/ig-i3-000"],
+            },
+            "URLs out of 'references'",
+        ),
+        (
+            {
+                "review_status": "source_located",
+                "source_type": ["ig"],
+                "source_ids": ["https://example.test/ig-i3-000"],
+                "references": ["IG I^3 000"],
+            },
+            "URLs out of 'source_ids'",
+        ),
+        (
+            {
+                "review_status": "source_located",
+                "source_type": ["ig"],
+                "source_ids": ["IG I^3 000"],
+                "references": ["IG I^3 000"],
+                "reference_urls": ["IG I^3 000"],
+            },
+            "reference_urls",
+        ),
+        (
+            {
+                "review_status": "source_located",
+                "source_type": ["ig"],
+                "source_ids": ["IG I^3 000"],
+                "references": ["IG I^3 000"],
+                "reference_urls": ["ftp://example.test/ig-i3-000"],
+            },
+            "reference_urls",
+        ),
+        (
+            {
+                "evidence_excerpt": "short excerpt",
+            },
+            "evidence_excerpt",
+        ),
         ({"tags": ["pre_403_2_attic"]}, "pre_403_2_attic"),
         ({"kind": "pre_403_2_attic"}, "pre_403_2_attic"),
     ],

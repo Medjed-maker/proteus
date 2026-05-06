@@ -101,6 +101,9 @@ Validate whether the tool solves real research pain.
 - Track false positives and false negatives
 - Improve rule set based on feedback
 - Add student-facing inscriptional orthography aid for documented spelling systems
+- Run an expert-review workflow for orthographic-note seeds using review packets
+- Promote the first reviewed seed only after source identifiers, short
+  references, reviewer metadata, and `citation_ready: true` are recorded
 - Prepare benchmark dataset
 - Prepare documentation for scholarly collaborators
 
@@ -108,6 +111,8 @@ Validate whether the tool solves real research pain.
 - At least 20 real or semi-real hard query cases documented
 - Each case includes input form, expected candidate, reasoning, and source notes
 - Student-facing inscriptional orthography aid is clearly marked provisional
+- The first reviewed orthographic-note seed has a recorded reviewer decision
+  before it is described as citation-ready
 - Expert feedback is recorded separately from public code if needed
 - Sensitive or unpublished research data is not committed to the public repository
 
@@ -130,6 +135,8 @@ Connect search results to real source metadata without violating data licenses.
 - Avoid storing restricted source texts
 - Add license notes per corpus
 - Add example adapter for an open-source corpus
+- Keep papyri.info / PHI / AIO ingestion automation as candidate generation
+  until human review promotes entries into runtime orthographic-note YAML
 
 ### Acceptance Criteria
 - Search result can include source references
@@ -138,6 +145,8 @@ Connect search results to real source metadata without violating data licenses.
 - Corpus adapter logic is separate from core search logic
 - pre-403/2 BCE Attic orthographic notes use expert-reviewed inscriptional
   data sources and are not inferred from papyri.info metadata alone
+- Automatically ingested source metadata is not treated as citation-ready
+  runtime note data without review.
 
 ## 7. Phase 5: Multi-Language Expansion
 

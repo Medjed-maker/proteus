@@ -51,7 +51,12 @@ Evidence notes:
 
 - Do not store long Greek source text in runtime YAML.
 - Use `references` for short citation strings that may be shown through API/UI.
+- Keep `references` and `source_ids` URL-free. Runtime validation rejects
+  URL-like values in those fields.
+- Use `reference_urls` only for `http` / `https` verification links.
 - Use `review_notes` for editor-only notes, not public display text.
+- Do not add `evidence_excerpt` to runtime YAML; excerpt handling requires a
+  separate policy for length, copyright, and source terms.
 - If `pre_403_2_attic` is proposed, the evidence must identify a pre-403/2 BCE
   Attic inscription source or an explicit expert judgment.
 
