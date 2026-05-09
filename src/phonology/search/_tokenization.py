@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from ..core.ipa import tokenize_ipa as tokenize_ipa_with_inventory
-from ..ipa_converter import tokenize_ipa
 from ._lookup import (
     _entry_ipa,
     _lookup_entry,
@@ -16,11 +15,27 @@ from ._types import (
 )
 
 
+def tokenize_ipa(ipa_text: str) -> list[str]:
+    """Backward-compatible one-argument tokenizer seam for generic search tests."""
+    return tokenize_ipa_with_inventory(ipa_text, phone_inventory=())
+
+
 def tokenize_for_inventory(
     ipa_text: str,
     phone_inventory: Iterable[str] | None = None,
 ) -> list[str]:
-    """Tokenize with the default Ancient Greek seam unless an inventory is supplied."""
+    """Tokenize IPA text using a phone inventory when provided.
+
+    Args:
+        ipa_text: Compact or space-separated IPA text to tokenize.
+        phone_inventory: Iterable of IPA phone strings used for greedy
+            longest-match tokenization. When ``None``, tokenization falls back
+            to literal character tokens via the backward-compatible search
+            shim.
+
+    Returns:
+        A list of IPA token strings.
+    """
     if phone_inventory is None:
         return tokenize_ipa(ipa_text)
     # Materialize iterable to tuple to avoid consuming single-use iterables

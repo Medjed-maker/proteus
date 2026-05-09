@@ -149,6 +149,38 @@ class TestBuildLexiconMap:
         assert result["L1"].entry == lexicon[0]
         assert result["L1"].token_count == 5
 
+    def test_public_default_caches_ancient_greek_multicharacter_phones(
+        self,
+    ) -> None:
+        """Ancient Greek defaults should tokenize multi-character phones.
+
+        build_lexicon_map should cache apʰlas as ("a", "pʰ", "l", "a", "s")
+        with token_count 5 for the sample lexicon.
+        """
+        lexicon = [
+            {"id": "L1", "headword": "target", "ipa": "apʰlas", "dialect": "attic"},
+        ]
+
+        result = build_lexicon_map(lexicon)
+
+        assert result["L1"].ipa_tokens == ("a", "pʰ", "l", "a", "s")
+        assert result["L1"].token_count == 5
+
+    def test_non_default_language_keeps_literal_fallback_tokens(self) -> None:
+        """Non-default language tokenization should keep literal fallback tokens.
+
+        For the apʰlas input lexicon with language="test", build_lexicon_map
+        should cache ("a", "p", "ʰ", "l", "a", "s") with token_count 6.
+        """
+        lexicon = [
+            {"id": "L1", "headword": "target", "ipa": "apʰlas", "dialect": "test"},
+        ]
+
+        result = build_lexicon_map(lexicon, language="test")
+
+        assert result["L1"].ipa_tokens == ("a", "p", "ʰ", "l", "a", "s")
+        assert result["L1"].token_count == 6
+
     def test_trims_entry_ids_for_lookup_keys(self) -> None:
         lexicon = [
             {"id": " L1 ", "headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},
@@ -209,7 +241,14 @@ class TestBuildKmerIndex:
         assert index["t n"] == ["L1", "L3"]
         assert "p n" not in index
 
-    def test_adds_koine_compatible_kmers_without_duplicate_entry_ids(self) -> None:
+    def test_public_default_kmer_index_adds_ancient_greek_compatibility_kmers(
+        self,
+    ) -> None:
+        """Verify build_kmer_index with k=2 on IPA "apʰlas" generates compatibility kmers.
+
+        The "pʰ l", "f l", and "l s" kmers are generated via the default Ancient Greek
+        phone inventory and dialect skeleton builders, all mapping to id "L1".
+        """
         index = build_kmer_index(
             [{"id": "L1", "headword": "target", "ipa": "apʰlas", "dialect": "attic"}],
             k=2,
@@ -218,6 +257,98 @@ class TestBuildKmerIndex:
         assert index["pʰ l"] == ["L1"]
         assert index["f l"] == ["L1"]
         assert index["l s"] == ["L1"]
+
+    def test_explicit_empty_builders_do_not_add_dialect_skeletons(self) -> None:
+        from phonology.languages.ancient_greek.ipa import get_known_phones
+
+        index = build_kmer_index(
+            [{"id": "L1", "headword": "target", "ipa": "apʰlas", "dialect": "attic"}],
+            k=2,
+            phone_inventory=get_known_phones(),
+            dialect_skeleton_builders=(),
+        )
+
+        assert index["pʰ l"] == ["L1"]
+        assert "f l" not in index
+        assert index["l s"] == ["L1"]
+
+    def test_default_language_fills_in_ancient_greek_defaults(self) -> None:
+        """Verify build_kmer_index fills in default phone_inventory and dialect_skeleton_builders for DEFAULT_LANGUAGE_ID."""
+        index = build_kmer_index(
+            [{"id": "L1", "headword": "target", "ipa": "apʰlas", "dialect": "attic"}],
+            k=2,
+        )
+
+        # "f l" kmer only exists when dialect_skeleton_builders adds compatibility kmers
+        assert index["f l"] == ["L1"]
+        # "pʰ l" kmer exists via tokenization with phone_inventory
+        assert index["pʰ l"] == ["L1"]
+
+    def test_normalized_default_language_fills_in_ancient_greek_defaults(self) -> None:
+        """Default-language compatibility accepts the API/profile-normalized ID form."""
+        index = build_kmer_index(
+            [{"id": "L1", "headword": "target", "ipa": "apʰlas", "dialect": "attic"}],
+            k=2,
+            language=" Ancient_Greek ",
+        )
+
+        assert index["f l"] == ["L1"]
+        assert index["pʰ l"] == ["L1"]
+
+    def test_non_default_language_passes_through_supplied_parameters(self) -> None:
+        """Verify build_kmer_index passes through supplied phone_inventory and dialect_skeleton_builders for non-default languages unchanged."""
+        custom_inventory = ["a", "p", "l", "s"]
+
+        index = build_kmer_index(
+            [{"id": "L1", "headword": "target", "ipa": "aplas", "dialect": "generic"}],
+            k=2,
+            phone_inventory=custom_inventory,
+            dialect_skeleton_builders=(),
+            language="other_lang",
+        )
+
+        # With empty dialect_skeleton_builders, no compatibility kmers are added
+        assert index["p l"] == ["L1"]
+        # "f l" would only exist if Ancient Greek defaults were applied (they shouldn't be)
+        assert "f l" not in index
+
+    def test_explicit_koine_builder_adds_compatible_kmers(self) -> None:
+        from phonology.languages.ancient_greek.ipa import (
+            apply_koine_consonant_shifts,
+            get_known_phones,
+        )
+
+        index = build_kmer_index(
+            [{"id": "L1", "headword": "target", "ipa": "apʰlas", "dialect": "attic"}],
+            k=2,
+            phone_inventory=get_known_phones(),
+            dialect_skeleton_builders=(apply_koine_consonant_shifts,),
+        )
+
+        assert index["pʰ l"] == ["L1"]
+        assert index["f l"] == ["L1"]
+        assert index["l s"] == ["L1"]
+
+    def test_dialect_skeleton_builders_receive_independent_token_lists(self) -> None:
+        """Verify each dialect skeleton builder receives an independent token list."""
+        observed_tokens: list[list[str]] = []
+
+        def mutating_builder(tokens: list[str]) -> list[str]:
+            tokens.append("t")
+            return tokens
+
+        def observing_builder(tokens: list[str]) -> list[str]:
+            observed_tokens.append(list(tokens))
+            return tokens
+
+        index = build_kmer_index(
+            [{"id": "L1", "headword": "target", "ipa": "pa", "dialect": "attic"}],
+            k=2,
+            dialect_skeleton_builders=(mutating_builder, observing_builder),
+        )
+
+        assert index["p t"] == ["L1"]
+        assert observed_tokens == [tokenize_ipa("pa")]
 
     @pytest.mark.parametrize("k", [0, -1])
     def test_rejects_non_positive_k(self, k: int) -> None:
@@ -283,3 +414,43 @@ class TestSeedStage:
         """k=1 should still return empty for a query with zero consonants."""
         unigram_idx: dict[str, list[str]] = {"p": ["L1"]}
         assert seed_stage("aː", unigram_idx, k=1) == []
+
+    def test_default_language_seeds_ancient_greek_multicharacter_phones(
+        self,
+    ) -> None:
+        """Verify seed_stage default fills in Ancient Greek phone inventory.
+
+        With ``language="ancient_greek"`` (default) and no explicit
+        ``phone_inventory``, ``seed_stage`` must tokenize ``pʰt`` as a single
+        ``pʰ`` phone followed by ``t``, matching the consonant skeleton
+        produced by ``build_kmer_index``. Before the public-defaults backfill
+        was applied, the query was split into ``p``/``ʰ``/``t`` and seeding
+        returned an empty list even though the index contained the entry.
+        """
+        lexicon = [
+            {"id": "L1", "headword": "target", "ipa": "pʰt", "dialect": "attic"},
+        ]
+        index = build_kmer_index(lexicon, k=2)
+
+        candidates = seed_stage("pʰt", index, k=2)
+
+        assert candidates == ["L1"]
+
+    def test_non_default_language_does_not_inject_ancient_greek_inventory(
+        self,
+    ) -> None:
+        """Non-default language must keep the literal-character fallback."""
+        lexicon = [
+            {"id": "L1", "headword": "target", "ipa": "pʰt", "dialect": "test"},
+        ]
+        # Use a non-default language for both index and query so neither side
+        # gets the Ancient Greek backfill.
+        index = build_kmer_index(lexicon, k=2, language="test")
+
+        candidates = seed_stage("pʰt", index, k=2, language="test")
+
+        # Without the inventory, "pʰt" tokenizes to ["p", "ʰ", "t"] whose
+        # consonant skeleton is ["p", "t"], producing the kmer "p t". The
+        # index also produced "p t" for the same reason, so seeding succeeds
+        # but via single-character matching, not multi-character phones.
+        assert candidates == ["L1"]

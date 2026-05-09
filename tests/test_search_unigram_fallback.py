@@ -21,6 +21,7 @@ from phonology.search import (
     build_kmer_index,
     search,
 )
+from tests._helpers.score_stage_mock import assert_only_expected_score_stage_kwargs
 
 EXPECTED_FALLBACK_CANDIDATE_LIMIT = 2000
 
@@ -40,6 +41,7 @@ def mock_common_search_stages(monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
         matrix: object,
         **_kwargs: Any,
     ) -> list[SearchResult]:
+        assert_only_expected_score_stage_kwargs(_kwargs)
         captured["candidate_ids"] = list(candidates)
         return []
 
@@ -77,7 +79,7 @@ class TestSearchUnigramFallback:
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
         monkeypatch.setattr(
             search_module,
-            "seed_stage",
+            "_seed_stage_core",
             lambda query_ipa, index, k=2, **_kwargs: seed_calls.append(k)
             or ([] if k == 2 else ["L1", "L2"]),
         )
@@ -153,7 +155,7 @@ class TestSearchUnigramFallback:
         ) -> list[str]:
             return [] if k == 2 else ["L1", "L2", "L3", "L4"]
 
-        monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
+        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
 
         lexicon = [
             {"id": "L1", "headword": "one", "ipa": "p", "dialect": "attic"},
@@ -189,7 +191,7 @@ class TestSearchUnigramFallback:
                 return []
             return [f"L{idx:04d}" for idx in range(2500)]
 
-        monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
+        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
 
         lexicon = [
             {
@@ -220,7 +222,7 @@ class TestSearchUnigramFallback:
                 return []
             return [f"L{idx:04d}" for idx in range(2500)]
 
-        monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
+        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
 
         lexicon = [
             {
@@ -252,7 +254,7 @@ class TestSearchUnigramFallback:
                 return []
             return [f"L{idx:04d}" for idx in range(2500)]
 
-        monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
+        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
 
         lexicon = [
             {
@@ -306,7 +308,7 @@ class TestSearchUnigramFallback:
         ) -> list[str]:
             return [] if k == 2 else ["L1", "L2"]
 
-        monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
+        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
         lexicon = [
             {"id": "L1", "headword": "noise", "ipa": "pa", "dialect": "attic"},
             {"id": "L2", "headword": "target", "ipa": "poi", "dialect": "attic"},

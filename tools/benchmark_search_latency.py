@@ -9,21 +9,29 @@ import time
 from typing import Any
 
 from phonology.distance import load_matrix
-from phonology.profiles import register_default_profiles
+from phonology.profiles import get_default_language_profile, register_default_profiles
 from phonology.search import build_ipa_index, build_kmer_index, build_lexicon_map, search
-
 
 
 DEFAULT_LEXICON_PATH = Path("data/languages/ancient_greek/lexicon/greek_lemmas.json")
 DEFAULT_QUERIES_PATH = Path("tests/fixtures/search_benchmark_queries.txt")
 DEFAULT_OUTPUT_PATH = Path("search-latency-benchmark.json")
 DEFAULT_MATRIX_NAME = "attic_doric.json"
+DEFAULT_DIALECT = "attic"
 DEFAULT_WARMUP_ROUNDS = 1
 DEFAULT_MEASUREMENT_ROUNDS = 5
 DEFAULT_MAX_RESULTS = 8
 MEAN_THRESHOLD_RATIO = 0.10
 P95_THRESHOLD_RATIO = 0.10
 MAX_THRESHOLD_RATIO = 0.15
+
+
+def non_empty_string(value: str) -> str:
+    """Return a stripped non-empty argument value or raise argparse.ArgumentTypeError."""
+    stripped_value = value.strip()
+    if not stripped_value:
+        raise argparse.ArgumentTypeError("value must be a non-empty string")
+    return stripped_value
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +67,18 @@ def parse_args() -> argparse.Namespace:
         help="Optional prior benchmark JSON to compare against.",
     )
     parser.add_argument(
+        "--matrix-name",
+        type=non_empty_string,
+        default=DEFAULT_MATRIX_NAME,
+        help="Packaged distance matrix JSON name to load.",
+    )
+    parser.add_argument(
+        "--dialect",
+        type=non_empty_string,
+        default=DEFAULT_DIALECT,
+        help="Dialect forwarded to phonology.search.search().",
+    )
+    parser.add_argument(
         "--warmup-rounds",
         type=int,
         default=DEFAULT_WARMUP_ROUNDS,
@@ -88,16 +108,18 @@ def parse_args() -> argparse.Namespace:
 
 def load_lexicon_entries(lexicon_path: Path) -> tuple[dict[str, Any], ...]:
     """Load a benchmark lexicon document."""
+
+    def _validate_entry(index: int, entry: object) -> dict[str, Any]:
+        if not isinstance(entry, dict):
+            raise ValueError(f"Lexicon entry {index} in {lexicon_path} must be an object")
+        return entry
+
     with lexicon_path.open(encoding="utf-8") as lexicon_file:
         document = json.load(lexicon_file)
     lemmas = document.get("lemmas")
     if not isinstance(lemmas, list):
         raise ValueError(f"Lexicon file {lexicon_path} must define a list under 'lemmas'")
-    entries: list[dict[str, Any]] = []
-    for index, entry in enumerate(lemmas):
-        if not isinstance(entry, dict):
-            raise ValueError(f"Lexicon entry {index} in {lexicon_path} must be an object")
-        entries.append(entry)
+    entries = [_validate_entry(index, entry) for index, entry in enumerate(lemmas)]
     return tuple(entries)
 
 
@@ -139,12 +161,23 @@ def benchmark_search(
     warmup_rounds: int,
     measurement_rounds: int,
     max_results: int,
+    matrix_name: str = DEFAULT_MATRIX_NAME,
+    dialect: str = DEFAULT_DIALECT,
 ) -> dict[str, Any]:
     """Run repeated packaged-data searches and return timing metrics."""
+    register_default_profiles()
     lexicon = load_lexicon_entries(lexicon_path)
-    matrix = load_matrix(DEFAULT_MATRIX_NAME)
-    kmer_index = build_kmer_index(lexicon)
-    lexicon_map = build_lexicon_map(lexicon)
+    matrix = load_matrix(matrix_name)
+    profile = get_default_language_profile()
+    kmer_index = build_kmer_index(
+        lexicon,
+        phone_inventory=profile.phone_inventory,
+        dialect_skeleton_builders=profile.dialect_skeleton_builders,
+    )
+    lexicon_map = build_lexicon_map(
+        lexicon,
+        phone_inventory=profile.phone_inventory,
+    )
     ipa_index = build_ipa_index(lexicon_map)
     queries = load_queries(queries_path)
 
@@ -155,10 +188,12 @@ def benchmark_search(
                 lexicon,
                 matrix,
                 max_results=max_results,
-                dialect="attic",
+                dialect=dialect,
                 index=kmer_index,
                 prebuilt_lexicon_map=lexicon_map,
                 prebuilt_ipa_index=ipa_index,
+                phone_inventory=profile.phone_inventory,
+                dialect_skeleton_builders=profile.dialect_skeleton_builders,
             )
 
     durations_ms: list[float] = []
@@ -170,10 +205,12 @@ def benchmark_search(
                 lexicon,
                 matrix,
                 max_results=max_results,
-                dialect="attic",
+                dialect=dialect,
                 index=kmer_index,
                 prebuilt_lexicon_map=lexicon_map,
                 prebuilt_ipa_index=ipa_index,
+                phone_inventory=profile.phone_inventory,
+                dialect_skeleton_builders=profile.dialect_skeleton_builders,
             )
             durations_ms.append((time.perf_counter() - started) * 1000.0)
 
@@ -183,7 +220,7 @@ def benchmark_search(
     return {
         "lexicon_path": str(lexicon_path),
         "queries_path": str(queries_path),
-        "matrix_name": DEFAULT_MATRIX_NAME,
+        "matrix_name": matrix_name,
         "warmup_rounds": warmup_rounds,
         "measurement_rounds": measurement_rounds,
         "query_count": query_count,
@@ -252,7 +289,6 @@ def write_output(output_path: Path, payload: dict[str, Any]) -> None:
 
 def main() -> int:
     """Run the benchmark CLI."""
-    register_default_profiles()
     args = parse_args()
     result = benchmark_search(
         lexicon_path=args.lexicon,
@@ -260,6 +296,8 @@ def main() -> int:
         warmup_rounds=args.warmup_rounds,
         measurement_rounds=args.measurement_rounds,
         max_results=args.max_results,
+        matrix_name=args.matrix_name,
+        dialect=args.dialect,
     )
     output_payload: dict[str, Any] = {"benchmark": result}
 

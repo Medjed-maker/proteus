@@ -38,7 +38,7 @@ MORPHOPHONEMIC_RULES_PATH = RULES_DIR / "morphophonemic_alternations.yaml"
 VOWEL_RULES_PATH = RULES_DIR / "vowel_shifts.yaml"
 PHONOLOGY_RULES_DOC_PATH = ROOT_DIR / "docs" / "phonology_rules.md"
 MIN_LEMMAS_COUNT = 100
-ALLOWED_CHANGE_TYPES = {"retention"}
+ALLOWED_CHANGE_TYPES = {"retention", "deletion"}
 _skip_no_lexicon = pytest.mark.skipif(
     not LEXICON_PATH.exists(),
     reason="Lexicon not generated; run scripts/extract-lsj.sh",
@@ -191,11 +191,7 @@ def _assert_rule_schema(
         assert_nonempty_str(rule["name_en"], "name_en", rule_id)
         assert_nonempty_str(rule["name_ja"], "name_ja", rule_id)
         assert_nonempty_str(rule["input"], "input", rule_id)
-        # CCH rules may have an empty-string output (e.g. CCH-003 intervocalic
-        # sigma deletion), so only require isinstance(str) for that prefix.
-        # If other prefixes need empty output in the future, consider adding an
-        # allow_empty_output parameter instead of extending the prefix check.
-        if rule["id"].startswith("CCH-"):
+        if rule.get("change_type") == "deletion":
             assert isinstance(rule["output"], str), (
                 f"rule {rule_id}: 'output' must be a string"
             )
@@ -1204,3 +1200,34 @@ def test_representative_morphophonemic_rules_match_expected_content(
     assert nominal_eos["output"] == "eos"
     assert nominal_eos["context"] == "_#"
     assert nominal_eos["examples"][0]["dialect"] == "βασιλέος"
+
+
+# JSON Schema validation tests for rule files
+
+RULE_SCHEMA_PATH = (
+    ROOT_DIR / "data" / "schemas" / "phonology_rule_file.schema.json"
+)
+
+
+@pytest.fixture
+def rule_schema_validator() -> Draft202012Validator:
+    """Return a JSON Schema validator for rule files."""
+    schema = json.loads(RULE_SCHEMA_PATH.read_text(encoding="utf-8"))
+    return Draft202012Validator(schema, format_checker=FormatChecker())
+
+
+@pytest.mark.parametrize("rule_file_path", [
+    CONSONANT_RULES_PATH,
+    MORPHOPHONEMIC_RULES_PATH,
+    VOWEL_RULES_PATH,
+])
+def test_rule_file_validates_against_schema(
+    rule_file_path: Path,
+    rule_schema_validator: Draft202012Validator,
+) -> None:
+    """All packaged rule files must validate against the JSON Schema."""
+    document = _load_yaml(rule_file_path)
+    errors = list(rule_schema_validator.iter_errors(document))
+    if errors:
+        error_messages = [f"{e.json_path}: {e.message}" for e in errors]
+        pytest.fail(f"Schema validation errors in {rule_file_path}:\n" + "\n".join(error_messages))

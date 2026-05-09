@@ -8,7 +8,12 @@ from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
-ACCENT_MARKS = frozenset({"\u0301", "\u0300", "\u0342"})  # acute, grave, circumflex
+ACCENT_MARKS = frozenset({"\u0301", "\u0300", "\u0302", "\u0342"})
+# acute (U+0301), grave (U+0300), Latin combining circumflex (U+0302) and
+# Greek perispomeni (U+0342). Both circumflex codepoints appear in the wild:
+# precomposed polytonic Greek decomposes via NFD into U+0302, while text
+# encoded directly with the dedicated Greek tone mark uses U+0342. Stripping
+# both keeps tokenization stable across input pipelines.
 
 
 def strip_ignored_ipa_combining_marks(ipa_text: str, *, recompose: bool = True) -> str:

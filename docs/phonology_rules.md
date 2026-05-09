@@ -4,6 +4,31 @@ Proteus stores Ancient Greek sound changes in YAML files under
 `data/languages/ancient_greek/rules/`.
 The current Ancient Greek rule inventory is split into three categories:
 
+## Schema and Validation
+
+Rule files must validate against the JSON Schema at `data/schemas/phonology_rule_file.schema.json`.
+This schema defines the machine-readable structure for all phonology rule files across languages.
+
+Validate rule files locally:
+```bash
+uv run python tools/validate_rule_files.py
+```
+
+Validate against a specific rules directory or schema:
+```bash
+uv run python tools/validate_rule_files.py --rules-dir path/to/rules --schema path/to/schema.json
+```
+
+Rule validation is also run in CI via `tests/test_data_files.py::test_rule_file_validates_against_schema`.
+
+## Current Rule Status
+
+The Ancient Greek rules are **provisional research data** and **not citation-ready**.
+They are provided as a pilot implementation for the Proteus phonological search framework.
+Expert review is required before these rules can be considered suitable for scholarly citation.
+
+## File Categories
+
 - `consonant_changes.yaml` for segmental consonant developments
 - `vowel_shifts.yaml` for vowel quantity, quality, and contraction rules
 - `morphophonemic_alternations.yaml` for recurrent ending-level alternations
@@ -52,6 +77,31 @@ Consonant rules generally use a compact notation in the `context` field:
 By default, `...` denotes an arbitrary intervening span within the same word. It does not cross `#`, and it is not used to cross an unmarked morpheme boundary.
 
 The Grassmann-style rules `CCH-001` and `CCH-002` follow this general rule directly. Their `...` notation is not a special exception; it is the standard same-word span used everywhere in these YAML rule files.
+
+Deletion rules must set `output: ""` and `change_type: deletion`. Non-deletion
+rules must use a non-empty `output`; the shared JSON Schema enforces this so
+empty outputs cannot be introduced accidentally. By convention, place
+`change_type` between `period:` and `references:` (see CCH-003 in
+`data/languages/ancient_greek/rules/consonant_changes.yaml`).
+
+Use `change_type: retention` when the rule records that a segment is preserved
+in a context where it might otherwise be expected to change or delete. For
+example, this records input form `pa`, retained segment `p`, and output `pa`:
+
+```yaml
+input: p
+output: p
+context: "#_V"
+change_type: retention
+examples:
+  - standard: pa
+    dialect: pa
+```
+
+The shared JSON Schema currently restricts `change_type` to `retention` or
+`deletion`. Other change classes (assimilation, palatalization, etc.) should
+omit `change_type` entirely; the field is intentionally minimal until a
+broader classification scheme is reviewed.
 
 ## Vowel Rules
 

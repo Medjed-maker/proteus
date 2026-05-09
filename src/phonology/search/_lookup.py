@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TypeAlias
 
-from ..ipa_converter import strip_ignored_ipa_combining_marks
+from ..core.ipa import strip_ignored_ipa_combining_marks
 from ._types import (
     LexiconEntry,
     LexiconLookup,

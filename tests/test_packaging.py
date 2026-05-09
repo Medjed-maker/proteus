@@ -32,6 +32,7 @@ EXPECTED_WHEEL_ASSETS = {
     "phonology/data/languages/ancient_greek/rules/buck/grammar_rules.yaml",
     "phonology/data/languages/ancient_greek/rules/morphophonemic_alternations.yaml",
     "phonology/data/languages/ancient_greek/rules/vowel_shifts.yaml",
+    "phonology/data/schemas/phonology_rule_file.schema.json",
     "web/changelog.html",
     "web/index.html",
     "web/static/styles.css",
@@ -139,6 +140,7 @@ def _skip_known_uv_build_instability(result: subprocess.CompletedProcess[str]) -
         "Attempted to create a NULL object." in stderr
         or "Tokio executor failed" in stderr
         or "system-configuration" in stderr
+        or "Failed to download distribution due to network timeout" in stderr
     ):
         pytest.skip(f"uv build is unstable in this runtime: {stderr}")
 
@@ -182,6 +184,7 @@ def _copy_build_project(tmp_path: Path) -> Path:
         ROOT_DIR / "data" / "languages" / "ancient_greek" / "lexicon",
         ROOT_DIR / "data" / "languages" / "ancient_greek" / "matrices",
         ROOT_DIR / "data" / "languages" / "ancient_greek" / "rules",
+        ROOT_DIR / "data" / "schemas",
         ROOT_DIR / "scripts",
     ]
     for dir_path in required_dirs:
@@ -212,6 +215,7 @@ def _copy_build_project(tmp_path: Path) -> Path:
         ROOT_DIR / "data" / "languages",
         project_dir / "data" / "languages",
     )
+    shutil.copytree(ROOT_DIR / "data" / "schemas", project_dir / "data" / "schemas")
     shutil.copytree(ROOT_DIR / "scripts", project_dir / "scripts")
     # Create minimal .git directory so build hooks detect a git repository
     (project_dir / ".git").mkdir()
@@ -333,6 +337,7 @@ def test_wheel_force_include_config_and_packaged_layout_support_runtime_loaders(
         "data/languages/ancient_greek/matrices": "phonology/data/languages/ancient_greek/matrices",
         "data/languages/ancient_greek/orthography": "phonology/data/languages/ancient_greek/orthography",
         "data/languages/ancient_greek/rules": "phonology/data/languages/ancient_greek/rules",
+        "data/schemas/phonology_rule_file.schema.json": "phonology/data/schemas/phonology_rule_file.schema.json",
         "src/web/index.html": "web/index.html",
         "src/web/changelog.html": "web/changelog.html",
         "src/web/static": "web/static",
@@ -429,6 +434,7 @@ def test_sdist_force_include_config_bundles_generated_lexicon_and_metadata() -> 
     assert sdist_config["force-include"] == {
         "data/languages/ancient_greek/lexicon/greek_lemmas.json": "data/languages/ancient_greek/lexicon/greek_lemmas.json",
         "data/languages/ancient_greek/lexicon/greek_lemmas.meta.json": "data/languages/ancient_greek/lexicon/greek_lemmas.meta.json",
+        "data/schemas/phonology_rule_file.schema.json": "data/schemas/phonology_rule_file.schema.json",
     }
     assert sdist_config["hooks"]["custom"]["path"] == "hatch_build.py"
 
@@ -633,6 +639,10 @@ def test_uv_build_generates_missing_lexicon_for_sdist(tmp_path: Path) -> None:
             assert any(
                 name.endswith(asset_path.removeprefix("phonology/")) for name in names
             ), f"sdist does not contain {asset_path}"
+        assert any(
+            name.endswith("data/schemas/phonology_rule_file.schema.json")
+            for name in names
+        ), "sdist does not contain data/schemas/phonology_rule_file.schema.json"
 
     assert any(
         entry.get("headword") == "ἄνθρωπος" for entry in lexicon_document["lemmas"]
@@ -689,6 +699,7 @@ def test_uv_build_generates_missing_lexicon_for_wheel(tmp_path: Path) -> None:
             "phonology/data/languages/ancient_greek/rules/consonant_changes.yaml"
             in asset_names
         )
+        assert "phonology/data/schemas/phonology_rule_file.schema.json" in asset_names
         expected_license_assets = (
             ".dist-info/licenses/DATA_LICENSE.md",
             ".dist-info/licenses/LICENSE",

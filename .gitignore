@@ -89,7 +89,10 @@ data/languages/ancient_greek/lexicon/greek_lemmas.meta.json
 # MCP
 .serena/
 .playwright-mcp/
+
+# Claude Code session state
 .claude/worktrees/
+.claude/scheduled_tasks.lock
 
 # Screenshots
 proteus-*.png
