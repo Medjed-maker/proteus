@@ -10,6 +10,7 @@ import pytest
 
 from api.main import _load_ipa_index, _load_lexicon_map, load_lexicon_entries
 from phonology.distance import load_matrix
+from phonology.profiles import get_default_language_profile
 from phonology.search import (
     IpaIndex,
     KmerIndex,
@@ -47,7 +48,12 @@ def packaged_kmer_index(
     packaged_lexicon: Sequence[dict[str, Any]],
 ) -> KmerIndex:
     """Return a prebuilt k=2 search index for the packaged lexicon."""
-    return build_kmer_index(packaged_lexicon)
+    profile = get_default_language_profile()
+    return build_kmer_index(
+        packaged_lexicon,
+        phone_inventory=profile.phone_inventory,
+        dialect_skeleton_builders=profile.dialect_skeleton_builders,
+    )
 
 
 @pytest.fixture(scope="module")
@@ -72,6 +78,7 @@ def _search_packaged(
     ipa_index: IpaIndex,
 ) -> list[SearchResult]:
     """Run full search with the packaged indexes used by the API."""
+    profile = get_default_language_profile()
     return search(
         query,
         lexicon,
@@ -81,6 +88,8 @@ def _search_packaged(
         index=index,
         prebuilt_lexicon_map=lexicon_map,
         prebuilt_ipa_index=ipa_index,
+        phone_inventory=profile.phone_inventory,
+        dialect_skeleton_builders=profile.dialect_skeleton_builders,
     )
 
 

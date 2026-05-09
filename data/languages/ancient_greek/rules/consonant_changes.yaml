@@ -95,6 +95,7 @@ rules:
     context: "V_V"
     dialects: [ionic]
     period: "archaic"
+    change_type: deletion
     references: ["Buck §52", "Smyth §114"]
     examples:
       - { standard: "γένεος", reconstruction: "*γένεσος", meaning: "of a kind (genitive)" }

@@ -29,13 +29,14 @@ class TestExtendStage:
     """Verify stage-2 extension behavior, including an integration-style packaged-data case.
 
     This class includes a test that depends on packaged resources
-    ``attic_doric.json`` and rule ``MPH-013`` to exercise the runtime suffix
-    matching path end-to-end.
+    ``attic_doric.json`` and rules ``MPH-013`` and ``VSH-010`` to exercise
+    the runtime suffix and contextual-rule matching paths end-to-end.
     """
 
     def test_get_rules_registry_resolves_language_id_to_profile_rules_dir(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Resolve a language id to its profile-specific packaged rules directory."""
         from pathlib import Path
 
         fake_rules_dir = Path("/fake/rules")
@@ -62,6 +63,7 @@ class TestExtendStage:
     def test_get_rules_registry_raises_descriptive_error_for_invalid_language(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Wrap invalid language registry failures with the requested language id."""
         def _raise_value_error(language: str) -> None:
             """Raise ValueError to simulate missing rules for the given language."""
             raise ValueError(f"missing {language}")
@@ -81,6 +83,7 @@ class TestExtendStage:
     def test_get_rules_registry_wraps_yaml_parse_errors(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Wrap YAML parsing failures from rule loading in a descriptive ValueError."""
         def _raise_yaml_error(language: str) -> None:
             """Raise YAMLError to simulate a parse failure for the given language."""
             raise yaml.YAMLError(f"bad yaml for {language}")
@@ -98,6 +101,7 @@ class TestExtendStage:
             search_module.get_rules_registry("broken_language")
 
     def test_apply_rule_markers_does_not_mutate_input_markers(self) -> None:
+        """Applying rule markers should leave the caller's marker list unchanged."""
         baseline_markers = [".", ".", "."]
         applications = [
             RuleApplication(
@@ -121,10 +125,12 @@ class TestExtendStage:
         assert updated_markers == [".", ":", "."]
 
     def test_build_alignment_markers_rejects_length_mismatch(self) -> None:
+        """Alignment marker construction should reject mismatched alignment lengths."""
         with pytest.raises(ValueError):
             search_module._build_alignment_markers(["a", "b"], ["a"])
 
     def test_collect_application_dialects_preserves_first_seen_order(self) -> None:
+        """Collect dialects in first-seen order while removing duplicates."""
         applications = [
             RuleApplication(
                 rule_id="RULE-1",
@@ -151,6 +157,7 @@ class TestExtendStage:
         ]
 
     def test_is_observed_application_matches_obs_prefix(self) -> None:
+        """Recognize observed applications only when rule ids use the OBS- prefix."""
         # Canonical case: uppercase OBS- prefix with suffix
         assert search_module._is_observed_application(
             RuleApplication(
@@ -213,6 +220,7 @@ class TestExtendStage:
         )
 
     def test_apply_rule_markers_ignores_observed_steps(self) -> None:
+        """Observed-only applications should not render catalogued-rule markers."""
         updated_markers = search_module._apply_rule_markers(
             ["."],
             aligned_query=["x"],
@@ -233,6 +241,7 @@ class TestExtendStage:
     def test_exact_match_returns_confidence_one_and_three_line_visualization(
         self,
     ) -> None:
+        """Exact IPA matches should produce confidence 1.0 and three visualization lines."""
         lexicon_map = {
             "L1": LexiconRecord(
                 entry={"headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},
@@ -259,6 +268,7 @@ class TestExtendStage:
     def test_extend_stage_uses_requested_language_for_rules_registry(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """extend_stage should forward the requested language to rule loading."""
         captured: dict[str, object] = {}
 
         def fake_get_rules_registry(
@@ -287,8 +297,9 @@ class TestExtendStage:
         assert captured == {"language": "test_language"}
 
     def test_detects_single_token_rule_and_reports_dialect(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, monkeypatch: pytest.MonkeyPatch, known_phones: tuple[str, ...]
     ) -> None:
+        """Detect a one-token catalogued rule and include its dialect attribution."""
         monkeypatch.setattr(
             search_module,
             "load_rules",
@@ -307,7 +318,10 @@ class TestExtendStage:
             )
         }
 
-        results = extend_stage("ɛː", ["L1"], lexicon_map, matrix={"aː": {"ɛː": 0.3}})
+        results = extend_stage(
+            "ɛː", ["L1"], lexicon_map, matrix={"aː": {"ɛː": 0.3}},
+            phone_inventory=known_phones,
+        )
 
         assert results[0].applied_rules == ["VSH-TEST"]
         assert [
@@ -319,7 +333,10 @@ class TestExtendStage:
         )
         assert ":" in results[0].alignment_visualization.splitlines()[1]
 
-    def test_prefers_contextual_rule_from_shared_explainer_logic(self) -> None:
+    def test_prefers_contextual_rule_from_shared_explainer_logic(
+        self, known_phones: tuple[str, ...]
+    ) -> None:
+        """Prefer packaged contextual rule VSH-010 from shared explainer logic."""
         lexicon_map = {
             "L1": LexiconRecord(
                 entry={"headword": "χώρα", "ipa": "rɛː", "dialect": "attic"},
@@ -327,7 +344,10 @@ class TestExtendStage:
             )
         }
 
-        results = extend_stage("raː", ["L1"], lexicon_map, matrix={"ɛː": {"aː": 0.1}})
+        results = extend_stage(
+            "raː", ["L1"], lexicon_map, matrix={"ɛː": {"aː": 0.1}},
+            phone_inventory=known_phones,
+        )
 
         assert results[0].applied_rules == ["VSH-010"]
         assert [
@@ -340,7 +360,7 @@ class TestExtendStage:
         assert ":" in results[0].alignment_visualization.splitlines()[1]
 
     def test_extend_stage_uses_packaged_morphophonemic_rule_for_runtime_suffix_match(
-        self,
+        self, known_phones: tuple[str, ...]
     ) -> None:
         """Integration test verifying MPH-013 morphophonemic rule produces βασιλεύς→βασιλέος suffix transformation."""
         lexicon_map = {
@@ -359,6 +379,7 @@ class TestExtendStage:
             ["L1"],
             lexicon_map,
             matrix=load_matrix(MATRIX_FILE),
+            phone_inventory=known_phones,
         )
 
         assert len(results) == 1
@@ -371,7 +392,10 @@ class TestExtendStage:
         )
         assert ":" in results[0].alignment_visualization.splitlines()[1]
 
-    def test_extend_stage_uses_packaged_neuter_ion_final_nu_absence_rule(self) -> None:
+    def test_extend_stage_uses_packaged_neuter_ion_final_nu_absence_rule(
+        self, known_phones: tuple[str, ...]
+    ) -> None:
+        """Use packaged MPH-015 for final nu absence in -ion neuter forms."""
         lexicon_map = {
             "L1": LexiconRecord(
                 entry={
@@ -388,6 +412,7 @@ class TestExtendStage:
             ["L1"],
             lexicon_map,
             matrix=load_matrix(MATRIX_FILE),
+            phone_inventory=known_phones,
         )
 
         assert len(results) == 1
@@ -402,7 +427,10 @@ class TestExtendStage:
         )
         assert ":" in results[0].alignment_visualization.splitlines()[1]
 
-    def test_extend_stage_uses_packaged_neuter_eion_final_nu_absence_rule(self) -> None:
+    def test_extend_stage_uses_packaged_neuter_eion_final_nu_absence_rule(
+        self, known_phones: tuple[str, ...]
+    ) -> None:
+        """Use packaged MPH-016 for final nu absence in -eion neuter forms."""
         lexicon_map = {
             "L1": LexiconRecord(
                 entry={
@@ -419,6 +447,7 @@ class TestExtendStage:
             ["L1"],
             lexicon_map,
             matrix=load_matrix(MATRIX_FILE),
+            phone_inventory=known_phones,
         )
 
         assert len(results) == 1
@@ -433,7 +462,10 @@ class TestExtendStage:
         )
         assert ":" in results[0].alignment_visualization.splitlines()[1]
 
-    def test_extend_stage_uses_packaged_neuter_on_final_nu_absence_rule(self) -> None:
+    def test_extend_stage_uses_packaged_neuter_on_final_nu_absence_rule(
+        self, known_phones: tuple[str, ...]
+    ) -> None:
+        """Use packaged MPH-017 for final nu absence in neuter -on forms."""
         lexicon_map = {
             "L1": LexiconRecord(
                 entry={
@@ -451,6 +483,7 @@ class TestExtendStage:
             ["L1"],
             lexicon_map,
             matrix=load_matrix(MATRIX_FILE),
+            phone_inventory=known_phones,
         )
 
         assert len(results) == 1
@@ -465,7 +498,10 @@ class TestExtendStage:
         )
         assert ":" in results[0].alignment_visualization.splitlines()[1]
 
-    def test_extend_stage_does_not_use_neuter_on_rule_for_common_gender(self) -> None:
+    def test_extend_stage_does_not_use_neuter_on_rule_for_common_gender(
+        self, known_phones: tuple[str, ...]
+    ) -> None:
+        """Avoid applying the neuter -on rule when the entry gender is common."""
         lexicon_map = {
             "L1": LexiconRecord(
                 entry={
@@ -483,6 +519,7 @@ class TestExtendStage:
             ["L1"],
             lexicon_map,
             matrix=load_matrix(MATRIX_FILE),
+            phone_inventory=known_phones,
         )
 
         assert len(results) == 1
@@ -494,7 +531,10 @@ class TestExtendStage:
         marker_line = results[0].alignment_visualization.splitlines()[1]
         assert ":" not in marker_line
 
-    def test_extend_stage_uses_packaged_runtime_velar_assimilation_rule(self) -> None:
+    def test_extend_stage_uses_packaged_runtime_velar_assimilation_rule(
+        self, known_phones: tuple[str, ...]
+    ) -> None:
+        """Use packaged CCH-015 for runtime nasal-to-velar assimilation."""
         lexicon_map = {
             "L1": LexiconRecord(
                 entry={
@@ -511,6 +551,7 @@ class TestExtendStage:
             ["L1"],
             lexicon_map,
             matrix=load_matrix(MATRIX_FILE),
+            phone_inventory=known_phones,
         )
 
         assert len(results) == 1
@@ -541,6 +582,7 @@ class TestExtendStage:
         query_word: str,
         expected_rule_ids: set[str],
     ) -> None:
+        """Search should match Koine query-side spirantization against Attic lemmas."""
         lexicon = [
             {
                 "id": "L1",
@@ -581,6 +623,7 @@ class TestExtendStage:
         expected_query: list[str],
         expected_lemma: list[str],
     ) -> None:
+        """Smith-Waterman alignment should retain meaningful edge substitutions."""
         _score, aligned_query, aligned_lemma = search_module._smith_waterman_alignment(
             query_tokens,
             lemma_tokens,
@@ -614,6 +657,7 @@ class TestExtendStage:
         expected_query: list[str | None],
         expected_lemma: list[str | None],
     ) -> None:
+        """Smith-Waterman alignment should preserve shared edge matches around gaps."""
         _score, aligned_query, aligned_lemma = search_module._smith_waterman_alignment(
             query_tokens,
             lemma_tokens,
@@ -644,6 +688,7 @@ class TestExtendStage:
         lemma_tokens: list[str],
         expected_applications: list[tuple[str, str, str, int]],
     ) -> None:
+        """Explanation should not create substitutions for shared edge matches."""
         _score, aligned_query, aligned_lemma = search_module._smith_waterman_alignment(
             query_tokens,
             lemma_tokens,
@@ -671,6 +716,7 @@ class TestExtendStage:
         ] == expected_applications
 
     def test_detects_multi_token_rule(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Detect a catalogued rule whose input and output span multiple tokens."""
         monkeypatch.setattr(
             search_module,
             "load_rules",
@@ -704,6 +750,7 @@ class TestExtendStage:
     def test_detects_deletion_rule_inside_alignment(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Detect a catalogued deletion rule within the aligned token sequence."""
         monkeypatch.setattr(
             search_module,
             "load_rules",
@@ -737,6 +784,7 @@ class TestExtendStage:
     def test_observed_steps_remain_visible_but_not_catalogued(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Observed fallback steps should render but stay out of applied_rules."""
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
         lexicon_map = {
             "L1": LexiconRecord(
@@ -756,6 +804,7 @@ class TestExtendStage:
     def test_catalogued_rules_survive_alongside_observed_steps(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Catalogued rule markers should survive when observed steps are adjacent."""
         monkeypatch.setattr(
             search_module,
             "load_rules",
@@ -801,6 +850,7 @@ class TestExtendStage:
         assert marker_line.count(":") == 1
 
     def test_skips_stale_candidates_missing_from_lexicon_map(self) -> None:
+        """extend_stage should ignore candidate ids absent from the lexicon map."""
         lexicon_map = {
             "L1": LexiconRecord(
                 entry={"headword": "λόγος", "ipa": "lóɡos", "dialect": "attic"},
@@ -813,8 +863,9 @@ class TestExtendStage:
         assert [result.lemma for result in results] == ["λόγος"]
 
     def test_ignores_non_list_rule_dialects(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, monkeypatch: pytest.MonkeyPatch, known_phones: tuple[str, ...]
     ) -> None:
+        """Non-list dialect metadata should not add query-compatible dialects."""
         monkeypatch.setattr(
             search_module,
             "load_rules",
@@ -833,7 +884,10 @@ class TestExtendStage:
             )
         }
 
-        results = extend_stage("ɛː", ["L1"], lexicon_map, matrix={"aː": {"ɛː": 0.3}})
+        results = extend_stage(
+            "ɛː", ["L1"], lexicon_map, matrix={"aː": {"ɛː": 0.3}},
+            phone_inventory=known_phones,
+        )
 
         assert results[0].applied_rules == ["VSH-TEST"]
         assert results[0].dialect_attribution == "lemma dialect: attic"
@@ -842,6 +896,7 @@ class TestExtendStage:
     def test_uses_unknown_when_entry_dialect_is_missing_or_blank(
         self, monkeypatch: pytest.MonkeyPatch, dialect: object
     ) -> None:
+        """Missing or blank entry dialects should be reported as unknown."""
         monkeypatch.setattr(search_module, "load_rules", lambda _path: {})
         lexicon_map = {
             "L1": LexiconRecord(
@@ -856,6 +911,7 @@ class TestExtendStage:
     def test_near_zero_score_prefers_diagonal_traceback(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Near-zero alignment scores should still prefer a diagonal traceback."""
         monkeypatch.setattr(scoring_module, "_GAP_PENALTY", 1e-12)
         monkeypatch.setattr(scoring_module, "_substitution_score", lambda *_args: 0.0)
 

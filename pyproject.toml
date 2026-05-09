@@ -49,6 +49,7 @@ exclude = ["data/languages/ancient_greek/lexicon/greek_lemmas.meta.json"]
 "data/languages/ancient_greek/matrices" = "phonology/data/languages/ancient_greek/matrices"
 "data/languages/ancient_greek/orthography" = "phonology/data/languages/ancient_greek/orthography"
 "data/languages/ancient_greek/rules" = "phonology/data/languages/ancient_greek/rules"
+"data/schemas/phonology_rule_file.schema.json" = "phonology/data/schemas/phonology_rule_file.schema.json"
 "src/web/index.html" = "web/index.html"
 "src/web/changelog.html" = "web/changelog.html"
 "src/web/static" = "web/static"
@@ -62,6 +63,7 @@ exclude = ["data/external/"]
 [tool.hatch.build.targets.sdist.force-include]
 "data/languages/ancient_greek/lexicon/greek_lemmas.json" = "data/languages/ancient_greek/lexicon/greek_lemmas.json"
 "data/languages/ancient_greek/lexicon/greek_lemmas.meta.json" = "data/languages/ancient_greek/lexicon/greek_lemmas.meta.json"
+"data/schemas/phonology_rule_file.schema.json" = "data/schemas/phonology_rule_file.schema.json"
 
 [tool.hatch.build.targets.sdist.hooks.custom]
 path = "hatch_build.py"

@@ -6,7 +6,6 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from typing import Any
 import warnings
 
-from ..ipa_converter import apply_koine_consonant_shifts
 from ._constants import _DEFAULT_KMER_SIZE
 from ._lookup import _entry_id, _entry_ipa
 from ._query import _extract_consonant_skeleton
@@ -42,11 +41,10 @@ def _build_entry_kmers(
     Each entry contributes its original consonant skeleton plus any additional
     dialect-shifted skeletons produced by ``dialect_skeleton_builders``.
 
-    When ``dialect_skeleton_builders`` is ``None`` (the default), the legacy
-    Attic+Koine behavior is preserved for backward compatibility. Pass an
-    explicit iterable (including an empty tuple) to opt into the new explicit
-    dialect-shift model — the Ancient Greek profile passes
-    ``(apply_koine_consonant_shifts,)``; custom profiles pass ``()``.
+    When ``dialect_skeleton_builders`` is ``None`` (the default), no additional
+    dialect skeletons are generated. The Ancient Greek profile passes
+    ``(apply_koine_consonant_shifts,)`` explicitly at the public/profile
+    boundary.
 
     Args:
         ipa_text: IPA transcription string for a lexicon entry.
@@ -56,7 +54,7 @@ def _build_entry_kmers(
             inventory behavior is used.
         dialect_skeleton_builders: Callables that each transform an IPA token
             list into a dialect variant for additional skeleton coverage.
-            ``None`` triggers legacy Koine-always behavior.
+            ``None`` means no additional dialect skeletons.
 
     Returns:
         De-duplicated list of space-joined k-mer strings.
@@ -64,16 +62,10 @@ def _build_entry_kmers(
     original_tokens = tokenize_for_inventory(ipa_text, phone_inventory)
     original_skeleton = _extract_consonant_skeleton(original_tokens)
 
-    if dialect_skeleton_builders is None:
-        # Legacy backward-compatible path: always add the Koine skeleton.
-        extra_skeletons = [
-            _extract_consonant_skeleton(apply_koine_consonant_shifts(original_tokens))
-        ]
-    else:
-        extra_skeletons = [
-            _extract_consonant_skeleton(builder(original_tokens))
-            for builder in dialect_skeleton_builders
-        ]
+    extra_skeletons = [
+        _extract_consonant_skeleton(builder(list(original_tokens)))
+        for builder in (dialect_skeleton_builders or ())
+    ]
 
     return list(
         dict.fromkeys(
@@ -109,9 +101,9 @@ def build_kmer_index(
             during tokenization.
         dialect_skeleton_builders: Optional callables that each transform a
             token list into a dialect variant for additional skeleton coverage.
-            ``None`` (default) preserves legacy Koine-always behavior.
-            Pass an explicit tuple (including ``()``) to use the new explicit
-            dialect-shift model; the Ancient Greek profile passes
+            ``None`` (default) means no additional dialect skeletons.
+            Pass an explicit tuple to use dialect-shift augmentation; the
+            Ancient Greek profile passes
             ``(apply_koine_consonant_shifts,)``.
 
     Returns:

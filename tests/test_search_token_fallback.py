@@ -257,9 +257,16 @@ class TestSearchTokenFallback:
                 [f"L{index:02d}" for index in range(30)],
             ]
         )
+        seed_stage_core: Callable[..., list[str]] | None = getattr(
+            search_module, "_seed_stage_core", None
+        )
+        if seed_stage_core is None:
+            raise AssertionError("search_module._seed_stage_core test hook is missing")
+        # This test needs deterministic seed_calls for the k=2 stage so it can
+        # verify the stage2 cap without depending on k-mer index construction.
         monkeypatch.setattr(
             search_module,
-            "seed_stage",
+            "_seed_stage_core",
             lambda *_args, **_kwargs: next(seed_calls),
         )
         monkeypatch.setattr(
@@ -388,7 +395,7 @@ class TestSearchTokenFallback:
         captured: dict[str, object] = {}
 
         mock_to_ipa_factory(to_ipa_return)
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(
             search_module, "_score_stage", _make_fake_score_stage(captured)
         )
@@ -447,7 +454,7 @@ class TestSearchTokenFallback:
         captured: dict[str, object] = {}
 
         mock_to_ipa_factory("loɡos")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(
             search_module, "_score_stage", _make_fake_score_stage(captured)
         )
@@ -512,7 +519,7 @@ class TestSearchTokenFallback:
         captured: dict[str, object] = {}
 
         mock_to_ipa_factory("aː")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(
             search_module, "_score_stage", _make_fake_score_stage(captured)
         )

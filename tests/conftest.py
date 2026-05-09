@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from api.main import app
 from phonology import search as search_module
+from phonology.languages.ancient_greek.ipa import get_known_phones
 from phonology.search import SearchResult
 
 
@@ -68,20 +69,41 @@ def clear_rule_cache() -> Generator[None, None, None]:
     search_module._get_tokenized_rules.cache_clear()
 
 
+@pytest.fixture(scope="session")
+def known_phones() -> tuple[str, ...]:
+    """Return the known IPA phone inventory once for search tests."""
+    return tuple(get_known_phones())
+
+
 @pytest.fixture
-def isolated_language_registry() -> Generator[None, None, None]:
+def isolated_language_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Generator[None, None, None]:
     """Reset the language profile registry to empty before the test, restore after.
 
     Use in tests that probe the registry's pre-registration state or register
     custom toy profiles. Replaces the manual try/finally pattern that calls
     ``_reset_language_registry_for_tests()`` and ``register_default_profiles()``.
+
+    Also forbids implicit ``phonology.search.to_ipa`` calls during isolation:
+    ``_legacy_to_ipa`` (the module-level seam) routes through
+    ``get_default_language_profile()``, which silently rebuilds the default
+    profile and re-registers it, defeating registry isolation. Tests that need
+    IPA conversion must pass ``converter=`` explicitly.
     """
     from phonology.profiles import (
         _reset_language_registry_for_tests,
         register_default_profiles,
     )
 
+    def _forbid_implicit_to_ipa(*_args: object, **_kwargs: object) -> str:
+        raise AssertionError(
+            "isolated_language_registry: implicit search_module.to_ipa is "
+            "forbidden; pass converter=… explicitly."
+        )
+
     _reset_language_registry_for_tests()
+    monkeypatch.setattr(search_module, "to_ipa", _forbid_implicit_to_ipa)
     try:
         yield
     finally:

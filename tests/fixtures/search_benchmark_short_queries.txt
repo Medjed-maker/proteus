@@ -1,0 +1,31 @@
+# Short Query Benchmark Fixture
+#
+# Single- and two-character queries that deliberately exercise the
+# _finalize_short_query_results multi-batch annotation loop bounded by
+# _SHORT_QUERY_MAX_ANNOTATION_BATCHES (= 3 at the time of writing).
+#
+# This fixture is NOT consumed by the default
+# tests/test_benchmark_search_latency.py CI smoke test because each short
+# query takes tens of seconds against the full LSJ lexicon and would push the
+# CLI run past the existing 300s subprocess timeout. Use this file only for
+# manual short-query performance characterization:
+#
+#   uv run python tools/benchmark_search_latency.py \
+#       --queries tests/fixtures/search_benchmark_short_queries.txt \
+#       --warmup-rounds 0 --measurement-rounds 1
+#
+# Short-query path correctness is enforced by
+# tests/test_search_short_query.py (in particular
+# test_short_query_finalization_bounded_to_annotation_window). This file
+# adds the latency / batch-iteration view; it is not a regression gate.
+
+# 1-char queries
+α
+ω
+
+# 2-char queries
+λα
+κα
+ντ
+οσ
+pa

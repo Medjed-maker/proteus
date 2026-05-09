@@ -5,11 +5,14 @@ Extracted from ``tests/test_search.py`` during the search package refactor.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from phonology import search as search_module
 from phonology.distance import load_matrix
 from phonology.search import LexiconRecord, SearchResult, search
+from tests._helpers.score_stage_mock import assert_only_expected_score_stage_kwargs
 
 MATRIX_FILE = "attic_doric.json"
 
@@ -18,6 +21,7 @@ class TestSearchExactMatchIntegration:
     """Integration tests for exact-match boost and deduplication in search()."""
 
     def test_search_returns_empty_list_for_empty_lexicon(self) -> None:
+        """Ensure search returns an empty list when the lexicon is empty."""
         matrix = load_matrix(MATRIX_FILE)
 
         results = search("τεστ", [], matrix, max_results=5, dialect="attic")
@@ -27,6 +31,7 @@ class TestSearchExactMatchIntegration:
     def test_search_returns_empty_list_when_short_query_has_no_quality_match(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Ensure short queries without quality matches return no results."""
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": query
         )
@@ -43,6 +48,7 @@ class TestSearchExactMatchIntegration:
     def test_search_trims_headword_labels(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Ensure result lemmas trim surrounding headword whitespace."""
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": query
         )
@@ -126,7 +132,9 @@ class TestSearchExactMatchIntegration:
             candidates: list[str],
             lexicon_map: dict[str, LexiconRecord | dict[str, str]],
             matrix: dict[str, dict[str, float]],
+            **_kwargs: Any,
         ) -> list[SearchResult]:
+            assert_only_expected_score_stage_kwargs(_kwargs)
             captured["candidate_ids"] = list(candidates)
             return [
                 SearchResult(

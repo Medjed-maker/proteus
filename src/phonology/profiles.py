@@ -8,16 +8,7 @@ from pathlib import Path
 import threading
 from typing import Protocol
 
-from ._paths import DEFAULT_LANGUAGE_ID, resolve_language_data_dir
-from .languages.ancient_greek.ipa import (
-    apply_koine_consonant_shifts,
-    get_known_phones,
-    to_ipa,
-)
-from .languages.ancient_greek.orthography_notes import (
-    build_orthographic_notes as build_ancient_greek_orthographic_notes,
-    prepare_orthographic_data as prepare_ancient_greek_orthographic_data,
-)
+from ._paths import DEFAULT_LANGUAGE_ID
 from .orthography_notes import OrthographicNoteBuilder
 
 
@@ -117,24 +108,9 @@ def get_language_profile(language_id: str = DEFAULT_LANGUAGE_ID) -> LanguageProf
 
 def _build_ancient_greek_profile() -> LanguageProfile:
     """Build the built-in Ancient Greek profile from packaged data paths."""
-    language_id = DEFAULT_LANGUAGE_ID
-    lexicon_dir = resolve_language_data_dir(language_id, "lexicon")
-    matrix_dir = resolve_language_data_dir(language_id, "matrices")
-    rules_dir = resolve_language_data_dir(language_id, "rules")
-    return LanguageProfile(
-        language_id=language_id,
-        display_name="Ancient Greek",
-        default_dialect="attic",
-        supported_dialects=("attic", "koine"),
-        converter=to_ipa,
-        phone_inventory=get_known_phones(),
-        lexicon_path=lexicon_dir / "greek_lemmas.json",
-        matrix_path=matrix_dir / "attic_doric.json",
-        rules_dir=rules_dir,
-        dialect_skeleton_builders=(apply_koine_consonant_shifts,),
-        orthographic_note_builder=build_ancient_greek_orthographic_notes,
-        orthographic_data_preparer=prepare_ancient_greek_orthographic_data,
-    )
+    from .languages.ancient_greek.profile import build_profile
+
+    return build_profile()
 
 
 DEFAULT_LANGUAGE_PROFILE: LanguageProfile | None = None
@@ -142,9 +118,7 @@ _DEFAULT_PROFILE_LOCK = threading.Lock()
 
 
 def get_default_language_profile() -> LanguageProfile:
-    """Get the default Ancient Greek language profile with lazy initialization.
-
-    Builds and caches the profile on first use to avoid import-time errors.
+    """Get the default Ancient Greek language profile, building it on first use.
 
     Returns:
         The default Ancient Greek language profile.

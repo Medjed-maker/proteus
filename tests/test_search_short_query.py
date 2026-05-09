@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from typing import Any
 
@@ -23,6 +24,7 @@ from phonology.search._constants import (
     _SHORT_QUERY_MAX_ANNOTATION_BATCHES,
     _annotation_candidate_limit,
 )
+from tests._helpers.score_stage_mock import assert_only_expected_score_stage_kwargs
 
 
 class TestSearchShortQuery:
@@ -42,7 +44,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma="drop-me",
                     confidence=threshold - 0.01,
@@ -93,7 +95,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma="exact-low-confidence",
                     confidence=threshold - 0.20,
@@ -145,7 +147,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma="rule-low-confidence",
                     confidence=threshold - 0.20,
@@ -200,7 +202,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma="same",
                     confidence=0.95,
@@ -251,7 +253,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma="same",
                     confidence=0.95,
@@ -307,10 +309,12 @@ class TestSearchShortQuery:
         """
         annotation_call_count = 0
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
+        annotation_limit = _annotation_candidate_limit(5)
 
         # With max_results=5, annotation_limit = max(100, 5*10) = 100.
         # We need scored_count > max_batches * annotation_limit = 300.
         scored_count = 400
+        expected_ceiling_batch_count = math.ceil(scored_count / annotation_limit)
         entry_ids = [f"L{i}" for i in range(scored_count)]
 
         monkeypatch.setattr(
@@ -328,7 +332,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma=f"word-{i}",
                     confidence=threshold - 0.20,
@@ -371,21 +375,20 @@ class TestSearchShortQuery:
             index={},
         )
 
-        # The annotation function should have been called at most
-        # _SHORT_QUERY_MAX_ANNOTATION_BATCHES times, not ceil(400/100) = 4.
-        assert annotation_call_count >= 1, (
-            "Batch loop should process at least one batch"
-        )
-        assert annotation_call_count <= _SHORT_QUERY_MAX_ANNOTATION_BATCHES
+        # The annotation loop should consume the configured cap, not ceil(400/100) = 4.
+        assert _SHORT_QUERY_MAX_ANNOTATION_BATCHES < expected_ceiling_batch_count
+        assert annotation_call_count == _SHORT_QUERY_MAX_ANNOTATION_BATCHES
 
     def test_short_query_finalization_bounded_to_annotation_window(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Short-query finalization annotates exactly one bounded window; candidates beyond
-        the window are never reached even if they would survive quality filtering."""
+        """Short-query finalization annotates only the bounded batch window."""
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
         annotation_limit = _annotation_candidate_limit(2)  # max(100, 2*10)
-        scored_count = annotation_limit + 50
+        annotation_window_limit = (
+            annotation_limit * _SHORT_QUERY_MAX_ANNOTATION_BATCHES
+        )
+        scored_count = annotation_window_limit + 50
         entry_ids = [f"E{i:03d}" for i in range(scored_count)]
         annotated_batches: list[list[str]] = []
 
@@ -398,7 +401,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma=f"word-{index:03d}",
                     confidence=threshold - 0.10,
@@ -409,7 +412,7 @@ class TestSearchShortQuery:
             ],
         )
 
-        beyond_window_id = f"E{annotation_limit:03d}"
+        beyond_window_id = f"E{annotation_window_limit:03d}"
 
         def fake_annotate_results(
             query_ipa: str,
@@ -447,11 +450,13 @@ class TestSearchShortQuery:
 
         results = search("ααα", lexicon, matrix={}, max_results=2, index={})
 
-        assert len(annotated_batches) == 1, (
-            "bounded-window policy must annotate exactly one batch"
+        assert len(annotated_batches) == _SHORT_QUERY_MAX_ANNOTATION_BATCHES, (
+            "bounded-window policy must stop at the configured batch cap"
         )
-        assert len(annotated_batches[0]) == annotation_limit
-        assert beyond_window_id not in annotated_batches[0], (
+        assert all(len(batch) == annotation_limit for batch in annotated_batches)
+        assert beyond_window_id not in {
+            entry_id for batch in annotated_batches for entry_id in batch
+        }, (
             "out-of-window candidate must not be annotated"
         )
         assert results == [], (
@@ -472,7 +477,9 @@ class TestSearchShortQuery:
             candidates: list[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: object,
         ) -> list[SearchResult]:
+            assert_only_expected_score_stage_kwargs(_kwargs)
             # Return SearchResults for ALL entry_ids (400 items), ignoring the
             # candidates passed in (which are limited by stage2_limit=50).
             # This simulates a fallback path that widens the candidate set.
@@ -533,8 +540,11 @@ class TestSearchShortQuery:
     ) -> None:
         """Internal execution metadata should preserve truncation for empty result sets."""
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
-        annotation_limit = search_module._annotation_candidate_limit(2)
-        entry_ids = [f"E{i:03d}" for i in range(annotation_limit + 50)]
+        annotation_limit = _annotation_candidate_limit(2)
+        annotation_window_limit = (
+            annotation_limit * _SHORT_QUERY_MAX_ANNOTATION_BATCHES
+        )
+        entry_ids = [f"E{i:03d}" for i in range(annotation_window_limit + 50)]
 
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "zz"
@@ -545,7 +555,7 @@ class TestSearchShortQuery:
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma=f"word-{entry_id}",
                     confidence=threshold - 0.10,
@@ -600,7 +610,9 @@ class TestSearchShortQuery:
             candidates: list[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: object,
         ) -> list[SearchResult]:
+            assert_only_expected_score_stage_kwargs(_kwargs)
             return [
                 SearchResult(
                     lemma=f"word-{cid}",

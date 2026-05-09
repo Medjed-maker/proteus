@@ -2430,7 +2430,8 @@ class TestSearchEndpoint:
                             "ipa": "rɛː",
                             "dialect": "attic",
                         },
-                    )
+                    ),
+                    phone_inventory=profile.phone_inventory,
                 ),
                 ipa_index={"rɛː": ["L1"]},
                 data_versions=api_main.DataVersions(),

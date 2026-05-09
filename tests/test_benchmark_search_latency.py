@@ -104,7 +104,11 @@ def test_benchmark_script_fails_when_baseline_threshold_is_exceeded(
     assert completed.returncode == 1
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["comparison"]["passed"] is False
-    assert payload["comparison"]["failed_metrics"] == ["mean_ms", "p95_ms", "max_ms"]
+    assert set(payload["comparison"]["failed_metrics"]) == {
+        "mean_ms",
+        "p95_ms",
+        "max_ms",
+    }
 
 
 @pytest.mark.parametrize(
@@ -113,6 +117,8 @@ def test_benchmark_script_fails_when_baseline_threshold_is_exceeded(
         (["--warmup-rounds", "-1"], "--warmup-rounds must be >= 0"),
         (["--measurement-rounds", "0"], "--measurement-rounds must be > 0"),
         (["--max-results", "0"], "--max-results must be > 0"),
+        (["--matrix-name", ""], "argument --matrix-name: value must be a non-empty string"),
+        (["--dialect", ""], "argument --dialect: value must be a non-empty string"),
     ],
 )
 def test_benchmark_script_rejects_invalid_arguments(
@@ -174,6 +180,83 @@ def test_percentile_accepts_boundary_fractions() -> None:
     assert result_max == 3.0
 
 
+def test_percentile_returns_single_element_for_any_fraction() -> None:
+    """percentile() should return the only value without interpolation."""
+    assert benchmark_search_latency.percentile([4.2], 0.0) == pytest.approx(4.2)
+    assert benchmark_search_latency.percentile([4.2], 0.5) == pytest.approx(4.2)
+    assert benchmark_search_latency.percentile([4.2], 1.0) == pytest.approx(4.2)
+
+
+@pytest.mark.parametrize(
+    ("values", "fraction", "expected"),
+    [
+        ([1.0, 3.0, 5.0], 0.5, 3.0),
+        ([1.0, 3.0, 5.0, 7.0], 0.5, 4.0),
+        ([10.0, 20.0, 30.0, 40.0], 0.25, 17.5),
+        ([40.0, 10.0, 30.0, 20.0], 0.75, 32.5),
+    ],
+)
+def test_percentile_interpolates_known_inputs(
+    values: list[float], fraction: float, expected: float
+) -> None:
+    """percentile() should sort values and linearly interpolate between indexes."""
+    assert benchmark_search_latency.percentile(values, fraction) == pytest.approx(
+        expected
+    )
+
+
+def test_benchmark_search_propagates_matrix_and_dialect_parameters(
+    isolated_language_registry: None,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """benchmark_search() should not depend on main() for profile registration."""
+    lexicon = ({"id": "L1", "headword": "target", "ipa": "pa", "dialect": "attic"},)
+    queries_path = tmp_path / "queries.txt"
+    queries_path.write_text("target\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+    captured_dialects: list[object] = []
+
+    monkeypatch.setattr(
+        benchmark_search_latency,
+        "load_lexicon_entries",
+        lambda _path: lexicon,
+    )
+
+    def fake_load_matrix(matrix_name: str) -> dict[str, dict[str, float]]:
+        captured["matrix_name"] = matrix_name
+        return {}
+
+    monkeypatch.setattr(benchmark_search_latency, "load_matrix", fake_load_matrix)
+    monkeypatch.setattr(benchmark_search_latency, "build_kmer_index", lambda *_, **__: {})
+    monkeypatch.setattr(benchmark_search_latency, "build_lexicon_map", lambda *_, **__: {})
+    monkeypatch.setattr(benchmark_search_latency, "build_ipa_index", lambda _map: {})
+    monkeypatch.setattr(benchmark_search_latency, "load_queries", lambda _path: ["target"])
+
+    def fake_search(*_args: object, **kwargs: object) -> list[object]:
+        assert "dialect" in kwargs, "missing 'dialect' kwarg in fake_search"
+        captured_dialects.append(kwargs["dialect"])
+        return []
+
+    monkeypatch.setattr(benchmark_search_latency, "search", fake_search)
+
+    result = benchmark_search_latency.benchmark_search(
+        lexicon_path=tmp_path / "lexicon.json",
+        queries_path=queries_path,
+        warmup_rounds=0,
+        measurement_rounds=1,
+        max_results=1,
+        matrix_name="custom_matrix.json",
+        dialect="koine",
+    )
+
+    assert result["query_count"] == 1
+    assert result["sample_count"] == 1
+    assert result["matrix_name"] == "custom_matrix.json"
+    assert captured["matrix_name"] == "custom_matrix.json"
+    assert captured_dialects == ["koine"]
+
+
 def test_compare_against_baseline_rejects_missing_metric() -> None:
     """Baseline comparisons should fail clearly when a required metric is absent."""
     with pytest.raises(ValueError, match="missing required metric 'p95_ms'"):
@@ -190,6 +273,83 @@ def test_compare_against_baseline_rejects_missing_metric() -> None:
         )
 
 
+@pytest.mark.parametrize("metric_name", ["mean_ms", "p95_ms", "max_ms"])
+@pytest.mark.parametrize("baseline_value", [0.0, -1.0])
+def test_compare_against_baseline_rejects_non_positive_baseline(
+    baseline_value: float, metric_name: str
+) -> None:
+    """Baseline comparisons should reject zero or negative metric values."""
+    baseline = {
+        "mean_ms": 1.0,
+        "p95_ms": 1.0,
+        "max_ms": 1.0,
+    }
+    baseline[metric_name] = baseline_value
+
+    with pytest.raises(
+        ValueError, match=f"Baseline metric {metric_name} must be > 0"
+    ):
+        benchmark_search_latency.compare_against_baseline(
+            {
+                "mean_ms": 1.0,
+                "p95_ms": 1.0,
+                "max_ms": 1.0,
+            },
+            baseline,
+        )
+
+
+def test_compare_against_baseline_passes_at_threshold_boundaries() -> None:
+    """Current metrics exactly at allowed thresholds should still pass."""
+    result = {
+        "mean_ms": 110.0,
+        "p95_ms": 220.0,
+        "max_ms": 345.0,
+    }
+    baseline = {
+        "mean_ms": 100.0,
+        "p95_ms": 200.0,
+        "max_ms": 300.0,
+    }
+
+    comparison = benchmark_search_latency.compare_against_baseline(result, baseline)
+
+    assert comparison["passed"] is True
+    assert comparison["failed_metrics"] == []
+    assert comparison["comparisons"]["mean_ms"] == {
+        "baseline": 100.0,
+        "current": 110.0,
+        "delta_ratio": pytest.approx(0.10),
+        "allowed_ratio": benchmark_search_latency.MEAN_THRESHOLD_RATIO,
+        "passed": True,
+    }
+    assert comparison["comparisons"]["p95_ms"]["delta_ratio"] == pytest.approx(0.10)
+    assert comparison["comparisons"]["max_ms"]["delta_ratio"] == pytest.approx(0.15)
+
+
+def test_compare_against_baseline_reports_failed_metrics() -> None:
+    """Baseline comparisons should aggregate every metric over its threshold."""
+    result = {
+        "mean_ms": 111.0,
+        "p95_ms": 219.0,
+        "max_ms": 346.0,
+    }
+    baseline = {
+        "mean_ms": 100.0,
+        "p95_ms": 200.0,
+        "max_ms": 300.0,
+    }
+
+    comparison = benchmark_search_latency.compare_against_baseline(result, baseline)
+
+    assert comparison["baseline_json"] == baseline
+    assert comparison["passed"] is False
+    assert set(comparison["failed_metrics"]) == {"mean_ms", "max_ms"}
+    assert comparison["comparisons"]["mean_ms"]["passed"] is False
+    assert comparison["comparisons"]["p95_ms"]["passed"] is True
+    assert comparison["comparisons"]["max_ms"]["passed"] is False
+
+
 def test_benchmark_script_warns_when_baseline_json_lacks_benchmark_key(
     tmp_path: Path,
 ) -> None:
@@ -199,9 +359,11 @@ def test_benchmark_script_warns_when_baseline_json_lacks_benchmark_key(
     baseline_path.write_text(
         json.dumps(
             {
-                "mean_ms": 9999.0,
-                "p95_ms": 9999.0,
-                "max_ms": 9999.0,
+                # Deliberately huge so the regression check never trips on environment
+                # variance — we only verify the missing-baseline warning path here.
+                "mean_ms": 1_000_000_000.0,
+                "p95_ms": 1_000_000_000.0,
+                "max_ms": 1_000_000_000.0,
             }
         ),
         encoding="utf-8",

@@ -55,28 +55,34 @@ runtime data.
 ```text
 proteus/
 ├── data/
-│   └── languages/
-│       └── ancient_greek/
-│           ├── rules/           # YAML phonological change rules
-│           ├── lexicon/         # LSJ headword list with IPA
-│           ├── matrices/        # Phonological distance matrix
-│           └── orthography/     # Provisional orthographic-note seeds
+│   ├── languages/
+│   │   └── ancient_greek/
+│   │       ├── rules/           # YAML phonological change rules
+│   │       ├── lexicon/         # LSJ headword list with IPA
+│   │       ├── matrices/        # Phonological distance matrix
+│   │       └── orthography/     # Provisional orthographic-note seeds
+│   └── schemas/
+│       └── phonology_rule_file.schema.json  # Machine-readable rule schema
 ├── docs/
 │   ├── phonology_rules.md       # Rule context notation and examples
 │   ├── OPEN_CORE_STRATEGY.md    # Public/private boundary notes
 │   └── ROADMAP.md               # Research and product roadmap
 ├── src/
 │   ├── phonology/
-│   │   ├── profiles.py          # LanguageProfile registry
-│   │   ├── ipa_converter.py     # Backward-compatible Ancient Greek wrapper
+│   │   ├── profiles.py          # LanguageProfile registry (lazy loading)
+│   │   ├── languages/
+│   │   │   └── ancient_greek/   # Ancient Greek pilot plugin
+│   │   │       └── profile.py   # LanguageProfile factory
 │   │   ├── distance.py          # Weighted edit distance
-│   │   ├── search.py            # Three-stage search
+│   │   ├── search.py            # Three-stage search (language-agnostic)
 │   │   └── explainer.py         # Human-readable rule explanations
 │   ├── api/
 │   │   └── main.py              # FastAPI endpoints
 │   └── web/
 │       └── index.html           # Frontend
 ├── tests/
+├── tools/
+│   └── validate_rule_files.py   # Standalone rule validation CLI
 ├── DATA_LICENSE.md
 ├── LICENSE
 ├── NOTICE
@@ -103,6 +109,9 @@ uv run uvicorn api.main:app --reload
 
 # Run tests
 uv run pytest
+
+# Validate rule files against JSON Schema
+uv run python tools/validate_rule_files.py
 ```
 
 If you skip the extraction step, the editable install still succeeds, but `/ready`

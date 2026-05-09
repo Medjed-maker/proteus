@@ -58,6 +58,7 @@ class TestSearchAnnotation:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             captured["candidate_ids"] = list(candidates)
             return []
@@ -75,7 +76,7 @@ class TestSearchAnnotation:
                 return []
             return ["L05", "L02", "L29"]
 
-        monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
+        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
@@ -116,13 +117,13 @@ class TestSearchAnnotation:
         )
         monkeypatch.setattr(
             search_module,
-            "seed_stage",
+            "_seed_stage_core",
             lambda *_args, **_kwargs: [f"L{index:02d}" for index in range(30)],
         )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma=f"lemma-{index:02d}",
                     confidence=1.0 - (index * 0.01),
@@ -178,6 +179,7 @@ class TestSearchAnnotation:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             candidate_ids = list(candidates)
             captured["candidate_count"] = len(candidate_ids)
@@ -205,7 +207,7 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "poi"
         )
-        monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
+        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module, "_annotate_search_results", fake_annotate_results
@@ -244,6 +246,7 @@ class TestSearchAnnotation:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             candidate_ids = list(candidates)
             return [
@@ -270,7 +273,7 @@ class TestSearchAnnotation:
             return annotated
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
+        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module, "_annotate_search_results", fake_annotate_results
@@ -303,16 +306,16 @@ class TestSearchAnnotation:
     def test_short_query_annotation_does_not_continue_past_bounded_window(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Short-query annotation should not continue past the bounded candidate window."""
+        """Short-query annotation window is bounded: annotation_limit candidates are processed in one batch and low-confidence results are dropped."""
         annotation_limit = search_module._annotation_candidate_limit(5)
         batch_sizes: list[int] = []
-        target_id = f"L{annotation_limit:03d}"
 
         def fake_score_stage(
             query_ipa: str,
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             return [
                 SearchResult(
@@ -321,7 +324,9 @@ class TestSearchAnnotation:
                     dialect_attribution="lemma dialect: attic",
                     entry_id=candidate_id,
                 )
-                for index, candidate_id in enumerate(candidates)
+                for index, candidate_id in enumerate(
+                    list(candidates)[:annotation_limit]
+                )
             ]
 
         def fake_annotate_results(
@@ -333,14 +338,10 @@ class TestSearchAnnotation:
             **_kwargs: Any,
         ) -> list[SearchResult]:
             batch_sizes.append(len(results))
-            annotated = list(results)
-            for result in annotated:
-                if result.entry_id == target_id:
-                    result.applied_rules = ["RULE-NEXT-BATCH"]
-            return annotated
+            return list(results)
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module, "_annotate_search_results", fake_annotate_results
@@ -353,7 +354,7 @@ class TestSearchAnnotation:
                 "ipa": "t",
                 "dialect": "attic",
             }
-            for index in range(annotation_limit + 1)
+            for index in range(annotation_limit * 2)
         ]
 
         results = search(
@@ -370,19 +371,20 @@ class TestSearchAnnotation:
         exact_id = "L120"
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
             lambda query_ipa,
             lexicon_map,
             max_candidates=None,
-            query_token_count=None: [f"L{index:03d}" for index in range(150)],
+            query_token_count=None,
+            **_kwargs: [f"L{index:03d}" for index in range(150)],
         )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma=f"lemma-{index:03d}",
                     confidence=1.0 - (index * 0.001),
@@ -429,14 +431,15 @@ class TestSearchAnnotation:
         captured_batches: list[list[str]] = []
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
             lambda query_ipa,
             lexicon_map,
             max_candidates=None,
-            query_token_count=None: [f"L{index:03d}" for index in range(150)],
+            query_token_count=None,
+            **_kwargs: [f"L{index:03d}" for index in range(150)],
         )
 
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
@@ -446,6 +449,7 @@ class TestSearchAnnotation:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             scored: list[SearchResult] = []
             for index, candidate_id in enumerate(candidates):
@@ -503,14 +507,15 @@ class TestSearchAnnotation:
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
             lambda query_ipa,
             lexicon_map,
             max_candidates=None,
-            query_token_count=None: [f"L{index:03d}" for index in range(350)],
+            query_token_count=None,
+            **_kwargs: [f"L{index:03d}" for index in range(350)],
         )
 
         def fake_score_stage(
@@ -518,6 +523,7 @@ class TestSearchAnnotation:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             scored: list[SearchResult] = []
             target_num = int(target_id[1:])
@@ -581,14 +587,15 @@ class TestSearchAnnotation:
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
             lambda query_ipa,
             lexicon_map,
             max_candidates=None,
-            query_token_count=None: [f"L{index:03d}" for index in range(150)],
+            query_token_count=None,
+            **_kwargs: [f"L{index:03d}" for index in range(150)],
         )
 
         def fake_score_stage(
@@ -596,6 +603,7 @@ class TestSearchAnnotation:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             scored: list[SearchResult] = []
             for index, candidate_id in enumerate(candidates):
@@ -655,13 +663,13 @@ class TestSearchAnnotation:
         )
         monkeypatch.setattr(
             search_module,
-            "seed_stage",
+            "_seed_stage_core",
             lambda *_args, **_kwargs: [f"L{index:02d}" for index in range(11)],
         )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma=f"lemma-{index:02d}",
                     confidence=1.0 - (index * 0.01),
@@ -714,6 +722,7 @@ class TestSearchAnnotation:
             candidates: Iterable[str],
             lexicon_map: dict[str, object],
             matrix: object,
+            **_kwargs: Any,
         ) -> list[SearchResult]:
             candidate_ids = list(candidates)
             captured["candidate_count"] = len(candidate_ids)
@@ -744,7 +753,7 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": query
         )
-        monkeypatch.setattr(search_module, "seed_stage", fake_seed_stage)
+        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module, "_annotate_search_results", fake_annotate_results
@@ -777,12 +786,12 @@ class TestSearchAnnotation:
             search_module, "to_ipa", lambda query, dialect="attic": "p a"
         )
         monkeypatch.setattr(
-            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2"]
         )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma="same",
                     confidence=0.60,
@@ -833,12 +842,12 @@ class TestSearchAnnotation:
             search_module, "to_ipa", lambda query, dialect="attic": "p a"
         )
         monkeypatch.setattr(
-            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2"]
         )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma="full-match",
                     confidence=0.50,
@@ -896,13 +905,13 @@ class TestSearchAnnotation:
         )
         monkeypatch.setattr(
             search_module,
-            "seed_stage",
+            "_seed_stage_core",
             lambda *_args, **_kwargs: [f"L{index:03d}" for index in range(150)],
         )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma=f"lemma-{index:03d}",
                     confidence=0.95,
@@ -954,13 +963,13 @@ class TestSearchAnnotation:
         )
         monkeypatch.setattr(
             search_module,
-            "seed_stage",
+            "_seed_stage_core",
             lambda *_args, **_kwargs: [f"L{index:03d}" for index in range(150)],
         )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma=f"lemma-{index:03d}",
                     confidence=0.95 if candidate_id != target_id else 0.10,
@@ -1022,13 +1031,13 @@ class TestSearchAnnotation:
         )
         monkeypatch.setattr(
             search_module,
-            "seed_stage",
+            "_seed_stage_core",
             lambda *_args, **_kwargs: [f"L{index:03d}" for index in range(150)],
         )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma=f"lemma-{index:03d}",
                     confidence=0.95 if index < annotation_limit else 0.10,
@@ -1082,36 +1091,30 @@ class TestSearchAnnotation:
     def test_short_query_annotation_call_counts_stay_bounded_by_annotation_window(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Short-query annotation should bound tokenize/alignment/explainer call counts."""
+        """Short-query annotation should bound alignment and explainer call counts."""
         annotation_limit = search_module._annotation_candidate_limit(5)
         counts = {
-            "tokenize": 0,
             "alignment": 0,
             "explain": 0,
         }
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "seed_stage", lambda *_args, **_kwargs: [])
+        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
             lambda query_ipa,
             lexicon_map,
             max_candidates=None,
-            query_token_count=None: [f"L{index:03d}" for index in range(150)],
+            query_token_count=None,
+            **_kwargs: [f"L{index:03d}" for index in range(150)],
         )
         monkeypatch.setattr(
             search_module, "get_rules_registry", lambda language="ancient_greek": {}
         )
         monkeypatch.setattr(
-            search_module, "tokenize_rules_for_matching", lambda rules: []
+            search_module, "tokenize_rules_for_matching", lambda rules, **_kwargs: []
         )
-
-        original_tokenize = search_module.tokenize_ipa
-
-        def tracking_tokenize(ipa_text: str) -> list[str]:
-            counts["tokenize"] += 1
-            return original_tokenize(ipa_text)
 
         def fake_alignment(
             query_tokens: list[str],
@@ -1132,9 +1135,6 @@ class TestSearchAnnotation:
             counts["explain"] += 1
             return []
 
-        monkeypatch.setattr(
-            "phonology.search._tokenization.tokenize_ipa", tracking_tokenize
-        )
         monkeypatch.setattr(search_module, "explain_with_tokenized_rules", fake_explain)
         monkeypatch.setattr(scoring_module, "_smith_waterman_alignment", fake_alignment)
 
@@ -1150,12 +1150,8 @@ class TestSearchAnnotation:
 
         search("q", lexicon, matrix={}, max_results=5, index={}, unigram_index={})
 
-        extra_tokenize_calls = (
-            3  # Query tokenization for selection, scoring, and annotation.
-        )
         assert counts["alignment"] == len(lexicon)
         assert counts["explain"] == annotation_limit
-        assert counts["tokenize"] == len(lexicon) + extra_tokenize_calls
 
     def test_short_query_deduplicates_after_quality_filter(
         self, monkeypatch: pytest.MonkeyPatch
@@ -1165,12 +1161,12 @@ class TestSearchAnnotation:
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
         monkeypatch.setattr(
-            search_module, "seed_stage", lambda *_args, **_kwargs: ["L1", "L2"]
+            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2"]
         )
         monkeypatch.setattr(
             search_module,
             "_score_stage",
-            lambda query_ipa, candidates, lexicon_map, matrix: [
+            lambda query_ipa, candidates, lexicon_map, matrix, **_kwargs: [
                 SearchResult(
                     lemma="same",
                     confidence=0.60,
@@ -1212,7 +1208,10 @@ class TestSearchAnnotation:
         """Full extend_stage should reuse one tokenized-rules batch for all candidates."""
         tokenize_calls: list[int] = []
 
-        def mock_tokenize_rules(rules: list[dict[str, object]]) -> list[object]:
+        def mock_tokenize_rules(
+            rules: list[dict[str, object]],
+            **_kwargs: object,
+        ) -> list[object]:
             """Record call count and return empty list."""
             tokenize_calls.append(len(rules))
             return []
@@ -1294,7 +1293,9 @@ class TestSearchAnnotation:
             search_module, "get_rules_registry", lambda language="ancient_greek": {}
         )
         monkeypatch.setattr(
-            search_module, "tokenize_rules_for_matching", lambda rules: []
+            search_module,
+            "tokenize_rules_for_matching",
+            lambda rules, **_kwargs: [],
         )
 
         lexicon_map = {

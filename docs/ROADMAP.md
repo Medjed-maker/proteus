@@ -16,7 +16,7 @@ The roadmap prioritizes:
 
 ---
 
-## 2. Phase 0: Core Refactor and Ancient Greek Pilot Stabilization
+## 2. Phase 0: Core Refactor and Ancient Greek Pilot Stabilization ✅ COMPLETE
 
 ### Goal
 
@@ -25,47 +25,53 @@ Convert the current Ancient Greek prototype into:
 language-independent core
 + ancient_greek plugin
 
-### Required Work
-- Introduce LanguageProfile
-- Introduce language registry
-- Move Ancient Greek-specific logic into an ancient_greek plugin
-- Add language parameter to /search
-- Keep backward compatibility with existing Ancient Greek search
-- Separate generic IPA tokenization from Ancient Greek conversion
-- Add toy_language fixture to test true language independence
-- Add tests proving that core logic does not depend on Ancient Greek
+### Completed Work
+- ✅ Introduced LanguageProfile with lazy loading
+- ✅ Introduced language registry in `profiles.py`
+- ✅ Moved Ancient Greek-specific logic into `languages/ancient_greek/profile.py`
+- ✅ Added language parameter to /search
+- ✅ Maintained backward compatibility with existing Ancient Greek search at the public search/profile boundary
+- ✅ Separated generic search/indexing/tokenization from Ancient Greek-specific conversion; Koine skeletons are supplied only by `LanguageProfile`
+- ✅ toy_language fixture tests true language independence
+- ✅ Core modules no longer eagerly import Ancient Greek-specific modules
 
-### Acceptance Criteria
-- Existing Ancient Greek tests pass
-- /search works with language="ancient_greek"
-- language can be omitted and defaults to ancient_greek
-- toy_language works without modifying core search logic
-- Core modules do not directly reference Ancient Greek-specific concepts
-- README states that the project is a framework with an Ancient Greek pilot plugin
+### Acceptance Criteria Status
+- ✅ Existing Ancient Greek tests pass (146 tests) — `uv run pytest -q` passes all search/api tests
+- ✅ /search works with language="ancient_greek" — `tests/test_api_main.py::TestSearchEndpoint`
+- ✅ language can be omitted and defaults to ancient_greek — `tests/test_api_main.py::TestSearchEndpoint`
+- ✅ toy_language works without modifying core search logic — `tests/conftest.py` `isolated_language_registry` fixture
+- ✅ Core search modules do not import Ancient Greek-specific conversion helpers; compatibility defaults are resolved through the default profile — `tests/test_search_pipeline.py`
+- ✅ README states that the project is a framework with an Ancient Greek pilot plugin — `README.md`
 
-## 3. Phase 1: Rule Set v0.1 and Search Quality
+## 3. Phase 1: Rule Set v0.1 and Search Quality ✅ COMPLETE
 
 ### Goal
 Create a usable Ancient Greek rule set and improve candidate ranking.
 
-### Required Work
-- Define Ancient Greek phonological rules in YAML/JSON
-- Add schema validation for rules
-- Add rule examples and references
-- Improve phonological distance matrices
-- Improve alignment output
-- Improve candidate scoring
-- Add benchmark test cases
-- Document provisional status of rules
-- Add basic citation metadata
+### Completed Work
+- ✅ Defined Ancient Greek phonological rules in YAML (consonant_changes.yaml, vowel_shifts.yaml, morphophonemic_alternations.yaml)
+- ✅ Created standalone JSON Schema: `data/schemas/phonology_rule_file.schema.json`
+- ✅ Created validation tool: `tools/validate_rule_files.py`
+- ✅ Added schema validation tests in `tests/test_data_files.py` and focused negative tests for the validation helper
+- ✅ All rule examples and references follow consistent format
+- ✅ Phonological distance matrices improved and validated
+- ✅ Alignment output and candidate scoring operational
+- ✅ Benchmark test cases added
+- ✅ Provisional status documented in rule metadata
+- ✅ Citation metadata in place (`citation_ready: false` pending expert review)
 
-### Acceptance Criteria
-- At least 20 Ancient Greek phonological rules are represented
-- Each rule has an ID, name, input, output, context, dialect, references, and examples
-- Search results include applied rule IDs
-- Search results include confidence levels
-- Rule files pass schema validation in CI
-- At least 5 representative Ancient Greek test cases pass
+### Deliverables
+- **Schema**: `data/schemas/phonology_rule_file.schema.json` - Machine-readable rule schema for all languages, packaged with wheel/sdist artifacts
+- **Validation Tool**: `tools/validate_rule_files.py` - Standalone CLI for rule validation
+- **CI Integration**: Rule files validated via `test_rule_file_validates_against_schema` in test suite
+
+### Acceptance Criteria Status
+- ✅ 50+ Ancient Greek phonological rules represented (16 consonant, 21 vowel, 17 morphophonemic) — `data/languages/ancient_greek/rules/`
+- ✅ Each rule has ID, name_en, name_ja, input, output, context, dialects, period, references, and examples — `data/schemas/phonology_rule_file.schema.json`
+- ✅ Search results include applied rule IDs (`rules_applied`) — `tests/test_search.py`
+- ✅ Search results include confidence levels (0.0-1.0 normalized) — `tests/test_search.py`
+- ✅ Rule files pass schema validation in CI (`test_rule_file_validates_against_schema`) — `tests/test_data_files.py::test_rule_file_validates_against_schema`
+- ✅ 5+ representative Ancient Greek test cases pass — `tests/test_api_main.py`
 
 ## 4. Phase 2: REST API and MCP Prototype
 
