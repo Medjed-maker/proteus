@@ -5,12 +5,13 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import replace
-from functools import lru_cache
+from functools import lru_cache, wraps
 import heapq
+import inspect
 import logging
 from pathlib import Path
 import time
-from typing import Any, NamedTuple, Protocol
+from typing import Any, NamedTuple, Protocol, TypeVar
 
 import yaml  # type: ignore[import-untyped]
 
@@ -184,6 +185,67 @@ def _public_compatibility_search_defaults(
     )
 
 
+_PublicAPIReturn = TypeVar("_PublicAPIReturn")
+
+
+def _backfill_public_defaults(
+    func: Callable[..., _PublicAPIReturn],
+) -> Callable[..., _PublicAPIReturn]:
+    """Inject Ancient Greek defaults into kwargs the wrapped function accepts.
+
+    Inspects the function signature once at decoration time and only backfills
+    `phone_inventory` / `dialect_skeleton_builders` kwargs that the function
+    actually exposes. Skips backfill entirely when `language` is non-str
+    (Path values are forwarded to the rule loader unchanged).
+
+    Centralizing the backfill in a decorator means every public API entry
+    point is annotated visibly; missing the decorator on a new public function
+    is obvious in code review rather than silently degrading at runtime.
+
+    Note:
+        The decorator cannot distinguish between an omitted argument and an
+        explicitly passed ``None``. Both cases trigger backfill when ``language``
+        matches ``DEFAULT_LANGUAGE_ID``. Callers who want character-by-character
+        tokenization for Ancient Greek should pass a non-default ``language``
+        value or use the internal ``_*_core`` functions directly.
+    """
+    sig = inspect.signature(func)
+    params = sig.parameters
+    accepts_phone_inventory = "phone_inventory" in params
+    accepts_dialect_builders = "dialect_skeleton_builders" in params
+    accepts_language = "language" in params
+
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> _PublicAPIReturn:
+        if not accepts_language:
+            return func(*args, **kwargs)
+        bound = sig.bind_partial(*args, **kwargs)
+        language = bound.arguments.get("language", params["language"].default)
+        if not isinstance(language, str):
+            return func(*args, **kwargs)
+        backfilled_inv, backfilled_builders = _public_compatibility_search_defaults(
+            language=language,
+            phone_inventory=(
+                bound.arguments.get("phone_inventory")
+                if accepts_phone_inventory
+                else None
+            ),
+            dialect_skeleton_builders=(
+                bound.arguments.get("dialect_skeleton_builders")
+                if accepts_dialect_builders
+                else None
+            ),
+        )
+        if accepts_phone_inventory:
+            bound.arguments["phone_inventory"] = backfilled_inv
+        if accepts_dialect_builders:
+            bound.arguments["dialect_skeleton_builders"] = backfilled_builders
+        return func(*bound.args, **bound.kwargs)
+
+    return wrapper
+
+
+@_backfill_public_defaults
 def build_kmer_index(
     lexicon: Sequence[LexiconEntry],
     k: int = _DEFAULT_KMER_SIZE,
@@ -193,11 +255,6 @@ def build_kmer_index(
     language: str = DEFAULT_LANGUAGE_ID,
 ) -> KmerIndex:
     """Build a k-mer index, preserving public Ancient Greek defaults."""
-    phone_inventory, dialect_skeleton_builders = _public_compatibility_search_defaults(
-        language=language,
-        phone_inventory=phone_inventory,
-        dialect_skeleton_builders=dialect_skeleton_builders,
-    )
     return _build_generic_kmer_index(
         lexicon,
         k=k,
@@ -804,6 +861,7 @@ def _select_token_proximity_fallback_candidates(
     )
 
 
+@_backfill_public_defaults
 def build_lexicon_map(
     lexicon: Sequence[LexiconEntry],
     *,
@@ -833,11 +891,6 @@ def build_lexicon_map(
     Raises:
         ValueError: If duplicate entry IDs are found in the lexicon.
     """
-    phone_inventory, _dialect_skeleton_builders = _public_compatibility_search_defaults(
-        language=language,
-        phone_inventory=phone_inventory,
-        dialect_skeleton_builders=None,
-    )
     return _build_lexicon_map_core(lexicon, phone_inventory=phone_inventory)
 
 
@@ -851,7 +904,9 @@ def _build_lexicon_map_core(
     Internal callers that have already resolved their own phone inventory
     (e.g. profile-aware search paths) call this directly to avoid the
     ``_public_compatibility_search_defaults`` round-trip in
-    ``build_lexicon_map``.
+    ``build_lexicon_map``. ``phone_inventory=None`` is a legitimate caller
+    intent meaning "no inventory, use generic character-by-character
+    tokenization" — it is NOT an "unresolved default" sentinel.
     """
     result: LexiconMap = {}
     for entry_id, entry in _build_entry_lookup(lexicon).items():
@@ -929,6 +984,7 @@ def _partial_query_ipa_from_fragments(
     raise ValueError(f"Unknown partial query shape: {partial_query.shape!r}")
 
 
+@_backfill_public_defaults
 def prepare_query_ipa(
     query: str,
     *,
@@ -987,14 +1043,6 @@ def prepare_query_ipa(
     """
     if not query.strip():
         raise ValueError("query must be a non-empty string")
-
-    phone_inventory, _dialect_skeleton_builders = (
-        _public_compatibility_search_defaults(
-            language=language,
-            phone_inventory=phone_inventory,
-            dialect_skeleton_builders=None,
-        )
-    )
 
     partial_query = _parse_partial_query(query)
     query_mode: QueryMode = (
@@ -1118,6 +1166,7 @@ def _select_partial_token_fallback_candidates(
     )
 
 
+@_backfill_public_defaults
 def seed_stage(
     query_ipa: str,
     index: KmerIndex,
@@ -1151,11 +1200,6 @@ def seed_stage(
     if k <= 0:
         raise ValueError(f"seed_stage requires k > 0 for k-mer size, got {k}")
 
-    phone_inventory, _dialect_skeleton_builders = _public_compatibility_search_defaults(
-        language=language,
-        phone_inventory=phone_inventory,
-        dialect_skeleton_builders=None,
-    )
     return _seed_stage_core(
         query_ipa,
         index,
@@ -1171,7 +1215,12 @@ def _seed_stage_core(
     k: int,
     phone_inventory: Iterable[str] | None,
 ) -> list[str]:
-    """Rank candidate ids using caller-resolved tokenization settings."""
+    """Rank candidate ids using caller-resolved tokenization settings.
+
+    ``phone_inventory=None`` is a legitimate caller intent meaning "no
+    inventory, use generic character-by-character tokenization" — it is NOT
+    an "unresolved default" sentinel.
+    """
     query_skeleton = _extract_consonant_skeleton(
         tokenize_for_inventory(query_ipa, phone_inventory)
     )
@@ -1400,6 +1449,7 @@ def _annotate_search_results_for_inventory(
     )
 
 
+@_backfill_public_defaults
 def extend_stage(
     query_ipa: str,
     candidates: Iterable[str],
@@ -1445,14 +1495,6 @@ def extend_stage(
             ``"headword"`` or ``"ipa"`` field and ``_lemma_label`` or
             ``_entry_ipa`` rejects it.
     """
-    if isinstance(language, str):
-        phone_inventory, _dialect_skeleton_builders = (
-            _public_compatibility_search_defaults(
-                language=language,
-                phone_inventory=phone_inventory,
-                dialect_skeleton_builders=None,
-            )
-        )
     scored_results = _score_stage_for_inventory(
         query_ipa=query_ipa,
         candidates=candidates,
@@ -1974,6 +2016,7 @@ def _execute_search(
     )
 
 
+@_backfill_public_defaults
 def search_execution(
     query: str,
     lexicon: Sequence[LexiconEntry],
@@ -2032,11 +2075,6 @@ def search_execution(
           Note: truncated=True can occur even when results=[] if all
           candidates were filtered out after reaching the annotation limit.
     """
-    phone_inventory, dialect_skeleton_builders = _public_compatibility_search_defaults(
-        language=language,
-        phone_inventory=phone_inventory,
-        dialect_skeleton_builders=dialect_skeleton_builders,
-    )
     return _execute_search(
         query,
         lexicon=lexicon,

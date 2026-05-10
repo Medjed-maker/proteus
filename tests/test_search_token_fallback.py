@@ -21,6 +21,10 @@ from phonology.search import (
     SearchResult,
     search,
 )
+from tests._helpers.fakes import (
+    fake_seed_stage_returning,
+    install_seed_stage,
+)
 
 
 @pytest.fixture
@@ -257,18 +261,12 @@ class TestSearchTokenFallback:
                 [f"L{index:02d}" for index in range(30)],
             ]
         )
-        seed_stage_core: Callable[..., list[str]] | None = getattr(
-            search_module, "_seed_stage_core", None
-        )
-        if seed_stage_core is None:
-            raise AssertionError("search_module._seed_stage_core test hook is missing")
         # This test needs deterministic seed_calls for the k=2 stage so it can
         # verify the stage2 cap without depending on k-mer index construction.
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: next(seed_calls),
-        )
+        # ``install_seed_stage`` raises AttributeError if the seam is missing,
+        # which doubles as the rename-detection assertion this test used to
+        # carry inline.
+        install_seed_stage(monkeypatch, lambda *_args, **_kwargs: next(seed_calls))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -395,7 +393,7 @@ class TestSearchTokenFallback:
         captured: dict[str, object] = {}
 
         mock_to_ipa_factory(to_ipa_return)
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
         monkeypatch.setattr(
             search_module, "_score_stage", _make_fake_score_stage(captured)
         )
@@ -454,7 +452,7 @@ class TestSearchTokenFallback:
         captured: dict[str, object] = {}
 
         mock_to_ipa_factory("loɡos")
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
         monkeypatch.setattr(
             search_module, "_score_stage", _make_fake_score_stage(captured)
         )
@@ -519,7 +517,7 @@ class TestSearchTokenFallback:
         captured: dict[str, object] = {}
 
         mock_to_ipa_factory("aː")
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
         monkeypatch.setattr(
             search_module, "_score_stage", _make_fake_score_stage(captured)
         )

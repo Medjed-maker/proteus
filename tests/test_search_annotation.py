@@ -22,6 +22,10 @@ from phonology.search import (
     search,
 )
 from phonology.search import _scoring as scoring_module
+from tests._helpers.fakes import (
+    fake_seed_stage_returning,
+    install_seed_stage,
+)
 
 
 class TestSearchAnnotation:
@@ -76,7 +80,7 @@ class TestSearchAnnotation:
                 return []
             return ["L05", "L02", "L29"]
 
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
+        install_seed_stage(monkeypatch, fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
@@ -115,10 +119,9 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "poi"
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: [f"L{index:02d}" for index in range(30)],
+        install_seed_stage(
+            monkeypatch,
+            fake_seed_stage_returning([f"L{index:02d}" for index in range(30)]),
         )
         monkeypatch.setattr(
             search_module,
@@ -207,7 +210,7 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "poi"
         )
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
+        install_seed_stage(monkeypatch, fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module, "_annotate_search_results", fake_annotate_results
@@ -273,7 +276,7 @@ class TestSearchAnnotation:
             return annotated
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
+        install_seed_stage(monkeypatch, fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module, "_annotate_search_results", fake_annotate_results
@@ -341,7 +344,7 @@ class TestSearchAnnotation:
             return list(results)
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module, "_annotate_search_results", fake_annotate_results
@@ -371,7 +374,7 @@ class TestSearchAnnotation:
         exact_id = "L120"
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
@@ -431,7 +434,7 @@ class TestSearchAnnotation:
         captured_batches: list[list[str]] = []
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
@@ -507,7 +510,7 @@ class TestSearchAnnotation:
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
@@ -587,7 +590,7 @@ class TestSearchAnnotation:
         threshold = search_module._SHORT_QUERY_CONFIDENCE_THRESHOLD
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
@@ -661,10 +664,9 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: [f"L{index:02d}" for index in range(11)],
+        install_seed_stage(
+            monkeypatch,
+            fake_seed_stage_returning([f"L{index:02d}" for index in range(11)]),
         )
         monkeypatch.setattr(
             search_module,
@@ -753,7 +755,7 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": query
         )
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
+        install_seed_stage(monkeypatch, fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module, "_annotate_search_results", fake_annotate_results
@@ -785,9 +787,7 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "p a"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -841,9 +841,7 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "p a"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -903,10 +901,9 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "a c"
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: [f"L{index:03d}" for index in range(150)],
+        install_seed_stage(
+            monkeypatch,
+            fake_seed_stage_returning([f"L{index:03d}" for index in range(150)]),
         )
         monkeypatch.setattr(
             search_module,
@@ -961,10 +958,9 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "a c"
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: [f"L{index:03d}" for index in range(150)],
+        install_seed_stage(
+            monkeypatch,
+            fake_seed_stage_returning([f"L{index:03d}" for index in range(150)]),
         )
         monkeypatch.setattr(
             search_module,
@@ -1029,10 +1025,9 @@ class TestSearchAnnotation:
             "to_ipa",
             lambda query, dialect="attic": query.replace("*", ""),
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: [f"L{index:03d}" for index in range(150)],
+        install_seed_stage(
+            monkeypatch,
+            fake_seed_stage_returning([f"L{index:03d}" for index in range(150)]),
         )
         monkeypatch.setattr(
             search_module,
@@ -1099,7 +1094,7 @@ class TestSearchAnnotation:
         }
 
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "q")
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
@@ -1160,9 +1155,7 @@ class TestSearchAnnotation:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
