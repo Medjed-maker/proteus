@@ -22,6 +22,10 @@ from phonology.search import (
     build_lexicon_map,
     search,
 )
+from tests._helpers.fakes import (
+    fake_seed_stage_returning,
+    install_seed_stage,
+)
 from tests._helpers.score_stage_mock import assert_only_expected_score_stage_kwargs
 
 
@@ -116,7 +120,7 @@ class TestSearchPartial:
             return query
 
         monkeypatch.setattr(search_module, "to_ipa", fake_to_ipa)
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
 
         def fake_score_stage(query_ipa, candidates, lexicon_map, matrix, **_kwargs):
             assert_only_expected_score_stage_kwargs(_kwargs)
@@ -153,9 +157,7 @@ class TestSearchPartial:
         """A wildcard between Greek letters should block cross-boundary diphthongs."""
         captured: dict[str, object] = {}
 
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1"]))
 
         def fake_score_stage(
             query_ipa: str,
@@ -263,9 +265,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2", "L3"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2", "L3"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -319,9 +319,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -498,7 +496,7 @@ class TestSearchPartial:
             captured["candidate_ids"] = list(candidates)
             return []
 
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
+        install_seed_stage(monkeypatch, fake_seed_stage)
         monkeypatch.setattr(
             search_module,
             "_select_partial_seed_candidates",
@@ -565,7 +563,7 @@ class TestSearchPartial:
             captured["candidate_ids"] = list(candidates)
             return []
 
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
+        install_seed_stage(monkeypatch, fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
@@ -596,9 +594,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2"]))
 
         def fake_score_stage(
             query_ipa: str,
@@ -641,11 +637,11 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: ["L1", "L2"]
-            + [f"L{index:03d}" for index in range(3, 121)],
+        install_seed_stage(
+            monkeypatch,
+            fake_seed_stage_returning(
+                ["L1", "L2"] + [f"L{index:03d}" for index in range(3, 121)]
+            ),
         )
 
         def fake_score_stage(
@@ -712,9 +708,7 @@ class TestSearchPartial:
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
         exact_ids = [f"L{index:03d}" for index in range(120)]
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: exact_ids
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(exact_ids))
 
         def fake_score_stage(
             query_ipa: str,
@@ -767,9 +761,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -812,9 +804,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -862,9 +852,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -899,9 +887,7 @@ class TestSearchPartial:
             "to_ipa",
             lambda query, dialect="attic": {"bc": "b c", "a": "a"}.get(query, query),
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2", "L3"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2", "L3"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -964,9 +950,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "p a"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -1029,9 +1013,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "p a"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1", "L2"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -1098,10 +1080,8 @@ class TestSearchPartial:
                 query, query
             ),
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: ["L1", "L2", "L3", "L4"],
+        install_seed_stage(
+            monkeypatch, fake_seed_stage_returning(["L1", "L2", "L3", "L4"])
         )
         monkeypatch.setattr(
             search_module,

@@ -27,6 +27,11 @@ from phonology.search import (
 # TODO: expose partial-match helpers publicly once that package API is stable.
 # These tests exercise _partial._is_partial_match directly, which search() does not expose.
 from phonology.search import _partial as partial_module
+from tests._helpers.fakes import (
+    fake_seed_stage_returning,
+    install_lexicon_map,
+    install_seed_stage,
+)
 from tests._helpers.score_stage_mock import assert_only_expected_score_stage_kwargs
 
 MATRIX_FILE = "attic_doric.json"
@@ -440,10 +445,8 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pten"
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: ["L1", "L2", "L3", "L4"],
+        install_seed_stage(
+            monkeypatch, fake_seed_stage_returning(["L1", "L2", "L3", "L4"])
         )
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
@@ -496,14 +499,8 @@ class TestSearch:
         monkeypatch.setattr(
             "phonology.search._tokenization.tokenize_ipa", fake_tokenize_ipa
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1"]
-        )
-        monkeypatch.setattr(
-            search_module,
-            "_build_lexicon_map_for_inventory",
-            fail_build_lexicon_map,
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1"]))
+        install_lexicon_map(monkeypatch, fail_build_lexicon_map)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
@@ -556,10 +553,9 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "query-ipa"
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: [entry["id"] for entry in lexicon],
+        install_seed_stage(
+            monkeypatch,
+            fake_seed_stage_returning([entry["id"] for entry in lexicon]),
         )
         monkeypatch.setattr(
             search_module,
@@ -607,10 +603,9 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "query-ipa"
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: [entry["id"] for entry in lexicon],
+        install_seed_stage(
+            monkeypatch,
+            fake_seed_stage_returning([entry["id"] for entry in lexicon]),
         )
         monkeypatch.setattr(
             search_module,
@@ -664,10 +659,9 @@ class TestSearch:
             "phonology.search._tokenization.tokenize_ipa",
             lambda ipa_text: ["q", "u", "e"],
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: [entry["id"] for entry in lexicon],
+        install_seed_stage(
+            monkeypatch,
+            fake_seed_stage_returning([entry["id"] for entry in lexicon]),
         )
         monkeypatch.setattr(
             search_module,
@@ -731,10 +725,9 @@ class TestSearch:
             "phonology.search._tokenization.tokenize_ipa",
             lambda ipa_text: ["q", "u", "e"],
         )
-        monkeypatch.setattr(
-            search_module,
-            "_seed_stage_core",
-            lambda *_args, **_kwargs: [entry["id"] for entry in lexicon],
+        install_seed_stage(
+            monkeypatch,
+            fake_seed_stage_returning([entry["id"] for entry in lexicon]),
         )
         monkeypatch.setattr(
             search_module,
@@ -831,12 +824,8 @@ class TestSearch:
         monkeypatch.setattr(
             "phonology.search._tokenization.tokenize_ipa", lambda ipa_text: ["a"]
         )
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
-        monkeypatch.setattr(
-            search_module,
-            "_build_lexicon_map_for_inventory",
-            fake_build_lexicon_map,
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
+        install_lexicon_map(monkeypatch, fake_build_lexicon_map)
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
@@ -881,7 +870,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "query-ipa"
         )
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
+        install_seed_stage(monkeypatch, fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
@@ -956,7 +945,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": query
         )
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
+        install_seed_stage(monkeypatch, fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
@@ -1041,7 +1030,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": query
         )
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
+        install_seed_stage(monkeypatch, fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
@@ -1126,7 +1115,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": query
         )
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
+        install_seed_stage(monkeypatch, fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
@@ -1201,7 +1190,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": query
         )
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
+        install_seed_stage(monkeypatch, fake_seed_stage)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
@@ -1283,12 +1272,8 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
-        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage)
-        monkeypatch.setattr(
-            search_module,
-            "_build_lexicon_map_for_inventory",
-            fake_build_lexicon_map,
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage)
+        install_lexicon_map(monkeypatch, fake_build_lexicon_map)
         monkeypatch.setattr(search_module, "_score_stage", fake_score_stage)
         monkeypatch.setattr(
             search_module,
@@ -1338,9 +1323,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "p t e n"
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L1"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1"]))
         monkeypatch.setattr(
             search_module,
             "_score_stage",
@@ -1437,7 +1420,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "aː"
         )
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
@@ -1510,7 +1493,7 @@ class TestSearch:
             search_module, "to_ipa", lambda query, dialect="attic": "aː"
         )
         monkeypatch.setattr(search_module, "build_kmer_index", fake_build_kmer_index)
-        monkeypatch.setattr(search_module, "_seed_stage_core", lambda *_args, **_kwargs: [])
+        install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
         monkeypatch.setattr(
             search_module,
             "_rank_by_token_count_proximity",
@@ -1633,14 +1616,8 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "build_ipa_index", self._raise_should_not_rebuild_ipa_index
         )
-        monkeypatch.setattr(
-            search_module,
-            "_build_lexicon_map_for_inventory",
-            fail_build_lexicon_map,
-        )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L2"]
-        )
+        install_lexicon_map(monkeypatch, fail_build_lexicon_map)
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L2"]))
 
         monkeypatch.setattr(
             search_module,
@@ -1717,9 +1694,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "build_ipa_index", self._raise_should_not_rebuild_ipa_index
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L2"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L2"]))
 
         monkeypatch.setattr(
             search_module,
@@ -1759,9 +1734,7 @@ class TestSearch:
         monkeypatch.setattr(
             search_module, "build_ipa_index", self._raise_should_not_rebuild_ipa_index
         )
-        monkeypatch.setattr(
-            search_module, "_seed_stage_core", lambda *_args, **_kwargs: ["L2"]
-        )
+        install_seed_stage(monkeypatch, fake_seed_stage_returning(["L2"]))
 
         monkeypatch.setattr(
             search_module,
@@ -1900,6 +1873,43 @@ class TestSearch:
 
         assert captured["candidate_ids"] == ["TARGET"]
         assert execution.results[0].lemma == "target"
+
+    def test_search_execution_backfills_defaults_for_positional_optional_arguments(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Public default backfill must not duplicate positional optional args."""
+        captured: dict[str, object] = {}
+
+        def fake_execute_search(query: str, **kwargs: object) -> object:
+            captured["query"] = query
+            captured.update(kwargs)
+            return search_module.SearchExecutionResult(results=[])
+
+        monkeypatch.setattr(search_module, "_execute_search", fake_execute_search)
+
+        execution = search_module.search_execution(
+            "ignored",
+            [],
+            {},
+            5,
+            "attic",
+            None,
+            None,
+            None,
+            "ancient_greek",
+            None,
+            None,
+            None,
+        )
+
+        assert execution.results == []
+        assert captured["query"] == "ignored"
+        phone_inventory = captured["phone_inventory"]
+        dialect_skeleton_builders = captured["dialect_skeleton_builders"]
+        assert isinstance(phone_inventory, Iterable)
+        assert isinstance(dialect_skeleton_builders, Iterable)
+        assert "pʰ" in set(phone_inventory)
+        assert list(dialect_skeleton_builders)
 
     def test_non_default_language_internal_seed_uses_literal_fallback(
         self, monkeypatch: pytest.MonkeyPatch
