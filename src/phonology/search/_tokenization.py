@@ -31,7 +31,10 @@ def tokenize_for_inventory(
         phone_inventory: Iterable of IPA phone strings used for greedy
             longest-match tokenization. When ``None``, tokenization falls back
             to literal character tokens via the backward-compatible search
-            shim.
+            shim. This parameter is materialized to a tuple internally; an
+            empty tuple triggers the same fallback behavior as ``None``, so
+            callers providing an empty iterable will get ``tokenize_ipa``
+            behavior.
 
     Returns:
         A list of IPA token strings.
@@ -40,6 +43,8 @@ def tokenize_for_inventory(
         return tokenize_ipa(ipa_text)
     # Materialize iterable to tuple to avoid consuming single-use iterables
     phones = tuple(phone_inventory)
+    if not phones:
+        return tokenize_ipa(ipa_text)
     return tokenize_ipa_with_inventory(ipa_text, phone_inventory=phones)
 
 

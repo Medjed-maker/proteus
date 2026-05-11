@@ -296,6 +296,37 @@ class TestExtendStage:
 
         assert captured == {"language": "test_language"}
 
+    def test_extend_stage_accepts_language_as_fifth_positional_argument(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Preserve the public positional language argument accepted by extend_stage."""
+        captured: dict[str, object] = {}
+
+        def fake_get_rules_registry(
+            language: str = "ancient_greek",
+        ) -> dict[str, dict[str, object]]:
+            captured["language"] = language
+            return {}
+
+        monkeypatch.setattr(
+            search_module, "get_rules_registry", fake_get_rules_registry
+        )
+
+        extend_stage(
+            "aː",
+            ["L1"],
+            {
+                "L1": LexiconRecord(
+                    entry={"headword": "γᾱ", "ipa": "aː", "dialect": "attic"},
+                    token_count=1,
+                )
+            },
+            {},
+            "test_language",
+        )
+
+        assert captured == {"language": "test_language"}
+
     def test_detects_single_token_rule_and_reports_dialect(
         self, monkeypatch: pytest.MonkeyPatch, known_phones: tuple[str, ...]
     ) -> None:

@@ -106,6 +106,7 @@ class TestSearchTokenFallback:
             lexicon=[],
             prebuilt_lexicon_map=tokenized_map,
             prebuilt_ipa_index=None,
+            phone_inventory=(),
         )
 
         def fake_rank_by_token_count_proximity(
@@ -171,6 +172,7 @@ class TestSearchTokenFallback:
             lexicon=[],
             prebuilt_lexicon_map=tokenized_map,
             prebuilt_ipa_index=None,
+            phone_inventory=(),
         )
         partial_query = search_module.PartialQueryTokens(
             shape="suffix",
@@ -236,6 +238,7 @@ class TestSearchTokenFallback:
         mock_load_rules: None,
         mock_to_ipa_factory: Callable[[str], None],
     ) -> None:
+        """When query has no seedable skeleton, token proximity is used and search returns closest IPA/lemma (e.g., expecting 'alpha' for 'ἄ')."""
         mock_to_ipa_factory("aː")
         lexicon = [
             {"id": "L1", "headword": "alpha", "ipa": "aː", "dialect": "attic"},

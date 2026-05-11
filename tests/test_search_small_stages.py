@@ -7,10 +7,14 @@ previously lived alongside ``TestSearch`` in ``tests/test_search.py``.
 
 from __future__ import annotations
 
+import inspect
+from types import ModuleType
 import unicodedata
 
 import pytest
 
+from phonology import search as search_module
+import phonology.search.compat as search_compat
 from phonology.ipa_converter import tokenize_ipa
 from phonology.search import (
     SearchResult,
@@ -40,6 +44,129 @@ class TestFilterStage:
     def test_rejects_non_positive_max_results(self, max_results: int) -> None:
         with pytest.raises(ValueError, match="positive integer"):
             filter_stage([], max_results=max_results)
+
+
+class TestPublicCompatibilityBoundary:
+    """Verify public wrappers resolve defaults before calling internal cores."""
+
+    def test_compat_module_exports_only_public_wrappers(self) -> None:
+        """Ensure compat exposes only the intended public wrapper functions."""
+        assert search_compat.__all__ == [
+            "build_kmer_index",
+            "build_lexicon_map",
+            "extend_stage",
+            "prepare_query_ipa",
+            "search",
+            "search_execution",
+            "seed_stage",
+        ]
+
+    @pytest.mark.parametrize(
+        "target",
+        [
+            search_module._build_lexicon_map_core,
+            search_module._build_lexicon_map_for_inventory,
+            search_module._seed_stage_core,
+            search_module._seed_stage_for_inventory,
+            search_module._prepare_query_ipa_core,
+            search_module._execute_search,
+            search_module._LazySearchDependencies.__init__,
+        ],
+    )
+    def test_core_phone_inventory_is_required(self, target: object) -> None:
+        params = inspect.signature(target).parameters
+        assert "phone_inventory" in params, "phone_inventory parameter must exist"
+        parameter = params["phone_inventory"]
+
+        assert parameter.default is inspect.Parameter.empty
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "build_kmer_index",
+            "build_lexicon_map",
+            "prepare_query_ipa",
+            "seed_stage",
+            "extend_stage",
+            "search_execution",
+            "search",
+        ],
+    )
+    def test_package_reexports_public_compat_functions(self, name: str) -> None:
+        """Ensure public compatibility functions are re-exported by the package."""
+        assert getattr(search_module, name) is getattr(search_compat, name)
+
+    def test_core_module_caches_imports_and_can_force_reload(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Verify compat core resolution caches imports but supports explicit reload."""
+        imported_names: list[str] = []
+        first_module = ModuleType("first")
+        second_module = ModuleType("second")
+        modules = iter([first_module, second_module])
+
+        def fake_import_module(name: str) -> ModuleType:
+            imported_names.append(name)
+            return next(modules)
+
+        monkeypatch.setattr(search_compat, "_CACHED_CORE_MODULE", None)
+        monkeypatch.setattr(search_compat, "import_module", fake_import_module)
+
+        assert search_compat._core_module() is first_module
+        assert search_compat._core_module() is first_module
+        assert search_compat._core_module(force_reload=True) is second_module
+        assert imported_names == ["phonology.search", "phonology.search"]
+
+    def test_non_default_language_resolves_missing_inventory_to_empty_tuple(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Non-default languages pass an empty inventory tuple into the core."""
+        captured: dict[str, object] = {}
+
+        def fake_build_lexicon_map_core(
+            lexicon: object,
+            *,
+            phone_inventory: tuple[str, ...],
+        ) -> dict[str, object]:
+            captured["lexicon"] = lexicon
+            captured["phone_inventory"] = phone_inventory
+            return {}
+
+        monkeypatch.setattr(
+            search_module,
+            "_build_lexicon_map_core",
+            fake_build_lexicon_map_core,
+        )
+
+        assert build_lexicon_map([], language="test") == {}
+        assert captured == {"lexicon": [], "phone_inventory": ()}
+
+    def test_default_language_resolves_missing_inventory_before_core(
+        self, monkeypatch: pytest.MonkeyPatch, known_phones: tuple[str, ...]
+    ) -> None:
+        """Default seed_stage backfills known phones, unlike non-default languages."""
+        captured: dict[str, object] = {}
+
+        def fake_seed_stage_core(
+            query_ipa: str,
+            index: dict[str, list[str]],
+            *,
+            k: int,
+            phone_inventory: tuple[str, ...],
+        ) -> list[str]:
+            captured["query_ipa"] = query_ipa
+            captured["index"] = index
+            captured["k"] = k
+            captured["phone_inventory"] = phone_inventory
+            return ["L1"]
+
+        monkeypatch.setattr(search_module, "_seed_stage_core", fake_seed_stage_core)
+
+        assert seed_stage("apʰlas", {"pʰ l": ["L1"]}) == ["L1"]
+        assert captured["query_ipa"] == "apʰlas"
+        assert captured["index"] == {"pʰ l": ["L1"]}
+        assert captured["k"] == 2
+        assert captured["phone_inventory"] == known_phones
 
 
 class TestQueryModeHelpers:
