@@ -5,13 +5,12 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import replace
-from functools import lru_cache, wraps
+from functools import lru_cache
 import heapq
-import inspect
 import logging
 from pathlib import Path
 import time
-from typing import Any, NamedTuple, Protocol, TypeVar
+from typing import Any, NamedTuple, Protocol
 
 import yaml  # type: ignore[import-untyped]
 
@@ -117,6 +116,15 @@ from ._types import (
     _CandidateSelectionPath,
     _CandidateSelectionResult,
 )
+from .compat import (
+    build_kmer_index,
+    build_lexicon_map,
+    extend_stage,
+    prepare_query_ipa,
+    search,
+    search_execution,
+    seed_stage,
+)
 
 logger = logging.getLogger(__name__)
 _TOKENIZED_RULES_CACHE_MAXSIZE = 64
@@ -185,92 +193,13 @@ def _public_compatibility_search_defaults(
     )
 
 
-_PublicAPIReturn = TypeVar("_PublicAPIReturn")
-
-
-def _backfill_public_defaults(
-    func: Callable[..., _PublicAPIReturn],
-) -> Callable[..., _PublicAPIReturn]:
-    """Inject Ancient Greek defaults into kwargs the wrapped function accepts.
-
-    Inspects the function signature once at decoration time and only backfills
-    `phone_inventory` / `dialect_skeleton_builders` kwargs that the function
-    actually exposes. Skips backfill entirely when `language` is non-str
-    (Path values are forwarded to the rule loader unchanged).
-
-    Centralizing the backfill in a decorator means every public API entry
-    point is annotated visibly; missing the decorator on a new public function
-    is obvious in code review rather than silently degrading at runtime.
-
-    Note:
-        The decorator cannot distinguish between an omitted argument and an
-        explicitly passed ``None``. Both cases trigger backfill when ``language``
-        matches ``DEFAULT_LANGUAGE_ID``. Callers who want character-by-character
-        tokenization for Ancient Greek should pass a non-default ``language``
-        value or use the internal ``_*_core`` functions directly.
-    """
-    sig = inspect.signature(func)
-    params = sig.parameters
-    accepts_phone_inventory = "phone_inventory" in params
-    accepts_dialect_builders = "dialect_skeleton_builders" in params
-    accepts_language = "language" in params
-
-    @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> _PublicAPIReturn:
-        if not accepts_language:
-            return func(*args, **kwargs)
-        bound = sig.bind_partial(*args, **kwargs)
-        language = bound.arguments.get("language", params["language"].default)
-        if not isinstance(language, str):
-            return func(*args, **kwargs)
-        backfilled_inv, backfilled_builders = _public_compatibility_search_defaults(
-            language=language,
-            phone_inventory=(
-                bound.arguments.get("phone_inventory")
-                if accepts_phone_inventory
-                else None
-            ),
-            dialect_skeleton_builders=(
-                bound.arguments.get("dialect_skeleton_builders")
-                if accepts_dialect_builders
-                else None
-            ),
-        )
-        if accepts_phone_inventory:
-            bound.arguments["phone_inventory"] = backfilled_inv
-        if accepts_dialect_builders:
-            bound.arguments["dialect_skeleton_builders"] = backfilled_builders
-        return func(*bound.args, **bound.kwargs)
-
-    return wrapper
-
-
-@_backfill_public_defaults
-def build_kmer_index(
-    lexicon: Sequence[LexiconEntry],
-    k: int = _DEFAULT_KMER_SIZE,
-    *,
-    phone_inventory: Iterable[str] | None = None,
-    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
-    language: str = DEFAULT_LANGUAGE_ID,
-) -> KmerIndex:
-    """Build a k-mer index, preserving public Ancient Greek defaults."""
-    return _build_generic_kmer_index(
-        lexicon,
-        k=k,
-        phone_inventory=phone_inventory,
-        dialect_skeleton_builders=dialect_skeleton_builders,
-    )
-
-
-def _with_optional_phone_inventory(
+def _with_phone_inventory(
     kwargs: dict[str, Any],
-    phone_inventory: Iterable[str] | None,
+    phone_inventory: tuple[str, ...],
 ) -> dict[str, Any]:
-    """Add ``phone_inventory`` only when callers requested custom tokenization."""
+    """Add already-resolved phone inventory to delegated helper kwargs."""
     updated_kwargs = dict(kwargs)
-    if phone_inventory is not None:
-        updated_kwargs["phone_inventory"] = phone_inventory
+    updated_kwargs["phone_inventory"] = phone_inventory
     return updated_kwargs
 
 
@@ -278,7 +207,7 @@ def _build_kmer_index_for_inventory(
     lexicon: Sequence[LexiconEntry],
     *,
     k: int,
-    phone_inventory: Iterable[str] | None,
+    phone_inventory: tuple[str, ...],
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
 ) -> KmerIndex:
     """Call k-mer builder, forwarding phone inventory and dialect skeleton builders."""
@@ -293,7 +222,7 @@ def _build_kmer_index_for_inventory(
 def _build_lexicon_map_for_inventory(
     lexicon: Sequence[LexiconEntry],
     *,
-    phone_inventory: Iterable[str] | None,
+    phone_inventory: tuple[str, ...],
 ) -> LexiconMap:
     """Call the lexicon-map core directly, bypassing public compatibility defaults."""
     return _build_lexicon_map_core(lexicon, phone_inventory=phone_inventory)
@@ -304,7 +233,7 @@ def _seed_stage_for_inventory(
     index: KmerIndex,
     *,
     k: int,
-    phone_inventory: Iterable[str] | None,
+    phone_inventory: tuple[str, ...],
 ) -> list[str]:
     """Call seed-stage core with already-resolved inventory settings."""
     return _seed_stage_core(
@@ -393,7 +322,7 @@ class _LazySearchDependencies:
         lexicon: Sequence[LexiconEntry],
         prebuilt_lexicon_map: LexiconMap | None,
         prebuilt_ipa_index: IpaIndex | None,
-        phone_inventory: Iterable[str] | None = None,
+        phone_inventory: tuple[str, ...],
         dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]]
         | None = None,
     ) -> None:
@@ -435,8 +364,8 @@ class _LazySearchDependencies:
         return self._ipa_index
 
     @property
-    def phone_inventory(self) -> Iterable[str] | None:
-        """Return the optional phone inventory shared by this search."""
+    def phone_inventory(self) -> tuple[str, ...]:
+        """Return the resolved phone inventory shared by this search."""
         return self._phone_inventory
 
     @property
@@ -514,8 +443,8 @@ def _inject_length_proximate_candidates(
     candidate_ids: list[str],
     lexicon_lookup: LexiconLookup,
     limit: int,
+    phone_inventory: tuple[str, ...],
     max_delta: int = 2,
-    phone_inventory: Iterable[str] | None = None,
 ) -> list[str]:
     """Append seed candidates whose IPA token count is close to the query's.
 
@@ -698,7 +627,7 @@ def _select_unigram_fallback_candidates(
                 for entry_id in unigram_candidates
                 if entry_id in tokenized_map
             },
-            **_with_optional_phone_inventory(
+            **_with_phone_inventory(
                 {
                     "max_candidates": effective_unigram_fallback_limit,
                     "query_token_count": len(query_tokens),
@@ -761,7 +690,7 @@ def _select_unigram_fallback_candidates(
     candidate_ids = _rank_by_token_count_proximity(
         query_ipa,
         unigram_candidate_map,
-        **_with_optional_phone_inventory(
+        **_with_phone_inventory(
             {
                 "max_candidates": effective_unigram_fallback_limit,
                 "query_token_count": len(query_tokens),
@@ -811,7 +740,7 @@ def _select_token_proximity_fallback_candidates(
             query_ipa,
             len(query_tokens),
             tokenized_map,
-            **_with_optional_phone_inventory(
+            **_with_phone_inventory(
                 {
                     "max_results": max_results,
                     "explicit_limit": effective_similarity_fallback_limit,
@@ -832,7 +761,7 @@ def _select_token_proximity_fallback_candidates(
         candidate_ids = _rank_by_token_count_proximity(
             query_ipa,
             tokenized_map,
-            **_with_optional_phone_inventory(
+            **_with_phone_inventory(
                 {
                     "max_candidates": effective_similarity_fallback_limit,
                     "query_token_count": len(query_tokens),
@@ -861,52 +790,17 @@ def _select_token_proximity_fallback_candidates(
     )
 
 
-@_backfill_public_defaults
-def build_lexicon_map(
-    lexicon: Sequence[LexiconEntry],
-    *,
-    phone_inventory: Iterable[str] | None = None,
-    language: str = DEFAULT_LANGUAGE_ID,
-) -> LexiconMap:
-    """Build a lexicon map with cached IPA token counts for each entry.
-
-    Public calls preserve Ancient Greek defaults: when ``language`` is the
-    default language and ``phone_inventory`` is omitted, the default profile's
-    phone inventory is used so multi-character IPA phones remain cached as
-    phones. Generic callers should pass a non-default ``language`` or an
-    explicit ``phone_inventory``.
-
-    Stays in this module (not ``_lookup``) because tests monkeypatch
-    ``search_module.tokenize_ipa`` and bare-name resolution only picks up
-    the patched value in the module where the call is defined.
-
-    Args:
-        lexicon: Sequence of lexicon entry dicts to index.
-        phone_inventory: Optional phone inventory for IPA tokenization.
-        language: Language id used only for public compatibility defaults.
-
-    Returns:
-        LexiconMap mapping entry ids to LexiconRecord instances.
-
-    Raises:
-        ValueError: If duplicate entry IDs are found in the lexicon.
-    """
-    return _build_lexicon_map_core(lexicon, phone_inventory=phone_inventory)
-
-
 def _build_lexicon_map_core(
     lexicon: Sequence[LexiconEntry],
     *,
-    phone_inventory: Iterable[str] | None,
+    phone_inventory: tuple[str, ...],
 ) -> LexiconMap:
     """Build a lexicon map without applying public Ancient Greek defaults.
 
     Internal callers that have already resolved their own phone inventory
-    (e.g. profile-aware search paths) call this directly to avoid the
-    ``_public_compatibility_search_defaults`` round-trip in
-    ``build_lexicon_map``. ``phone_inventory=None`` is a legitimate caller
-    intent meaning "no inventory, use generic character-by-character
-    tokenization" — it is NOT an "unresolved default" sentinel.
+    (e.g. profile-aware search paths) call this directly. Generic
+    character-by-character tokenization is represented by an empty tuple,
+    never by ``None``.
     """
     result: LexiconMap = {}
     for entry_id, entry in _build_entry_lookup(lexicon).items():
@@ -944,8 +838,8 @@ def _tokenize_partial_query(
     partial_query: PartialQueryPattern,
     *,
     dialect: str,
+    phone_inventory: tuple[str, ...],
     converter: IpaConverter | None = None,
-    phone_inventory: Iterable[str] | None = None,
     converted_fragments: tuple[str, str] | None = None,
 ) -> PartialQueryTokens:
     """Convert partial-query fragments into IPA token sequences."""
@@ -984,15 +878,13 @@ def _partial_query_ipa_from_fragments(
     raise ValueError(f"Unknown partial query shape: {partial_query.shape!r}")
 
 
-@_backfill_public_defaults
-def prepare_query_ipa(
+def _prepare_query_ipa_core(
     query: str,
     *,
     dialect: str = "attic",
     converter: IpaConverter | None = None,
-    phone_inventory: Iterable[str] | None = None,
+    phone_inventory: tuple[str, ...],
     query_ipa: str | None = None,
-    language: str = DEFAULT_LANGUAGE_ID,
 ) -> PreparedQueryIpa:
     """Classify, normalize, and convert a query without crossing wildcard gaps.
 
@@ -1016,14 +908,10 @@ def prepare_query_ipa(
         converter: An optional IPA converter function conforming to the
             ``IpaConverter`` Protocol (``(str, *, dialect: str) -> str``).
             Defaults to the built-in ``to_ipa`` function if not provided.
-        phone_inventory: Optional phone inventory used by partial-query
-            tokenization. ``None`` falls back to the public compatibility
-            default (Ancient Greek inventory when ``language`` matches
-            ``DEFAULT_LANGUAGE_ID``).
+        phone_inventory: Resolved phone inventory used by partial-query
+            tokenization. Pass an empty tuple for generic character fallback.
         query_ipa: Optional precomputed IPA to skip conversion.
             When provided, the converter is bypassed entirely.
-        language: Language id used only for public compatibility defaults
-            (selects the phone inventory backfill).
 
     Returns:
         PreparedQueryIpa: A namedtuple containing:
@@ -1097,8 +985,8 @@ def _rank_by_token_count_proximity(
     lexicon_map: LexiconMap,
     *,
     max_candidates: int,
+    phone_inventory: tuple[str, ...],
     query_token_count: int | None = None,
-    phone_inventory: Iterable[str] | None = None,
 ) -> list[str]:
     """Rank candidates whose IPA token count is closest to the query's.
 
@@ -1137,7 +1025,7 @@ def _select_partial_token_fallback_candidates(
     *,
     max_results: int,
     explicit_limit: int,
-    phone_inventory: Iterable[str] | None = None,
+    phone_inventory: tuple[str, ...],
 ) -> list[str]:
     """Select bounded partial-form token fallback candidates.
 
@@ -1149,7 +1037,7 @@ def _select_partial_token_fallback_candidates(
     ranked_candidates = _rank_by_token_count_proximity(
         query_ipa,
         lexicon_map,
-        **_with_optional_phone_inventory(
+        **_with_phone_inventory(
             {
                 "max_candidates": explicit_limit,
                 "query_token_count": query_token_count,
@@ -1166,61 +1054,21 @@ def _select_partial_token_fallback_candidates(
     )
 
 
-@_backfill_public_defaults
-def seed_stage(
-    query_ipa: str,
-    index: KmerIndex,
-    k: int = _DEFAULT_KMER_SIZE,
-    *,
-    phone_inventory: Iterable[str] | None = None,
-    language: str = DEFAULT_LANGUAGE_ID,
-) -> list[str]:
-    """Stage 1: rank candidate ids by shared consonant-skeleton k-mers.
-
-    Public calls preserve Ancient Greek defaults: when ``language`` is the
-    default language and ``phone_inventory`` is omitted, the default profile's
-    phone inventory is used so multi-character IPA phones (e.g. ``pʰ``) are
-    tokenized consistently with ``build_kmer_index``. Generic callers should
-    pass a non-default ``language`` or an explicit ``phone_inventory``.
-
-    Args:
-        query_ipa: String of IPA phones representing the search query.
-        index: KmerIndex mapping k-mers to lists of candidate IDs.
-        k: Size of consonant-skeleton k-mers. Defaults to `_DEFAULT_KMER_SIZE`.
-        phone_inventory: Optional phone inventory used for greedy
-            longest-match tokenization of the query.
-        language: Language id used only for public compatibility defaults.
-
-    Returns:
-        List of candidate IDs ranked by number of shared consonant-skeleton k-mers.
-
-    Raises:
-        ValueError: If `k <= 0`.
-    """
-    if k <= 0:
-        raise ValueError(f"seed_stage requires k > 0 for k-mer size, got {k}")
-
-    return _seed_stage_core(
-        query_ipa,
-        index,
-        k=k,
-        phone_inventory=phone_inventory,
-    )
-
-
 def _seed_stage_core(
     query_ipa: str,
     index: KmerIndex,
     *,
     k: int,
-    phone_inventory: Iterable[str] | None,
+    phone_inventory: tuple[str, ...],
 ) -> list[str]:
     """Rank candidate ids using caller-resolved tokenization settings.
 
-    ``phone_inventory=None`` is a legitimate caller intent meaning "no
-    inventory, use generic character-by-character tokenization" — it is NOT
-    an "unresolved default" sentinel.
+    Generic character-by-character tokenization is represented by an empty
+    tuple, never by ``None``.
     """
+    if k <= 0:
+        raise ValueError(f"seed_stage requires k > 0 for k-mer size, got {k}")
+
     query_skeleton = _extract_consonant_skeleton(
         tokenize_for_inventory(query_ipa, phone_inventory)
     )
@@ -1325,14 +1173,17 @@ def _annotate_search_results(
     results: list[SearchResult],
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
+    phone_inventory: tuple[str, ...],
     language: str | Path = "ancient_greek",
-    phone_inventory: Iterable[str] | None = None,
 ) -> list[SearchResult]:
     """Stage 2b: annotate ranked hits with explanations and alignments."""
     if not results:
         return []
 
     inventory_key = _phone_inventory_key(phone_inventory)
+    assert (
+        inventory_key is not None
+    ), "_annotate_search_results requires a resolved phone inventory tuple"
     query_tokens = tokenize_for_inventory(query_ipa, inventory_key)
     tokenized_rules = _get_tokenized_rules(language, inventory_key)
     annotated: list[SearchResult] = []
@@ -1415,7 +1266,7 @@ def _score_stage_for_inventory(
     candidates: Iterable[str],
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
-    phone_inventory: Iterable[str] | None,
+    phone_inventory: tuple[str, ...],
 ) -> list[SearchResult]:
     """Call score stage without custom-inventory kwargs on the default path."""
     kwargs: dict[str, Any] = {
@@ -1424,7 +1275,7 @@ def _score_stage_for_inventory(
         "lexicon_map": lexicon_map,
         "matrix": matrix,
     }
-    return _score_stage(**_with_optional_phone_inventory(kwargs, phone_inventory))
+    return _score_stage(**_with_phone_inventory(kwargs, phone_inventory))
 
 
 def _annotate_search_results_for_inventory(
@@ -1434,7 +1285,7 @@ def _annotate_search_results_for_inventory(
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
     language: str | Path,
-    phone_inventory: Iterable[str] | None,
+    phone_inventory: tuple[str, ...],
 ) -> list[SearchResult]:
     """Call annotation without custom-inventory kwargs on the default path."""
     kwargs: dict[str, Any] = {
@@ -1444,20 +1295,17 @@ def _annotate_search_results_for_inventory(
         "matrix": matrix,
         "language": language,
     }
-    return _annotate_search_results(
-        **_with_optional_phone_inventory(kwargs, phone_inventory)
-    )
+    return _annotate_search_results(**_with_phone_inventory(kwargs, phone_inventory))
 
 
-@_backfill_public_defaults
-def extend_stage(
+def _extend_stage_core(
     query_ipa: str,
     candidates: Iterable[str],
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
     language: str | Path = "ancient_greek",
     *,
-    phone_inventory: Iterable[str] | None = None,
+    phone_inventory: tuple[str, ...],
 ) -> list[SearchResult]:
     """Stage 2: run Smith-Waterman on candidate IPA forms and assemble results.
 
@@ -1480,10 +1328,9 @@ def extend_stage(
             and the public compatibility default for ``phone_inventory``.
             Defaults to ``"ancient_greek"``. ``Path`` values are forwarded
             unchanged to the rule loader and skip the public-default backfill.
-        phone_inventory: Optional phone inventory used for greedy
-            longest-match tokenization. ``None`` falls back to the public
-            compatibility default (Ancient Greek inventory when
-            ``language`` matches ``DEFAULT_LANGUAGE_ID``).
+        phone_inventory: Resolved phone inventory used for greedy
+            longest-match tokenization. Pass an empty tuple for generic
+            character fallback.
 
     Returns:
         Unranked list of ``SearchResult`` objects, one per successfully
@@ -1529,7 +1376,7 @@ def _finalize_full_form_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
-    phone_inventory: Iterable[str] | None,
+    phone_inventory: tuple[str, ...],
 ) -> _FinalizationResult:
     """Finalize Full-form results by annotating only visible deduplicated hits."""
     unique_scored = _deduplicate_by_headword(ranked_scored, check_sorted=False)
@@ -1559,7 +1406,7 @@ def _finalize_short_query_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
-    phone_inventory: Iterable[str] | None,
+    phone_inventory: tuple[str, ...],
 ) -> _FinalizationResult:
     """Finalize Short-query results with batched annotation and quality filtering."""
     annotation_limit = _annotation_candidate_limit(max_results)
@@ -1662,7 +1509,7 @@ def _finalize_partial_form_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
-    phone_inventory: Iterable[str] | None,
+    phone_inventory: tuple[str, ...],
 ) -> _FinalizationResult:
     """Finalize Partial-form results after bounded annotation and filtering."""
     annotation_candidates = _select_annotation_candidates(
@@ -1704,6 +1551,7 @@ def _execute_search(
     query: str,
     lexicon: Sequence[LexiconEntry],
     matrix: DistanceMatrix,
+    *,
     max_results: int = 5,
     dialect: str = "attic",
     index: KmerIndex | None = None,
@@ -1711,7 +1559,7 @@ def _execute_search(
     prebuilt_lexicon_map: LexiconMap | None = None,
     language: str = "ancient_greek",
     converter: IpaConverter | None = None,
-    phone_inventory: Iterable[str] | None = None,
+    phone_inventory: tuple[str, ...],
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
     query_ipa: str | None = None,
     prepared_query: PreparedQueryIpa | None = None,
@@ -1819,14 +1667,14 @@ def _execute_search(
     )
 
     inventory_key = _phone_inventory_key(phone_inventory)
+    assert inventory_key is not None, "_execute_search requires a resolved phone inventory tuple"
     if prepared_query is None:
-        prepared_query = prepare_query_ipa(
+        prepared_query = _prepare_query_ipa_core(
             query,
             dialect=dialect,
             converter=converter,
             phone_inventory=inventory_key,
             query_ipa=query_ipa,
-            language=language,
         )
     query_mode = prepared_query.query_mode
     query_ipa = prepared_query.query_ipa
@@ -1945,7 +1793,7 @@ def _execute_search(
         )
 
     _t_scoring = _perf_counter_if_debug(logger)
-    score_params = _with_optional_phone_inventory(
+    score_params = _with_phone_inventory(
         {
             "query_ipa": query_ipa,
             "candidates": selection.candidate_ids,
@@ -2014,124 +1862,3 @@ def _execute_search(
         query_mode=query_mode,
         truncated=finalization.truncated,
     )
-
-
-@_backfill_public_defaults
-def search_execution(
-    query: str,
-    lexicon: Sequence[LexiconEntry],
-    matrix: DistanceMatrix,
-    max_results: int = 5,
-    dialect: str = "attic",
-    index: KmerIndex | None = None,
-    unigram_index: KmerIndex | None = None,
-    prebuilt_lexicon_map: LexiconMap | None = None,
-    language: str = "ancient_greek",
-    converter: IpaConverter | None = None,
-    phone_inventory: Iterable[str] | None = None,
-    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
-    query_ipa: str | None = None,
-    prepared_query: PreparedQueryIpa | None = None,
-    prebuilt_ipa_index: IpaIndex | None = None,
-    similarity_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
-    unigram_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
-) -> SearchExecutionResult:
-    """Run full three-stage search and return the full execution result.
-
-    Unlike search() which returns only the list of results, search_execution
-    returns a SearchExecutionResult containing both results and execution
-    metadata such as the truncated flag.
-
-    Args:
-        query: The search query string or partial form.
-        lexicon: Sequence of lexicon entries to search against.
-        matrix: Phonological distance matrix for scoring.
-        max_results: Maximum number of results to return (default: 5).
-        dialect: Dialect hint for IPA conversion. The default "attic" is kept
-            for public Ancient Greek backward compatibility.
-        index: Optional k-mer index for candidate selection.
-        unigram_index: Optional unigram index for fallback selection.
-        prebuilt_lexicon_map: Optional pre-built lexicon lookup map.
-        language: Language code for rule application (default: "ancient_greek").
-        converter: Optional IPA converter to use for query conversion.
-        phone_inventory: Optional phone inventory for profile-specific tokenization.
-        dialect_skeleton_builders: Optional iterable of callables with type
-            ``Iterable[Callable[[list[str]], list[str]]] | None``. Each callable
-            receives skeleton strings and returns a list consumed by candidate
-            indexing and fallback search to add dialect-specific skeleton
-            coverage. ``None`` is resolved at the public compatibility boundary
-            for Ancient Greek default calls; the generic core treats ``None`` as
-            no additional skeletons.
-        query_ipa: Optional pre-computed IPA for the query.
-        prepared_query: Optional pre-computed prepared query object.
-        prebuilt_ipa_index: Optional pre-built IPA index.
-        similarity_fallback_limit: Max candidates for similarity fallback.
-        unigram_fallback_limit: Max candidates for unigram fallback.
-
-    Returns:
-        SearchExecutionResult with fields:
-        - results: List of matching SearchResult objects.
-        - truncated: True if results were capped due to max_results limit.
-          Note: truncated=True can occur even when results=[] if all
-          candidates were filtered out after reaching the annotation limit.
-    """
-    return _execute_search(
-        query,
-        lexicon=lexicon,
-        matrix=matrix,
-        max_results=max_results,
-        dialect=dialect,
-        index=index,
-        unigram_index=unigram_index,
-        prebuilt_lexicon_map=prebuilt_lexicon_map,
-        language=language,
-        converter=converter,
-        phone_inventory=phone_inventory,
-        dialect_skeleton_builders=dialect_skeleton_builders,
-        query_ipa=query_ipa,
-        prepared_query=prepared_query,
-        prebuilt_ipa_index=prebuilt_ipa_index,
-        similarity_fallback_limit=similarity_fallback_limit,
-        unigram_fallback_limit=unigram_fallback_limit,
-    )
-
-
-def search(
-    query: str,
-    lexicon: Sequence[LexiconEntry],
-    matrix: DistanceMatrix,
-    max_results: int = 5,
-    dialect: str = "attic",
-    index: KmerIndex | None = None,
-    unigram_index: KmerIndex | None = None,
-    prebuilt_lexicon_map: LexiconMap | None = None,
-    language: str = "ancient_greek",
-    converter: IpaConverter | None = None,
-    phone_inventory: Iterable[str] | None = None,
-    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
-    query_ipa: str | None = None,
-    prepared_query: PreparedQueryIpa | None = None,
-    prebuilt_ipa_index: IpaIndex | None = None,
-    similarity_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
-    unigram_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
-) -> list[SearchResult]:
-    """Run full three-stage search for a query form."""
-    return search_execution(
-        query,
-        lexicon=lexicon,
-        matrix=matrix,
-        max_results=max_results,
-        dialect=dialect,
-        index=index,
-        unigram_index=unigram_index,
-        prebuilt_lexicon_map=prebuilt_lexicon_map,
-        language=language,
-        converter=converter,
-        phone_inventory=phone_inventory,
-        dialect_skeleton_builders=dialect_skeleton_builders,
-        query_ipa=query_ipa,
-        prepared_query=prepared_query,
-        prebuilt_ipa_index=prebuilt_ipa_index,
-        similarity_fallback_limit=similarity_fallback_limit,
-        unigram_fallback_limit=unigram_fallback_limit,
-    ).results

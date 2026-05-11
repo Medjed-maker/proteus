@@ -594,6 +594,7 @@ class TestSearchShortQuery:
             matrix={},
             max_results=2,
             index={},
+            phone_inventory=(),
         )
 
         assert execution.results == []

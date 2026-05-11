@@ -53,9 +53,15 @@ def fake_seed_stage_factory(returns: list[str]) -> Callable:
     return _stage
 ```
 
-- [ ] **B. デフォルト補填の必須引数化**: `phone_inventory: Iterable[str] | None = None` を `phone_inventory: Iterable[str]` に変更し、補填層を「default 引数の解決層」ではなく「explicit factory 関数」として呼び出し側に強制する。core 関数のシグネチャから "未解決の None" を排除すれば、テストが core を直叩きしても意味のある assertion になる。
+- [x] **B. デフォルト補填の必須引数化**: 
+  - `phone_inventory: Iterable[str] | None = None` を `phone_inventory: tuple[str, ...]` に変更
+  - 補填層を「default 引数の解決層」ではなく「explicit factory 関数」として呼び出し側に強制
+  - Core 関数のシグネチャから "未解決の None" を排除
+  - 実装詳細:
+    - `src/phonology/search/compat.py` で public optional inventory を解決
+    - core/pipeline では generic fallback を空 tuple `()` として扱う
 
-- [ ] **C. 段階的に B → A**: B で `_seed_stage_core` 等の `phone_inventory` を必須化したうえで、A の fake ヘルパーを公開 API 経由に統一すれば、`_seed_stage_core` を直接モックするテストはほぼ消える。
+- [x] **C. 段階的に B → A**: B で `_seed_stage_core` 等の `phone_inventory` を必須化したうえで、A の fake ヘルパーを公開 API 経由に統一すれば、`_seed_stage_core` を直接モックするテストはほぼ消える。private seam への直接依存は `tests/_helpers/fakes.py` に閉じ込め、追加の境界テストで core 必須引数と compat re-export を検証する。
 
 ### 影響範囲
 
@@ -113,8 +119,8 @@ def seed_stage(...): ...
 
 公開関数すべてに同じデコレータを貼ることで、補填忘れがコードレビューで自明になる。
 
-- [ ] **B. シグネチャ統一 + 単一エントリ層**:
-公開関数を `compat/` モジュールにまとめて切り出し、内部 core (`_seed_stage_core` 等) は `phone_inventory` 必須に。`compat/` 層のみが `_public_compatibility_search_defaults` を呼ぶ。MEDIUM #4 の方針 (B) と整合。
+- [x] **B. シグネチャ統一 + 単一エントリ層**:
+公開関数を `compat/` モジュールにまとめて切り出し、内部 core (`_seed_stage_core` 等) は `phone_inventory` 必須に。`compat/` 層のみが `_public_compatibility_search_defaults` を呼ぶ。MEDIUM #4 の方針 (B) と整合。既存の `phonology.search` 公開 import 互換は `__init__.py` からの re-export で維持した。
 
 - [ ] **C. 型による強制** (将来):
 `PhoneInventory = NewType("PhoneInventory", tuple[str, ...])` を導入し、core 関数は `PhoneInventory` を要求、公開層のみが `Optional` を扱う。pyright/mypy で補填忘れがコンパイルエラー扱いになる。
@@ -131,10 +137,11 @@ def seed_stage(...): ...
 
 - [x] 1. MEDIUM #6 (A) のデコレータ化を**先に**入れる (低リスク・即効性) — `src/phonology/search/__init__.py` に `_backfill_public_defaults` デコレータを追加し、`build_kmer_index`, `build_lexicon_map`, `prepare_query_ipa`, `seed_stage`, `extend_stage`, `search_execution` に適用済み
 - [x] 2. MEDIUM #4 (A) のフェイクヘルパー導入とテスト移行 — `tests/_helpers/fakes.py` に `install_seed_stage()`, `fake_seed_stage_returning()`, `install_lexicon_map()`, `fake_lexicon_map_returning()` を追加し、5つのテストファイルを移行済み
-- [ ] 3. MEDIUM #4 (B) で core 関数の `phone_inventory` を必須化
-- [ ] 4. (任意) MEDIUM #6 (B/C) で完全な型安全化
+- [x] 3. MEDIUM #4 (B) で core 関数の `phone_inventory` を必須化
+- [x] 4a. (任意) MEDIUM #6 (B) で公開 compat 層と内部 core 層を分離
+- [ ] 4b. (任意) MEDIUM #6 (C) で `PhoneInventory` 型による完全な型安全化
 
-各ステップは独立してマージ可能。1〜2 の完了で「補填忘れ」回帰は抑止され、テストの保守性が向上する。
+1〜4a の完了で「補填忘れ」回帰は compat 層に集約され、テストの保守性が向上した。4b は将来の型検査導入時に扱う。
 
 ## 参考
 
