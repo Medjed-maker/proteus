@@ -70,6 +70,22 @@ Data files are bundled into the wheel via `[tool.hatch.build.targets.wheel.force
 - **Normalized vs raw distance**: API consumers use normalized 0.0-1.0 distances; internal computation uses raw costs. These are separate code paths, not a simple division.
 - **Matrix flattening**: `load_matrix()` recursively flattens nested JSON structures, skipping `_`-prefixed keys and `dialect_pairs` metadata to extract only phone-distance rows.
 
+## Design Principles for AI Code Generation
+
+AI-generated code in this repository should optimize for maintainability, changeability, and debuggability, not just passing the immediate request. Before implementing non-trivial changes, sketch the responsibilities and boundaries, then implement within the existing module structure.
+
+Apply these principles:
+
+1. **Encapsulation** - Keep data and behavior together. Expose clear methods or functions instead of leaking mutable internal structures. Preserve invariants close to the data they protect.
+2. **Separation of concerns** - Keep parsing, validation, phonological/domain logic, persistence or filesystem access, API models, and UI concerns separate. A function or class should have one reason to change.
+3. **Design by contract** - Make preconditions, postconditions, and invariants visible through type hints, Pydantic validation, assertions where they clarify internal assumptions, docstrings for public behavior, and targeted tests.
+4. **Side-effect isolation** - Prefer pure functions for phonological computation and search logic. Confine I/O, environment access, global state, and external services to narrow adapter layers.
+5. **Domain-focused naming** - Use historical phonology terms precisely and consistently. Model core domain concepts carefully; keep peripheral glue straightforward.
+
+For refactoring prompts, use this framing: "Refactor this code according to encapsulation, separation of concerns, design by contract, side-effect isolation, and domain-focused naming. Preserve behavior and add focused tests for any changed boundaries."
+
+Background reference: 『良いコード／悪いコードで学ぶ設計入門』 by MinoDriven. Relevant themes include encapsulation, immutability, responsibility separation, disentangling conditionals, naming through ubiquitous language, and concentrating design effort on the core domain.
+
 ## Testing
 
 Tests use `pytest` with a shared `conftest.py` providing a FastAPI `TestClient` fixture. Test files mirror source modules (e.g., `test_distance.py`, `test_ipa_converter.py`). CI runs on Python 3.11 and 3.12.
