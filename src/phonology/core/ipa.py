@@ -8,7 +8,7 @@ from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 
-ACCENT_MARKS = frozenset({"\u0301", "\u0300", "\u0302", "\u0342"})
+ACCENT_MARKS: frozenset[str] = frozenset({"\u0301", "\u0300", "\u0302", "\u0342"})
 # acute (U+0301), grave (U+0300), Latin combining circumflex (U+0302) and
 # Greek perispomeni (U+0342). Both circumflex codepoints appear in the wild:
 # precomposed polytonic Greek decomposes via NFD into U+0302, while text
@@ -39,8 +39,13 @@ def _consume_trailing_combining_marks(text: str, start: int) -> tuple[str, int]:
 
 
 def sorted_phone_inventory(phone_inventory: Iterable[str]) -> tuple[str, ...]:
-    """Return phone inventory sorted for greedy longest-match tokenization."""
-    return tuple(sorted(set(phone_inventory), key=len, reverse=True))
+    """Return phone inventory canonicalized for tokenization and cache keys.
+
+    Phones are deduplicated and sorted by ``(-len(phone), phone)`` so the
+    longest-match tokenizer behaves correctly and equal-length phones produce
+    a deterministic order suitable for ``@lru_cache`` keys.
+    """
+    return tuple(sorted(set(phone_inventory), key=lambda phone: (-len(phone), phone)))
 
 
 def tokenize_ipa(

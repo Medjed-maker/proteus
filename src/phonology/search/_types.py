@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Literal, NamedTuple, TypeAlias
+from typing import Any, Literal, NamedTuple, NewType, TypeAlias
 
 from ..distance import MatrixData
 from ..explainer import Alignment, RuleApplication
@@ -18,6 +18,7 @@ from ..explainer import Alignment, RuleApplication
 DistanceMatrix: TypeAlias = MatrixData
 KmerIndex: TypeAlias = dict[str, list[str]]
 LexiconEntry: TypeAlias = dict[str, Any]
+PhoneInventory = NewType("PhoneInventory", tuple[str, ...])
 QueryMode: TypeAlias = Literal["Full-form", "Short-query", "Partial-form"]
 PartialQueryShape: TypeAlias = Literal["prefix", "suffix", "infix"]
 

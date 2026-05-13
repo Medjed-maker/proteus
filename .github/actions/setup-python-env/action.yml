@@ -1,0 +1,45 @@
+name: Setup Python Environment
+
+description: |
+  Sets up the Python environment with uv, installs dependencies,
+  and configures caching for uv and mypy.
+
+  Note: After the "Set up Python" step, consumers must use "uv run python"
+  (or "uv run <command>") for all Python commands, as the installed Python
+  is not added to the system PATH.
+
+inputs:
+  python-version:
+    description: Python version to install
+    required: true
+  uv-version:
+    description: uv version to install
+    required: false
+    default: "0.11.3"
+
+runs:
+  using: composite
+  steps:
+    - name: Cache uv and mypy
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/uv
+          .mypy_cache
+        key: ${{ runner.os }}-python${{ inputs.python-version }}-${{ github.repository }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-python${{ inputs.python-version }}-
+          ${{ runner.os }}-
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: ${{ inputs.uv-version }}
+
+    - name: Set up Python ${{ inputs.python-version }}
+      run: uv python install ${{ inputs.python-version }}
+      shell: bash
+
+    - name: Install dependencies
+      run: uv sync --all-extras --dev
+      shell: bash

@@ -11,7 +11,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 from numbers import Real
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from collections.abc import Sequence
 
 from ._paths import resolve_repo_data_dir
@@ -52,7 +52,7 @@ _MATRIX_NOTE = (
 @functools.lru_cache(maxsize=1)
 def _load_seed_document() -> dict[str, Any]:
     """Load and cache the committed matrix as the seed document for regeneration."""
-    return json.loads(MATRIX_PATH.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(MATRIX_PATH.read_text(encoding="utf-8")))
 
 
 def _expand_koine_stop_rows(

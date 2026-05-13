@@ -12,7 +12,7 @@ from pathlib import Path
 import time
 from typing import Any, NamedTuple, Protocol
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from ..explainer import (
     Alignment,
@@ -111,6 +111,7 @@ from ._types import (
     LexiconRecord,
     PartialQueryPattern,
     PartialQueryTokens,
+    PhoneInventory,
     QueryMode,
     SearchResult,
     _CandidateSelectionPath,
@@ -152,22 +153,6 @@ def _legacy_to_ipa(text: str, *, dialect: str = "attic") -> str:
 to_ipa = _legacy_to_ipa
 
 
-def _phone_inventory_key(
-    phone_inventory: Iterable[str] | None,
-) -> tuple[str, ...] | None:
-    """Return a stable normalized cache key for an optional phone inventory."""
-    if phone_inventory is None:
-        return None
-    # Materialize iterable once and canonicalize order for cache reuse while
-    # preserving the tokenizer's longest-phone-first matching semantics.
-    return tuple(
-        sorted(
-            {str(phone) for phone in phone_inventory},
-            key=lambda phone: (-len(phone), phone),
-        )
-    )
-
-
 def _public_compatibility_search_defaults(
     *,
     language: str,
@@ -195,7 +180,7 @@ def _public_compatibility_search_defaults(
 
 def _with_phone_inventory(
     kwargs: dict[str, Any],
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> dict[str, Any]:
     """Add already-resolved phone inventory to delegated helper kwargs."""
     updated_kwargs = dict(kwargs)
@@ -207,7 +192,7 @@ def _build_kmer_index_for_inventory(
     lexicon: Sequence[LexiconEntry],
     *,
     k: int,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
 ) -> KmerIndex:
     """Call k-mer builder, forwarding phone inventory and dialect skeleton builders."""
@@ -222,7 +207,7 @@ def _build_kmer_index_for_inventory(
 def _build_lexicon_map_for_inventory(
     lexicon: Sequence[LexiconEntry],
     *,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> LexiconMap:
     """Call the lexicon-map core directly, bypassing public compatibility defaults."""
     return _build_lexicon_map_core(lexicon, phone_inventory=phone_inventory)
@@ -233,7 +218,7 @@ def _seed_stage_for_inventory(
     index: KmerIndex,
     *,
     k: int,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> list[str]:
     """Call seed-stage core with already-resolved inventory settings."""
     return _seed_stage_core(
@@ -247,10 +232,11 @@ def _seed_stage_for_inventory(
 # Private tuning attributes remain available for internal tests but are
 # intentionally excluded from the public star-import surface.
 __all__ = [
+    "IpaIndex",
+    "KmerIndex",
     "LexiconEntry",
     "LexiconMap",
     "LexiconRecord",
-    "IpaIndex",
     "OBSERVED_PREFIX",
     "QueryMode",
     "SearchResult",
@@ -322,7 +308,7 @@ class _LazySearchDependencies:
         lexicon: Sequence[LexiconEntry],
         prebuilt_lexicon_map: LexiconMap | None,
         prebuilt_ipa_index: IpaIndex | None,
-        phone_inventory: tuple[str, ...],
+        phone_inventory: PhoneInventory,
         dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]]
         | None = None,
     ) -> None:
@@ -364,7 +350,7 @@ class _LazySearchDependencies:
         return self._ipa_index
 
     @property
-    def phone_inventory(self) -> tuple[str, ...]:
+    def phone_inventory(self) -> PhoneInventory:
         """Return the resolved phone inventory shared by this search."""
         return self._phone_inventory
 
@@ -443,7 +429,7 @@ def _inject_length_proximate_candidates(
     candidate_ids: list[str],
     lexicon_lookup: LexiconLookup,
     limit: int,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
     max_delta: int = 2,
 ) -> list[str]:
     """Append seed candidates whose IPA token count is close to the query's.
@@ -793,7 +779,7 @@ def _select_token_proximity_fallback_candidates(
 def _build_lexicon_map_core(
     lexicon: Sequence[LexiconEntry],
     *,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> LexiconMap:
     """Build a lexicon map without applying public Ancient Greek defaults.
 
@@ -838,7 +824,7 @@ def _tokenize_partial_query(
     partial_query: PartialQueryPattern,
     *,
     dialect: str,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
     converter: IpaConverter | None = None,
     converted_fragments: tuple[str, str] | None = None,
 ) -> PartialQueryTokens:
@@ -883,7 +869,7 @@ def _prepare_query_ipa_core(
     *,
     dialect: str = "attic",
     converter: IpaConverter | None = None,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
     query_ipa: str | None = None,
 ) -> PreparedQueryIpa:
     """Classify, normalize, and convert a query without crossing wildcard gaps.
@@ -985,7 +971,7 @@ def _rank_by_token_count_proximity(
     lexicon_map: LexiconMap,
     *,
     max_candidates: int,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
     query_token_count: int | None = None,
 ) -> list[str]:
     """Rank candidates whose IPA token count is closest to the query's.
@@ -1025,7 +1011,7 @@ def _select_partial_token_fallback_candidates(
     *,
     max_results: int,
     explicit_limit: int,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> list[str]:
     """Select bounded partial-form token fallback candidates.
 
@@ -1059,7 +1045,7 @@ def _seed_stage_core(
     index: KmerIndex,
     *,
     k: int,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> list[str]:
     """Rank candidate ids using caller-resolved tokenization settings.
 
@@ -1151,7 +1137,7 @@ def get_rules_registry(
 @lru_cache(maxsize=_TOKENIZED_RULES_CACHE_MAXSIZE)
 def _get_tokenized_rules(
     language: str | Path = "ancient_greek",
-    phone_inventory_key: tuple[str, ...] | None = None,
+    phone_inventory_key: PhoneInventory | None = None,
 ) -> tuple[TokenizedRule, ...]:
     """Get tokenized rules from the registry for matching.
 
@@ -1173,19 +1159,15 @@ def _annotate_search_results(
     results: list[SearchResult],
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
     language: str | Path = "ancient_greek",
 ) -> list[SearchResult]:
     """Stage 2b: annotate ranked hits with explanations and alignments."""
     if not results:
         return []
 
-    inventory_key = _phone_inventory_key(phone_inventory)
-    assert (
-        inventory_key is not None
-    ), "_annotate_search_results requires a resolved phone inventory tuple"
-    query_tokens = tokenize_for_inventory(query_ipa, inventory_key)
-    tokenized_rules = _get_tokenized_rules(language, inventory_key)
+    query_tokens = tokenize_for_inventory(query_ipa, phone_inventory)
+    tokenized_rules = _get_tokenized_rules(language, phone_inventory)
     annotated: list[SearchResult] = []
 
     for result in results:
@@ -1206,7 +1188,7 @@ def _annotate_search_results(
 
         entry = _lookup_entry(record_or_entry)
         lemma_tokens = list(
-            resolve_entry_tokens(record_or_entry, phone_inventory=inventory_key)
+            resolve_entry_tokens(record_or_entry, phone_inventory=phone_inventory)
         )
         alignment = result.alignment
         if alignment is None:
@@ -1233,7 +1215,7 @@ def _annotate_search_results(
             aligned_query,
             aligned_lemma,
             applications,
-            phone_inventory=inventory_key,
+            phone_inventory=phone_inventory,
         )
         annotated_result = SearchResult(
             lemma=result.lemma,
@@ -1266,7 +1248,7 @@ def _score_stage_for_inventory(
     candidates: Iterable[str],
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> list[SearchResult]:
     """Call score stage without custom-inventory kwargs on the default path."""
     kwargs: dict[str, Any] = {
@@ -1285,7 +1267,7 @@ def _annotate_search_results_for_inventory(
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
     language: str | Path,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> list[SearchResult]:
     """Call annotation without custom-inventory kwargs on the default path."""
     kwargs: dict[str, Any] = {
@@ -1305,7 +1287,7 @@ def _extend_stage_core(
     matrix: DistanceMatrix,
     language: str | Path = "ancient_greek",
     *,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> list[SearchResult]:
     """Stage 2: run Smith-Waterman on candidate IPA forms and assemble results.
 
@@ -1376,7 +1358,7 @@ def _finalize_full_form_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> _FinalizationResult:
     """Finalize Full-form results by annotating only visible deduplicated hits."""
     unique_scored = _deduplicate_by_headword(ranked_scored, check_sorted=False)
@@ -1406,7 +1388,7 @@ def _finalize_short_query_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> _FinalizationResult:
     """Finalize Short-query results with batched annotation and quality filtering."""
     annotation_limit = _annotation_candidate_limit(max_results)
@@ -1509,7 +1491,7 @@ def _finalize_partial_form_results(
     matrix: DistanceMatrix,
     max_results: int,
     language: str,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
 ) -> _FinalizationResult:
     """Finalize Partial-form results after bounded annotation and filtering."""
     annotation_candidates = _select_annotation_candidates(
@@ -1559,7 +1541,7 @@ def _execute_search(
     prebuilt_lexicon_map: LexiconMap | None = None,
     language: str = "ancient_greek",
     converter: IpaConverter | None = None,
-    phone_inventory: tuple[str, ...],
+    phone_inventory: PhoneInventory,
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
     query_ipa: str | None = None,
     prepared_query: PreparedQueryIpa | None = None,
@@ -1666,19 +1648,17 @@ def _execute_search(
         query_ipa=query_ipa,
     )
 
-    inventory_key = _phone_inventory_key(phone_inventory)
-    assert inventory_key is not None, "_execute_search requires a resolved phone inventory tuple"
     if prepared_query is None:
         prepared_query = _prepare_query_ipa_core(
             query,
             dialect=dialect,
             converter=converter,
-            phone_inventory=inventory_key,
+            phone_inventory=phone_inventory,
             query_ipa=query_ipa,
         )
     query_mode = prepared_query.query_mode
     query_ipa = prepared_query.query_ipa
-    query_tokens = tokenize_for_inventory(query_ipa, inventory_key)
+    query_tokens = tokenize_for_inventory(query_ipa, phone_inventory)
     _debug_enabled = logger.isEnabledFor(logging.DEBUG)
     query_log_label = _summarize_query_ipa_for_logs(
         query_ipa,
@@ -1699,7 +1679,7 @@ def _execute_search(
         lexicon=lexicon,
         prebuilt_lexicon_map=prebuilt_lexicon_map,
         prebuilt_ipa_index=prebuilt_ipa_index,
-        phone_inventory=inventory_key,
+        phone_inventory=phone_inventory,
         dialect_skeleton_builders=dialect_skeleton_builders,
     )
 
@@ -1709,7 +1689,7 @@ def _execute_search(
         else _build_kmer_index_for_inventory(
             lexicon,
             k=_DEFAULT_KMER_SIZE,
-            phone_inventory=inventory_key,
+            phone_inventory=phone_inventory,
             dialect_skeleton_builders=dialect_skeleton_builders,
         )
     )
@@ -1718,7 +1698,7 @@ def _execute_search(
         query_ipa,
         search_index,
         k=_DEFAULT_KMER_SIZE,
-        phone_inventory=inventory_key,
+        phone_inventory=phone_inventory,
     )
     stage2_limit = max(_MIN_STAGE2_CANDIDATES, max_results * _SEED_MULTIPLIER)
 
@@ -1746,7 +1726,7 @@ def _execute_search(
                 else _build_kmer_index_for_inventory(
                     lexicon,
                     k=1,
-                    phone_inventory=inventory_key,
+                    phone_inventory=phone_inventory,
                     dialect_skeleton_builders=dialect_skeleton_builders,
                 )
             )
@@ -1754,7 +1734,7 @@ def _execute_search(
                 query_ipa,
                 fallback_unigram_index,
                 k=1,
-                phone_inventory=inventory_key,
+                phone_inventory=phone_inventory,
             )
         if unigram_candidates:
             selection = _select_unigram_fallback_candidates(
@@ -1800,7 +1780,7 @@ def _execute_search(
             "lexicon_map": selection.lexicon_lookup,
             "matrix": matrix,
         },
-        inventory_key,
+        phone_inventory,
     )
     scored_results = _score_stage(**score_params)
     ranked_scored = sorted(scored_results, key=lambda r: (-r.confidence, r.lemma))
@@ -1822,7 +1802,7 @@ def _execute_search(
             matrix=matrix,
             max_results=max_results,
             language=language,
-            phone_inventory=inventory_key,
+            phone_inventory=phone_inventory,
         )
     elif selection.query_mode == "Short-query":
         finalization = _finalize_short_query_results(
@@ -1834,7 +1814,7 @@ def _execute_search(
             matrix=matrix,
             max_results=max_results,
             language=language,
-            phone_inventory=inventory_key,
+            phone_inventory=phone_inventory,
         )
     else:
         finalization = _finalize_partial_form_results(
@@ -1845,7 +1825,7 @@ def _execute_search(
             matrix=matrix,
             max_results=max_results,
             language=language,
-            phone_inventory=inventory_key,
+            phone_inventory=phone_inventory,
         )
     if _debug_enabled:
         _log_finalization(
