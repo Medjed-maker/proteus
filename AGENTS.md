@@ -12,6 +12,18 @@ Install dependencies with `uv sync --all-extras --dev`. Run the full test suite 
 
 Target Python 3.11+ and follow PEP 8 with 4-space indentation. Prefer explicit type hints, small pure functions, and concise Google-style docstrings on non-trivial public functions and classes. Use `snake_case` for modules, functions, and variables; use `PascalCase` for classes and Pydantic models. Keep code, docstrings, and commit messages in English; repository-level discussion docs may be Japanese.
 
+## Design Principles for AI-Assisted Changes
+
+When using AI agents to implement or refactor code, explicitly preserve maintainability rather than only making the feature work. Follow these principles, especially in core phonology and search logic:
+
+- **Encapsulation**: keep state and behavior together behind clear public APIs. Avoid exposing mutable internals or spreading invariants across callers.
+- **Separation of concerns**: keep validation, domain logic, persistence, I/O, API schema handling, and presentation concerns in distinct functions or modules. Each class or function should have one clear responsibility.
+- **Design by contract**: make preconditions, postconditions, and invariants explicit through type hints, validation, assertions where appropriate, docstrings, and focused tests.
+- **Side-effect isolation**: prefer pure functions for business and phonological logic. Keep filesystem, network, environment-variable, and global-state interactions in narrow adapter or service boundaries.
+- **Domain language**: use names that reflect the historical phonology domain accurately. Invest more modeling effort in core domain concepts, and keep peripheral glue code simple.
+
+These guidelines are inspired by the practical design lessons in 『良いコード／悪いコードで学ぶ設計入門』 by MinoDriven. For refactoring work, it is acceptable to ask agents to improve code against these principles before adding new behavior.
+
 ## Testing Guidelines
 
 Tests use `pytest` with shared fixtures in `tests/conftest.py`. Name files `test_<module>.py` and keep test classes and function names descriptive. Cover boundary cases, invalid input, and path-security behavior where relevant. No coverage threshold is enforced in `pyproject.toml`, but `pytest-cov` is available; run `uv run pytest --cov=src` for non-trivial changes. CI runs the suite on Python 3.11 and 3.12.
