@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import inspect
 from types import ModuleType
+from typing import Any, Callable, get_args, get_type_hints
 import unicodedata
 
 import pytest
@@ -25,6 +26,7 @@ from phonology.search import (
     normalize_query_for_search,
     seed_stage,
 )
+from phonology.search._types import PhoneInventory
 
 
 class TestFilterStage:
@@ -66,6 +68,7 @@ class TestPublicCompatibilityBoundary:
         [
             search_module._build_lexicon_map_core,
             search_module._build_lexicon_map_for_inventory,
+            search_module._build_kmer_index_for_inventory,
             search_module._seed_stage_core,
             search_module._seed_stage_for_inventory,
             search_module._prepare_query_ipa_core,
@@ -73,12 +76,33 @@ class TestPublicCompatibilityBoundary:
             search_module._LazySearchDependencies.__init__,
         ],
     )
-    def test_core_phone_inventory_is_required(self, target: object) -> None:
+    def test_core_phone_inventory_is_required(
+        self, target: Callable[..., Any]
+    ) -> None:
         params = inspect.signature(target).parameters
         assert "phone_inventory" in params, "phone_inventory parameter must exist"
         parameter = params["phone_inventory"]
 
         assert parameter.default is inspect.Parameter.empty
+        assert get_type_hints(target)["phone_inventory"] == PhoneInventory
+
+    def test_public_default_resolvers_return_phone_inventory_type(self) -> None:
+        """Compat is the only layer that accepts optional public inventory."""
+        normalize_hints = get_type_hints(search_compat._normalize_phone_inventory)
+        resolve_hints = get_type_hints(search_compat._resolve_public_defaults)
+
+        assert normalize_hints["return"] == PhoneInventory
+        return_args = get_args(resolve_hints["return"])
+        assert return_args, "Return type should have type arguments"
+        assert return_args[0] == PhoneInventory
+
+        resolved_inventory, resolved_builders = search_compat._resolve_public_defaults(
+            language="test",
+            phone_inventory=None,
+        )
+        assert resolved_inventory == ()
+        assert type(resolved_inventory) is tuple
+        assert resolved_builders is None
 
     @pytest.mark.parametrize(
         "name",
@@ -126,7 +150,7 @@ class TestPublicCompatibilityBoundary:
         def fake_build_lexicon_map_core(
             lexicon: object,
             *,
-            phone_inventory: tuple[str, ...],
+            phone_inventory: PhoneInventory,
         ) -> dict[str, object]:
             captured["lexicon"] = lexicon
             captured["phone_inventory"] = phone_inventory
@@ -152,7 +176,7 @@ class TestPublicCompatibilityBoundary:
             index: dict[str, list[str]],
             *,
             k: int,
-            phone_inventory: tuple[str, ...],
+            phone_inventory: PhoneInventory,
         ) -> list[str]:
             captured["query_ipa"] = query_ipa
             captured["index"] = index
@@ -166,7 +190,9 @@ class TestPublicCompatibilityBoundary:
         assert captured["query_ipa"] == "apʰlas"
         assert captured["index"] == {"pʰ l": ["L1"]}
         assert captured["k"] == 2
-        assert captured["phone_inventory"] == known_phones
+        assert captured["phone_inventory"] == search_compat._normalize_phone_inventory(
+            known_phones
+        )
 
 
 class TestQueryModeHelpers:

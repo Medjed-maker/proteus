@@ -13,7 +13,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -515,9 +515,8 @@ def _is_output_fresh_without_checkout(
     current_records = _metadata_input_records_for_reuse(actual_payload, project_root)
     if current_records is None:
         return False
-    return actual_payload["fingerprint"] == _fingerprint_digest_for_records(
-        current_records
-    )
+    expected = cast(str, actual_payload["fingerprint"])
+    return expected == _fingerprint_digest_for_records(current_records)
 
 
 def build_fingerprint_payload(project_root: Path, xml_dir: Path) -> dict[str, Any]:
@@ -592,7 +591,9 @@ def _is_output_fresh(
     actual_payload = _read_metadata(metadata_path)
     if actual_payload is None:
         return False
-    return actual_payload.get("fingerprint") == expected_payload["fingerprint"]
+    actual = cast("str | None", actual_payload.get("fingerprint"))
+    expected = cast(str, expected_payload["fingerprint"])
+    return actual == expected
 
 
 def _is_reusable_output_document(*, project_root: Path, output_path: Path) -> bool:

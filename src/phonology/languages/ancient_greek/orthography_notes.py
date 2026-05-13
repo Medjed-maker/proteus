@@ -11,7 +11,7 @@ import unicodedata
 from urllib.parse import urlparse
 import warnings
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from phonology._paths import DEFAULT_LANGUAGE_ID, resolve_language_data_dir
 from phonology.orthography_notes import (
@@ -173,8 +173,25 @@ def _validate_iso_date(value: str, *, key: str, path: Path, index: int) -> None:
 
 
 def _looks_like_url(value: str) -> bool:
+    """Check if a value appears to be a URL.
+
+    Returns True if the value has an explicit scheme and netloc (e.g., http://example.com)
+    or starts with 'www.' followed by a domain-like pattern containing another dot.
+
+    Args:
+        value: The string to check.
+
+    Returns:
+        True if the value looks like a URL, False otherwise.
+    """
     parsed = urlparse(value)
-    return bool(parsed.scheme and parsed.netloc) or value.lower().startswith("www.")
+    # Check for explicit scheme and netloc, or www. followed by domain-like pattern
+    if parsed.scheme and parsed.netloc:
+        return True
+    lower_value = value.lower()
+    if lower_value.startswith("www.") and "." in lower_value[4:]:
+        return True
+    return False
 
 
 def _validate_no_urls(
@@ -184,6 +201,10 @@ def _validate_no_urls(
     path: Path,
     index: int,
 ) -> None:
+    """Raise ValueError if any value in the tuple appears to be a URL.
+
+    URLs should be stored in 'reference_urls' field instead.
+    """
     if any(_looks_like_url(value) for value in values):
         raise ValueError(
             f"Orthographic entry {index} in {path} must keep URLs out of {key!r}; "
@@ -197,6 +218,7 @@ def _validate_reference_urls(
     path: Path,
     index: int,
 ) -> None:
+    """Validate that all reference URLs use http or https scheme."""
     for value in values:
         parsed = urlparse(value)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:

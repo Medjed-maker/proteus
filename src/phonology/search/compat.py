@@ -6,8 +6,7 @@ from collections.abc import Callable, Iterable, Sequence
 from importlib import import_module
 from pathlib import Path
 from threading import Lock
-from types import ModuleType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, cast
 
 from .._paths import DEFAULT_LANGUAGE_ID
 
@@ -25,6 +24,7 @@ from ._types import (
     LexiconEntry,
     LexiconLookup,
     LexiconMap,
+    PhoneInventory,
     SearchResult,
 )
 
@@ -38,11 +38,94 @@ __all__ = [
     "seed_stage",
 ]
 
-_CACHED_CORE_MODULE: ModuleType | None = None
+_DialectSkeletonBuilder = Callable[[list[str]], list[str]]
+
+
+class _CoreSearchModule(Protocol):
+    """Typed subset of ``phonology.search`` used by public compat wrappers."""
+
+    def _public_compatibility_search_defaults(
+        self,
+        *,
+        language: str,
+        phone_inventory: Iterable[str] | None,
+        dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None,
+    ) -> tuple[Iterable[str] | None, Iterable[_DialectSkeletonBuilder] | None]: ...
+
+    def _build_kmer_index_for_inventory(
+        self,
+        lexicon: Sequence[LexiconEntry],
+        *,
+        k: int,
+        phone_inventory: PhoneInventory,
+        dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
+    ) -> KmerIndex: ...
+
+    def _build_lexicon_map_core(
+        self,
+        lexicon: Sequence[LexiconEntry],
+        *,
+        phone_inventory: PhoneInventory,
+    ) -> LexiconMap: ...
+
+    def _prepare_query_ipa_core(
+        self,
+        query: str,
+        *,
+        dialect: str = "attic",
+        converter: IpaConverter | None = None,
+        phone_inventory: PhoneInventory,
+        query_ipa: str | None = None,
+    ) -> PreparedQueryIpa: ...
+
+    def _seed_stage_core(
+        self,
+        query_ipa: str,
+        index: KmerIndex,
+        *,
+        k: int,
+        phone_inventory: PhoneInventory,
+    ) -> list[str]: ...
+
+    def _extend_stage_core(
+        self,
+        query_ipa: str,
+        candidates: Iterable[str],
+        lexicon_map: LexiconLookup,
+        matrix: DistanceMatrix,
+        language: str | Path = DEFAULT_LANGUAGE_ID,
+        *,
+        phone_inventory: PhoneInventory,
+    ) -> list[SearchResult]: ...
+
+    def _execute_search(
+        self,
+        query: str,
+        lexicon: Sequence[LexiconEntry],
+        matrix: DistanceMatrix,
+        *,
+        max_results: int = 5,
+        dialect: str = "attic",
+        index: KmerIndex | None = None,
+        unigram_index: KmerIndex | None = None,
+        prebuilt_lexicon_map: LexiconMap | None = None,
+        language: str = DEFAULT_LANGUAGE_ID,
+        converter: IpaConverter | None = None,
+        phone_inventory: PhoneInventory,
+        dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
+        query_ipa: str | None = None,
+        prepared_query: PreparedQueryIpa | None = None,
+        prebuilt_ipa_index: IpaIndex | None = None,
+        similarity_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
+        unigram_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
+    ) -> SearchExecutionResult: ...
+
+
+_CACHED_CORE_MODULE: _CoreSearchModule | None = None
 _CORE_MODULE_LOCK = Lock()
 
 
-def _core_module(*, force_reload: bool = False) -> ModuleType:
+def _core_module(*, force_reload: bool = False) -> _CoreSearchModule:
     """Return the package module so monkeypatches on phonology.search are honored.
 
     A module lock serializes cache reads and writes so concurrent callers see a
@@ -51,27 +134,44 @@ def _core_module(*, force_reload: bool = False) -> ModuleType:
     global _CACHED_CORE_MODULE
     with _CORE_MODULE_LOCK:
         if force_reload or _CACHED_CORE_MODULE is None:
-            _CACHED_CORE_MODULE = import_module("phonology.search")
+            _CACHED_CORE_MODULE = cast(
+                _CoreSearchModule,
+                import_module("phonology.search"),
+            )
         return _CACHED_CORE_MODULE
 
 
 def _normalize_phone_inventory(
     phone_inventory: Iterable[str] | None,
-) -> tuple[str, ...]:
-    """Materialize public optional inventory into the core's required tuple."""
+) -> PhoneInventory:
+    """Return a canonical ``PhoneInventory`` (deduplicated, sorted longest-first).
+
+    Inputs are deduplicated and sorted by ``(-len(phone), phone)`` so equivalent
+    inventories always produce the same tuple. This canonical form is the
+    cache key for ``@lru_cache`` helpers (e.g. ``_get_tokenized_rules``) and
+    matches the longest-phone-first order the IPA tokenizer expects. A
+    ``None`` input yields the empty tuple.
+    """
     if phone_inventory is None:
-        return ()
-    return tuple(phone_inventory)
+        return PhoneInventory(())
+    return PhoneInventory(
+        tuple(
+            sorted(
+                {str(phone) for phone in phone_inventory},
+                key=lambda phone: (-len(phone), phone),
+            )
+        )
+    )
 
 
 def _resolve_public_defaults(
     *,
     language: str | Path,
     phone_inventory: Iterable[str] | None,
-    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
+    dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
 ) -> tuple[
-    tuple[str, ...],
-    Iterable[Callable[[list[str]], list[str]]] | None,
+    PhoneInventory,
+    Iterable[_DialectSkeletonBuilder] | None,
 ]:
     """Resolve public defaults before crossing into the internal core."""
     if not isinstance(language, str):
@@ -92,7 +192,7 @@ def build_kmer_index(
     k: int = _DEFAULT_KMER_SIZE,
     *,
     phone_inventory: Iterable[str] | None = None,
-    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
+    dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
     language: str = DEFAULT_LANGUAGE_ID,
 ) -> KmerIndex:
     """Build a k-mer index, preserving public Ancient Greek defaults."""
@@ -207,7 +307,7 @@ def search_execution(
     language: str = DEFAULT_LANGUAGE_ID,
     converter: IpaConverter | None = None,
     phone_inventory: Iterable[str] | None = None,
-    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
+    dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
     query_ipa: str | None = None,
     prepared_query: PreparedQueryIpa | None = None,
     prebuilt_ipa_index: IpaIndex | None = None,
@@ -253,7 +353,7 @@ def search(
     language: str = DEFAULT_LANGUAGE_ID,
     converter: IpaConverter | None = None,
     phone_inventory: Iterable[str] | None = None,
-    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
+    dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
     query_ipa: str | None = None,
     prepared_query: PreparedQueryIpa | None = None,
     prebuilt_ipa_index: IpaIndex | None = None,

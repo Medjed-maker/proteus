@@ -19,7 +19,7 @@ import unicodedata
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, cast
 
 from ._paths import resolve_repo_data_dir
 from .betacode import beta_to_unicode
@@ -112,7 +112,7 @@ def _load_pos_overrides(*, cli_mode: bool = False) -> dict[str, frozenset[str]]:
     global _pos_overrides  # noqa: PLW0603
     if _pos_overrides is not None:
         return _pos_overrides
-    import yaml  # type: ignore[import-untyped]
+    import yaml
 
     raw: dict[str, object] = {}
     overrides_path: Path | str = "<unresolved>"
@@ -410,7 +410,8 @@ def _looks_like_known_numeral_key(key: str) -> bool:
 
 def _local_name(element: Any) -> str:
     """Return the local XML tag name for ``element``."""
-    return element.tag.split("}")[-1] if "}" in element.tag else element.tag
+    tag = cast(str, element.tag)
+    return tag.split("}")[-1] if "}" in tag else tag
 
 
 def _normalize_intro_text(parts: list[str]) -> str:

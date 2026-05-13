@@ -16,9 +16,9 @@ from pathlib import Path
 import re
 import threading
 from collections.abc import Iterable
-from typing import Any, Sequence, TypeAlias
+from typing import Any, Sequence, TypeAlias, cast
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from ._paths import (
     DEFAULT_LANGUAGE_ID,
@@ -310,7 +310,7 @@ class Explanation:
     prose: str = ""
 
 
-def load_rules(rules_dir: Path | str) -> dict[str, dict]:
+def load_rules(rules_dir: Path | str) -> dict[str, dict[str, Any]]:
     """Load all YAML rule files from a directory.
 
     Args:
@@ -323,7 +323,7 @@ def load_rules(rules_dir: Path | str) -> dict[str, dict]:
     """
     resolved_rules_dir = _resolve_and_validate_rules_dir(rules_dir, "load_rules")
 
-    rules: dict[str, dict] = {}
+    rules: dict[str, dict[str, Any]] = {}
     rule_sources: dict[str, Path] = {}
     for rule_file in sorted(resolved_rules_dir.iterdir()):
         if not rule_file.is_file() or rule_file.suffix.lower() not in {".yaml", ".yml"}:
@@ -486,7 +486,7 @@ def _extract_scalar_node_value(
     tag = version_node.tag
     value = version_node.value
     if tag == "tag:yaml.org,2002:str":
-        return value
+        return cast(str, value)
     if tag == "tag:yaml.org,2002:int":
         try:
             return int(value)
@@ -507,6 +507,8 @@ def _is_valid_rule_version_value(version: object) -> bool:
     """Return whether a parsed YAML value is acceptable as rule version metadata."""
     if isinstance(version, str):
         return bool(version.strip())
+    if isinstance(version, bool):
+        return False
     if isinstance(version, int):
         return True
     if isinstance(version, Decimal):
@@ -578,6 +580,7 @@ def _extract_rule_file_version(
                 version = meta_version
         if version is None:
             version = document.get("version")
+            # Note: top-level version is validated by the conversion logic below (lines 584-599)
 
     if isinstance(version, str) and version.strip():
         return version.strip()
@@ -1604,7 +1607,7 @@ def explain_alignment(
     source_ipa: str,
     target_ipa: str,
     rule_ids: list[str],
-    all_rules: dict[str, dict],
+    all_rules: dict[str, dict[str, Any]],
     distance: float = 0.0,
 ) -> Explanation:
     """Build a structured explanation for a phonological alignment.

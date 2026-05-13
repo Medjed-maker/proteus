@@ -8,7 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, TypedDict
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from ._paths import resolve_repo_data_dir
 from ._trusted_paths import resolve_trusted_dir_override

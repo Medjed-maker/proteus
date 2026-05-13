@@ -1,6 +1,6 @@
 [project]
 name = "proteus"
-version = "0.2.0"
+version = "0.2.1"
 description = "Language-independent framework for explainable historical phonological search"
 readme = "README.md"
 license-files = ["LICENSE", "NOTICE", "DATA_LICENSE.md"]
@@ -19,6 +19,9 @@ dev = [
     "pytest-cov>=7.0.0",
     "httpx>=0.28.0",
     "jsonschema>=4.26.0",  # also in [extract]; needed here for test_data_files.py
+    "mypy>=1.18.0",
+    "pyright>=1.1.407",
+    "types-jsonschema>=4.23.0",
     "types-PyYAML>=6.0.2",
 ]
 extract = [
@@ -74,6 +77,20 @@ addopts = "--tb=short -v"
 markers = [
     "internal_search_execution: tests that intentionally inspect internal search execution metadata",
 ]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+show_error_codes = true
+mypy_path = "src"
+follow_imports = "normal"
+files = ["src"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+include = ["src"]
+reportMissingTypeStubs = false
 
 [tool.coverage.run]
 source = ["src"]
