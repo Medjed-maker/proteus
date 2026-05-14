@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Protocol, cast
 from .._paths import DEFAULT_LANGUAGE_ID
 
 if TYPE_CHECKING:
-    from ..search import (
+    from ._dependencies import (
         IpaConverter,
         PreparedQueryIpa,
         SearchExecutionResult,
