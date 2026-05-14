@@ -394,32 +394,46 @@ that `references` are short citation labels while review metadata and
 
 ## Phase 9: Expert review workflow
 
-- [ ] reviewer に渡す単位を決める。
-  - [ ] 1 entry ずつ。
-  - [ ] 同じ source に属する小バッチ。
-  - [ ] 同じ orthographic pattern に属する小バッチ。
-- [ ] review request に含める内容を決める。
-  - [ ] entry metadata
-  - [ ] source reference
-  - [ ] proposed note messages
-  - [ ] proposed tags
-  - [ ] uncertainty / confidence
-  - [ ] reviewer decision options
-- [ ] reviewer decision の反映ルールを決める。
-  - [ ] `expert_reviewed` に上げる条件。
-  - [ ] `citation_ready: true` に上げる条件。
-  - [ ] `confidence` を上げる条件。
-  - [ ] `confidence` を下げる条件 (reviewer が evidence を challenge した、source が後代 / 非 Attic と判明した、tag を外した、broad reference 単独に格下げされた等)。
-  - [ ] `pre_403_2_attic` tag を外す条件。
-  - [ ] entry を削除する条件。
-- [ ] 多レビュア時の合意ルール。
-  - [ ] 初期は単一 reviewer 前提で進める。
-  - [ ] 複数 reviewer 間の合意 / 不一致解消ルールは初回 citation-ready PR では out of scope とし、別フェーズで設計する。
-- [ ] review log の保存場所を決める。
-  - [ ] YAML entry の `review_notes`
-  - [ ] docs 配下の review log
-  - [ ] issue / PR discussion
-  - [ ] 外部 reviewer comment の要約だけを repo に残す
+- [x] reviewer に渡す単位を決める。
+  - [x] 初期 default は 1 entry ずつとする。
+  - [x] 同じ source に属する小バッチは、同じ source evidence と同じ review 判断で処理できる場合のみ許可する。
+  - [x] 同じ orthographic pattern に属する小バッチは、各 entry の source identity が明示され、pattern-level 判断だけで entry-level evidence を代替しない場合のみ許可する。
+  - [x] `παιδίο -> παιδίου` pilot は単独 entry review として扱う。
+- [x] review request に含める内容を決める。
+  - [x] entry metadata
+  - [x] source reference / source ids / reference URLs
+  - [x] proposed note messages の EN / JA 文言
+  - [x] proposed tags
+  - [x] uncertainty / confidence
+  - [x] reviewer decision options
+  - [x] implementation action
+  - [x] final review state
+- [x] reviewer decision の反映ルールを決める。
+  - [x] `expert_reviewed` に上げる条件: reviewer が keep / change の判断を返し、runtime に残す entry について必要な source metadata と reviewer metadata を repo に記録できる状態になっている。
+  - [x] `citation_ready: true` に上げる条件: `review_status: expert_reviewed`, 非空の `source_type` / `source_ids` / `references`, 非空の `reviewed_by`, ISO date の `reviewed_at` が揃っている。
+  - [x] `confidence` を上げる条件: reviewer が entry、normalized form、tags、source evidence を肯定し、source が entry-level evidence として十分であると判断した場合。
+  - [x] `confidence` を下げる条件: reviewer が evidence を challenge した、source が後代 / 非 Attic と判明した、tag を外した、broad reference 単独に格下げされた、または normalized form / headword の判断に不確実性が残る場合。
+  - [x] `pre_403_2_attic` tag を外す条件: pre-403/2 BCE Attic inscription source、または明示的な expert judgment が記録できない場合。
+  - [x] entry を削除する条件: reviewer が reject した、source evidence が entry の表示内容を支えない、または normalized form / headword / tag の修正では安全に配信できない場合。
+  - [x] `needs another source` の場合は `expert_reviewed` に上げず、`needs_expert_review` または `source_located` のまま追加 evidence を待つ。
+  - [x] rejected entry は runtime YAML に残さず、review log / docs / issue / PR discussion にのみ記録する。
+- [x] 多レビュア時の合意ルール。
+  - [x] 初期は単一 reviewer 前提で進める。
+  - [x] 複数 reviewer 間の合意 / 不一致解消ルールは初回 citation-ready PR では out of scope とし、別フェーズで設計する。
+- [x] review log の保存場所を決める。
+  - [x] YAML entry の `review_notes` は短い実装向け要約だけにする。
+  - [x] docs 配下の review log は、公開可能な判断理由や entry-level decision の要約を残す場所として使える。
+  - [x] issue / PR discussion は、実装判断、reviewer decision、follow-up task の履歴を残す場所として使える。
+  - [x] 外部 reviewer comment は要約だけを repo に残し、個人情報・未公開コメント・実名は本人合意なしに公開 repo へ入れない。
+
+Phase 9 implementation result: expert review starts with one entry per review
+request. Small batches are allowed only when source identity and entry-level
+evidence remain explicit. Review requests must include metadata, source
+identifiers, proposed EN / JA note messages, proposed tags, confidence /
+uncertainty, decision options, implementation actions, and final review state.
+Promotion to `citation_ready: true` requires `expert_reviewed` plus complete
+source and reviewer metadata. Rejections stay out of runtime YAML, and external
+reviewer comments are summarized only when they are safe to record publicly.
 
 ## Phase 10: Expansion strategy
 
