@@ -252,6 +252,17 @@ correspond to `παιδίου (paidiou)`.
 
 Typical `explanation` content is a short 1-2 sentence summary of why the hit is plausible: a compact etymological note, a summary of the rule sequence already listed in `rules_applied`, or a brief statement about the dialectal correspondence. It should stay concise, usually one short sentence and at most two, and it should not embed reference links, raw markup, or confidence-score fields. If richer provenance is needed later, add separate structured fields instead of overloading `explanation`.
 
+**Response compatibility**
+
+`SearchResponse` may gain new fields during Phase 2 without treating the
+addition as a breaking API change. The server-side Pydantic setting
+`model_config = ConfigDict(extra="ignore")` means the server model ignores
+unknown fields when validating data; it does not define how client JSON parsers
+behave. Field additions are considered compatible because the server can add
+them safely and typical HTTP/JSON clients can ignore unknown response keys.
+Removing existing top-level fields or changing their types remains a breaking
+change.
+
 ### `GET /health`
 
 Liveness probe — returns `{"status": "ok"}`.
