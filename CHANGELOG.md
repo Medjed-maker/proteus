@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Phase 2: REST API and MCP Prototype
+
+- Reserved the Phase 2 baseline and compatibility guardrails for REST API
+  stabilization and the MCP prototype.
+
 ### Breaking Changes
 
 - API `POST /search` no longer returns a `pre_403_2_attic` orthographic note
