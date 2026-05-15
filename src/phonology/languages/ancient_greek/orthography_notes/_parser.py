@@ -27,8 +27,22 @@ from ._validators import (
 
 
 def _load_yaml_mapping(path: Path) -> dict[str, Any]:
+    """Load and validate a YAML mapping from a path.
+
+    Args:
+        path: YAML file path to read.
+
+    Returns:
+        Parsed top-level YAML mapping.
+
+    Raises:
+        ValueError: If the file cannot be read, ``yaml.safe_load`` cannot parse
+        the file, or the top-level document is not a mapping.
+    """
     try:
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, PermissionError, UnicodeDecodeError, OSError) as exc:
+        raise ValueError(f"Failed to read orthography YAML file {path}: {exc}") from exc
     except yaml.YAMLError as exc:
         raise ValueError(
             f"Failed to parse orthography YAML file {path}: {exc}"
@@ -41,20 +55,31 @@ def _load_yaml_mapping(path: Path) -> dict[str, Any]:
 
 
 def _parse_entry(raw_entry: Any, *, path: Path, index: int) -> _CorrespondenceEntry:
+    """Parse, validate, and normalize one YAML entry.
+
+    Args:
+        raw_entry: Candidate YAML entry, expected to be a mapping.
+        path: Source YAML path used in validation errors.
+        index: Zero-based entry index used in validation errors.
+
+    Returns:
+        _CorrespondenceEntry with normalized string fields and review metadata.
+
+    Raises:
+        ValueError: If raw_entry is not a dict, required fields fail _require_str,
+        romanization has an invalid type, or domain values are unsupported.
+    """
     if not isinstance(raw_entry, dict):
         raise ValueError(f"Orthographic entry {index} in {path} must be a mapping")
 
     original = _require_str(raw_entry, "original", path=path, index=index)
     normalized = _require_str(raw_entry, "normalized", path=path, index=index)
     raw_romanization = raw_entry.get("romanization")
-    if raw_romanization is None or raw_romanization == "":
+    if raw_romanization is None:
         romanization = transliterate(normalized)
     elif isinstance(raw_romanization, str):
         stripped = raw_romanization.strip()
-        if stripped == "":
-            romanization = transliterate(normalized)
-        else:
-            romanization = stripped
+        romanization = stripped or transliterate(normalized)
     else:
         raise ValueError(
             f"Orthographic entry {index} in {path} must define 'romanization' as a string"

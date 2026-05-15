@@ -122,7 +122,8 @@ __all__ = [
     "to_prose",
 ]
 
-# Public type alias kept as a re-export for downstream callers.
+# Underscored alias kept for backward compatibility and re-exported for
+# downstream callers that historically imported it from this facade.
 _RuleMetadata: TypeAlias = RuleMetadata
 
 

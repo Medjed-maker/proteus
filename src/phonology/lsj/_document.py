@@ -8,16 +8,15 @@ after the split.
 
 from __future__ import annotations
 
-import logging
-
-logger = logging.getLogger("phonology.lsj_extractor")
-
 from datetime import datetime, timezone
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 from .._paths import resolve_repo_data_dir
+
+logger: logging.Logger = logging.getLogger("phonology.lsj_extractor")
 
 
 def _document_dialect(entries: list[dict[str, Any]]) -> str:
@@ -43,7 +42,28 @@ def _document_dialect_label(dialect: str) -> str:
 
 
 def build_lexicon_document(entries: list[dict[str, Any]]) -> dict[str, Any]:
-    """Build the complete lexicon JSON document with metadata."""
+    """Build a complete LSJ lexicon document from extracted lemma entries.
+
+    Args:
+        entries: Extracted lemma dictionaries. Each entry is expected to include
+            keys such as ``id`` (``str``), ``headword`` (``str``),
+            ``transliteration`` (``str``), ``ipa`` (``str``), ``pos`` (``str``),
+            ``gloss`` (``str``), ``dialect`` (``str``), and optionally
+            ``gender`` (``str``).
+
+    Returns:
+        A ``dict[str, Any]`` with ``schema_version``, ``_meta`` metadata, and
+        ``lemmas`` containing the original ``entries`` list.
+
+    Examples:
+        >>> doc = build_lexicon_document([
+        ...     {"id": "LSJ-000001", "headword": "λόγος", "dialect": "attic"}
+        ... ])
+        >>> doc["schema_version"]
+        '2.0.0'
+        >>> doc["lemmas"][0]["id"]
+        'LSJ-000001'
+    """
     dialect = _document_dialect(entries)
     dialect_label = _document_dialect_label(dialect)
     return {
@@ -78,7 +98,23 @@ def build_lexicon_document(entries: list[dict[str, Any]]) -> dict[str, Any]:
 def validate_document(
     document: dict[str, Any], schema_path: Path | None = None
 ) -> None:
-    """Validate the lexicon document against the JSON schema."""
+    """Validate a lexicon document against the JSON schema.
+
+    Args:
+        document: The ``dict[str, Any]`` lexicon document to validate.
+        schema_path: Optional path to the JSON schema. When omitted, the
+            packaged Ancient Greek lemma schema is used.
+
+    Returns:
+        ``None``. The function logs up to ten schema validation errors as a
+        side effect before raising.
+
+    Raises:
+        ValueError: If schema validation fails.
+        OSError: If the schema file cannot be read.
+        json.JSONDecodeError: If the schema file is invalid JSON.
+        jsonschema.SchemaError: If the loaded schema itself is invalid.
+    """
     import jsonschema
 
     if schema_path is None:
@@ -102,5 +138,4 @@ def validate_document(
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
-
 

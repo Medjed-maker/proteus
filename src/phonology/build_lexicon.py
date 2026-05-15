@@ -26,16 +26,6 @@ FINGERPRINT_SCHEMA_VERSION = 1
 _FINGERPRINT_INPUTS = (
     Path("src/phonology/build_lexicon.py"),
     Path("src/phonology/lsj_extractor.py"),
-    Path("src/phonology/lsj/__init__.py"),
-    Path("src/phonology/lsj/_constants.py"),
-    Path("src/phonology/lsj/_document.py"),
-    Path("src/phonology/lsj/_extract.py"),
-    Path("src/phonology/lsj/_fields.py"),
-    Path("src/phonology/lsj/_heading.py"),
-    Path("src/phonology/lsj/_intro.py"),
-    Path("src/phonology/lsj/_normalize.py"),
-    Path("src/phonology/lsj/_xml.py"),
-    Path("src/phonology/lsj/_xml_iter.py"),
     Path("src/phonology/ipa_converter.py"),
     Path("src/phonology/languages/ancient_greek/ipa.py"),
     Path("src/phonology/core/ipa.py"),
@@ -49,6 +39,16 @@ _FINGERPRINT_INPUTS = (
 def _default_project_root() -> Path:
     """Return the repository root for this source checkout."""
     return Path(__file__).resolve().parents[2]
+
+
+def _discover_lsj_package_files(project_root: Path) -> tuple[Path, ...]:
+    """Return repo-relative LSJ package Python files for fingerprinting."""
+    package_dir = project_root / "src" / "phonology" / "lsj"
+    if not package_dir.is_dir():
+        return ()
+    return tuple(
+        sorted(path.relative_to(project_root) for path in package_dir.rglob("*.py"))
+    )
 
 
 def _default_output_path(project_root: Path) -> Path:
@@ -363,8 +363,11 @@ def _tracked_input_records(project_root: Path, xml_dir: Path) -> list[dict[str, 
     """Return fingerprint records for source inputs and LSJ XML files."""
     from phonology.lsj_extractor import find_xml_files
 
+    tracked_relative_paths = tuple(
+        dict.fromkeys((*_FINGERPRINT_INPUTS, *_discover_lsj_package_files(project_root)))
+    )
     tracked_paths = [
-        project_root / relative_path for relative_path in _FINGERPRINT_INPUTS
+        project_root / relative_path for relative_path in tracked_relative_paths
     ]
     tracked_paths.extend(find_xml_files(xml_dir))
 

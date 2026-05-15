@@ -97,7 +97,21 @@ def clear_trusted_external_rules_dirs() -> None:
 
 
 def _resolve_rules_dir(rules_dir: Path | str, rules_base_dir: Path) -> Path:
-    """Resolve rules directories relative to the packaged rules base."""
+    """Resolve rules directories relative to the packaged rules base.
+    
+    Handles:
+    - Absolute paths (returned as-is)
+    - Language-specific paths (data/languages/<lang>/rules/...)
+    - Legacy data/rules/... mapping
+    - Legacy language-only fallback for backward compatibility
+    
+    Args:
+        rules_dir: Input path (absolute or relative)
+        rules_base_dir: Base directory for relative resolution
+        
+    Returns:
+        Resolved Path object (may be relative to rules_base_dir)
+    """
     candidate_rules_dir = Path(rules_dir)
     if candidate_rules_dir.is_absolute():
         return candidate_rules_dir
@@ -108,7 +122,11 @@ def _resolve_rules_dir(rules_dir: Path | str, rules_base_dir: Path) -> Path:
         len(parts) >= len(language_rules_prefix)
         and parts[: len(language_rules_prefix)] == language_rules_prefix
     ):
-        candidate_rules_dir = Path(*parts[len(language_rules_prefix) :])
+        suffix = parts[len(language_rules_prefix) :]
+        # An empty suffix means the input names the language rules directory
+        # itself; Path(".") keeps rules_base_dir / candidate_rules_dir equal to
+        # rules_base_dir.
+        candidate_rules_dir = Path(*suffix) if suffix else Path(".")
         return rules_base_dir / candidate_rules_dir
 
     if len(parts) >= 2 and parts[:2] == ("data", "rules"):

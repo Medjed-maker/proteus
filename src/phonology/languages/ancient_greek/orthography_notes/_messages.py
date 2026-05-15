@@ -16,6 +16,15 @@ def _correspondence_message(
     *,
     response_language: ResponseLanguage,
 ) -> str:
+    """Generate a localized normalized-form correspondence message.
+
+    Args:
+        entry: _CorrespondenceEntry with original, normalized, and romanization.
+        response_language: ResponseLanguage such as "ja" for Japanese output.
+
+    Returns:
+        Localized message string, e.g. "x may correspond to normalized form y".
+    """
     if response_language == "ja":
         return (
             f"{entry.original} は正規化形 {entry.normalized} "
@@ -32,6 +41,20 @@ def _beginner_message(
     *,
     response_language: ResponseLanguage,
 ) -> str:
+    """Generate a short localized reading-aid message.
+
+    Args:
+        entry: _CorrespondenceEntry with normalized and romanization fields.
+        response_language: ResponseLanguage controlling Japanese versus English
+            output.
+
+    Returns:
+        Reading-aid message string.
+
+    Notes:
+        The function branches on response_language because payload messages are
+        localized at construction time.
+    """
     if response_language == "ja":
         return (
             f"読み替え補助: この形は {entry.normalized} "
@@ -44,6 +67,14 @@ def _beginner_message(
 
 
 def _historical_message(*, response_language: ResponseLanguage) -> str:
+    """Return a localized pre-403/2 BCE Attic spelling advisory.
+
+    Args:
+        response_language: ResponseLanguage such as "ja" for Japanese output.
+
+    Returns:
+        Localized advisory message string.
+    """
     if response_language == "ja":
         return "この形は、紀元前403/2年以前のアッティカ碑文表記を反映している可能性があります。"
     return "This form may reflect a pre-403/2 BCE Attic inscriptional spelling."
@@ -60,6 +91,19 @@ def _historical_note(
     romanization: str | None = None,
     references: tuple[str, ...] = (),
 ) -> OrthographicNotePayload:
+    """Construct a pre-403/2 BCE Attic spelling note payload.
+
+    Args:
+        response_language: ResponseLanguage controlling localized label/message.
+        confidence: OrthographicNoteConfidence for the payload, defaulting to low.
+        normalized_form: Optional normalized Greek form to include.
+        romanization: Optional romanized normalized form to include.
+        references: Reference identifiers supporting the note.
+
+    Returns:
+        OrthographicNotePayload containing kind, label, messages, confidence,
+        normalized_form, romanization, period_label, and references.
+    """
     return OrthographicNotePayload(
         kind="pre_403_2_attic",
         label=(
@@ -81,6 +125,18 @@ def _notes_for_entry(
     *,
     response_language: ResponseLanguage,
 ) -> list[OrthographicNotePayload]:
+    """Build note payloads for an orthographic correspondence entry.
+
+    Args:
+        entry: _CorrespondenceEntry whose kind and tags determine emitted notes.
+        response_language: ResponseLanguage used for localized labels/messages.
+
+    Returns:
+        Payloads for orthographic_correspondence via _correspondence_message,
+        pre_403_2_attic via _historical_note, and/or beginner_aid via
+        _beginner_message. Confidence, normalized form, romanization, and
+        references are propagated from the entry.
+    """
     notes: list[OrthographicNotePayload] = []
     if entry.kind == "orthographic_correspondence":
         notes.append(

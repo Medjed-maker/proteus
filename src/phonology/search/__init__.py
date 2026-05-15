@@ -114,6 +114,27 @@ from ._types import (
     _CandidateSelectionPath,
     _CandidateSelectionResult,
 )
+from ._dependencies import (
+    IpaConverter,
+    PreparedQueryIpa,
+    SearchExecutionResult,
+    _FallbackLimits,
+    _FinalizationResult,
+    _LazySearchDependencies,
+)
+from ._registry import (
+    _TOKENIZED_RULES_CACHE_MAXSIZE,
+    _get_tokenized_rules,
+    _load_rules_cached,
+    get_rules_registry,
+)
+from ._selection import (
+    _inject_length_proximate_candidates,
+    _select_partial_token_fallback_candidates,
+    _select_seeded_candidates,
+    _select_token_proximity_fallback_candidates,
+    _select_unigram_fallback_candidates,
+)
 from .compat import (
     build_kmer_index,
     build_lexicon_map,
@@ -254,16 +275,6 @@ __all__ = [
 ]
 
 
-from ._dependencies import (
-    IpaConverter,
-    PreparedQueryIpa,
-    SearchExecutionResult,
-    _FallbackLimits,
-    _FinalizationResult,
-    _LazySearchDependencies,
-)
-
-
 def _validate_search_arguments(
     *,
     query: str,
@@ -322,16 +333,6 @@ def _resolve_fallback_limits(
         similarity=effective_similarity_fallback_limit,
         unigram=effective_unigram_fallback_limit,
     )
-
-
-from ._selection import (
-    _inject_length_proximate_candidates,
-    _select_partial_token_fallback_candidates,
-    _select_seeded_candidates,
-    _select_token_proximity_fallback_candidates,
-    _select_unigram_fallback_candidates,
-)
-
 
 
 def _build_lexicon_map_core(
@@ -562,14 +563,6 @@ def _seed_stage_core(
     ]
 
 
-from ._registry import (
-    _TOKENIZED_RULES_CACHE_MAXSIZE,
-    _get_tokenized_rules,
-    _load_rules_cached,
-    get_rules_registry,
-)
-
-
 def _annotate_search_results(
     query_ipa: str,
     results: list[SearchResult],
@@ -772,4 +765,3 @@ from ._orchestration import (
     _finalize_partial_form_results,
     _finalize_short_query_results,
 )
-

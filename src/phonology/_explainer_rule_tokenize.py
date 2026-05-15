@@ -56,7 +56,7 @@ def _tokenize_context_tail(
     """Tokenize `_...tail` context notation with the rule inventory."""
     if not isinstance(context, str):
         return None
-    match = re.fullmatch(r"_\.\.\.(.+)", context.strip().lower())
+    match = re.fullmatch(r"_\.\.\.(.+)", context.strip())
     if match is None:
         return None
     return _tokenize_rule_side(match.group(1), phone_inventory=phone_inventory)
@@ -123,6 +123,9 @@ def tokenize_rules_for_matching(
 
     Args:
         rules: A ``list[Rule]`` containing the phonological rules to pre-tokenize.
+        phone_inventory: An optional ``Iterable[str]`` of phones used for
+            tokenization and matching. ``None`` uses the default internal
+            inventory.
 
     Returns:
         A ``list[TokenizedRule]`` where each item stores the original rule,

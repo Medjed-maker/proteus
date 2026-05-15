@@ -233,6 +233,62 @@ class TestSearchTokenFallback:
         assert selection.unigram_candidate_count == 0
         assert selection.fallback_limit == 11
 
+    @pytest.mark.parametrize("explicit_limit", [None, "1", 1.0, True])
+    def test_partial_token_fallback_rejects_non_integer_limit(
+        self, explicit_limit: object
+    ) -> None:
+        """Partial token fallback should fail fast on non-integer caps."""
+        partial_query = search_module.PartialQueryTokens(
+            shape="suffix",
+            left_tokens=(),
+            right_tokens=("b",),
+        )
+
+        with pytest.raises(
+            TypeError,
+            match=(
+                "_select_partial_token_fallback_candidates requires "
+                "explicit_limit to be an integer"
+            ),
+        ):
+            search_module._select_partial_token_fallback_candidates(
+                partial_query,
+                "a b",
+                2,
+                {},
+                max_results=1,
+                explicit_limit=explicit_limit,  # type: ignore[arg-type]
+                phone_inventory=(),
+            )
+
+    @pytest.mark.parametrize("explicit_limit", [0, -1])
+    def test_partial_token_fallback_rejects_non_positive_limit(
+        self, explicit_limit: int
+    ) -> None:
+        """Partial token fallback should fail fast on non-positive caps."""
+        partial_query = search_module.PartialQueryTokens(
+            shape="suffix",
+            left_tokens=(),
+            right_tokens=("b",),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "_select_partial_token_fallback_candidates requires "
+                "explicit_limit to be a positive integer"
+            ),
+        ):
+            search_module._select_partial_token_fallback_candidates(
+                partial_query,
+                "a b",
+                2,
+                {},
+                max_results=1,
+                explicit_limit=explicit_limit,
+                phone_inventory=(),
+            )
+
     def test_uses_token_proximity_when_query_has_no_seedable_skeleton(
         self,
         mock_load_rules: None,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 from pathlib import Path
 from typing import Any
 
@@ -434,7 +435,7 @@ def test_pre_403_2_attic_kind_returns_japanese_historical_message(
         source_type=("ig",),
         source_ids=("IG I^3 000",),
         reviewed_by="tm",
-        reviewed_at="2026-05-05",
+        reviewed_at=datetime.datetime(2026, 5, 5, tzinfo=datetime.UTC),
     )
     monkeypatch.setattr(
         orthography_notes_module,
@@ -544,6 +545,40 @@ def test_parse_entry_accepts_valid_review_metadata() -> None:
     assert entry.references == ("AIO, IG I^3 000",)
     assert entry.reference_urls == ("https://example.test/aio/ig-i3-000",)
     assert entry.review_notes == "Source located; expert review pending."
+    assert entry.reviewed_at is None
+
+
+def test_string_list_and_optional_string_validators_normalize_to_nfc() -> None:
+    raw_entry = {
+        "tags": [" e\u0301 ", " "],
+        "review_notes": " cafe\u0301 ",
+        "reviewed_by": None,
+    }
+
+    assert orthography_notes_module._require_str_list(
+        raw_entry,
+        "tags",
+        path=Path("test.yaml"),
+        index=0,
+    ) == ("é",)
+    assert (
+        orthography_notes_module._optional_str(
+            raw_entry,
+            "review_notes",
+            path=Path("test.yaml"),
+            index=0,
+        )
+        == "café"
+    )
+    assert (
+        orthography_notes_module._optional_str(
+            raw_entry,
+            "reviewed_by",
+            path=Path("test.yaml"),
+            index=0,
+        )
+        == ""
+    )
 
 
 @pytest.mark.parametrize(
@@ -688,7 +723,7 @@ def test_parse_entry_accepts_citation_ready_entry_with_complete_review_metadata(
     assert entry.review_status == "expert_reviewed"
     assert entry.citation_ready is True
     assert entry.reviewed_by == "tm"
-    assert entry.reviewed_at == "2026-05-05"
+    assert entry.reviewed_at == datetime.datetime(2026, 5, 5, tzinfo=datetime.UTC)
 
 
 def test_orthographic_note_payload_normalizes_list_messages_to_tuple() -> None:

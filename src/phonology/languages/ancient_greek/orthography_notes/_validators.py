@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -19,6 +19,20 @@ from .schema import (
 
 
 def _require_str(raw: dict[str, Any], key: str, *, path: Path, index: int) -> str:
+    """Require a non-empty NFC-normalized string field.
+
+    Args:
+        raw: Raw YAML entry mapping.
+        key: Field name to read.
+        path: YAML file path for error messages.
+        index: Entry index for error messages.
+
+    Returns:
+        Stripped and NFC-normalized string.
+
+    Raises:
+        ValueError: If the field is missing, non-string, or empty.
+    """
     value = raw.get(key)
     if not isinstance(value, str) or not value.strip():
         raise ValueError(
@@ -34,12 +48,31 @@ def _require_str_list(
     path: Path,
     index: int,
 ) -> tuple[str, ...]:
+    """Read an optional list of strings as NFC-normalized values.
+
+    Args:
+        raw: Raw YAML entry mapping.
+        key: Field name to read.
+        path: YAML file path for error messages.
+        index: Entry index for error messages.
+
+    Returns:
+        Tuple of stripped, NFC-normalized non-empty strings.
+
+    Raises:
+        ValueError: If the field is not a list of strings.
+    """
     value = raw.get(key, [])
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
         raise ValueError(
             f"Orthographic entry {index} in {path} must define {key!r} as a list of strings"
         )
-    return tuple(item.strip() for item in value if item.strip())
+    normalized_values = []
+    for item in value:
+        normalized = _nfc(item.strip())
+        if normalized:
+            normalized_values.append(normalized)
+    return tuple(normalized_values)
 
 
 def _require_direct_key(
@@ -49,6 +82,20 @@ def _require_direct_key(
     path: Path,
     index: int,
 ) -> None:
+    """Require a key to be directly present in the raw entry.
+
+    Args:
+        raw: Raw YAML entry mapping.
+        key: Field name to check.
+        path: YAML file path for error messages.
+        index: Entry index for error messages.
+
+    Returns:
+        None.
+
+    Raises:
+        ValueError: If the key is absent.
+    """
     if key not in raw:
         raise ValueError(
             f"Orthographic entry {index} in {path} must directly define {key!r}"
@@ -56,6 +103,20 @@ def _require_direct_key(
 
 
 def _require_bool(raw: dict[str, Any], key: str, *, path: Path, index: int) -> bool:
+    """Require a directly defined boolean field.
+
+    Args:
+        raw: Raw YAML entry mapping.
+        key: Field name to read.
+        path: YAML file path for error messages.
+        index: Entry index for error messages.
+
+    Returns:
+        Boolean field value.
+
+    Raises:
+        ValueError: If the key is absent or the value is not a boolean.
+    """
     _require_direct_key(raw, key, path=path, index=index)
     value = raw[key]
     if not isinstance(value, bool):
@@ -66,6 +127,20 @@ def _require_bool(raw: dict[str, Any], key: str, *, path: Path, index: int) -> b
 
 
 def _optional_str(raw: dict[str, Any], key: str, *, path: Path, index: int) -> str:
+    """Read an optional string field as stripped NFC text.
+
+    Args:
+        raw: Raw YAML entry mapping.
+        key: Field name to read.
+        path: YAML file path for error messages.
+        index: Entry index for error messages.
+
+    Returns:
+        Empty string for absent/None values, otherwise stripped NFC text.
+
+    Raises:
+        ValueError: If the value is present and not a string.
+    """
     value = raw.get(key, "")
     if value is None:
         return ""
@@ -73,12 +148,26 @@ def _optional_str(raw: dict[str, Any], key: str, *, path: Path, index: int) -> s
         raise ValueError(
             f"Orthographic entry {index} in {path} must define {key!r} as a string"
         )
-    return value.strip()
+    return _nfc(value.strip())
 
 
-def _validate_iso_date(value: str, *, key: str, path: Path, index: int) -> None:
+def _validate_iso_date(value: str, *, key: str, path: Path, index: int) -> date:
+    """Validate and parse an ISO date string.
+
+    Args:
+        value: Candidate ISO date string.
+        key: Field name being validated.
+        path: YAML file path for error messages.
+        index: Entry index for error messages.
+
+    Returns:
+        Parsed date value.
+
+    Raises:
+        ValueError: If value is not an ISO date.
+    """
     try:
-        date.fromisoformat(value)
+        return date.fromisoformat(value)
     except ValueError as exc:
         raise ValueError(
             f"Orthographic entry {index} in {path} must define {key!r} as an ISO date"
@@ -192,8 +281,19 @@ def _validate_review_metadata(
     review_notes = _optional_str(raw_entry, "review_notes", path=path, index=index)
     reviewed_by = _optional_str(raw_entry, "reviewed_by", path=path, index=index)
     reviewed_at = _optional_str(raw_entry, "reviewed_at", path=path, index=index)
+    reviewed_at_datetime: datetime | None = None
     if reviewed_at:
-        _validate_iso_date(reviewed_at, key="reviewed_at", path=path, index=index)
+        reviewed_at_date = _validate_iso_date(
+            reviewed_at,
+            key="reviewed_at",
+            path=path,
+            index=index,
+        )
+        reviewed_at_datetime = datetime.combine(
+            reviewed_at_date,
+            datetime.min.time(),
+            tzinfo=UTC,
+        )
 
     if review_status == "source_located" and (
         not source_type or not source_ids or not references
@@ -235,7 +335,7 @@ def _validate_review_metadata(
         "reference_urls": reference_urls,
         "review_notes": review_notes,
         "reviewed_by": reviewed_by,
-        "reviewed_at": reviewed_at,
+        "reviewed_at": reviewed_at_datetime,
     }
 
 
@@ -246,6 +346,25 @@ def _optional_candidate_headwords(
     path: Path,
     index: int,
 ) -> tuple[str, ...]:
+    """Return optional normalized candidate headwords for one YAML entry.
+
+    Args:
+        raw: Raw YAML entry mapping.
+        normalized: NFC-normalized primary headword used as the default.
+        path: Source YAML path used in validation errors.
+        index: Zero-based entry index used in validation errors.
+
+    Returns:
+        Tuple of candidate headwords. Returns ``(normalized,)`` when
+        ``candidate_headwords`` is absent.
+
+    Raises:
+        ValueError: If ``candidate_headwords`` is not a list of strings, or if
+        trimming and normalization leave no candidates.
+
+    Items are stripped, normalized through ``_nfc``, and empty strings are
+    ignored.
+    """
     value = raw.get("candidate_headwords")
     if value is None:
         return (normalized,)

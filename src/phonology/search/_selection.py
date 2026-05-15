@@ -469,6 +469,17 @@ def _select_partial_token_fallback_candidates(
     must pass a positive integer cap; the full-scan uncapped variant was
     removed because every call site now enforces a default cap.
     """
+    if type(explicit_limit) is not int:
+        raise TypeError(
+            "_select_partial_token_fallback_candidates requires explicit_limit "
+            "to be an integer"
+        )
+    if explicit_limit <= 0:
+        raise ValueError(
+            "_select_partial_token_fallback_candidates requires explicit_limit "
+            "to be a positive integer"
+        )
+
     import sys
 
     from . import (  # type: ignore[attr-defined]

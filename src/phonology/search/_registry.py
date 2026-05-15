@@ -83,7 +83,7 @@ def get_rules_registry(
         get_language_profile,
     )
 
-    rules_source: str | Path = language
+    rules_source = language
     if isinstance(language, str):
         try:
             # Strict: an unregistered language id is a programmer error, not a
@@ -108,7 +108,7 @@ def get_rules_registry(
 @lru_cache(maxsize=_TOKENIZED_RULES_CACHE_MAXSIZE)
 def _get_tokenized_rules(
     language: str | Path = "ancient_greek",
-    phone_inventory_key: PhoneInventory | None = None,
+    phone_inventory: PhoneInventory | None = None,
 ) -> tuple[TokenizedRule, ...]:
     """Get tokenized rules from the registry for matching.
 
@@ -129,6 +129,6 @@ def _get_tokenized_rules(
     _tokenize_rules = getattr(package, "tokenize_rules_for_matching", _default_tokenize)
     rules_registry = _get_rules_registry(language)
     rules = list(rules_registry.values())
-    if phone_inventory_key is None:
+    if phone_inventory is None:
         return tuple(_tokenize_rules(rules))
-    return tuple(_tokenize_rules(rules, phone_inventory=phone_inventory_key))
+    return tuple(_tokenize_rules(rules, phone_inventory=phone_inventory))

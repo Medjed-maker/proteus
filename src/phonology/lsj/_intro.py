@@ -9,9 +9,6 @@ after the split.
 from __future__ import annotations
 
 import logging
-
-logger = logging.getLogger("phonology.lsj_extractor")
-
 from typing import Any
 
 from ._constants import (
@@ -21,6 +18,8 @@ from ._constants import (
 )
 from ._normalize import _normalize_intro_text
 from ._xml import _elem_text, _local_name
+
+logger = logging.getLogger("phonology.lsj_extractor")
 
 
 def _append_intro_child_text(
@@ -137,5 +136,4 @@ def _has_attic_inline_context(text: str, match_start: int) -> bool:
     for delimiter in (";", ":"):
         clause_start = max(clause_start, text.rfind(delimiter, 0, match_start) + 1)
     return bool(_ATTIC_INLINE_RE.search(text[clause_start:match_start]))
-
 

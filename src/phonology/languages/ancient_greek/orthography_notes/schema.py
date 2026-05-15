@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import datetime
 from dataclasses import dataclass
-from typing import Literal, TypedDict, get_args
+from typing import Final, Literal, Optional, TypedDict, get_args
 import unicodedata
 
 from phonology.orthography_notes import (
@@ -12,13 +13,13 @@ from phonology.orthography_notes import (
 )
 
 
-_ORTHOGRAPHY_FILENAME = "orthographic_correspondences.yaml"
-_ALLOWED_KINDS = {
+_ORTHOGRAPHY_FILENAME: Final[str] = "orthographic_correspondences.yaml"
+_ALLOWED_KINDS: Final[set[str]] = {
     "orthographic_correspondence",
     "beginner_aid",
     "pre_403_2_attic",
 }
-_ALLOWED_CONFIDENCE = {"low", "medium", "high"}
+_ALLOWED_CONFIDENCE: Final[set[str]] = {"low", "medium", "high"}
 ReviewStatus = Literal[
     "not_expert_reviewed",
     "source_located",
@@ -47,7 +48,10 @@ _REQUIRED_REVIEW_METADATA_KEYS = (
 
 @dataclass(frozen=True, slots=True)
 class _CorrespondenceEntry:
-    """Validated orthographic correspondence entry loaded from YAML."""
+    """Validated orthographic correspondence entry loaded from YAML.
+
+    reviewed_at stores the YAML ISO 8601 date as a UTC datetime when present.
+    """
 
     original: str
     normalized: str
@@ -64,7 +68,7 @@ class _CorrespondenceEntry:
     reference_urls: tuple[str, ...] = ()
     review_notes: str = ""
     reviewed_by: str = ""
-    reviewed_at: str = ""
+    reviewed_at: Optional[datetime.datetime] = None
 
 
 class _ReviewMetadata(TypedDict):
@@ -77,7 +81,7 @@ class _ReviewMetadata(TypedDict):
     reference_urls: tuple[str, ...]
     review_notes: str
     reviewed_by: str
-    reviewed_at: str
+    reviewed_at: Optional[datetime.datetime]
 
 
 def _nfc(value: str) -> str:
