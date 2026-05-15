@@ -11,6 +11,7 @@ from unittest.mock import Mock
 import pytest
 
 from phonology.betacode import beta_to_unicode
+import phonology.lsj as lsj_package
 import phonology.lsj_extractor as lsj_extractor_module
 from phonology.lsj_extractor import (
     build_lexicon_document,
@@ -24,6 +25,13 @@ pytestmark = pytest.mark.usefixtures("reset_pos_overrides_cache")
 
 if TYPE_CHECKING:
     from lxml.etree import _Element
+
+
+def test_lsj_package_all_exports_logger_and_to_ipa() -> None:
+    assert "logger" in lsj_package.__all__
+    assert "to_ipa" in lsj_package.__all__
+    assert hasattr(lsj_package, "logger")
+    assert hasattr(lsj_package, "to_ipa")
 
 
 def _make_entry_xml(
@@ -349,6 +357,39 @@ class TestLeadingDialectLabels:
 
         assert lsj_extractor_module._leading_dialect_labels(elem) == expected
 
+    def test_heading_dialect_helpers_tolerate_empty_text(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        gram = etree.fromstring('<gram type="dialect"/>')
+        monkeypatch.setattr("phonology.lsj._heading._elem_text", lambda _elem: None)
+
+        assert lsj_extractor_module._has_attic_dialect_label(gram) is False
+        assert lsj_extractor_module._mapped_heading_dialect(gram) is None
+
+
+class TestExtractDialect:
+    """Test deterministic entry dialect selection."""
+
+    def test_extract_dialect_uses_explicit_priority(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "phonology.lsj._fields._leading_dialect_labels",
+            lambda _entry: ["doric", "ionic"],
+        )
+
+        assert lsj_extractor_module._extract_dialect(object()) == "ionic"
+
+    def test_extract_dialect_falls_back_to_sorted_label(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            "phonology.lsj._fields._leading_dialect_labels",
+            lambda _entry: ["unknown_z", "unknown_a"],
+        )
+
+        assert lsj_extractor_module._extract_dialect(object()) == "unknown_a"
+
 
 class TestLoadPosOverrides:
     """Test POS override loading behavior."""
@@ -655,6 +696,29 @@ class TestExtractEntry:
         assert result is not None
         assert result["ipa"] == "mock-ipa"
         assert captured == {"greek_text": "λόγος", "dialect": "attic"}
+
+    def test_missing_common_gender_override_key_is_safe(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        elem = _make_entry_xml(
+            entry_id="n606",
+            key="lo/gos",
+            orth="lo/gos",
+            gen="",
+            pos="Subst.",
+            tr="word",
+        )
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "_load_pos_overrides",
+            lambda: {"numeral_keys": frozenset()},
+        )
+        monkeypatch.setattr(lsj_extractor_module, "to_ipa", lambda *_args, **_kw: "ipa")
+
+        result = extract_entry(elem)
+
+        assert result is not None
+        assert result["gender"] == "common"
 
     @pytest.mark.parametrize(
         ("dialect_label", "expected_dialect"),
@@ -2274,6 +2338,35 @@ class TestXmlIterationAndCli:
 
         assert [entry["id"] for entry in entries] == ["LSJ-000001"]
 
+    def test_iter_xml_entries_closes_context_when_iteration_stops_early(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class FakeContext:
+            def __init__(self) -> None:
+                self.closed = False
+
+            def __iter__(self) -> Any:
+                yield "end", object()
+
+            def close(self) -> None:
+                self.closed = True
+
+        context = FakeContext()
+        xml_path = tmp_path / "dummy.xml"
+        xml_path.write_text("<root/>", encoding="utf-8")
+        monkeypatch.setattr(etree, "iterparse", lambda *_args, **_kwargs: context)
+        monkeypatch.setattr(
+            "phonology.lsj._xml_iter.extract_entry",
+            lambda _element: {"id": "LSJ-000001"},
+        )
+
+        iterator = lsj_extractor_module.iter_xml_entries(xml_path)
+        assert next(iterator) == {"id": "LSJ-000001"}
+
+        iterator.close()
+
+        assert context.closed is True
+
     def test_extract_all_deduplicates_ids_and_honors_limit(
         self, tmp_path: Path
     ) -> None:
@@ -2291,6 +2384,18 @@ class TestXmlIterationAndCli:
         entries = list(lsj_extractor_module.extract_all(xml_dir, limit=2))
 
         assert [entry["id"] for entry in entries] == ["LSJ-000001", "LSJ-000002"]
+
+    def test_extract_all_limit_zero_yields_no_entries(self, tmp_path: Path) -> None:
+        xml_dir = tmp_path / "xml"
+        self._write_xml_file(
+            xml_dir,
+            "grc.lsj.perseus-eng.xml",
+            [self._entry_xml("n1")],
+        )
+
+        entries = list(lsj_extractor_module.extract_all(xml_dir, limit=0))
+
+        assert entries == []
 
     def test_main_returns_one_when_no_entries_are_extracted(
         self,
@@ -2483,7 +2588,9 @@ class TestXmlIterationAndCli:
         caplog.set_level("ERROR", logger="phonology.lsj_extractor")
 
         assert lsj_extractor_module.run_cli() == 1
-        assert "Extraction failed: bad overrides" in caplog.text
+        assert "Extraction failed unexpectedly" in caplog.text
+        assert "RuntimeError: bad overrides" in caplog.text
+        assert caplog.records[0].exc_info is not None
 
 
 # --------------------------------------------------------------------------

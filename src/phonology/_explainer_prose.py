@@ -10,7 +10,17 @@ from ._explainer_types import RuleApplication
 
 @dataclass
 class Explanation:
-    """Full explanation for a source -> target derivation."""
+    """Full explanation for a source -> target derivation.
+
+    Attributes:
+        source: Source orthographic form.
+        target: Target orthographic form.
+        source_ipa: Phonetic representation of ``source``.
+        target_ipa: Phonetic representation of ``target``.
+        distance: Numeric similarity/cost for the derivation.
+        steps: Applied ``RuleApplication`` objects in derivation order.
+        prose: Optional human-readable commentary.
+    """
 
     source: str
     target: str

@@ -9,14 +9,13 @@ after the split.
 from __future__ import annotations
 
 import logging
-
-logger = logging.getLogger("phonology.lsj_extractor")
-
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 from ._extract import extract_entry
+
+logger = logging.getLogger("phonology.lsj_extractor")
 
 
 def iter_xml_entries(xml_path: Path) -> Iterator[dict[str, Any]]:
@@ -26,25 +25,34 @@ def iter_xml_entries(xml_path: Path) -> Iterator[dict[str, Any]]:
     # Harden iterparse against XXE and billion-laughs style attacks. LSJ
     # sources are normally trusted offline inputs, but disabling entity
     # resolution, DTD loading, and network access removes the attack surface.
-    context = etree.iterparse(
-        str(xml_path),
-        events=("end",),
-        tag="entryFree",
-        recover=True,
-        resolve_entities=False,
-        load_dtd=False,
-        no_network=True,
-    )
-    for _event, element in context:
-        entry = extract_entry(element)
-        if entry is not None:
-            yield entry
-        # Free memory: remove all previously processed siblings.
-        # The current element stays in the tree until the next iteration.
-        element.clear()
-        parent = element.getparent()
-        while parent is not None and element.getprevious() is not None:
-            del parent[0]
+    source = xml_path.open("rb")
+    try:
+        context = etree.iterparse(
+            source,
+            events=("end",),
+            tag="entryFree",
+            recover=True,
+            resolve_entities=False,
+            load_dtd=False,
+            no_network=True,
+        )
+        try:
+            for _event, element in context:
+                entry = extract_entry(element)
+                if entry is not None:
+                    yield entry
+                # Free memory: remove all previously processed siblings.
+                # The current element stays in the tree until the next iteration.
+                element.clear()
+                parent = element.getparent()
+                while parent is not None and element.getprevious() is not None:
+                    del parent[0]
+        finally:
+            close = getattr(context, "close", None)
+            if callable(close):
+                close()
+    finally:
+        source.close()
 
 
 def find_xml_files(xml_dir: Path) -> list[Path]:
@@ -74,14 +82,7 @@ def extract_all(xml_dir: Path, *, limit: int | None = None) -> Iterator[dict[str
                 continue
             seen_ids.add(entry["id"])
 
-            yield entry
-            count += 1
             if limit is not None and count >= limit:
                 return
-
-
-# ---------------------------------------------------------------------------
-# Document building
-# ---------------------------------------------------------------------------
-
-
+            yield entry
+            count += 1

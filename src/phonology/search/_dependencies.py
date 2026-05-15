@@ -31,13 +31,40 @@ from ._types import (
 
 
 class IpaConverter(Protocol):
-    """Protocol for IPA conversion functions."""
+    """Callable interface for converting source text into IPA.
+
+    Implementations provide the public converter contract used by search query
+    preparation and partial-query fragment conversion. Converters are expected
+    to be deterministic for a given text and dialect and to avoid observable
+    side effects.
+
+    Args:
+        text: Input text to convert.
+        dialect: Dialect or conversion mode to apply.
+
+    Returns:
+        Converted IPA string.
+
+    Raises:
+        Exception: Implementations may raise converter-specific exceptions for
+            unsupported dialects or invalid input.
+    """
 
     def __call__(self, text: str, *, dialect: str) -> str: ...
 
 
 class PreparedQueryIpa(NamedTuple):
-    """Query classification, normalization, and IPA data for one search."""
+    """Query classification, normalization, and IPA data for one search.
+
+    Args:
+        query_mode: Search mode selected for the query.
+        normalized_query: Normalized search string before IPA conversion.
+        partial_query: Parsed partial-query pattern, or ``None`` for
+            non-partial searches.
+        query_ipa: IPA-normalized query string used by search stages.
+        partial_query_tokens: Tokenized partial-query fragments, or ``None``
+            when the query is not partial-form.
+    """
 
     query_mode: QueryMode
     normalized_query: str
@@ -63,7 +90,15 @@ class _FinalizationResult(NamedTuple):
 
 
 class SearchExecutionResult(NamedTuple):
-    """Search return value with result metadata for API callers."""
+    """Search return value with result metadata for API callers.
+
+    Args:
+        results: Ranked search results returned to the caller.
+        truncated: Whether the result set was truncated before all candidates
+            could be returned.
+        query_ipa: IPA-normalized query string used for the search.
+        query_mode: Search mode used, for example ``"Full-form"``.
+    """
 
     results: list[SearchResult]
     truncated: bool = False

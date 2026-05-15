@@ -9,9 +9,6 @@ after the split.
 from __future__ import annotations
 
 import logging
-
-logger = logging.getLogger("phonology.lsj_extractor")
-
 import unicodedata
 from typing import Any, NamedTuple
 
@@ -28,6 +25,8 @@ from ._constants import (
 from ._intro import _inline_pos_candidates
 from ._normalize import _normalize_beta_token, _normalize_intro_text
 from ._xml import _elem_text, _find_gen_text, _local_name
+
+logger = logging.getLogger("phonology.lsj_extractor")
 
 
 def _is_heading_surface_form(child: Any) -> bool:
@@ -135,7 +134,8 @@ def _has_attic_dialect_label(gramgrp: Any) -> bool:
             continue
         if descendant.get("type", "") != "dialect":
             continue
-        if _DIALECT_MAP.get(_elem_text(descendant).strip()) == "attic":
+        text = _elem_text(descendant) or ""
+        if _DIALECT_MAP.get(text.strip()) == "attic":
             return True
     return False
 
@@ -546,7 +546,8 @@ def _mapped_heading_dialect(descendant: Any) -> str | None:
         return None
     if descendant.get("type", "") != "dialect":
         return None
-    return _DIALECT_MAP.get(_elem_text(descendant).strip())
+    text = _elem_text(descendant) or ""
+    return _DIALECT_MAP.get(text.strip())
 
 
 def _should_keep_heading_dialect_label(
@@ -601,10 +602,4 @@ def _has_multiple_intro_greek_forms(entry: Any) -> bool:
         if count > 1:
             return True
     return False
-
-
-# ---------------------------------------------------------------------------
-# Field extraction
-# ---------------------------------------------------------------------------
-
 

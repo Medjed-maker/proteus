@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 import re
 
 from ._phones import VOWEL_PHONES
@@ -11,6 +11,19 @@ from .ipa_converter import tokenize_ipa
 
 _NASAL_PHONES = frozenset({"m", "n"})
 _AFTER_E_I_R_PHONES = frozenset({"e", "i", "r"})
+
+_ContextHandler = Callable[
+    [
+        Sequence[str],
+        Sequence[str],
+        int,
+        int,
+        int,
+        int,
+        tuple[str, ...] | None,
+    ],
+    bool,
+]
 
 
 def _is_vowel(token: str | None) -> bool:
@@ -110,6 +123,132 @@ def _matches_same_word_lookahead(
     )
 
 
+def _matches_word_boundary(
+    lemma_tokens: Sequence[str],
+    query_tokens: Sequence[str],
+    lemma_start: int,
+    lemma_end: int,
+    query_start: int,
+    query_end: int,
+    context_tail_tokens: tuple[str, ...] | None,
+) -> bool:
+    """Return True when the rule span reaches the end of the word."""
+    del lemma_start, query_start, context_tail_tokens
+    next_token = _lookup_next_token(
+        lemma_tokens,
+        query_tokens,
+        lemma_end=lemma_end,
+        query_end=query_end,
+    )
+    return next_token is None
+
+
+def _matches_intervocalic(
+    lemma_tokens: Sequence[str],
+    query_tokens: Sequence[str],
+    lemma_start: int,
+    lemma_end: int,
+    query_start: int,
+    query_end: int,
+    context_tail_tokens: tuple[str, ...] | None,
+) -> bool:
+    """Return True when the rule span is between vowels."""
+    del context_tail_tokens
+    prev_token = _lookup_prev_token(
+        lemma_tokens,
+        query_tokens,
+        lemma_start=lemma_start,
+        query_start=query_start,
+    )
+    next_token = _lookup_next_token(
+        lemma_tokens,
+        query_tokens,
+        lemma_end=lemma_end,
+        query_end=query_end,
+    )
+    return _is_vowel(prev_token) and _is_vowel(next_token)
+
+
+def _matches_nasal_consonant(
+    lemma_tokens: Sequence[str],
+    query_tokens: Sequence[str],
+    lemma_start: int,
+    lemma_end: int,
+    query_start: int,
+    query_end: int,
+    context_tail_tokens: tuple[str, ...] | None,
+) -> bool:
+    """Return True when the rule span is followed by nasal + consonant."""
+    del lemma_start, query_start, context_tail_tokens
+    next_token = _lookup_next_token(
+        lemma_tokens,
+        query_tokens,
+        lemma_end=lemma_end,
+        query_end=query_end,
+    )
+    following_token = _lookup_next_token(
+        lemma_tokens,
+        query_tokens,
+        lemma_end=lemma_end,
+        query_end=query_end,
+        offset=1,
+    )
+    return next_token in _NASAL_PHONES and _is_consonant(following_token)
+
+
+def _matches_after_eir(
+    lemma_tokens: Sequence[str],
+    query_tokens: Sequence[str],
+    lemma_start: int,
+    lemma_end: int,
+    query_start: int,
+    query_end: int,
+    context_tail_tokens: tuple[str, ...] | None,
+) -> bool:
+    """Return True when the previous phone is e, i, or r."""
+    del lemma_end, query_end, context_tail_tokens
+    prev_token = _lookup_prev_token(
+        lemma_tokens,
+        query_tokens,
+        lemma_start=lemma_start,
+        query_start=query_start,
+    )
+    return prev_token in _AFTER_E_I_R_PHONES
+
+
+def _matches_except_after_eir(
+    lemma_tokens: Sequence[str],
+    query_tokens: Sequence[str],
+    lemma_start: int,
+    lemma_end: int,
+    query_start: int,
+    query_end: int,
+    context_tail_tokens: tuple[str, ...] | None,
+) -> bool:
+    """Return True when the previous phone is not e, i, or r."""
+    del lemma_end, query_end, context_tail_tokens
+    prev_token = _lookup_prev_token(
+        lemma_tokens,
+        query_tokens,
+        lemma_start=lemma_start,
+        query_start=query_start,
+    )
+    # Word-initial spans have no previous phone, so they belong to the
+    # elsewhere environment rather than the "after e/i/r" environment.
+    if prev_token is None:
+        return True
+    return prev_token not in _AFTER_E_I_R_PHONES
+
+
+_CONTEXT_HANDLERS: dict[str, _ContextHandler] = {
+    "_#": _matches_word_boundary,
+    "v_v": _matches_intervocalic,
+    "_nc": _matches_nasal_consonant,
+    "after e, i, or r": _matches_after_eir,
+    "all environments except after e, i, or r": _matches_except_after_eir,
+}
+
+
 def _matches_context(
     context: object,
     lemma_tokens: Sequence[str],
@@ -130,59 +269,17 @@ def _matches_context(
     normalized = context.strip().lower()
     if normalized in _ALWAYS_MATCH_CONTEXTS:
         return True
-    if normalized == "_#":
-        next_token = _lookup_next_token(
+    handler = _CONTEXT_HANDLERS.get(normalized)
+    if handler is not None:
+        return handler(
             lemma_tokens,
             query_tokens,
-            lemma_end=lemma_end,
-            query_end=query_end,
+            lemma_start,
+            lemma_end,
+            query_start,
+            query_end,
+            context_tail_tokens,
         )
-        return next_token is None
-    if normalized == "v_v":
-        prev_token = _lookup_prev_token(
-            lemma_tokens,
-            query_tokens,
-            lemma_start=lemma_start,
-            query_start=query_start,
-        )
-        next_token = _lookup_next_token(
-            lemma_tokens,
-            query_tokens,
-            lemma_end=lemma_end,
-            query_end=query_end,
-        )
-        return _is_vowel(prev_token) and _is_vowel(next_token)
-    if normalized == "_nc":
-        next_token = _lookup_next_token(
-            lemma_tokens,
-            query_tokens,
-            lemma_end=lemma_end,
-            query_end=query_end,
-        )
-        following_token = _lookup_next_token(
-            lemma_tokens,
-            query_tokens,
-            lemma_end=lemma_end,
-            query_end=query_end,
-            offset=1,
-        )
-        return next_token in _NASAL_PHONES and _is_consonant(following_token)
-    if normalized == "after e, i, or r":
-        prev_token = _lookup_prev_token(
-            lemma_tokens,
-            query_tokens,
-            lemma_start=lemma_start,
-            query_start=query_start,
-        )
-        return prev_token in _AFTER_E_I_R_PHONES
-    if normalized == "all environments except after e, i, or r":
-        prev_token = _lookup_prev_token(
-            lemma_tokens,
-            query_tokens,
-            lemma_start=lemma_start,
-            query_start=query_start,
-        )
-        return prev_token not in _AFTER_E_I_R_PHONES
     if _matches_following_set(
         normalized,
         lemma_tokens,

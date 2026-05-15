@@ -26,7 +26,7 @@ class Alignment:
     aligned_lemma: tuple[str | None, ...]
 
 
-@dataclass
+@dataclass(init=False)
 class RuleApplication:
     """Record of a single rule applied during phonological alignment."""
 
@@ -55,6 +55,7 @@ class RuleApplication:
         from_phone: str | None = None,
         to_phone: str | None = None,
     ) -> None:
+        """Normalize canonical fields and backward-compatible aliases."""
         self.rule_id = rule_id
         # Backward-compatible fallback: rule_name and description are mutual
         # fallbacks (rule_name takes precedence) so callers can supply either.

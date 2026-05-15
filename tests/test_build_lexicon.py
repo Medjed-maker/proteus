@@ -1489,10 +1489,41 @@ def test_tracked_input_records_raises_for_missing_tracked_file(
         "_FINGERPRINT_INPUTS",
         (Path("src/phonology/missing.py"),),
     )
-    monkeypatch.setattr(lsj_extractor_module, "find_xml_files", lambda path: [xml_path])
+    monkeypatch.setattr(lsj_extractor_module, "find_xml_files", lambda _path: [xml_path])
 
     with pytest.raises(FileNotFoundError, match="Fingerprint input not found"):
         build_lexicon._tracked_input_records(tmp_path, xml_dir)
+
+
+def test_tracked_input_records_discovers_lsj_package_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    xml_dir = tmp_path / "xml"
+    xml_dir.mkdir()
+    xml_path = xml_dir / "grc.lsj.perseus-eng1.xml"
+    xml_path.write_text("<TEI/>\n", encoding="utf-8")
+    explicit_path = tmp_path / "src" / "phonology" / "build_lexicon.py"
+    explicit_path.parent.mkdir(parents=True)
+    explicit_path.write_text("# explicit\n", encoding="utf-8")
+    discovered_path = tmp_path / "src" / "phonology" / "lsj" / "_new.py"
+    discovered_path.parent.mkdir(parents=True)
+    discovered_path.write_text("# discovered\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        build_lexicon,
+        "_FINGERPRINT_INPUTS",
+        (Path("src/phonology/build_lexicon.py"),),
+    )
+    monkeypatch.setattr(lsj_extractor_module, "find_xml_files", lambda _path: [xml_path])
+
+    records = build_lexicon._tracked_input_records(tmp_path, xml_dir)
+
+    assert {record["path"] for record in records} == {
+        "src/phonology/build_lexicon.py",
+        "src/phonology/lsj/_new.py",
+        "xml/grc.lsj.perseus-eng1.xml",
+    }
 
 
 @pytest.mark.parametrize(

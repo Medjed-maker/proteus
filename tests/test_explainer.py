@@ -1,5 +1,6 @@
 """Tests for phonology.explainer."""
 
+from dataclasses import is_dataclass
 import logging
 from pathlib import Path
 
@@ -121,6 +122,27 @@ def test_rule_application_accepts_legacy_alias_fields() -> None:
     assert application.rule_name == "Legacy Name"
     assert application.from_phone == "a"
     assert application.to_phone == "b"
+
+
+def test_rule_application_uses_dataclass_generated_init_with_aliases() -> None:
+    """Verify dataclass init accepts legacy aliases and normalizes them."""
+    application = RuleApplication(
+        rule_id="DATACLASS-001",
+        rule_name="Dataclass Name",
+        from_phone="x",
+        to_phone="y",
+        position=2,
+        dialects=["attic"],
+    )
+
+    assert is_dataclass(application)
+    assert application.description == "Dataclass Name"
+    assert application.input_phoneme == "x"
+    assert application.output_phoneme == "y"
+    assert application.rule_name == "Dataclass Name"
+    assert application.from_phone == "x"
+    assert application.to_phone == "y"
+    assert application.dialects == ["attic"]
 
 
 def test_rule_application_prefers_explicit_rule_name_over_description_parsing() -> None:
@@ -399,6 +421,31 @@ def test_explain_uses_context_to_choose_between_competing_rules() -> None:
     assert [application.rule_id for application in elsewhere_result] == [
         "RET-ELSEWHERE"
     ]
+
+
+def test_explain_matches_elsewhere_after_eir_context_without_previous_token() -> None:
+    """Verify word-initial spans count as outside the after-e/i/r environment."""
+    rules = [
+        _rule(
+            rule_id="RET-ELSEWHERE",
+            input_phoneme="ɛː",
+            output_phoneme="aː",
+            context="all environments except after e, i, or r",
+            name_ja="それ以外規則",
+        ),
+    ]
+
+    applications = explain(
+        query_tokens=["aː"],
+        lemma_tokens=["ɛː"],
+        alignment=Alignment(
+            aligned_query=("aː",),
+            aligned_lemma=("ɛː",),
+        ),
+        rules=rules,
+    )
+
+    assert [application.rule_id for application in applications] == ["RET-ELSEWHERE"]
 
 
 def test_explain_prefers_specific_context_over_generic_rule() -> None:
@@ -841,6 +888,23 @@ def test_explain_generates_observed_substitution_for_unmatched_blocks() -> None:
     assert applications[0].output_phoneme == "x"
     assert applications[0].rule_name == "観測された置換"
     assert applications[0].rule_name_en == "Observed substitution"
+
+
+def test_tokenize_rules_preserves_context_tail_case_with_inventory() -> None:
+    """Verify `_...tail` tokenization does not lowercase case-sensitive phones."""
+    tokenized_rules = explainer_module.tokenize_rules_for_matching(
+        [
+            _rule(
+                rule_id="CASE-TAIL",
+                input_phoneme="x",
+                output_phoneme="y",
+                context="_...A",
+            )
+        ],
+        phone_inventory=("A", "x", "y"),
+    )
+
+    assert tokenized_rules[0].context_tail_tokens == ("A",)
 
 
 def test_find_matching_rule_candidate_returns_single_token_match_result() -> None:

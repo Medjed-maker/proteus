@@ -166,6 +166,12 @@ def _finalize_short_query_results(
     seen_lemmas: set[str | None] = set()
     total_annotated_count = 0
     window_truncated = len(ranked_scored) > len(ordered_annotation_candidates)
+
+    def resolve_entry_tokens_with_inventory(
+        record: LexiconRecord | LexiconEntry,
+    ) -> tuple[str, ...]:
+        return resolve_entry_tokens(record, phone_inventory=phone_inventory)
+
     for batch_start in range(0, len(ordered_annotation_candidates), annotation_limit):
         batch = ordered_annotation_candidates[batch_start : batch_start + annotation_limit]
         batch_annotated = _annotate_search_results_for_inventory(
@@ -189,10 +195,7 @@ def _finalize_short_query_results(
             selection.query_tokens,
             batch_filtered,
             selection.lexicon_lookup,
-            lambda record: resolve_entry_tokens(
-                record,
-                phone_inventory=phone_inventory,
-            ),
+            resolve_entry_tokens_with_inventory,
         )
         for result in batch_filtered:
             if result.lemma not in seen_lemmas:
@@ -503,7 +506,10 @@ def _execute_search(
         phone_inventory,
     )
     scored_results = _score_stage(**score_params)
-    ranked_scored = sorted(scored_results, key=lambda r: (-r.confidence, r.lemma))
+    ranked_scored = sorted(
+        scored_results,
+        key=lambda r: (-r.confidence, r.lemma is None, r.lemma or ""),
+    )
     if _debug_enabled:
         _log_scoring(
             logger,

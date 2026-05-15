@@ -343,6 +343,8 @@ def run_cli() -> int:
         format="%(levelname)s: %(message)s",
     )
 
+    import yaml
+
     try:
         _load_pos_overrides(cli_mode=True)
         return main(
@@ -351,8 +353,17 @@ def run_cli() -> int:
             limit=args.limit,
             dry_run=args.dry_run,
         )
-    except Exception as exc:
-        logger.error("Extraction failed: %s", exc)
+    except FileNotFoundError as exc:
+        logger.error("Extraction failed; input path was not found: %s", exc)
+        return 1
+    except ValueError as exc:
+        logger.error("Extraction failed; invalid input data: %s", exc)
+        return 1
+    except yaml.YAMLError as exc:
+        logger.error("Extraction failed; YAML parsing failed: %s", exc)
+        return 1
+    except Exception:
+        logger.exception("Extraction failed unexpectedly")
         return 1
 
 
@@ -362,9 +373,13 @@ __all__ = [
     "find_xml_files",
     "iter_xml_entries",
     "build_lexicon_document",
+    "logger",
     "validate_document",
     "main",
+    "resolve_repo_data_dir",
     "run_cli",
+    "to_ipa",
+    "transliterate",
 ]
 
 

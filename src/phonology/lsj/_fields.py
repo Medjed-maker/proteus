@@ -9,9 +9,6 @@ after the split.
 from __future__ import annotations
 
 import logging
-
-logger = logging.getLogger("phonology.lsj_extractor")
-
 import unicodedata
 from typing import Any, NamedTuple
 
@@ -42,6 +39,12 @@ from ._normalize import (
     _normalize_headword_key,
 )
 from ._xml import _elem_text, _find_gen_text, _find_text, _find_text_deep, _local_name
+
+logger = logging.getLogger("phonology.lsj_extractor")
+
+_MAX_GLOSS_LENGTH = 200
+_ELLIPSIS = "..."
+_DIALECT_PRIORITY = ("attic", "ionic", "doric", "aeolic")
 
 
 def _extract_headword(entry: Any) -> str:
@@ -268,23 +271,23 @@ def _extract_gloss(entry: Any) -> str:
                     glosses.append(text)
 
     combined = ", ".join(glosses)
-    if len(combined) > 200:
-        combined = combined[:197] + "..."
+    if len(combined) > _MAX_GLOSS_LENGTH:
+        combined = combined[: _MAX_GLOSS_LENGTH - len(_ELLIPSIS)] + _ELLIPSIS
     return combined
 
 
 def _extract_dialect(entry: Any) -> str:
     """Extract entry-level dialect from the heading before the first sense."""
     labels = set(_leading_dialect_labels(entry))
-    if "attic" in labels:
-        return "attic"
+    for dialect in _DIALECT_PRIORITY:
+        if dialect in labels:
+            return dialect
     if labels:
-        return next(iter(labels))
+        return sorted(labels)[0]
     return "attic"
 
 
 # ---------------------------------------------------------------------------
 # Entry processing
 # ---------------------------------------------------------------------------
-
 

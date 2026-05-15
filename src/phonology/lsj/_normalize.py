@@ -9,13 +9,12 @@ after the split.
 from __future__ import annotations
 
 import logging
-
-logger = logging.getLogger("phonology.lsj_extractor")
-
 from typing import Any
 
 from ._constants import _BETA_REMOVE_RE, _KEY_HOMONYM_SUFFIX_RE, _INTRO_WHITESPACE_RE
 from ._xml import _elem_text, _local_name
+
+logger = logging.getLogger("phonology.lsj_extractor")
 
 
 def _normalize_beta_token(text: str) -> str:
@@ -101,5 +100,4 @@ def _looks_like_known_numeral_key(key: str) -> bool:
 def _normalize_intro_text(parts: list[str]) -> str:
     """Collapse whitespace and trim helper text gathered from XML intro blocks."""
     return _INTRO_WHITESPACE_RE.sub(" ", "".join(parts)).strip()
-
 

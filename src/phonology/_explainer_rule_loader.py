@@ -181,6 +181,11 @@ def _extract_rule_file_version(
         composed = yaml.compose(content)
     except yaml.YAMLError:
         composed = None
+    # yaml.compose exposes low-level ScalarNode tags so version_node and
+    # version_node_from_meta can be passed through _extract_scalar_node_value.
+    # If yaml.compose cannot provide that node-level view, fall back to the
+    # safe_load-derived document mapping and validate values with
+    # _is_valid_rule_version_value.
     if isinstance(composed, yaml.MappingNode):
         for key_node, value_node in composed.value:
             if (
