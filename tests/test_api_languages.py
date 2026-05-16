@@ -48,6 +48,8 @@ def test_languages_endpoint_lists_ancient_greek(client: TestClient) -> None:
 
 def test_public_language_models_are_exported() -> None:
     assert "VersionInfo" in api_models.__all__
+    assert "RequestEcho" in api_models.__all__
+    assert "ResponseMeta" in api_models.__all__
     assert "LanguageInfo" in api_models.__all__
     assert "LanguagesResponse" in api_models.__all__
 

@@ -25,7 +25,7 @@ import yaml
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from packaging.version import InvalidVersion, Version
 
@@ -50,6 +50,14 @@ from ._models import (
     SearchResponse,
     VersionInfo,
 )
+from ._request_context import (
+    PUBLIC_BASE_URL_ENV_VAR,
+    generate_request_id,
+    is_valid_request_id,
+    resolve_public_base_url,
+    validate_public_base_url,
+)
+from ._response_meta import build_response_meta
 from ._hit_formatting import _build_search_hit
 
 logger = logging.getLogger(__name__)
@@ -211,9 +219,32 @@ class SearchDependenciesNotReadyError(RuntimeError):
         self.detail = detail
 
 
+def _validate_public_base_url_env() -> None:
+    """Validate ``PROTEUS_PUBLIC_BASE_URL`` at startup, fail-fast on misconfig.
+
+    Empty or unset env var is valid (the runtime falls back to
+    ``request.base_url``). When set, the value must satisfy the same rules as
+    :func:`build_verification_url`; otherwise every ``/search`` would 500
+    silently. Surfacing the misconfiguration at startup makes the operational
+    failure obvious instead of latent.
+    """
+    raw = os.environ.get(PUBLIC_BASE_URL_ENV_VAR, "").strip()
+    if not raw:
+        return
+    try:
+        validate_public_base_url(raw)
+    except ValueError as err:
+        raise RuntimeError(
+            f"{PUBLIC_BASE_URL_ENV_VAR}={raw!r} is invalid: {err}. "
+            "Set it to an absolute URL with scheme and host, no query or "
+            "fragment, or unset it to fall back to request.base_url."
+        ) from err
+
+
 @asynccontextmanager
 async def _app_lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Run best-effort startup warmup while keeping app startup non-blocking."""
+    _validate_public_base_url_env()
     startup_warmup_disabled = getattr(app.state, _DISABLE_STARTUP_WARMUP_ATTR, False)
     if not startup_warmup_disabled and not _env_flag_enabled(
         _DISABLE_STARTUP_WARMUP_ENV_VAR,
@@ -280,7 +311,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_get_allowed_origins(),
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Request-ID"],
     allow_credentials=False,
 )
 
@@ -301,6 +332,53 @@ async def _add_security_headers(
     response.headers.setdefault(
         "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
     )
+    return response
+
+
+@app.middleware("http")
+async def _add_request_id(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Attach a validated request correlation id to request state and response.
+
+    ``request.state.request_id`` is populated *before* ``call_next`` so the
+    ``Exception`` handler below can read it on truly unhandled errors that
+    bypass FastAPI's normal exception path.
+    """
+    raw_request_id = request.headers.get("X-Request-ID", "").strip()
+    # Lowercase accepted client IDs so logs and downstream traces always see
+    # a single canonical form regardless of the casing the caller chose.
+    request_id = (
+        raw_request_id.lower()
+        if is_valid_request_id(raw_request_id)
+        else generate_request_id()
+    )
+    request.state.request_id = request_id
+    response: Response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_x_request_id(
+    request: Request, exc: Exception
+) -> Response:
+    """Ensure unhandled exceptions still emit ``X-Request-ID``.
+
+    FastAPI's built-in handlers translate ``HTTPException`` (and request
+    validation failures) into ``Response`` objects that flow back through the
+    middleware stack — those paths already get ``X-Request-ID``. Truly
+    unhandled exceptions would otherwise be caught by Starlette's
+    ``ServerErrorMiddleware`` *outside* this middleware, returning a 500
+    without the correlation id. This handler closes that gap.
+    """
+    logger.exception("Unhandled exception during request: %s", exc)
+    request_id = getattr(request.state, "request_id", "") or generate_request_id()
+    response = JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error"},
+    )
+    response.headers["X-Request-ID"] = request_id
     return response
 
 
@@ -469,6 +547,19 @@ def _get_rules_version_cached(rules_dir: Path) -> dict[str, str]:
     return get_rules_version(rules_dir)
 
 
+def _aggregate_rules_version(profile: LanguageProfile) -> str | None:
+    """Return the max ruleset version for a language profile, or ``None``.
+
+    Returns ``None`` when the profile has no rule files. Exceptions from rule
+    loading or version parsing propagate to the caller so the calling context
+    can decide whether to log them as degraded-but-recoverable or fatal.
+    """
+    rules_versions = _get_rules_version_cached(profile.rules_dir)
+    if not rules_versions:
+        return None
+    return str(max(Version(version) for version in rules_versions.values()))
+
+
 def _build_data_versions(
     language: str = get_default_language_profile().language_id,
 ) -> DataVersions:
@@ -504,14 +595,30 @@ def _build_data_versions(
         logger.exception("Failed to load matrix data version metadata: %s", err)
 
     try:
-        rules_versions = _get_rules_version_cached(profile.rules_dir)
-        if rules_versions:
-            max_version = max(Version(version) for version in rules_versions.values())
-            fields["rules"] = str(max_version)
+        rules_version = _aggregate_rules_version(profile)
+        if rules_version is not None:
+            fields["rules"] = rules_version
     except (OSError, ValueError, yaml.YAMLError, InvalidVersion) as err:
         logger.exception("Failed to load rules data version metadata: %s", err)
 
     return DataVersions(**fields)
+
+
+def _build_ruleset_versions(language: str) -> dict[str, str]:
+    """Return aggregated ruleset versions keyed by language profile id."""
+    try:
+        profile = get_language_profile(language)
+        rules_version = _aggregate_rules_version(profile)
+    # Same degraded-but-recoverable path as _build_data_versions; use
+    # logger.exception so both surfaces log at ERROR with the traceback.
+    except (OSError, ValueError, yaml.YAMLError, InvalidVersion):
+        logger.exception(
+            "Failed to load ruleset versions for language %s", language
+        )
+        return {}
+    if rules_version is None:
+        return {}
+    return {profile.language_id: rules_version}
 
 
 def _load_version_with_fallback(
@@ -551,10 +658,7 @@ def _build_language_info(profile: LanguageProfile) -> LanguageInfo:
     metadata can be added later without changing the profile registry contract.
     """
     def load_ruleset_version() -> str | None:
-        rules_versions = _get_rules_version_cached(profile.rules_dir)
-        if rules_versions:
-            return str(max(Version(version) for version in rules_versions.values()))
-        return None
+        return _aggregate_rules_version(profile)
 
     def load_lexicon_schema_version() -> str | None:
         document = _load_lexicon_document(profile.language_id)
@@ -820,6 +924,16 @@ async def search(
         ],
         truncated=execution.truncated,
         data_versions=deps.data_versions,
+        meta=build_response_meta(
+            request_id=fastapi_request.state.request_id,
+            request=request,
+            base_url=resolve_public_base_url(fastapi_request),
+            engine_version=_APP_VERSION,
+            data_versions=deps.data_versions,
+            # Echo is response metadata for reproducibility. It does not change
+            # the PROTEUS_LOG_RAW_SEARCH_QUERY guard used for server logs above.
+            ruleset_versions=_build_ruleset_versions(profile.language_id),
+        ),
     )
     if request.legacy_language_alias_used:
         response.headers["Deprecation"] = "true"

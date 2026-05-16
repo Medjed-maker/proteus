@@ -3,7 +3,7 @@
 import logging
 import unicodedata
 import warnings
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from dataclasses import replace
 from functools import lru_cache
 from pathlib import Path
@@ -25,6 +25,11 @@ from phonology.profiles import (
 )
 from phonology.orthography_notes import OrthographicNotePayload
 from phonology.search import LexiconRecord, SearchResult
+from tests.conftest import (
+    _make_fake_search_execution,
+    _make_test_dependencies,
+    mock_search_dependencies,
+)
 
 
 class FakeExplanation:
@@ -66,97 +71,6 @@ def _install_invalid_query_to_ipa(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         api_main.phonology_search, "search_execution", fake_search_execution
     )
-
-
-def _make_fake_search_execution(
-    captured: dict[str, object],
-    *,
-    results: list[SearchResult] | None = None,
-    truncated: bool = False,
-) -> Callable[..., search_module.SearchExecutionResult]:
-    """Build a fake public phonology search callable that records API arguments."""
-
-    def fake_search_execution(
-        query: str,
-        lexicon: tuple[dict[str, object], ...],
-        matrix: dict[str, dict[str, float]],
-        max_results: int,
-        dialect: str,
-        index: dict[str, list[str]],
-        unigram_index: dict[str, list[str]] | None = None,
-        prebuilt_lexicon_map: dict[str, object] | None = None,
-        language: str = "ancient_greek",
-        converter: Callable[..., str] | None = None,
-        phone_inventory: tuple[str, ...] | None = None,
-        dialect_skeleton_builders: object | None = None,
-        query_ipa: str | None = None,
-        prepared_query: object | None = None,
-        prebuilt_ipa_index: dict[str, list[str]] | None = None,
-        similarity_fallback_limit: int | None = None,
-        unigram_fallback_limit: int | None = None,
-    ) -> search_module.SearchExecutionResult:
-        captured["query"] = query
-        captured["lexicon"] = lexicon
-        captured["matrix"] = matrix
-        captured["max_results"] = max_results
-        captured["dialect"] = dialect
-        captured["index"] = index
-        captured["unigram_index"] = unigram_index
-        captured["prebuilt_lexicon_map"] = prebuilt_lexicon_map
-        captured["language"] = language
-        captured["converter"] = converter
-        captured["phone_inventory"] = phone_inventory
-        # Extract query_ipa from prepared_query if available, otherwise use query_ipa param.
-        effective_query_ipa = query_ipa
-        effective_query_mode = "Full-form"
-        if prepared_query is not None:
-            effective_query_ipa = getattr(prepared_query, "query_ipa", query_ipa)
-            effective_query_mode = getattr(prepared_query, "query_mode", "Full-form")
-        elif effective_query_ipa is None and converter is not None:
-            # Tests that don't override query_ipa rely on the same prepare_query_ipa
-            # contract that production search_execution uses internally. This keeps
-            # query_mode heuristics (Full-form / Short-query / Partial-form) in sync
-            # with production without requiring every call site to hardcode IPA strings.
-            prepared = search_module.prepare_query_ipa(
-                query,
-                dialect=dialect,
-                converter=converter,
-                phone_inventory=phone_inventory,
-            )
-            effective_query_ipa = prepared.query_ipa
-            effective_query_mode = prepared.query_mode
-        captured["query_ipa"] = effective_query_ipa
-        captured["prebuilt_ipa_index"] = prebuilt_ipa_index
-        captured["similarity_fallback_limit"] = similarity_fallback_limit
-        captured["unigram_fallback_limit"] = unigram_fallback_limit
-        search_results = results
-        if search_results is None:
-            search_results = [
-                SearchResult(
-                    lemma="λόγος",
-                    confidence=0.75,
-                    dialect_attribution="lemma dialect: attic",
-                    applied_rules=["CCH-001"],
-                    rule_applications=[
-                        RuleApplication(
-                            rule_id="CCH-001",
-                            rule_name="CCH-001",
-                            from_phone="s",
-                            to_phone="h",
-                            position=2,
-                        )
-                    ],
-                    ipa="lóɡos",
-                )
-            ]
-        return search_module.SearchExecutionResult(
-            results=search_results,
-            query_ipa=effective_query_ipa or "",
-            query_mode=effective_query_mode,
-            truncated=truncated,
-        )
-
-    return fake_search_execution
 
 
 class TestDataVersionsModel:
@@ -382,7 +296,7 @@ class TestSearchHit:
         with pytest.raises(ValidationError) as exc_info:
             SearchHit(
                 headword="λόγος",
-                ipa=None,
+                ipa=None,  # type: ignore[arg-type]
                 distance=0.1,
                 confidence=0.5,
                 rules_applied=[],
@@ -444,7 +358,7 @@ class TestSearchHit:
         self, payload: dict[str, object], field_name: str
     ) -> None:
         with pytest.raises(ValidationError) as exc_info:
-            SearchHit(**payload)
+            SearchHit(**payload)  # type: ignore[arg-type]
 
         assert field_name in str(exc_info.value)
 
@@ -772,7 +686,7 @@ class TestSearchHit:
                 OrthographicNotePayload(
                     kind="beginner_aid",
                     label="Toy note",
-                    messages=["Toy message."],
+                    messages=("Toy message.",),
                     confidence="low",
                     normalized_form="παιδίου",
                     romanization="paidiou",
@@ -1264,43 +1178,6 @@ class TestReadyEndpoint:
         }
 
 
-def _make_test_dependencies() -> dict[str, object]:
-    """Return standard test dependency fixtures shared across tests."""
-    return {
-        "lexicon": (
-            {
-                "id": "L1",
-                "headword": "λόγος",
-                "ipa": "lóɡos",
-                "dialect": "attic",
-            },
-        ),
-        "matrix": {"l": {"l": 0.0}},
-        "rules_registry": {
-            "CCH-001": {
-                "id": "CCH-001",
-                "input": "s",
-                "output": "h",
-                "dialects": ["attic"],
-            }
-        },
-        "search_index": {"l ɡ": ["L1"]},
-        "unigram_index": {"l": ["L1"]},
-        "lexicon_map": {
-            "L1": LexiconRecord(
-                entry={
-                    "id": "L1",
-                    "headword": "λόγος",
-                    "ipa": "lóɡos",
-                    "dialect": "attic",
-                },
-                token_count=4,
-            )
-        },
-        "ipa_index": {"lóɡos": ["L1"]},
-    }
-
-
 class TestSearchDependenciesLoader:
     def test_build_data_versions_uses_cached_loaders_and_semantic_rule_max(
         self,
@@ -1555,54 +1432,41 @@ class TestDocumentationAndCors:
         assert "access-control-allow-origin" not in response.headers
         assert "POST" in response.headers["access-control-allow-methods"]
 
+    def test_cors_allows_request_id_header_for_search_preflight(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # ``CORSMiddleware`` reads ``allow_origins`` once at module import via
+        # ``_get_allowed_origins()`` (see ``main.py`` add_middleware call).
+        # Reload the module under the test's env vars so the CORS allowlist
+        # comes from the test environment, then reload again with the env
+        # cleared to restore the module state for downstream tests. This avoids
+        # mutating Starlette internals (``middleware_stack``, ``Middleware.kwargs``)
+        # which would silently break on framework upgrades.
+        import importlib
 
-def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
-    """Stub all search dependencies and return a capture dict."""
-    td = _make_test_dependencies()
-    captured: dict[str, object] = {}
-    converter_queries: list[str] = []
-    captured["converter_queries"] = converter_queries
+        from api import main as api_main_module
 
-    def fake_converter(query: str, dialect: str = "attic") -> str:
-        converter_queries.append(query)
-        return {
-            "λόγος": "loɡos",
-            "νυν": "nyn",
-            "νῦν": "nyn",
-            "ζηταω": "zɛːtaɔ",
-            "λόγ": "loɡ",
-            "λ": "l",
-            "γ": "ɡ",
-            "α": "a",
-            "ι": "i",
-        }.get(query, query)
+        monkeypatch.setenv("PROTEUS_ALLOWED_ORIGINS", "https://example.com")
+        reloaded = importlib.reload(api_main_module)
+        try:
+            with TestClient(reloaded.app) as isolated_client:
+                response = isolated_client.options(
+                    "/search",
+                    headers={
+                        "Origin": "https://example.com",
+                        "Access-Control-Request-Method": "POST",
+                        "Access-Control-Request-Headers": "X-Request-ID, Content-Type",
+                    },
+                )
+        finally:
+            monkeypatch.delenv("PROTEUS_ALLOWED_ORIGINS", raising=False)
+            importlib.reload(api_main_module)
 
-    profile = replace(
-        get_default_language_profile(),
-        converter=fake_converter,
-    )
-
-    monkeypatch.setattr(
-        api_main,
-        "_load_search_dependencies",
-        lambda _language: api_main.SearchDependencies(
-            lexicon=td["lexicon"],
-            matrix=td["matrix"],
-            rules_registry=td["rules_registry"],
-            search_index=td["search_index"],
-            unigram_index=td["unigram_index"],
-            lexicon_map=td["lexicon_map"],
-            ipa_index=td["ipa_index"],
-            data_versions=api_main.DataVersions(),
-            profile=profile,
-        ),
-    )
-    monkeypatch.setattr(
-        api_main.phonology_search,
-        "search_execution",
-        _make_fake_search_execution(captured),
-    )
-    return captured
+        assert response.status_code == 200
+        assert response.headers["access-control-allow-origin"] == "https://example.com"
+        assert "x-request-id" in response.headers[
+            "access-control-allow-headers"
+        ].lower()
 
 
 class TestSearchEndpoint:
@@ -1698,6 +1562,8 @@ class TestSearchEndpoint:
         assert payload["query"] == "λόγος"
         assert payload["query_ipa"] == "loɡos"
         assert payload["query_mode"] == "Full-form"
+        # Other request_echo fields are covered by test_search_response_meta_includes_request_echo.
+        assert payload["meta"]["request_echo"]["query_form"] == "λόγος"
         assert len(payload["hits"]) == 1
         assert payload["hits"][0]["headword"] == "λόγος"
         assert payload["hits"][0]["ipa"] == "lóɡos"
@@ -2978,8 +2844,13 @@ class TestSearchValidation:
             },
         )
 
+        # Boundary values must be accepted without surfacing a Pydantic
+        # validation error referencing the ``max_candidates`` field. The field
+        # is allowed to appear inside ``meta.request_echo``, which is a
+        # deliberate reproducibility surface introduced in Phase 2 章 1.
         assert response.status_code == 200
-        assert "max_candidates" not in response.text
+        payload = response.json()
+        assert payload["meta"]["request_echo"]["max_candidates"] == max_candidates
 
 
 class TestMatchHelpers:
