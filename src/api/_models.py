@@ -18,6 +18,18 @@ from pydantic.json_schema import SkipJsonSchema
 from phonology._paths import DEFAULT_LANGUAGE_ID
 from phonology.profiles import get_default_language_profile, get_language_profile
 
+__all__ = [
+    "DataVersions",
+    "VersionInfo",
+    "LanguageInfo",
+    "LanguagesResponse",
+    "SearchRequest",
+    "RuleStep",
+    "OrthographicNote",
+    "SearchHit",
+    "SearchResponse",
+]
+
 
 class DataVersions(BaseModel):
     """Version metadata for data sources used in search."""
@@ -56,6 +68,81 @@ class DataVersions(BaseModel):
         except ValueError as exc:
             raise ValueError("timestamp must be a valid ISO 8601 datetime") from exc
         return normalized
+
+
+class VersionInfo(BaseModel):
+    """Version metadata for the Proteus API and runtime."""
+
+    engine_version: str = Field(description="Proteus package version.")
+    api_version: str = Field(description="Public REST API version.")
+    schema_version: str = Field(description="Public response schema version.")
+    rule_schema_version: str = Field(
+        default="",
+        description="Rule-file JSON schema identifier, when available.",
+    )
+    build_timestamp: str = Field(
+        default="",
+        description="Deployment build timestamp, when provided by the environment.",
+    )
+    git_sha: str = Field(
+        default="",
+        description="Deployment Git commit SHA, when provided by the environment.",
+    )
+    python_version: str = Field(description="Python runtime version as X.Y.Z.")
+    mcp_server_version: str = Field(
+        description="Proteus MCP server version exposed by this deployment."
+    )
+
+
+class LanguageInfo(BaseModel):
+    """Public metadata for a registered language profile."""
+
+    language_id: str = Field(description="Stable language profile identifier.")
+    display_name: str = Field(description="Human-readable language name.")
+    default_dialect: str = Field(description="Default dialect used by the profile.")
+    supported_dialects: list[str] = Field(
+        description="Dialects accepted by the profile."
+    )
+    status: Literal["pilot", "experimental", "stable"] = Field(
+        description="Support maturity for this language profile."
+    )
+    ruleset_version: str = Field(
+        default="unknown",
+        description="Aggregated phonological rules version for this language.",
+    )
+    lexicon_schema_version: str = Field(
+        default="unknown",
+        description="Lexicon schema version for this language.",
+    )
+    matrix_version: str = Field(
+        default="unknown",
+        description="Distance matrix version for this language.",
+    )
+    description: str = Field(
+        default="",
+        description="Short English description of this language profile.",
+    )
+
+
+class LanguagesResponse(BaseModel):
+    """Response payload for registered language profile enumeration.
+
+    Note: ``meta`` is temporarily typed as :class:`VersionInfo` while the
+    Phase 2 章 1 ``ResponseMeta`` rollout is pending. When ``ResponseMeta``
+    lands, ``meta`` will be replaced and the OpenAPI artifact, tests, and CI
+    expectations should be updated in the same PR. Clients should ignore
+    unknown ``meta`` fields to remain compatible across this transition.
+    """
+
+    languages: list[LanguageInfo] = Field(
+        description="Registered language profiles sorted by language_id."
+    )
+    meta: VersionInfo = Field(
+        description=(
+            "API and runtime version metadata. Temporarily VersionInfo; will "
+            "be replaced by ResponseMeta in Phase 2 章 1."
+        )
+    )
 
 
 # Ancient Greek headwords rarely exceed ~25 graphemes; 64 gives headroom for

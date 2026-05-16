@@ -1,6 +1,6 @@
 """Shared pytest fixtures for the test suite."""
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 import json
 from pathlib import Path
 import sys
@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from api.main import app
 from phonology import search as search_module
 from phonology.languages.ancient_greek.ipa import get_known_phones
+from phonology.profiles import LanguageProfile
 from phonology.search import SearchResult
 
 
@@ -54,19 +55,24 @@ def reset_pos_overrides_cache() -> Generator[None, None, None]:
 def clear_rule_cache() -> Generator[None, None, None]:
     """Reset cached rule loading and tokenization state between tests.
 
-    Autouse scoped at ``tests/`` because ``phonology.search._load_rules_cached``
-    and ``_get_tokenized_rules`` are shared module-level ``lru_cache`` wrappers.
+    Autouse scoped at ``tests/`` because ``phonology.search._load_rules_cached``,
+    ``_get_tokenized_rules``, and ``api.main._get_rules_version_cached``
+    are shared module-level ``lru_cache`` wrappers.
     Clearing before every test guarantees test isolation for any suite that
     exercises rule loading, and is a no-op (double-clear is harmless) for
     suites that do not.
     """
+    from api import main as api_main
+
     search_module._load_rules_cached.cache_clear()
     search_module._get_tokenized_rules.cache_clear()
+    api_main._get_rules_version_cached.cache_clear()
 
     yield
 
     search_module._load_rules_cached.cache_clear()
     search_module._get_tokenized_rules.cache_clear()
+    api_main._get_rules_version_cached.cache_clear()
 
 
 @pytest.fixture(scope="session")
@@ -109,6 +115,40 @@ def isolated_language_registry(
     finally:
         _reset_language_registry_for_tests()
         register_default_profiles()
+
+
+def _toy_converter(text: str, *, dialect: str = "toy") -> str:
+    """Return toy-language input as compact IPA."""
+    if dialect != "toy":
+        raise NotImplementedError(f"Unsupported toy dialect: {dialect!r}")
+    return text
+
+
+@pytest.fixture
+def build_toy_profile() -> Callable[[Path, str], LanguageProfile]:
+    """Return a builder for minimal registered-language profiles."""
+
+    def _build_toy_profile(tmp_path: Path, language_id: str) -> LanguageProfile:
+        language_dir = tmp_path / language_id
+        rules_dir = language_dir / "rules"
+        matrix_dir = language_dir / "matrices"
+        lexicon_dir = language_dir / "lexicon"
+        rules_dir.mkdir(parents=True)
+        matrix_dir.mkdir()
+        lexicon_dir.mkdir()
+        return LanguageProfile(
+            language_id=language_id,
+            display_name=language_id.replace("_", " ").title(),
+            default_dialect="toy",
+            supported_dialects=("toy",),
+            converter=_toy_converter,
+            phone_inventory=("p", "a"),
+            lexicon_path=lexicon_dir / "lemmas.json",
+            matrix_path=matrix_dir / "matrix.json",
+            rules_dir=rules_dir,
+        )
+
+    return _build_toy_profile
 
 
 @pytest.fixture
