@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import replace
 import json
 from pathlib import Path
@@ -14,6 +15,7 @@ from phonology.profiles import (
     LanguageProfile,
     get_default_language_profile,
     get_language_profile,
+    list_language_profiles,
     register_default_profiles,
     register_language_profile,
 )
@@ -25,13 +27,7 @@ from phonology.profiles import _reset_language_registry_for_tests
 from phonology import search as search_module
 from phonology.search import search_execution
 from api._models import SearchRequest
-
-
-def _toy_converter(text: str, *, dialect: str = "toy") -> str:
-    """Return toy-language input as compact IPA."""
-    if dialect != "toy":
-        raise NotImplementedError(f"Unsupported toy dialect: {dialect!r}")
-    return text
+from tests.conftest import _toy_converter
 
 
 def test_default_profiles_are_explicitly_registered_and_resettable(
@@ -45,6 +41,45 @@ def test_default_profiles_are_explicitly_registered_and_resettable(
     default_profile = get_default_language_profile()
 
     assert get_language_profile(default_language_id) == default_profile
+
+
+def test_list_language_profiles_snapshot_returns_registered_profiles(
+    tmp_path: Path,
+    isolated_language_registry: None,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    first_profile = build_toy_profile(tmp_path, "toy_alpha")
+    second_profile = build_toy_profile(tmp_path, "toy_beta")
+    register_language_profile(first_profile)
+
+    snapshot = list_language_profiles()
+    register_language_profile(second_profile)
+
+    assert snapshot == (first_profile,)
+    assert list_language_profiles() == (first_profile, second_profile)
+
+
+def test_list_language_profiles_sorted_by_language_id(
+    tmp_path: Path,
+    isolated_language_registry: None,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    beta_profile = build_toy_profile(tmp_path, "toy_beta")
+    alpha_profile = build_toy_profile(tmp_path, "toy_alpha")
+    register_language_profile(beta_profile)
+    register_language_profile(alpha_profile)
+
+    assert list_language_profiles() == (alpha_profile, beta_profile)
+
+
+def test_list_language_profiles_returns_tuple(
+    tmp_path: Path,
+    isolated_language_registry: None,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    register_language_profile(build_toy_profile(tmp_path, "toy_alpha"))
+
+    assert isinstance(list_language_profiles(), tuple)
 
 
 def test_default_rules_registry_uses_default_profile_after_registry_reset(
@@ -165,6 +200,22 @@ def test_default_ancient_greek_profile_sets_orthographic_note_builder() -> None:
     profile = get_default_language_profile()
 
     assert profile.orthographic_note_builder is build_orthographic_notes
+
+
+def test_language_profile_description_defaults_to_empty_string(
+    tmp_path: Path,
+    isolated_language_registry: None,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    profile = build_toy_profile(tmp_path, "toy_no_description")
+
+    assert profile.description == ""
+
+
+def test_default_ancient_greek_profile_has_non_empty_description() -> None:
+    profile = get_default_language_profile()
+
+    assert profile.description != ""
 
 
 def test_toy_language_profile_runs_search_execution_without_core_changes(

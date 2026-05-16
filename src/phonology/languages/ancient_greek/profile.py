@@ -49,6 +49,10 @@ def build_profile(
         lexicon_path=lexicon_dir / "greek_lemmas.json",
         matrix_path=matrix_path,
         rules_dir=rules_dir,
+        status="pilot",
+        description=(
+            "Ancient Greek pilot profile with Attic and Koine search support."
+        ),
         dialect_skeleton_builders=(apply_koine_consonant_shifts,),
         orthographic_note_builder=build_orthographic_notes,
         orthographic_data_preparer=prepare_orthographic_data,

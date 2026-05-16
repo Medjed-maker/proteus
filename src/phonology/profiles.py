@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 import threading
-from typing import Protocol
+from typing import Literal, Protocol
 
 from ._paths import DEFAULT_LANGUAGE_ID
 from .orthography_notes import OrthographicNoteBuilder
@@ -33,6 +33,8 @@ class LanguageProfile:
     lexicon_path: Path
     matrix_path: Path
     rules_dir: Path
+    status: Literal["pilot", "experimental", "stable"] = "experimental"
+    description: str = ""
     dialect_skeleton_builders: tuple[Callable[[list[str]], list[str]], ...] = ()
     orthographic_note_builder: OrthographicNoteBuilder | None = None
     orthographic_data_preparer: Callable[[], None] | None = None
@@ -106,6 +108,18 @@ def get_language_profile(language_id: str = DEFAULT_LANGUAGE_ID) -> LanguageProf
             raise ValueError(f"Unsupported language profile: {language_id!r}") from exc
 
 
+def list_language_profiles() -> tuple[LanguageProfile, ...]:
+    """Return a sorted snapshot of the currently registered language profiles.
+
+    The returned tuple is a snapshot: language profiles registered after this
+    call are not reflected in the previously returned value.
+    """
+    with _REGISTRY_LOCK:
+        profiles = tuple(_REGISTRY.values())
+
+    return tuple(sorted(profiles, key=lambda profile: profile.language_id))
+
+
 def _build_ancient_greek_profile() -> LanguageProfile:
     """Build the built-in Ancient Greek profile from packaged data paths."""
     from .languages.ancient_greek.profile import build_profile
@@ -168,6 +182,7 @@ __all__ = [
     "LanguageProfile",
     "get_default_language_profile",
     "get_language_profile",
+    "list_language_profiles",
     "register_default_profiles",
     "register_language_profile",
 ]

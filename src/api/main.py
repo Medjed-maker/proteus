@@ -9,12 +9,14 @@ from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 import hashlib
 import html
+import importlib.resources as resources
 from importlib import metadata
 from functools import lru_cache
 import json
 import logging
 import os
 from pathlib import Path
+import sys
 import threading
 import tomllib
 from typing import Any, AsyncIterator, NamedTuple
@@ -35,10 +37,19 @@ from phonology.profiles import (
     LanguageProfile,
     get_default_language_profile,
     get_language_profile,
+    list_language_profiles,
     register_default_profiles,
 )
 
-from ._models import DataVersions, SearchRequest, SearchResponse
+from ._constants import API_VERSION, SCHEMA_VERSION
+from ._models import (
+    DataVersions,
+    LanguageInfo,
+    LanguagesResponse,
+    SearchRequest,
+    SearchResponse,
+    VersionInfo,
+)
 from ._hit_formatting import _build_search_hit
 
 logger = logging.getLogger(__name__)
@@ -50,6 +61,12 @@ _DISABLE_STARTUP_WARMUP_ENV_VAR = "PROTEUS_DISABLE_STARTUP_WARMUP"
 _DISABLE_STARTUP_WARMUP_ATTR = "disable_startup_warmup"
 _ENABLE_API_DOCS_ENV_VAR = "PROTEUS_ENABLE_API_DOCS"
 _APP_VERSION_ENV_VAR = "PROTEUS_APP_VERSION"
+_BUILD_TIMESTAMP_ENV_VAR = "PROTEUS_BUILD_TIMESTAMP"
+_GIT_SHA_ENV_VAR = "PROTEUS_GIT_SHA"
+# Limit publicly exposed git SHA to 12 hex chars. Long enough to be unique in
+# practical git repos, short enough to limit deployment fingerprinting from
+# the unauthenticated /version endpoint.
+_GIT_SHA_MAX_LENGTH = 12
 # Upper bound for both the similarity fallback (stage 2 widening when the
 # seed set is too small) and the unigram fallback (k=1 recovery for short
 # queries). Kept in one place so the two caps stay coupled; 2000 mirrors
@@ -109,6 +126,65 @@ def _load_app_version() -> str:
 
 
 _APP_VERSION = _load_app_version()
+
+
+@lru_cache
+def _load_rule_schema_version() -> str:
+    """Return the rule-file JSON schema identifier, or an empty string."""
+    schema_candidates: list[Any] = []
+    try:
+        schema_candidates.append(
+            resources.files("phonology").joinpath(
+                "data",
+                "schemas",
+                "phonology_rule_file.schema.json",
+            )
+        )
+    except (ModuleNotFoundError, FileNotFoundError):
+        pass
+
+    schema_candidates.append(
+        Path(__file__).resolve().parents[2]
+        / "data"
+        / "schemas"
+        / "phonology_rule_file.schema.json"
+    )
+
+    for schema_path in schema_candidates:
+        # Restrict to Path-like candidates; future Traversable variants without
+        # filesystem semantics (e.g., MultiplexedPath under zipped packages) are
+        # skipped explicitly so an AttributeError does not mask unrelated bugs.
+        if not isinstance(schema_path, (str, os.PathLike)):
+            logger.debug(
+                "Skipping non-path-like schema candidate of type %s",
+                type(schema_path).__name__,
+            )
+            continue
+        try:
+            with open(schema_path, "rb") as schema_file:
+                schema = json.load(schema_file)
+        except (OSError, json.JSONDecodeError):
+            continue
+        schema_id = schema.get("$id") if isinstance(schema, dict) else None
+        if isinstance(schema_id, str):
+            return schema_id
+
+    return ""
+
+
+def _build_version_info() -> VersionInfo:
+    """Return API and runtime version metadata shared by versioned endpoints."""
+    python_version = ".".join(str(item) for item in sys.version_info[:3])
+    return VersionInfo(
+        engine_version=_APP_VERSION,
+        api_version=API_VERSION,
+        schema_version=SCHEMA_VERSION,
+        rule_schema_version=_load_rule_schema_version(),
+        build_timestamp=os.environ.get(_BUILD_TIMESTAMP_ENV_VAR, "").strip(),
+        git_sha=os.environ.get(_GIT_SHA_ENV_VAR, "").strip()[:_GIT_SHA_MAX_LENGTH],
+        python_version=python_version,
+        mcp_server_version=_APP_VERSION,
+    )
 
 
 class SearchDependencies(NamedTuple):
@@ -381,6 +457,18 @@ def _load_ipa_index(
     return phonology_search.build_ipa_index(_load_lexicon_map(language))
 
 
+@lru_cache(maxsize=8)
+def _get_rules_version_cached(rules_dir: Path) -> dict[str, str]:
+    """Return rules version metadata for a directory, cached per ``rules_dir``.
+
+    Wraps :func:`get_rules_version` so /languages and /search avoid re-parsing
+    YAML rule files on every request. Profile rules directories are immutable
+    once registered, so per-process caching is safe; tests clear this cache
+    via the autouse ``clear_rule_cache`` fixture for full isolation.
+    """
+    return get_rules_version(rules_dir)
+
+
 def _build_data_versions(
     language: str = get_default_language_profile().language_id,
 ) -> DataVersions:
@@ -416,7 +504,7 @@ def _build_data_versions(
         logger.exception("Failed to load matrix data version metadata: %s", err)
 
     try:
-        rules_versions = get_rules_version(profile.rules_dir)
+        rules_versions = _get_rules_version_cached(profile.rules_dir)
         if rules_versions:
             max_version = max(Version(version) for version in rules_versions.values())
             fields["rules"] = str(max_version)
@@ -424,6 +512,91 @@ def _build_data_versions(
         logger.exception("Failed to load rules data version metadata: %s", err)
 
     return DataVersions(**fields)
+
+
+def _load_version_with_fallback(
+    load_fn: Callable[[], str | None], context: str, language_id: str
+) -> str:
+    """Load a version string, degrading missing or invalid assets to unknown."""
+    try:
+        version = load_fn()
+    except (
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        yaml.YAMLError,
+        InvalidVersion,
+    ) as err:
+        # Degraded-but-recoverable: keep the response 200 and surface "unknown".
+        # warning + exc_info preserves the traceback for diagnostics without
+        # flooding stderr at error level on every probe poll.
+        logger.warning(
+            "Failed to load %s for language %s: %s",
+            context,
+            language_id,
+            err,
+            exc_info=True,
+        )
+        return "unknown"
+    if version is None:
+        return "unknown"
+    normalized = version.strip()
+    return normalized or "unknown"
+
+
+def _build_language_info(profile: LanguageProfile) -> LanguageInfo:
+    """Build public language metadata, degrading unavailable assets to unknown.
+
+    Descriptions are intentionally English-only in Phase 2; localized language
+    metadata can be added later without changing the profile registry contract.
+    """
+    def load_ruleset_version() -> str | None:
+        rules_versions = _get_rules_version_cached(profile.rules_dir)
+        if rules_versions:
+            return str(max(Version(version) for version in rules_versions.values()))
+        return None
+
+    def load_lexicon_schema_version() -> str | None:
+        document = _load_lexicon_document(profile.language_id)
+        schema_version = document.get("schema_version")
+        if isinstance(schema_version, str) and schema_version.strip():
+            return schema_version
+        return None
+
+    def load_matrix_version() -> str | None:
+        _, matrix_meta = _load_distance_matrix_with_meta(profile.language_id)
+        raw_matrix_version = matrix_meta.get("version")
+        if isinstance(raw_matrix_version, str) and raw_matrix_version.strip():
+            return raw_matrix_version
+        return None
+
+    ruleset_version = _load_version_with_fallback(
+        load_ruleset_version,
+        "ruleset version",
+        profile.language_id,
+    )
+    lexicon_schema_version = _load_version_with_fallback(
+        load_lexicon_schema_version,
+        "lexicon schema version",
+        profile.language_id,
+    )
+    matrix_version = _load_version_with_fallback(
+        load_matrix_version,
+        "matrix version",
+        profile.language_id,
+    )
+
+    return LanguageInfo(
+        language_id=profile.language_id,
+        display_name=profile.display_name,
+        default_dialect=profile.default_dialect,
+        supported_dialects=list(profile.supported_dialects),
+        status=profile.status,
+        ruleset_version=ruleset_version,
+        lexicon_schema_version=lexicon_schema_version,
+        matrix_version=matrix_version,
+        description=profile.description,
+    )
 
 
 def _load_search_dependencies(
@@ -669,6 +842,39 @@ async def health() -> dict[str, str]:
 @app.head("/health")
 async def health_head() -> Response:
     """Liveness probe for HEAD-based health checks."""
+    return Response(status_code=204)
+
+
+@app.get("/version", response_model=VersionInfo)
+async def version() -> VersionInfo:
+    """Return API and runtime version metadata."""
+    return _build_version_info()
+
+
+@app.head("/version")
+async def version_head() -> Response:
+    """Return a lightweight response for version probes."""
+    return Response(status_code=204)
+
+
+@app.get("/languages", response_model=LanguagesResponse)
+async def languages() -> LanguagesResponse:
+    """Return registered language profiles and version metadata."""
+    profiles = list_language_profiles()
+    if not profiles:
+        raise HTTPException(status_code=503, detail="No language profiles registered")
+
+    return LanguagesResponse(
+        languages=[_build_language_info(profile) for profile in profiles],
+        meta=_build_version_info(),
+    )
+
+
+@app.head("/languages")
+async def languages_head() -> Response:
+    """Return a lightweight response for language-profile probes."""
+    if not list_language_profiles():
+        return Response(status_code=503)
     return Response(status_code=204)
 
 
