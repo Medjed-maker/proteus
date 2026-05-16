@@ -1,6 +1,8 @@
 """Shared pytest fixtures for the test suite."""
 
+import re
 from collections.abc import Callable, Generator
+from dataclasses import replace
 import json
 from pathlib import Path
 import sys
@@ -11,11 +13,18 @@ import pytest
 
 from fastapi.testclient import TestClient
 
+from api import main as api_main
 from api.main import app
 from phonology import search as search_module
+from phonology.explainer import RuleApplication
 from phonology.languages.ancient_greek.ipa import get_known_phones
-from phonology.profiles import LanguageProfile
-from phonology.search import SearchResult
+from phonology.profiles import LanguageProfile, get_default_language_profile
+from phonology.search import LexiconRecord, SearchResult
+
+
+def assert_uuid4_hex(value: str) -> None:
+    """Assert that a request id is a server-generated UUID4 hex string."""
+    assert re.fullmatch(r"[0-9a-f]{32}", value)
 
 
 @pytest.fixture
@@ -188,3 +197,251 @@ def translations_data() -> dict[str, Any]:
             return json.load(f)
         except json.JSONDecodeError as e:
             pytest.fail(f"Failed to parse translations.json: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Shared API search-stub helpers.
+#
+# These helpers were previously defined in ``tests/test_api_main.py`` and
+# re-imported by ``test_api_request_id``, ``test_api_search_meta``, and
+# ``test_api_verification``. Centralizing them here removes the fragile
+# inter-test cross-imports while keeping each test module self-contained.
+# ---------------------------------------------------------------------------
+
+
+def _make_test_dependencies() -> dict[str, object]:
+    """Return standard test dependency fixtures shared across API tests.
+
+    Returns:
+        A dict with the following keys:
+            - "lexicon": A single lexicon entry dict with id, headword, ipa, dialect.
+            - "matrix": A distance matrix dict mapping phone pairs to float distances.
+            - "rules_registry": A dict mapping rule IDs to rule definitions.
+            - "search_index": A dict mapping IPA strings to lexicon entry IDs.
+            - "unigram_index": A dict mapping phones to lexicon entry IDs.
+            - "lexicon_map": A dict mapping lexicon IDs to LexiconRecord instances.
+            - "ipa_index": A dict mapping IPA strings to lexicon entry IDs.
+
+    Example:
+        >>> deps = _make_test_dependencies()
+        >>> deps["lexicon"]
+        {'id': 'L1', 'headword': 'λόγος', 'ipa': 'lóɡos', 'dialect': 'attic'}
+        >>> isinstance(deps["lexicon_map"]["L1"], LexiconRecord)
+        True
+    """
+    return {
+        "lexicon": (
+            {
+                "id": "L1",
+                "headword": "λόγος",
+                "ipa": "lóɡos",
+                "dialect": "attic",
+            },
+        ),
+        "matrix": {"l": {"l": 0.0}},
+        "rules_registry": {
+            "CCH-001": {
+                "id": "CCH-001",
+                "input": "s",
+                "output": "h",
+                "dialects": ["attic"],
+            }
+        },
+        "search_index": {"l ɡ": ["L1"]},
+        "unigram_index": {"l": ["L1"]},
+        "lexicon_map": {
+            "L1": LexiconRecord(
+                entry={
+                    "id": "L1",
+                    "headword": "λόγος",
+                    "ipa": "lóɡos",
+                    "dialect": "attic",
+                },
+                token_count=4,
+            )
+        },
+        "ipa_index": {"lóɡos": ["L1"]},
+    }
+
+
+def _make_fake_search_execution(
+    captured: dict[str, object],
+    *,
+    results: list[SearchResult] | None = None,
+    truncated: bool = False,
+) -> Callable[..., search_module.SearchExecutionResult]:
+    """Build a fake public phonology search callable that records API arguments.
+
+    Args:
+        captured: A dict used to capture input arguments for assertions.
+            The callable records query, lexicon, matrix, max_results, dialect,
+            index, unigram_index, prebuilt_lexicon_map, language, converter,
+            phone_inventory, query_ipa, prebuilt_ipa_index,
+            similarity_fallback_limit, and unigram_fallback_limit.
+        results: Optional prepopulated SearchResult list to return when provided.
+            If None, returns a default single result for "λόγος".
+        truncated: Controls the returned SearchExecutionResult.truncated flag.
+
+    Returns:
+        A callable that accepts search_execution parameters and returns
+        search_module.SearchExecutionResult. The callable records all arguments
+        into the captured dict and handles prepared_query/converter logic to
+        compute effective query_ipa and query_mode.
+    """
+
+    def fake_search_execution(
+        query: str,
+        lexicon: tuple[dict[str, object], ...],
+        matrix: dict[str, dict[str, float]],
+        max_results: int,
+        dialect: str,
+        index: dict[str, list[str]],
+        unigram_index: dict[str, list[str]] | None = None,
+        prebuilt_lexicon_map: dict[str, object] | None = None,
+        language: str = "ancient_greek",
+        converter: Callable[..., str] | None = None,
+        phone_inventory: tuple[str, ...] | None = None,
+        dialect_skeleton_builders: object | None = None,
+        query_ipa: str | None = None,
+        prepared_query: object | None = None,
+        prebuilt_ipa_index: dict[str, list[str]] | None = None,
+        similarity_fallback_limit: int | None = None,
+        unigram_fallback_limit: int | None = None,
+    ) -> search_module.SearchExecutionResult:
+        captured["query"] = query
+        captured["lexicon"] = lexicon
+        captured["matrix"] = matrix
+        captured["max_results"] = max_results
+        captured["dialect"] = dialect
+        captured["index"] = index
+        captured["unigram_index"] = unigram_index
+        captured["prebuilt_lexicon_map"] = prebuilt_lexicon_map
+        captured["language"] = language
+        captured["converter"] = converter
+        captured["phone_inventory"] = phone_inventory
+        effective_query_ipa = query_ipa
+        effective_query_mode = "Full-form"
+        if prepared_query is not None:
+            effective_query_ipa = getattr(prepared_query, "query_ipa", query_ipa)
+            effective_query_mode = getattr(prepared_query, "query_mode", "Full-form")
+        elif effective_query_ipa is None and converter is not None:
+            # Reuse production prepare_query_ipa so query_mode heuristics
+            # (Full-form / Short-query / Partial-form) stay in sync with
+            # search_execution without hardcoding IPA per call site.
+            prepared = search_module.prepare_query_ipa(
+                query,
+                dialect=dialect,
+                converter=converter,
+                phone_inventory=phone_inventory,
+            )
+            effective_query_ipa = prepared.query_ipa
+            effective_query_mode = prepared.query_mode
+        captured["query_ipa"] = effective_query_ipa
+        captured["prebuilt_ipa_index"] = prebuilt_ipa_index
+        captured["similarity_fallback_limit"] = similarity_fallback_limit
+        captured["unigram_fallback_limit"] = unigram_fallback_limit
+        search_results = results
+        if search_results is None:
+            search_results = [
+                SearchResult(
+                    lemma="λόγος",
+                    confidence=0.75,
+                    dialect_attribution="lemma dialect: attic",
+                    applied_rules=["CCH-001"],
+                    rule_applications=[
+                        RuleApplication(
+                            rule_id="CCH-001",
+                            rule_name="CCH-001",
+                            from_phone="s",
+                            to_phone="h",
+                            position=2,
+                        )
+                    ],
+                    ipa="lóɡos",
+                )
+            ]
+        return search_module.SearchExecutionResult(
+            results=search_results,
+            query_ipa=effective_query_ipa or "",
+            query_mode=effective_query_mode,
+            truncated=truncated,
+        )
+
+    return fake_search_execution
+
+
+def mock_search_dependencies(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
+    """Stub all search dependencies and return a capture dict.
+
+    Patches:
+        - api_main._load_search_dependencies to return a SearchDependencies
+          with test fixtures and a fake converter.
+        - api_main.phonology_search.search_execution via
+          _make_fake_search_execution to record API arguments.
+
+    Returns:
+        A capture dict with the following notable key:
+            - "converter_queries": A list collecting queries seen by the
+              fake_converter for assertion in tests.
+
+    Example:
+        >>> captured = mock_search_dependencies(monkeypatch)
+        >>> # Make API call...
+        >>> captured["converter_queries"]
+        ['λόγος']
+    """
+    td = _make_test_dependencies()
+    captured: dict[str, object] = {}
+    converter_queries: list[str] = []
+    captured["converter_queries"] = converter_queries
+
+    def fake_converter(query: str, dialect: str = "attic") -> str:
+        converter_queries.append(query)
+        exceptional_conversions = {
+            "νυν": "nyn",
+            "νῦν": "nyn",
+            "ζηταω": "zɛːtaɔ",
+        }
+        if query in exceptional_conversions:
+            return exceptional_conversions[query]
+
+        character_conversions = {
+            "α": "a",
+            "γ": "ɡ",
+            "ι": "i",
+            "λ": "l",
+            "ο": "o",
+            "ό": "o",
+            "ς": "s",
+            "σ": "s",
+        }
+        return "".join(
+            character_conversions.get(character, character) for character in query
+        )
+
+    profile = replace(
+        get_default_language_profile(),
+        converter=fake_converter,
+    )
+
+    monkeypatch.setattr(
+        api_main,
+        "_load_search_dependencies",
+        lambda _language: api_main.SearchDependencies(
+            lexicon=td["lexicon"],
+            matrix=td["matrix"],
+            rules_registry=td["rules_registry"],
+            search_index=td["search_index"],
+            unigram_index=td["unigram_index"],
+            lexicon_map=td["lexicon_map"],
+            ipa_index=td["ipa_index"],
+            data_versions=api_main.DataVersions(),
+            profile=profile,
+        ),
+    )
+    monkeypatch.setattr(
+        api_main.phonology_search,
+        "search_execution",
+        _make_fake_search_execution(captured),
+    )
+    return captured

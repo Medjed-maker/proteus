@@ -255,11 +255,8 @@ Typical `explanation` content is a short 1-2 sentence summary of why the hit is 
 **Response compatibility**
 
 `SearchResponse` may gain new fields during Phase 2 without treating the
-addition as a breaking API change. The server-side Pydantic setting
-`model_config = ConfigDict(extra="ignore")` means the server model ignores
-unknown fields when validating data; it does not define how client JSON parsers
-behave. Field additions are considered compatible because the server can add
-them safely and typical HTTP/JSON clients can ignore unknown response keys.
+addition as a breaking API change. Field additions are considered compatible
+because typical HTTP/JSON clients ignore unknown response keys by default.
 Removing existing top-level fields or changing their types remains a breaking
 change.
 
@@ -286,6 +283,20 @@ Liveness probe — returns `{"status": "ok"}`.
   `X-Frame-Options`, `Referrer-Policy`, and a restrictive `Permissions-Policy`
   on every response. HSTS and CSP are intentionally delegated to the fronting
   proxy that terminates TLS and knows the deployment's asset origins.
+- **`PROTEUS_PUBLIC_BASE_URL`**: Optional. Sets the absolute base URL used to
+  build `meta.verification_url` in `/search` responses (a deterministic URL
+  that reproduces the request). Must be an absolute URL with scheme and host
+  and no query/fragment, e.g. `https://proteus.example`. Invalid values
+  (relative URLs, embedded query strings) abort startup with a clear
+  `RuntimeError`. When unset, Proteus falls back to the request's own
+  `base_url`, which is sufficient for development.
+- **Response metadata vs. server-side query redaction**: `meta.request_echo`
+  and `meta.verification_url` always carry the client-supplied
+  `query_form`/`q` so the request is reproducible. They are independent of
+  `PROTEUS_LOG_RAW_SEARCH_QUERY`, which only redacts the raw query from
+  *server logs*. A reverse proxy or browser extension that logs response
+  bodies will still observe the raw query. If response-side redaction is
+  required, strip these fields at the fronting proxy.
 
 ## Data Sources
 

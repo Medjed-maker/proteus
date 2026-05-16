@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal
 from pydantic import (
     AliasChoices,
     BaseModel,
+    ConfigDict,
     Field,
     model_validator,
     StringConstraints,
@@ -21,6 +22,8 @@ from phonology.profiles import get_default_language_profile, get_language_profil
 __all__ = [
     "DataVersions",
     "VersionInfo",
+    "RequestEcho",
+    "ResponseMeta",
     "LanguageInfo",
     "LanguagesResponse",
     "SearchRequest",
@@ -29,6 +32,17 @@ __all__ = [
     "SearchHit",
     "SearchResponse",
 ]
+
+
+def _validate_iso8601_timestamp(value: str) -> str:
+    if value == "":
+        return value
+    normalized = value.removesuffix("Z") + "+00:00" if value.endswith("Z") else value
+    try:
+        datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise ValueError("timestamp must be a valid ISO 8601 datetime") from exc
+    return normalized
 
 
 class DataVersions(BaseModel):
@@ -58,16 +72,7 @@ class DataVersions(BaseModel):
     @field_validator("lexicon_updated_at", "matrix_generated_at", mode="after")
     @classmethod
     def _validate_timestamp(cls, value: str) -> str:
-        if value == "":
-            return value
-        normalized = (
-            value.removesuffix("Z") + "+00:00" if value.endswith("Z") else value
-        )
-        try:
-            datetime.fromisoformat(normalized)
-        except ValueError as exc:
-            raise ValueError("timestamp must be a valid ISO 8601 datetime") from exc
-        return normalized
+        return _validate_iso8601_timestamp(value)
 
 
 class VersionInfo(BaseModel):
@@ -92,6 +97,63 @@ class VersionInfo(BaseModel):
     mcp_server_version: str = Field(
         description="Proteus MCP server version exposed by this deployment."
     )
+
+
+class RequestEcho(BaseModel):
+    """Sanitized request parameters echoed for reproducibility.
+
+    ``query_form`` is the client-supplied query verbatim — it is independent of
+    the ``PROTEUS_LOG_RAW_SEARCH_QUERY`` server-log guard, which only redacts
+    raw queries from server logs. Operators that need the raw query stripped
+    from response bodies should redact at the fronting proxy. See
+    ``README.md`` "Deployment & Operations".
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    query_form: str = Field(description="Validated search query string.")
+    language: str = Field(description="Validated language profile identifier.")
+    dialect_hint: str = Field(description="Validated dialect hint.")
+    max_candidates: int = Field(description="Validated maximum number of hits.")
+    response_language: Literal["en", "ja"] = Field(
+        description="Validated response prose language."
+    )
+
+
+class ResponseMeta(BaseModel):
+    """Reproducibility and version metadata for public API responses."""
+
+    api_version: str = Field(description="Public REST API version.")
+    schema_version: str = Field(description="Public response schema version.")
+    engine_version: str = Field(description="Proteus package version.")
+    data_versions: DataVersions = Field(
+        description="Version metadata for data sources used in the response."
+    )
+    ruleset_versions: dict[str, str] = Field(
+        default_factory=dict,
+        description="Aggregated ruleset version by language profile.",
+    )
+    request_id: str = Field(description="Request correlation identifier.")
+    timestamp: str = Field(description="UTC ISO 8601 response timestamp.")
+    verification_url: str = Field(
+        default="",
+        description="Deterministic URL that can reproduce the request.",
+    )
+    request_echo: RequestEcho | None = Field(
+        default=None,
+        description="Sanitized validated request parameters, when applicable.",
+    )
+
+    @field_validator("timestamp", mode="after")
+    @classmethod
+    def _validate_timestamp(cls, value: str) -> str:
+        # ``ResponseMeta.timestamp`` is required and is always populated from
+        # ``datetime.now(timezone.utc).isoformat()``; reject the empty string
+        # so a malformed construction is surfaced at the boundary instead of
+        # leaking an empty value to clients.
+        if value == "":
+            raise ValueError("ResponseMeta.timestamp must not be empty")
+        return _validate_iso8601_timestamp(value)
 
 
 class LanguageInfo(BaseModel):
@@ -466,6 +528,8 @@ class SearchHit(BaseModel):
 class SearchResponse(BaseModel):
     """Top-level response payload for a phonological search."""
 
+    model_config = ConfigDict(extra="ignore")
+
     query: str = Field(description="Original Greek query string.")
     query_ipa: str = Field(description="IPA transcription computed for the query.")
     query_mode: Literal["Full-form", "Short-query", "Partial-form"] = Field(
@@ -488,5 +552,11 @@ class SearchResponse(BaseModel):
     )
     data_versions: DataVersions = Field(
         default_factory=DataVersions,
-        description="Version metadata for data sources used in this search.",
+        description=(
+            "Version metadata for data sources used in this search. Mirrors "
+            "meta.data_versions for backward compatibility."
+        ),
+    )
+    meta: ResponseMeta = Field(
+        description="Version, request, and reproducibility metadata."
     )
