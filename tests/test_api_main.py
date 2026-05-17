@@ -1354,7 +1354,9 @@ class TestSearchDependenciesLoader:
         def fail_dependencies(*_args: object) -> api_main.SearchDependencies:
             raise api_main.SearchDependenciesNotReadyError(detail)
 
-        monkeypatch.setattr(api_main, "_load_search_dependencies", fail_dependencies)
+        monkeypatch.setattr(
+            api_main, "_load_search_dependencies", fail_dependencies
+        )
         caplog.set_level(logging.INFO, logger="api.main")
 
         api_main._warm_search_dependencies()
@@ -3424,6 +3426,20 @@ class TestLoadAppVersion:
 
         assert result == "1.2.3"
 
+    def test_strips_only_one_leading_v_from_env_var(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """``removeprefix('v')`` keeps subsequent 'v's instead of collapsing them.
+
+        Guards against a prior ``lstrip('v')`` regression that turned
+        ``"vv1.0"`` into ``"1.0"`` and silently rewrote intended versions.
+        """
+        monkeypatch.setenv(api_main._APP_VERSION_ENV_VAR, "vv1.0")
+
+        result = api_main._load_app_version()
+
+        assert result == "v1.0"
+
     def test_falls_back_to_metadata_version(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -3441,6 +3457,8 @@ class TestLoadAppVersion:
     ) -> None:
         from importlib import metadata
 
+        from api import _app_version
+
         monkeypatch.delenv(api_main._APP_VERSION_ENV_VAR, raising=False)
         monkeypatch.setattr(
             metadata,
@@ -3453,13 +3471,13 @@ class TestLoadAppVersion:
             '[project]\nversion = "3.0.0-toml"\n',
             encoding="utf-8",
         )
-        # Patch __file__ resolution to point to our tmp_path
-        # _load_app_version resolves Path(__file__).resolve().parents[2] / "pyproject.toml"
-        # We need to make that resolve to our tmp pyproject
-        fake_file = tmp_path / "src" / "api" / "main.py"
+        # _load_app_version resolves Path(__file__).resolve().parents[2] /
+        # "pyproject.toml" against its own module file. Point that module's
+        # __file__ at our tmp tree so the fallback hits the synthetic pyproject.
+        fake_file = tmp_path / "src" / "api" / "_app_version.py"
         fake_file.parent.mkdir(parents=True, exist_ok=True)
         fake_file.touch()
-        monkeypatch.setattr(api_main, "__file__", str(fake_file))
+        monkeypatch.setattr(_app_version, "__file__", str(fake_file))
 
         result = api_main._load_app_version()
 
@@ -3470,17 +3488,20 @@ class TestLoadAppVersion:
     ) -> None:
         from importlib import metadata
 
+        from api import _app_version
+
         monkeypatch.delenv(api_main._APP_VERSION_ENV_VAR, raising=False)
         monkeypatch.setattr(
             metadata,
             "version",
             lambda _pkg: (_ for _ in ()).throw(metadata.PackageNotFoundError()),
         )
-        # Point __file__ to a tmp dir with no pyproject.toml
-        fake_file = tmp_path / "src" / "api" / "main.py"
+        # Point _app_version's __file__ to a tmp dir with no pyproject.toml so
+        # the fallback path returns the sentinel.
+        fake_file = tmp_path / "src" / "api" / "_app_version.py"
         fake_file.parent.mkdir(parents=True, exist_ok=True)
         fake_file.touch()
-        monkeypatch.setattr(api_main, "__file__", str(fake_file))
+        monkeypatch.setattr(_app_version, "__file__", str(fake_file))
 
         result = api_main._load_app_version()
 

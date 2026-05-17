@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "proteus": {
+      "command": "proteus-mcp",
+      "env": {
+        "PROTEUS_PUBLIC_BASE_URL": "https://proteus.example/"
+      }
+    }
+  }
+}

@@ -1,0 +1,997 @@
+{
+  "components": {
+    "schemas": {
+      "DataVersions": {
+        "description": "Version metadata for data sources used in search.",
+        "properties": {
+          "lexicon": {
+            "default": "unknown",
+            "description": "Lexicon schema version (e.g., '2.0.0').",
+            "title": "Lexicon",
+            "type": "string"
+          },
+          "lexicon_updated_at": {
+            "default": "",
+            "description": "ISO 8601 timestamp of lexicon last update.",
+            "title": "Lexicon Updated At",
+            "type": "string"
+          },
+          "matrix": {
+            "default": "unknown",
+            "description": "Distance matrix version (e.g., '1.0.0').",
+            "title": "Matrix",
+            "type": "string"
+          },
+          "matrix_generated_at": {
+            "default": "",
+            "description": "ISO 8601 timestamp of matrix generation.",
+            "title": "Matrix Generated At",
+            "type": "string"
+          },
+          "rules": {
+            "default": "unknown",
+            "description": "Aggregated phonological rules version (max of all rule files).",
+            "title": "Rules",
+            "type": "string"
+          }
+        },
+        "title": "DataVersions",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LanguageInfo": {
+        "description": "Public metadata for a registered language profile.",
+        "properties": {
+          "default_dialect": {
+            "description": "Default dialect used by the profile.",
+            "title": "Default Dialect",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "description": "Short English description of this language profile.",
+            "title": "Description",
+            "type": "string"
+          },
+          "display_name": {
+            "description": "Human-readable language name.",
+            "title": "Display Name",
+            "type": "string"
+          },
+          "language_id": {
+            "description": "Stable language profile identifier.",
+            "title": "Language Id",
+            "type": "string"
+          },
+          "lexicon_schema_version": {
+            "default": "unknown",
+            "description": "Lexicon schema version for this language.",
+            "title": "Lexicon Schema Version",
+            "type": "string"
+          },
+          "matrix_version": {
+            "default": "unknown",
+            "description": "Distance matrix version for this language.",
+            "title": "Matrix Version",
+            "type": "string"
+          },
+          "ruleset_version": {
+            "default": "unknown",
+            "description": "Aggregated phonological rules version for this language.",
+            "title": "Ruleset Version",
+            "type": "string"
+          },
+          "status": {
+            "description": "Support maturity for this language profile.",
+            "enum": [
+              "pilot",
+              "experimental",
+              "stable"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "supported_dialects": {
+            "description": "Dialects accepted by the profile.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Supported Dialects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "language_id",
+          "display_name",
+          "default_dialect",
+          "supported_dialects",
+          "status"
+        ],
+        "title": "LanguageInfo",
+        "type": "object"
+      },
+      "LanguagesResponse": {
+        "description": "Response payload for registered language profile enumeration.\n\nNote: ``meta`` is temporarily typed as :class:`VersionInfo` while the\nPhase 2 \u7ae0 1 ``ResponseMeta`` rollout is pending. When ``ResponseMeta``\nlands, ``meta`` will be replaced and the OpenAPI artifact, tests, and CI\nexpectations should be updated in the same PR. Clients should ignore\nunknown ``meta`` fields to remain compatible across this transition.",
+        "properties": {
+          "languages": {
+            "description": "Registered language profiles sorted by language_id.",
+            "items": {
+              "$ref": "#/components/schemas/LanguageInfo"
+            },
+            "title": "Languages",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/VersionInfo",
+            "description": "API and runtime version metadata. Temporarily VersionInfo; will be replaced by ResponseMeta in Phase 2 \u7ae0 1."
+          }
+        },
+        "required": [
+          "languages",
+          "meta"
+        ],
+        "title": "LanguagesResponse",
+        "type": "object"
+      },
+      "OrthographicNote": {
+        "description": "Candidate-level note about writing-system or spelling conventions.",
+        "properties": {
+          "confidence": {
+            "description": "Qualitative confidence assigned to the orthographic note.",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Confidence",
+            "type": "string"
+          },
+          "kind": {
+            "description": "Machine-readable category for the orthographic note.",
+            "enum": [
+              "orthographic_correspondence",
+              "beginner_aid",
+              "pre_403_2_attic"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "Short display label for the note.",
+            "title": "Label",
+            "type": "string"
+          },
+          "messages": {
+            "description": "Human-readable note messages for the candidate.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "normalized_form": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Regularized or dictionary-facing form referenced by the note.",
+            "title": "Normalized Form"
+          },
+          "period_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Historical period or writing-system label for the note.",
+            "title": "Period Label"
+          },
+          "references": {
+            "description": "Short source or documentation references supporting the note.",
+            "items": {
+              "type": "string"
+            },
+            "title": "References",
+            "type": "array"
+          },
+          "romanization": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Romanized form referenced by the note.",
+            "title": "Romanization"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "messages",
+          "confidence"
+        ],
+        "title": "OrthographicNote",
+        "type": "object"
+      },
+      "RequestEcho": {
+        "description": "Sanitized request parameters echoed for reproducibility.\n\n``query_form`` is the client-supplied query verbatim \u2014 it is independent of\nthe ``PROTEUS_LOG_RAW_SEARCH_QUERY`` server-log guard, which only redacts\nraw queries from server logs. Operators that need the raw query stripped\nfrom response bodies should redact at the fronting proxy. See\n``README.md`` \"Deployment & Operations\".",
+        "properties": {
+          "dialect_hint": {
+            "description": "Validated dialect hint.",
+            "title": "Dialect Hint",
+            "type": "string"
+          },
+          "language": {
+            "description": "Validated language profile identifier.",
+            "title": "Language",
+            "type": "string"
+          },
+          "max_candidates": {
+            "description": "Validated maximum number of hits.",
+            "title": "Max Candidates",
+            "type": "integer"
+          },
+          "query_form": {
+            "description": "Validated search query string.",
+            "title": "Query Form",
+            "type": "string"
+          },
+          "response_language": {
+            "description": "Validated response prose language.",
+            "enum": [
+              "en",
+              "ja"
+            ],
+            "title": "Response Language",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query_form",
+          "language",
+          "dialect_hint",
+          "max_candidates",
+          "response_language"
+        ],
+        "title": "RequestEcho",
+        "type": "object"
+      },
+      "ResponseMeta": {
+        "description": "Reproducibility and version metadata for public API responses.",
+        "properties": {
+          "api_version": {
+            "description": "Public REST API version.",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "data_versions": {
+            "$ref": "#/components/schemas/DataVersions",
+            "description": "Version metadata for data sources used in the response."
+          },
+          "engine_version": {
+            "description": "Proteus package version.",
+            "title": "Engine Version",
+            "type": "string"
+          },
+          "request_echo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RequestEcho"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sanitized validated request parameters, when applicable."
+          },
+          "request_id": {
+            "description": "Request correlation identifier.",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "ruleset_versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Aggregated ruleset version by language profile.",
+            "title": "Ruleset Versions",
+            "type": "object"
+          },
+          "schema_version": {
+            "description": "Public response schema version.",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "timestamp": {
+            "description": "UTC ISO 8601 response timestamp.",
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "verification_url": {
+            "default": "",
+            "description": "Deterministic URL that can reproduce the request.",
+            "title": "Verification Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "schema_version",
+          "engine_version",
+          "data_versions",
+          "request_id",
+          "timestamp"
+        ],
+        "title": "ResponseMeta",
+        "type": "object"
+      },
+      "RuleStep": {
+        "description": "Single applied rule step in a search explanation.",
+        "properties": {
+          "from_phone": {
+            "description": "Source IPA phone before the rule applied.",
+            "title": "From Phone",
+            "type": "string"
+          },
+          "position": {
+            "description": "Zero-based phone position in the alignment, or -1 when unknown.",
+            "minimum": -1.0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "rule_id": {
+            "description": "Stable identifier for the phonological rule.",
+            "title": "Rule Id",
+            "type": "string"
+          },
+          "rule_name": {
+            "description": "Human-readable display name for the rule.",
+            "title": "Rule Name",
+            "type": "string"
+          },
+          "rule_name_en": {
+            "default": "",
+            "description": "English display name for the rule.",
+            "title": "Rule Name En",
+            "type": "string"
+          },
+          "to_phone": {
+            "description": "Target IPA phone after the rule applied.",
+            "title": "To Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "rule_name",
+          "from_phone",
+          "to_phone",
+          "position"
+        ],
+        "title": "RuleStep",
+        "type": "object"
+      },
+      "SearchHit": {
+        "description": "A matched headword returned from phonological search.",
+        "properties": {
+          "alignment_summary": {
+            "default": "",
+            "description": "Short one-line summary of the main phonological differences.",
+            "title": "Alignment Summary",
+            "type": "string"
+          },
+          "alignment_visualization": {
+            "default": "",
+            "description": "Three-line ASCII alignment visualization.",
+            "title": "Alignment Visualization",
+            "type": "string"
+          },
+          "applied_rule_count": {
+            "default": 0,
+            "description": "Count of explicit catalogued rules applied to explain the match.",
+            "minimum": 0.0,
+            "title": "Applied Rule Count",
+            "type": "integer"
+          },
+          "candidate_bucket": {
+            "default": "Exploratory",
+            "description": "Default presentation bucket for the result list.",
+            "enum": [
+              "Supported",
+              "Exploratory"
+            ],
+            "title": "Candidate Bucket",
+            "type": "string"
+          },
+          "confidence": {
+            "description": "Normalized confidence score (0.0-1.0, higher is more similar). Inverse of ``distance``: ``confidence = 1.0 - distance``. Both fields are provided to support different consumer preferences. Exact and rule-supported short-query matches may be retained even when this score is below the short-query confidence floor; partial-form ranking applies separate wildcard-coverage semantics.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "dialect_attribution": {
+            "default": "",
+            "description": "Dialect attribution for the match.",
+            "title": "Dialect Attribution",
+            "type": "string"
+          },
+          "distance": {
+            "description": "Normalized phonological distance from the query in the 0.0-1.0 range (0.0 = identical, lower is more similar).",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Distance",
+            "type": "number"
+          },
+          "explanation": {
+            "description": "Human-readable prose summary of the derivation.",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "headword": {
+            "description": "Matched lexicon entry in Greek script.",
+            "title": "Headword",
+            "type": "string"
+          },
+          "ipa": {
+            "description": "IPA transcription of the matched headword.",
+            "title": "Ipa",
+            "type": "string"
+          },
+          "match_type": {
+            "default": "Distance-only",
+            "description": "High-level classification describing how the candidate matched.",
+            "enum": [
+              "Exact",
+              "Rule-based",
+              "Distance-only",
+              "Low-confidence"
+            ],
+            "title": "Match Type",
+            "type": "string"
+          },
+          "observed_change_count": {
+            "default": 0,
+            "description": "Count of uncatalogued observed changes retained in the explanation.",
+            "minimum": 0.0,
+            "title": "Observed Change Count",
+            "type": "integer"
+          },
+          "orthographic_notes": {
+            "description": "Candidate-level notes about orthographic correspondences, historical spelling systems, or beginner-facing reading aids.",
+            "items": {
+              "$ref": "#/components/schemas/OrthographicNote"
+            },
+            "title": "Orthographic Notes",
+            "type": "array"
+          },
+          "rule_support": {
+            "default": false,
+            "description": "Whether at least one explicit catalogued rule supports the candidate.",
+            "title": "Rule Support",
+            "type": "boolean"
+          },
+          "rules_applied": {
+            "description": "Ordered rule steps explaining the match.",
+            "items": {
+              "$ref": "#/components/schemas/RuleStep"
+            },
+            "title": "Rules Applied",
+            "type": "array"
+          },
+          "uncertainty": {
+            "default": "High",
+            "description": "Qualitative uncertainty label for the ranked candidate.",
+            "enum": [
+              "Low",
+              "Medium",
+              "High"
+            ],
+            "title": "Uncertainty",
+            "type": "string"
+          },
+          "why_candidate": {
+            "description": "Short bullet points explaining why the candidate ranked highly.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Why Candidate",
+            "type": "array"
+          }
+        },
+        "required": [
+          "headword",
+          "ipa",
+          "distance",
+          "confidence",
+          "explanation"
+        ],
+        "title": "SearchHit",
+        "type": "object"
+      },
+      "SearchRequest": {
+        "description": "Client request for a phonological search query.",
+        "properties": {
+          "dialect_hint": {
+            "default": "attic",
+            "description": "Dialect hint for IPA conversion. Built-in Ancient Greek values are 'attic' and 'koine'.",
+            "title": "Dialect Hint",
+            "type": "string"
+          },
+          "language": {
+            "default": "ancient_greek",
+            "description": "Language profile used for phonological search.",
+            "title": "Language",
+            "type": "string"
+          },
+          "max_candidates": {
+            "default": 20,
+            "description": "Maximum number of hits to return.",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Max Candidates",
+            "type": "integer"
+          },
+          "orthography_hint": {
+            "anyOf": [
+              {
+                "enum": [
+                  "standard",
+                  "inscriptional",
+                  "pre_403_2_attic"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "deprecated": true,
+            "description": "Deprecated: hints are accepted for backward compatibility but no longer affect orthographic note generation. Notes are produced exclusively from curated runtime orthography data. This field will be removed in a future release; remove it from your requests.",
+            "title": "Orthography Hint"
+          },
+          "query_form": {
+            "description": "Greek word to search for (Unicode, polytonic or monotonic).",
+            "minLength": 1,
+            "title": "Query Form",
+            "type": "string"
+          },
+          "response_language": {
+            "default": "en",
+            "description": "Response language for generated prose text ('en' or 'ja').",
+            "enum": [
+              "en",
+              "ja"
+            ],
+            "title": "Response Language",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query_form"
+        ],
+        "title": "SearchRequest",
+        "type": "object"
+      },
+      "SearchResponse": {
+        "description": "Top-level response payload for a phonological search.",
+        "properties": {
+          "data_versions": {
+            "$ref": "#/components/schemas/DataVersions",
+            "description": "Version metadata for data sources used in this search. Mirrors meta.data_versions for backward compatibility."
+          },
+          "hits": {
+            "description": "Ranked list of matched headwords.",
+            "items": {
+              "$ref": "#/components/schemas/SearchHit"
+            },
+            "title": "Hits",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta",
+            "description": "Version, request, and reproducibility metadata."
+          },
+          "query": {
+            "description": "Original Greek query string.",
+            "title": "Query",
+            "type": "string"
+          },
+          "query_ipa": {
+            "description": "IPA transcription computed for the query.",
+            "title": "Query Ipa",
+            "type": "string"
+          },
+          "query_mode": {
+            "description": "Heuristic input classification used for UI messaging. Partial-form ranking prioritizes full wildcard and fragment coverage before confidence among candidates that pass the mode filter; Short-query ranking can retain exact and rule-supported matches below its confidence floor.",
+            "enum": [
+              "Full-form",
+              "Short-query",
+              "Partial-form"
+            ],
+            "title": "Query Mode",
+            "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "description": "True when annotation was truncated due to candidate-window or batch limits. This occurs for Short-query searches when many candidates are filtered out, indicating the result set may be incomplete.",
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "query",
+          "query_ipa",
+          "query_mode",
+          "hits",
+          "meta"
+        ],
+        "title": "SearchResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VersionInfo": {
+        "description": "Version metadata for the Proteus API and runtime.",
+        "properties": {
+          "api_version": {
+            "description": "Public REST API version.",
+            "title": "Api Version",
+            "type": "string"
+          },
+          "build_timestamp": {
+            "default": "",
+            "description": "Deployment build timestamp, when provided by the environment.",
+            "title": "Build Timestamp",
+            "type": "string"
+          },
+          "engine_version": {
+            "description": "Proteus package version.",
+            "title": "Engine Version",
+            "type": "string"
+          },
+          "git_sha": {
+            "default": "",
+            "description": "Deployment Git commit SHA, when provided by the environment.",
+            "title": "Git Sha",
+            "type": "string"
+          },
+          "mcp_server_version": {
+            "description": "Proteus MCP server version exposed by this deployment.",
+            "title": "Mcp Server Version",
+            "type": "string"
+          },
+          "python_version": {
+            "description": "Python runtime version as X.Y.Z.",
+            "title": "Python Version",
+            "type": "string"
+          },
+          "rule_schema_version": {
+            "default": "",
+            "description": "Rule-file JSON schema identifier, when available.",
+            "title": "Rule Schema Version",
+            "type": "string"
+          },
+          "schema_version": {
+            "description": "Public response schema version.",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine_version",
+          "api_version",
+          "schema_version",
+          "python_version",
+          "mcp_server_version"
+        ],
+        "title": "VersionInfo",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Language-independent historical phonology framework with an Ancient Greek pilot",
+    "title": "Proteus",
+    "version": "0.2.1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "description": "Serve the frontend.",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Root"
+      },
+      "head": {
+        "description": "Return a lightweight response for uptime probes.",
+        "operationId": "root_head__head",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Root Head"
+      }
+    },
+    "/changelog": {
+      "get": {
+        "description": "Serve the changelog page.",
+        "operationId": "changelog_changelog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Changelog"
+      },
+      "head": {
+        "description": "Return a lightweight response for changelog preflight checks.",
+        "operationId": "changelog_head_changelog_head",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Changelog Head"
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Liveness probe.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      },
+      "head": {
+        "description": "Liveness probe for HEAD-based health checks.",
+        "operationId": "health_head_health_head",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Head"
+      }
+    },
+    "/languages": {
+      "get": {
+        "description": "Return registered language profiles and version metadata.",
+        "operationId": "languages_languages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LanguagesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Languages"
+      },
+      "head": {
+        "description": "Return a lightweight response for language-profile probes.",
+        "operationId": "languages_head_languages_head",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Languages Head"
+      }
+    },
+    "/ready": {
+      "get": {
+        "description": "Readiness probe.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Ready Ready Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ready"
+      }
+    },
+    "/search": {
+      "post": {
+        "description": "Run phonological search for a query word.",
+        "operationId": "search_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search"
+      }
+    },
+    "/version": {
+      "get": {
+        "description": "Return API and runtime version metadata.",
+        "operationId": "version_version_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Version"
+      },
+      "head": {
+        "description": "Return a lightweight response for version probes.",
+        "operationId": "version_head_version_head",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Version Head"
+      }
+    }
+  }
+}
