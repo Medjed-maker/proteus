@@ -1,0 +1,561 @@
+{
+  "tools": [
+    {
+      "annotations": null,
+      "description": "Search Ancient Greek forms using the Proteus phonology engine.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "$defs": {
+          "McpSearchInput": {
+            "description": "Validated input for the Ancient Phonology MCP search tool.",
+            "properties": {
+              "dialect_hint": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Dialect hint for IPA conversion. ``None`` (the MCP default) means 'defer to the language profile default', which keeps the tool schema language-agnostic; the REST API uses 'attic' as its default because Ancient Greek is currently the only profile.",
+                "title": "Dialect Hint"
+              },
+              "max_candidates": {
+                "default": 20,
+                "description": "Maximum number of candidates to return.",
+                "maximum": 100,
+                "minimum": 1,
+                "title": "Max Candidates",
+                "type": "integer"
+              },
+              "query_form": {
+                "description": "Greek word to search for.",
+                "minLength": 1,
+                "title": "Query Form",
+                "type": "string"
+              },
+              "response_language": {
+                "default": "en",
+                "description": "Response prose language.",
+                "enum": [
+                  "en",
+                  "ja"
+                ],
+                "title": "Response Language",
+                "type": "string"
+              },
+              "source_language": {
+                "default": "ancient_greek",
+                "description": "Language profile used for phonological search.",
+                "title": "Source Language",
+                "type": "string"
+              }
+            },
+            "required": [
+              "query_form"
+            ],
+            "title": "McpSearchInput",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "request": {
+            "$ref": "#/$defs/McpSearchInput"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "title": "ancient_phonology_searchArguments",
+        "type": "object"
+      },
+      "meta": null,
+      "name": "ancient_phonology.search",
+      "outputSchema": {
+        "$defs": {
+          "DataVersions": {
+            "description": "Version metadata for data sources used in search.",
+            "properties": {
+              "lexicon": {
+                "default": "unknown",
+                "description": "Lexicon schema version (e.g., '2.0.0').",
+                "title": "Lexicon",
+                "type": "string"
+              },
+              "lexicon_updated_at": {
+                "default": "",
+                "description": "ISO 8601 timestamp of lexicon last update.",
+                "title": "Lexicon Updated At",
+                "type": "string"
+              },
+              "matrix": {
+                "default": "unknown",
+                "description": "Distance matrix version (e.g., '1.0.0').",
+                "title": "Matrix",
+                "type": "string"
+              },
+              "matrix_generated_at": {
+                "default": "",
+                "description": "ISO 8601 timestamp of matrix generation.",
+                "title": "Matrix Generated At",
+                "type": "string"
+              },
+              "rules": {
+                "default": "unknown",
+                "description": "Aggregated phonological rules version (max of all rule files).",
+                "title": "Rules",
+                "type": "string"
+              }
+            },
+            "title": "DataVersions",
+            "type": "object"
+          },
+          "OrthographicNote": {
+            "description": "Candidate-level note about writing-system or spelling conventions.",
+            "properties": {
+              "confidence": {
+                "description": "Qualitative confidence assigned to the orthographic note.",
+                "enum": [
+                  "low",
+                  "medium",
+                  "high"
+                ],
+                "title": "Confidence",
+                "type": "string"
+              },
+              "kind": {
+                "description": "Machine-readable category for the orthographic note.",
+                "enum": [
+                  "orthographic_correspondence",
+                  "beginner_aid",
+                  "pre_403_2_attic"
+                ],
+                "title": "Kind",
+                "type": "string"
+              },
+              "label": {
+                "description": "Short display label for the note.",
+                "title": "Label",
+                "type": "string"
+              },
+              "messages": {
+                "description": "Human-readable note messages for the candidate.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Messages",
+                "type": "array"
+              },
+              "normalized_form": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Regularized or dictionary-facing form referenced by the note.",
+                "title": "Normalized Form"
+              },
+              "period_label": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Historical period or writing-system label for the note.",
+                "title": "Period Label"
+              },
+              "references": {
+                "description": "Short source or documentation references supporting the note.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "References",
+                "type": "array"
+              },
+              "romanization": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Romanized form referenced by the note.",
+                "title": "Romanization"
+              }
+            },
+            "required": [
+              "kind",
+              "label",
+              "messages",
+              "confidence"
+            ],
+            "title": "OrthographicNote",
+            "type": "object"
+          },
+          "RequestEcho": {
+            "description": "Sanitized request parameters echoed for reproducibility.\n\n``query_form`` is the client-supplied query verbatim — it is independent of\nthe ``PROTEUS_LOG_RAW_SEARCH_QUERY`` server-log guard, which only redacts\nraw queries from server logs. Operators that need the raw query stripped\nfrom response bodies should redact at the fronting proxy. See\n``README.md`` \"Deployment & Operations\".",
+            "properties": {
+              "dialect_hint": {
+                "description": "Validated dialect hint.",
+                "title": "Dialect Hint",
+                "type": "string"
+              },
+              "language": {
+                "description": "Validated language profile identifier.",
+                "title": "Language",
+                "type": "string"
+              },
+              "max_candidates": {
+                "description": "Validated maximum number of hits.",
+                "title": "Max Candidates",
+                "type": "integer"
+              },
+              "query_form": {
+                "description": "Validated search query string.",
+                "title": "Query Form",
+                "type": "string"
+              },
+              "response_language": {
+                "description": "Validated response prose language.",
+                "enum": [
+                  "en",
+                  "ja"
+                ],
+                "title": "Response Language",
+                "type": "string"
+              }
+            },
+            "required": [
+              "query_form",
+              "language",
+              "dialect_hint",
+              "max_candidates",
+              "response_language"
+            ],
+            "title": "RequestEcho",
+            "type": "object"
+          },
+          "ResponseMeta": {
+            "description": "Reproducibility and version metadata for public API responses.",
+            "properties": {
+              "api_version": {
+                "description": "Public REST API version.",
+                "title": "Api Version",
+                "type": "string"
+              },
+              "data_versions": {
+                "$ref": "#/$defs/DataVersions",
+                "description": "Version metadata for data sources used in the response."
+              },
+              "engine_version": {
+                "description": "Proteus package version.",
+                "title": "Engine Version",
+                "type": "string"
+              },
+              "request_echo": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/RequestEcho"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Sanitized validated request parameters, when applicable."
+              },
+              "request_id": {
+                "description": "Request correlation identifier.",
+                "title": "Request Id",
+                "type": "string"
+              },
+              "ruleset_versions": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "Aggregated ruleset version by language profile.",
+                "title": "Ruleset Versions",
+                "type": "object"
+              },
+              "schema_version": {
+                "description": "Public response schema version.",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "timestamp": {
+                "description": "UTC ISO 8601 response timestamp.",
+                "title": "Timestamp",
+                "type": "string"
+              },
+              "verification_url": {
+                "default": "",
+                "description": "Deterministic URL that can reproduce the request.",
+                "title": "Verification Url",
+                "type": "string"
+              }
+            },
+            "required": [
+              "api_version",
+              "schema_version",
+              "engine_version",
+              "data_versions",
+              "request_id",
+              "timestamp"
+            ],
+            "title": "ResponseMeta",
+            "type": "object"
+          },
+          "RuleStep": {
+            "description": "Single applied rule step in a search explanation.",
+            "properties": {
+              "from_phone": {
+                "description": "Source IPA phone before the rule applied.",
+                "title": "From Phone",
+                "type": "string"
+              },
+              "position": {
+                "description": "Zero-based phone position in the alignment, or -1 when unknown.",
+                "minimum": -1,
+                "title": "Position",
+                "type": "integer"
+              },
+              "rule_id": {
+                "description": "Stable identifier for the phonological rule.",
+                "title": "Rule Id",
+                "type": "string"
+              },
+              "rule_name": {
+                "description": "Human-readable display name for the rule.",
+                "title": "Rule Name",
+                "type": "string"
+              },
+              "rule_name_en": {
+                "default": "",
+                "description": "English display name for the rule.",
+                "title": "Rule Name En",
+                "type": "string"
+              },
+              "to_phone": {
+                "description": "Target IPA phone after the rule applied.",
+                "title": "To Phone",
+                "type": "string"
+              }
+            },
+            "required": [
+              "rule_id",
+              "rule_name",
+              "from_phone",
+              "to_phone",
+              "position"
+            ],
+            "title": "RuleStep",
+            "type": "object"
+          },
+          "SearchHit": {
+            "description": "A matched headword returned from phonological search.",
+            "properties": {
+              "alignment_summary": {
+                "default": "",
+                "description": "Short one-line summary of the main phonological differences.",
+                "title": "Alignment Summary",
+                "type": "string"
+              },
+              "alignment_visualization": {
+                "default": "",
+                "description": "Three-line ASCII alignment visualization.",
+                "title": "Alignment Visualization",
+                "type": "string"
+              },
+              "applied_rule_count": {
+                "default": 0,
+                "description": "Count of explicit catalogued rules applied to explain the match.",
+                "minimum": 0,
+                "title": "Applied Rule Count",
+                "type": "integer"
+              },
+              "candidate_bucket": {
+                "default": "Exploratory",
+                "description": "Default presentation bucket for the result list.",
+                "enum": [
+                  "Supported",
+                  "Exploratory"
+                ],
+                "title": "Candidate Bucket",
+                "type": "string"
+              },
+              "confidence": {
+                "description": "Normalized confidence score (0.0-1.0, higher is more similar). Inverse of ``distance``: ``confidence = 1.0 - distance``. Both fields are provided to support different consumer preferences. Exact and rule-supported short-query matches may be retained even when this score is below the short-query confidence floor; partial-form ranking applies separate wildcard-coverage semantics.",
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "title": "Confidence",
+                "type": "number"
+              },
+              "dialect_attribution": {
+                "default": "",
+                "description": "Dialect attribution for the match.",
+                "title": "Dialect Attribution",
+                "type": "string"
+              },
+              "distance": {
+                "description": "Normalized phonological distance from the query in the 0.0-1.0 range (0.0 = identical, lower is more similar).",
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "title": "Distance",
+                "type": "number"
+              },
+              "explanation": {
+                "description": "Human-readable prose summary of the derivation.",
+                "title": "Explanation",
+                "type": "string"
+              },
+              "headword": {
+                "description": "Matched lexicon entry in Greek script.",
+                "title": "Headword",
+                "type": "string"
+              },
+              "ipa": {
+                "description": "IPA transcription of the matched headword.",
+                "title": "Ipa",
+                "type": "string"
+              },
+              "match_type": {
+                "default": "Distance-only",
+                "description": "High-level classification describing how the candidate matched.",
+                "enum": [
+                  "Exact",
+                  "Rule-based",
+                  "Distance-only",
+                  "Low-confidence"
+                ],
+                "title": "Match Type",
+                "type": "string"
+              },
+              "observed_change_count": {
+                "default": 0,
+                "description": "Count of uncatalogued observed changes retained in the explanation.",
+                "minimum": 0,
+                "title": "Observed Change Count",
+                "type": "integer"
+              },
+              "orthographic_notes": {
+                "description": "Candidate-level notes about orthographic correspondences, historical spelling systems, or beginner-facing reading aids.",
+                "items": {
+                  "$ref": "#/$defs/OrthographicNote"
+                },
+                "title": "Orthographic Notes",
+                "type": "array"
+              },
+              "rule_support": {
+                "default": false,
+                "description": "Whether at least one explicit catalogued rule supports the candidate.",
+                "title": "Rule Support",
+                "type": "boolean"
+              },
+              "rules_applied": {
+                "description": "Ordered rule steps explaining the match.",
+                "items": {
+                  "$ref": "#/$defs/RuleStep"
+                },
+                "title": "Rules Applied",
+                "type": "array"
+              },
+              "uncertainty": {
+                "default": "High",
+                "description": "Qualitative uncertainty label for the ranked candidate.",
+                "enum": [
+                  "Low",
+                  "Medium",
+                  "High"
+                ],
+                "title": "Uncertainty",
+                "type": "string"
+              },
+              "why_candidate": {
+                "description": "Short bullet points explaining why the candidate ranked highly.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Why Candidate",
+                "type": "array"
+              }
+            },
+            "required": [
+              "headword",
+              "ipa",
+              "distance",
+              "confidence",
+              "explanation"
+            ],
+            "title": "SearchHit",
+            "type": "object"
+          }
+        },
+        "description": "Structured MCP response for Ancient Phonology search.",
+        "properties": {
+          "candidates": {
+            "description": "Ranked search candidates.",
+            "items": {
+              "$ref": "#/$defs/SearchHit"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/$defs/ResponseMeta",
+            "description": "Version, request, and reproducibility metadata."
+          },
+          "query": {
+            "description": "Original query string.",
+            "title": "Query",
+            "type": "string"
+          },
+          "query_ipa": {
+            "description": "IPA transcription computed for the query.",
+            "title": "Query Ipa",
+            "type": "string"
+          },
+          "query_mode": {
+            "description": "Input classification used by the search engine.",
+            "enum": [
+              "Full-form",
+              "Short-query",
+              "Partial-form"
+            ],
+            "title": "Query Mode",
+            "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "description": "True when candidate annotation was truncated.",
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "candidates",
+          "query",
+          "query_ipa",
+          "query_mode",
+          "meta"
+        ],
+        "title": "McpSearchOutput",
+        "type": "object"
+      },
+      "title": null
+    }
+  ]
+}

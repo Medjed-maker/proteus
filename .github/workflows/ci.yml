@@ -7,6 +7,34 @@ on:
     branches: [ main ]
 
 jobs:
+  validate-openapi:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-python-env
+        with:
+          python-version: "3.12"
+
+      - name: Validate OpenAPI artifact
+        run: uv run python scripts/export_openapi.py --check
+
+  validate-mcp:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python environment
+        uses: ./.github/actions/setup-python-env
+        with:
+          python-version: "3.12"
+
+      - name: Validate MCP tools artifact
+        run: uv run python scripts/export_mcp_schema.py --check
+
   validate-matrix:
     runs-on: ubuntu-latest
     strategy:

@@ -7,10 +7,8 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-import hashlib
 import html
 import importlib.resources as resources
-from importlib import metadata
 from functools import lru_cache
 import json
 import logging
@@ -18,8 +16,7 @@ import os
 from pathlib import Path
 import sys
 import threading
-import tomllib
-from typing import Any, AsyncIterator, NamedTuple
+from typing import Any, AsyncIterator
 
 import yaml
 
@@ -41,6 +38,10 @@ from phonology.profiles import (
     register_default_profiles,
 )
 
+from ._app_version import (
+    _APP_VERSION_ENV_VAR as _APP_VERSION_ENV_VAR,
+    _load_app_version,
+)
 from ._constants import API_VERSION, SCHEMA_VERSION
 from ._models import (
     DataVersions,
@@ -57,30 +58,32 @@ from ._request_context import (
     resolve_public_base_url,
     validate_public_base_url,
 )
-from ._response_meta import build_response_meta
-from ._hit_formatting import _build_search_hit
+from ._hit_formatting import _build_search_hit as _build_search_hit
+from ._search_runner import (
+    InvalidDialectError,
+    InvalidSearchQueryError,
+    SearchDependencies,
+    SearchDependenciesNotReadyError,
+    SearchExecutionError,
+    UnsupportedLanguageError,
+    _LOG_RAW_QUERY_ENV_VAR as _LOG_RAW_QUERY_ENV_VAR,
+    _summarize_query_for_logs,  # re-export for tests
+    run_search,
+)
 
 logger = logging.getLogger(__name__)
 register_default_profiles()
 _ALLOWED_ORIGINS_ENV_VAR = "PROTEUS_ALLOWED_ORIGINS"
-_LOG_RAW_QUERY_ENV_VAR = "PROTEUS_LOG_RAW_SEARCH_QUERY"
 _LSJ_REPO_DIR_ENV_VAR = "PROTEUS_LSJ_REPO_DIR"
 _DISABLE_STARTUP_WARMUP_ENV_VAR = "PROTEUS_DISABLE_STARTUP_WARMUP"
 _DISABLE_STARTUP_WARMUP_ATTR = "disable_startup_warmup"
 _ENABLE_API_DOCS_ENV_VAR = "PROTEUS_ENABLE_API_DOCS"
-_APP_VERSION_ENV_VAR = "PROTEUS_APP_VERSION"
 _BUILD_TIMESTAMP_ENV_VAR = "PROTEUS_BUILD_TIMESTAMP"
 _GIT_SHA_ENV_VAR = "PROTEUS_GIT_SHA"
 # Limit publicly exposed git SHA to 12 hex chars. Long enough to be unique in
 # practical git repos, short enough to limit deployment fingerprinting from
 # the unauthenticated /version endpoint.
 _GIT_SHA_MAX_LENGTH = 12
-# Upper bound for both the similarity fallback (stage 2 widening when the
-# seed set is too small) and the unigram fallback (k=1 recovery for short
-# queries). Kept in one place so the two caps stay coupled; 2000 mirrors
-# search._DEFAULT_FALLBACK_CANDIDATE_LIMIT, which was chosen to keep a hard
-# ceiling on the candidate set even for permissive partial queries.
-_API_FALLBACK_CANDIDATE_LIMIT = 2000
 _SEARCH_DEPENDENCY_LOAD_ERRORS = (
     ValueError,
     FileNotFoundError,
@@ -102,35 +105,6 @@ _LEGACY_LANGUAGE_ALIAS_DEPRECATION_MESSAGE = (
     "Use response_language='en'|'ja' for response prose; language now selects "
     "the phonology profile."
 )
-
-
-def _load_app_version() -> str:
-    """Return the application version from env, package metadata, or pyproject."""
-    env_version = os.environ.get(_APP_VERSION_ENV_VAR, "").strip().lstrip("v")
-    if env_version:
-        return env_version
-
-    try:
-        return metadata.version("proteus")
-    except metadata.PackageNotFoundError:
-        pass
-
-    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
-    try:
-        with pyproject_path.open("rb") as pyproject_file:
-            pyproject = tomllib.load(pyproject_file)
-    except (OSError, tomllib.TOMLDecodeError):
-        logger.exception("Failed to read application version from %s", pyproject_path)
-        return "unknown"
-
-    project = pyproject.get("project", {})
-    if isinstance(project, dict):
-        version = project.get("version")
-        if isinstance(version, str) and version.strip():
-            return version.strip()
-
-    logger.error("Application version is missing from %s", pyproject_path)
-    return "unknown"
 
 
 _APP_VERSION = _load_app_version()
@@ -195,30 +169,6 @@ def _build_version_info() -> VersionInfo:
     )
 
 
-class SearchDependencies(NamedTuple):
-    """Search dependencies loaded at startup."""
-
-    lexicon: tuple[dict[str, Any], ...]
-    matrix: MatrixData
-    rules_registry: dict[str, dict[str, Any]]
-    search_index: phonology_search.KmerIndex
-    unigram_index: phonology_search.KmerIndex
-    lexicon_map: phonology_search.LexiconMap
-    ipa_index: phonology_search.IpaIndex
-    data_versions: DataVersions
-    profile: LanguageProfile | None = None
-
-
-class SearchDependenciesNotReadyError(RuntimeError):
-    """Represent a dependency-loading failure with an API-safe detail string."""
-
-    detail: str
-
-    def __init__(self, detail: str) -> None:
-        super().__init__(detail)
-        self.detail = detail
-
-
 def _validate_public_base_url_env() -> None:
     """Validate ``PROTEUS_PUBLIC_BASE_URL`` at startup, fail-fast on misconfig.
 
@@ -276,19 +226,6 @@ def _get_allowed_origins() -> list[str]:
     return [
         origin for origin in (item.strip() for item in raw_origins.split(",")) if origin
     ]
-
-
-def _summarize_query_for_logs(query: str) -> str:
-    """Return a redacted search-query identifier safe for routine logs."""
-    digest = hashlib.sha256(query.encode("utf-8")).hexdigest()[:12]
-    return f"len={len(query)} sha256={digest}"
-
-
-def _should_log_raw_search_query() -> bool:
-    """Return True only when raw search queries may appear in debug logs."""
-    return logger.isEnabledFor(logging.DEBUG) and _env_flag_enabled(
-        _LOG_RAW_QUERY_ENV_VAR
-    )
 
 
 # _env_flag_enabled is evaluated at import time here, not per-request.
@@ -707,7 +644,12 @@ def _load_search_dependencies(
     language: str = get_default_language_profile().language_id,
 ) -> SearchDependencies:
     """Load all cached search dependencies needed by /ready and /search."""
-    profile = get_language_profile(language)
+    try:
+        profile = get_language_profile(language)
+    except ValueError as err:
+        # Re-raise as a runner-defined subclass so both REST and MCP adapters
+        # can distinguish "unknown language" from other generic ValueErrors.
+        raise UnsupportedLanguageError(str(err)) from err
     try:
         lexicon = load_lexicon_entries(language)
     except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
@@ -836,7 +778,7 @@ async def search(
 
     try:
         deps = _load_search_dependencies(request.language)
-    except ValueError as err:
+    except UnsupportedLanguageError as err:
         logger.info("Rejected unsupported language %r: %s", request.language, err)
         raise HTTPException(status_code=400, detail="Unsupported language") from err
     except SearchDependenciesNotReadyError as err:
@@ -850,91 +792,25 @@ async def search(
 
     profile = deps.profile or get_default_language_profile()
     try:
-        if request.dialect_hint not in profile.supported_dialects:
-            allowed_dialects = ", ".join(
-                repr(dialect) for dialect in profile.supported_dialects
-            )
-            raise ValueError(
-                f"Invalid dialect_hint {request.dialect_hint!r}; expected one of "
-                f"({allowed_dialects})"
-            )
-        # The cached dependency bundle is reused across requests, so pass its
-        # named fields directly into the core search implementation.
-        search_kwargs: dict[str, Any] = {
-            "lexicon": deps.lexicon,
-            "matrix": deps.matrix,
-            "max_results": request.max_candidates,
-            "dialect": request.dialect_hint,
-            "language": profile.language_id,
-            "converter": profile.converter,
-            "index": deps.search_index,
-            "unigram_index": deps.unigram_index,
-            "prebuilt_lexicon_map": deps.lexicon_map,
-            "prebuilt_ipa_index": deps.ipa_index,
-            "phone_inventory": profile.phone_inventory,
-            "dialect_skeleton_builders": profile.dialect_skeleton_builders,
-            "similarity_fallback_limit": _API_FALLBACK_CANDIDATE_LIMIT,
-            "unigram_fallback_limit": _API_FALLBACK_CANDIDATE_LIMIT,
-        }
-        execution = phonology_search.search_execution(
-            request.query_form,
-            **search_kwargs,
+        outcome = run_search(
+            request,
+            deps=deps,
+            request_id=fastapi_request.state.request_id,
+            base_url=resolve_public_base_url(fastapi_request),
+            engine_version=_APP_VERSION,
+            ruleset_versions=_build_ruleset_versions(profile.language_id),
         )
-        results = execution.results
-        query_ipa = execution.query_ipa
-        query_mode = execution.query_mode
-    except ValueError as err:
-        logger.info("Rejected search query (%s): %s", query_log_label, err)
-        debug_query = (
-            request.query_form if _should_log_raw_search_query() else query_log_label
-        )
-        logger.debug(
-            "Full ValueError details for query %r",
-            debug_query,
-            exc_info=True,
-        )
-        detail = (
-            str(err)
-            if str(err).startswith("Invalid dialect_hint ")
-            else "Invalid search query"
-        )
-        raise HTTPException(status_code=400, detail=detail) from err
-    except OSError as err:
-        logger.exception("Search execution failed for query (%s)", query_log_label)
+    except InvalidDialectError as err:
+        raise HTTPException(status_code=400, detail=str(err)) from err
+    except InvalidSearchQueryError as err:
+        raise HTTPException(status_code=400, detail="Invalid search query") from err
+    except SearchExecutionError as err:
         raise HTTPException(
             status_code=500,
             detail="Search failed due to an internal error.",
         ) from err
 
-    search_response = SearchResponse(
-        query=request.query_form,
-        query_ipa=query_ipa,
-        query_mode=query_mode,
-        hits=[
-            _build_search_hit(
-                result,
-                query_ipa=query_ipa,
-                rules_registry=deps.rules_registry,
-                query_mode=query_mode,
-                lang=request.response_language,
-                query_form=request.query_form,
-                orthographic_note_builder=profile.orthographic_note_builder,
-            )
-            for result in results
-        ],
-        truncated=execution.truncated,
-        data_versions=deps.data_versions,
-        meta=build_response_meta(
-            request_id=fastapi_request.state.request_id,
-            request=request,
-            base_url=resolve_public_base_url(fastapi_request),
-            engine_version=_APP_VERSION,
-            data_versions=deps.data_versions,
-            # Echo is response metadata for reproducibility. It does not change
-            # the PROTEUS_LOG_RAW_SEARCH_QUERY guard used for server logs above.
-            ruleset_versions=_build_ruleset_versions(profile.language_id),
-        ),
-    )
+    search_response = outcome.response
     if request.legacy_language_alias_used:
         response.headers["Deprecation"] = "true"
         if app.docs_url:
@@ -1014,6 +890,15 @@ if _STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 else:
     logger.warning("Static assets directory not found at %s", _STATIC_DIR)
+
+
+# Public re-exports for MCP server and other external callers
+# Public engine version shared by REST, MCP, and external callers.
+APP_VERSION: str = _APP_VERSION
+# Public dependency loader for non-REST search surfaces.
+load_search_dependencies: Callable[[str], SearchDependencies] = _load_search_dependencies
+# Public ruleset-version builder for non-REST response metadata.
+build_ruleset_versions: Callable[[str], dict[str, str]] = _build_ruleset_versions
 
 
 def main() -> None:

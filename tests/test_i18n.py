@@ -15,10 +15,10 @@ from phonology.search import SearchResult
 @pytest.fixture
 def capture_lang(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
     """Patch the endpoint formatter and capture the forwarded lang argument."""
-    import api.main as api_main_module
+    from api import _search_runner
 
     captured: dict[str, str] = {}
-    original_build = api_main_module._build_search_hit
+    original_build = _search_runner._build_search_hit
 
     def patched_build(
         result,
@@ -38,7 +38,7 @@ def capture_lang(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
             **kwargs,
         )
 
-    monkeypatch.setattr(api_main_module, "_build_search_hit", patched_build)
+    monkeypatch.setattr(_search_runner, "_build_search_hit", patched_build)
     return captured
 
 
