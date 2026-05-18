@@ -187,18 +187,22 @@ not a directory, or resolves through a symlinked path component. The symlink
 restriction prevents path traversal and privilege-escalation risks via
 symlink-swapped directories.
 
-## API
+## REST API
+
+Proteus exposes a Phase 2 REST API for search, language-profile discovery, and
+runtime version metadata. Full endpoint and schema documentation lives in
+[`docs/API.md`](docs/API.md), with the committed OpenAPI artifact at
+[`docs/api/openapi.json`](docs/api/openapi.json).
+
+日本語要約: REST API の詳細な schema とエラー仕様は `docs/API.md` に移動しました。
+README では最小の利用例だけを示します。
 
 ### `POST /search`
 
-```json
-{
-  "query": "ἄνθρωπος",
-  "language": "ancient_greek",
-  "dialect": "attic",
-  "max_results": 20,
-  "response_language": "en"
-}
+```bash
+curl -sS http://127.0.0.1:8000/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query_form":"λόγος","language":"ancient_greek","dialect_hint":"attic","max_candidates":5,"response_language":"en"}'
 ```
 
 `language` selects the phonological profile and defaults to `"ancient_greek"`.
@@ -208,49 +212,37 @@ compatibility, legacy `language: "en"` or `"ja"` is still treated as the
 response prose language, but responses include deprecation headers; new clients
 should use `response_language`.
 
-**Response Model Example**
+Search responses include structured candidates in `hits`, explanatory
+`rules_applied`, candidate-level `orthographic_notes`, and a Phase 2 `meta`
+envelope with `api_version`, `schema_version`, `engine_version`, `request_id`,
+`verification_url`, and `request_echo`. The top-level `data_versions` field is
+kept for compatibility and mirrors `meta.data_versions`.
 
-```json
-{
-  "query": "ἄνθρωπος",
-  "query_ipa": "ántʰrɔːpos",
-  "hits": [
-    {
-      "headword": "ἀνήρ",
-      "ipa": "anɛːr",
-      "distance": 0.18,
-      "rules_applied": [
-        {
-          "rule_id": "VSH-001",
-          "rule_name": "Ionic long alpha to eta shift",
-          "from_phone": "aː",
-          "to_phone": "ɛː",
-          "position": 1
-        }
-      ],
-      "orthographic_notes": [],
-      "explanation": "The match reflects the same lexical root with an Ionic vowel correspondence. The rules_applied entry records the segment-level eta shift behind that summary."
-    }
-  ]
-}
+`distance` is a normalized phonological distance on a 0.0-1.0 scale: `0.0`
+means an exact phonological match, and smaller values indicate closer
+similarity. Values below `0.2` are high-similarity matches, around `0.2-0.5`
+are plausible dialectal or historical matches, and values above `0.5` are
+relatively distant.
+
+`rules_applied` records phonological rule steps. `orthographic_notes` records
+writing-system, spelling, or beginner-facing comments and should not be merged
+into `rules_applied`.
+
+### Discovery and probes
+
+```bash
+curl -sS http://127.0.0.1:8000/languages
+curl -sS http://127.0.0.1:8000/version
+curl -sS http://127.0.0.1:8000/health
+curl -sS http://127.0.0.1:8000/ready
 ```
 
-`distance` is a normalized phonological distance on a 0.0-1.0 scale: `0.0` means an exact phonological match, and smaller values indicate closer similarity. As a rule of thumb, values below `0.2` are high-similarity matches, around `0.2-0.5` are plausible dialectal or historical matches, and values above `0.5` are relatively distant.
-
-Each object in `rules_applied` records one explanatory rule step: `rule_id` is the stable identifier, `rule_name` is the display label, `from_phone` and `to_phone` capture the segment change, and `position` is the zero-based aligned phone index where that step applies.
-
-Each object in `orthographic_notes` records a candidate-level writing-system
-comment. These notes explain orthographic correspondences, historical spelling
-systems, or beginner reading aids; they are not phonological rules and should
-not be merged into `rules_applied` or `explanation`.
-
-For example, a candidate for `παιδίο` may include an orthographic note whose
-`normalized_form` is `παιδίου` and whose message says that the form may
-correspond to `παιδίου (paidiou)`.
-
-`hits[].explanation` is the human-readable companion to `hits[].rules_applied` and the API field `SearchHit.explanation`. It is a readable plain-text string, not HTML or Markdown, because the packaged frontend renders it via `textContent` in `src/web/index.html`.
-
-Typical `explanation` content is a short 1-2 sentence summary of why the hit is plausible: a compact etymological note, a summary of the rule sequence already listed in `rules_applied`, or a brief statement about the dialectal correspondence. It should stay concise, usually one short sentence and at most two, and it should not embed reference links, raw markup, or confidence-score fields. If richer provenance is needed later, add separate structured fields instead of overloading `explanation`.
+- `GET /languages` lists registered language profiles. Ancient Greek is the
+  bundled pilot profile.
+- `GET /version` returns engine, API, schema, build, Git, Python, and MCP
+  server version metadata.
+- `GET /health` is a liveness probe.
+- `GET /ready` verifies that search dependencies are available.
 
 **Response compatibility**
 
@@ -260,9 +252,22 @@ because typical HTTP/JSON clients ignore unknown response keys by default.
 Removing existing top-level fields or changing their types remains a breaking
 change.
 
-### `GET /health`
+## MCP Server
 
-Liveness probe — returns `{"status": "ok"}`.
+Proteus also ships a Phase 2 MCP prototype over stdio transport. Full MCP
+documentation lives in [`docs/MCP.md`](docs/MCP.md), and the committed tool
+schema artifact lives at [`docs/mcp/tools.json`](docs/mcp/tools.json).
+
+```bash
+proteus-mcp
+```
+
+The current tool is `ancient_phonology.search`. It accepts `query_form`,
+`source_language`, `dialect_hint`, `max_candidates`, and `response_language`,
+then returns ranked `candidates` plus the shared `ResponseMeta` envelope.
+
+Claude Desktop configuration example:
+[`docs/mcp/example-claude-desktop.json`](docs/mcp/example-claude-desktop.json).
 
 ## Deployment & Operations
 
