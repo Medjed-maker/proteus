@@ -1,6 +1,6 @@
 # API Codemap
 
-**Last Updated:** 2026-05-02
+**Last Updated:** 2026-05-17
 **Entry Points:** `src/api/main.py` (FastAPI app instance)
 
 ## Architecture
@@ -9,6 +9,13 @@
 HTTP REQUEST
     ↓
 ┌─────────────────────────────────────────────────────────────┐
+│  Request ID Middleware (_add_request_id)                      │
+│  - Accepts valid X-Request-ID or generates UUID4 hex          │
+│  - Adds X-Request-ID to every response                        │
+├─────────────────────────────────────────────────────────────┤
+│  Security Headers Middleware                                  │
+│  - X-Content-Type-Options, X-Frame-Options, Referrer-Policy  │
+├─────────────────────────────────────────────────────────────┤
 │  CORS Middleware (CORSMiddleware)                            │
 │  - Allow-Origins from PROTEUS_ALLOWED_ORIGINS env var       │
 │  - Methods: GET, POST, OPTIONS                              │
@@ -18,11 +25,14 @@ HTTP REQUEST
 │  FASTAPI ROUTES                                             │
 ├─────────────────────────────────────────────────────────────┤
 │ GET  /              → root()         → HTMLResponse (frontend)
+│ GET  /changelog     → changelog()    → HTMLResponse (changelog)
 │ POST /search        → search()       → SearchResponse JSON
+│ GET  /languages     → languages()    → LanguagesResponse JSON
+│ GET  /version       → version()      → VersionInfo JSON
 │ GET  /health        → health()       → {"status": "ok"}
 │ GET  /ready         → ready()        → {"status": "ok"}
 │ GET  /static/*      → StaticFiles    → CSS, JS, images
-│ GET  /docs          → Swagger UI     → OpenAPI documentation
+│ GET  /docs          → Swagger UI     → gated by PROTEUS_ENABLE_API_DOCS
 └─────────────────────────────────────────────────────────────┘
     ↓
 HTTP RESPONSE (JSON or HTML)
@@ -30,13 +40,16 @@ HTTP RESPONSE (JSON or HTML)
 
 ## Endpoints
 
-| Endpoint    | Method | Handler     | Input                      | Output                      | Behavior                                                                                     |
-| ----------- | ------ | ----------- | -------------------------- | --------------------------- | -------------------------------------------------------------------------------------------- |
-| `/`         | GET    | `root()`    | None                       | `HTMLResponse`              | Serves `src/web/index.html` (frontend)                                                       |
-| `/search`   | POST   | `search()`  | `SearchRequest` (Pydantic) | `SearchResponse` (Pydantic) | Three-stage pipeline with full dependency loading, query normalization, dialect-aware search |
-| `/health`   | GET    | `health()`  | None                       | `{"status": "ok"}`          | Liveness probe (always succeeds if server is running)                                        |
-| `/ready`    | GET    | `ready()`   | None                       | `{"status": "ok"}`          | Readiness probe (checks all search dependencies loaded; returns 503 if not)                  |
-| `/static/*` | GET    | StaticFiles | Any                        | Static file                 | Maps `src/web/static/` directory                                                             |
+| Endpoint     | Method   | Handler                           | Input                      | Output                         | Behavior                                                                                     |
+| ------------ | -------- | --------------------------------- | -------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `/`          | GET/HEAD | `root()` / `root_head()`          | None                       | `HTMLResponse` / empty response | Serves `src/web/index.html` (frontend)                                                       |
+| `/changelog` | GET/HEAD | `changelog()` / `changelog_head()` | None                       | `HTMLResponse` / empty response | Serves packaged changelog HTML                                                               |
+| `/search`    | POST     | `search()`                        | `SearchRequest` (Pydantic) | `SearchResponse` (Pydantic)     | Three-stage pipeline with full dependency loading, query normalization, dialect-aware search |
+| `/languages` | GET/HEAD | `languages()` / `languages_head()` | None                       | `LanguagesResponse`             | Lists registered language profiles and runtime metadata                                      |
+| `/version`   | GET/HEAD | `version()` / `version_head()`    | None                       | `VersionInfo`                   | Returns engine/API/schema/build/runtime version metadata                                     |
+| `/health`    | GET/HEAD | `health()` / `health_head()`      | None                       | `{"status": "ok"}`              | Liveness probe                                                                               |
+| `/ready`     | GET      | `ready()`                         | None                       | `{"status": "ok"}`              | Readiness probe (checks all search dependencies loaded; returns 503 if not)                  |
+| `/static/*`  | GET      | StaticFiles                       | Any                        | Static file                     | Maps `src/web/static/` directory                                                             |
 
 ## Pydantic Models
 
@@ -46,8 +59,11 @@ HTTP RESPONSE (JSON or HTML)
 
 ```
 - query_form: str (non-empty after strip_whitespace)
+- language: str = "ancient_greek"
 - dialect_hint: Literal["attic", "koine"] = "attic"
 - max_candidates: int (default 20, range 1-100)
+- response_language: Literal["en", "ja"] = "en"
+- orthography_hint: str | None (deprecated; accepted but ignored)
 ```
 
 ### Outbound (Response)
@@ -59,6 +75,69 @@ HTTP RESPONSE (JSON or HTML)
 - query_ipa: str (normalized IPA transcription)
 - query_mode: Literal["Full-form", "Short-query", "Partial-form"]
 - hits: list[SearchHit]
+- truncated: bool
+- data_versions: DataVersions
+- meta: ResponseMeta
+```
+
+**`ResponseMeta`**
+
+```text
+- api_version: str
+- schema_version: str
+- engine_version: str
+- data_versions: DataVersions
+- ruleset_versions: dict[str, str]
+- request_id: str
+- timestamp: str
+- verification_url: str
+- request_echo: RequestEcho | None
+```
+
+Note: `SearchResponse` includes a top-level `data_versions` field that mirrors `meta.data_versions` for backward compatibility. This duplicate is intentional.
+
+**`RequestEcho`**
+
+```text
+- query_form: str
+- language: str
+- dialect_hint: str
+- max_candidates: int
+- response_language: Literal["en", "ja"]
+```
+
+**`LanguageInfo`**
+
+```text
+- language_id: str
+- display_name: str
+- default_dialect: str
+- supported_dialects: list[str]
+- status: Literal["pilot", "experimental", "stable"]
+- ruleset_version: str
+- lexicon_schema_version: str
+- matrix_version: str
+- description: str
+```
+
+**`LanguagesResponse`**
+
+```text
+- languages: list[LanguageInfo]
+- meta: VersionInfo
+```
+
+**`VersionInfo`**
+
+```text
+- engine_version: str
+- api_version: str
+- schema_version: str
+- rule_schema_version: str
+- build_timestamp: str
+- git_sha: str
+- python_version: str
+- mcp_server_version: str
 ```
 
 **`SearchHit`**
@@ -138,9 +217,9 @@ therefore not automatically citation-ready.
 ## Data Flow: POST /search
 
 ```
-HTTP POST { "query_form": "λόγος", "dialect_hint": "attic", "max_candidates": 100 }
+HTTP POST { "query_form": "λόγος", "dialect_hint": "attic", "max_candidates": 5 }
     ↓ Pydantic validation
-SearchRequest(query_form="λόγος", dialect_hint="attic", max_candidates=100)
+SearchRequest(query_form="λόγος", dialect_hint="attic", max_candidates=5)
     ↓
 search(request: SearchRequest):
     1. _load_search_dependencies()  [cached]
@@ -172,7 +251,8 @@ search(request: SearchRequest):
          • Use [] for orthographic_notes when the profile has no builder or no note matches
          • Promote candidate_bucket to "Supported" if any orthographic_correspondence note present
          • Return SearchHit (Pydantic model)
-    7. Return SearchResponse([SearchHit, SearchHit, ...])
+    7. Build ResponseMeta (request id, versions, request echo, verification URL)
+    8. Return SearchResponse([SearchHit, SearchHit, ...], meta=ResponseMeta)
     ↓
 HTTP 200 JSON
 {
@@ -212,9 +292,45 @@ HTTP 200 JSON
       "orthographic_notes": [],
       "explanation": "Applied CCH-001 to explain the consonant correspondence; distance 0.250."
     }
-  ]
+  ],
+  "meta": {
+    "api_version": "1.0",
+    "schema_version": "1.0.0",
+    "engine_version": "<engine-version>",
+    "data_versions": {
+      "lexicon": "2.0.0",
+      "matrix": "1.0.0",
+      "rules": "0.1.0"
+    },
+    "ruleset_versions": {},
+    "request_id": "8e52f0dc35b2427c944f79d5c57ef3c8",
+    "timestamp": "2024-01-01T00:00:00Z",
+    "verification_url": "http://127.0.0.1:8000/?q=%CE%BB%CF%8C%CE%B3%CE%BF%CF%82&language=ancient_greek&dialect=attic&max_candidates=5&response_language=en",
+    "request_echo": {
+      "query_form": "λόγος",
+      "language": "ancient_greek",
+      "dialect_hint": "attic",
+      "max_candidates": 5,
+      "response_language": "en"
+    }
+  }
 }
 ```
+
+## Request Metadata
+
+`_add_request_id` runs as HTTP middleware and stores the accepted/generated
+request id on `request.state.request_id`. `search()` passes that value into the
+shared search runner so `SearchResponse.meta.request_id` and the
+`X-Request-ID` response header stay aligned.
+
+`api._request_context` owns public-base-url resolution, verification URL
+construction, request-id generation, and request echo construction. REST uses
+the incoming FastAPI request base URL when `PROTEUS_PUBLIC_BASE_URL` is unset.
+
+Unhandled exceptions are caught by `_unhandled_exception_x_request_id`
+(`src/api/main.py`), which falls back to `request.state.request_id` or a
+freshly generated id so error responses still emit `X-Request-ID`.
 
 ## Dependency Loading
 

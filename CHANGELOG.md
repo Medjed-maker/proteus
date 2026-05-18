@@ -4,8 +4,32 @@
 
 ### Phase 2: REST API and MCP Prototype
 
-- Reserved the Phase 2 baseline and compatibility guardrails for REST API
-  stabilization and the MCP prototype.
+Phase 2 REST API and MCP prototype surface is now stable. See
+`docs/API.md` and `docs/MCP.md` for the full contract.
+
+#### Added (previously delivered in this phase)
+- `GET /languages` and `GET /version` endpoints.
+- Search response `meta` envelope (`api_version`, `schema_version`,
+  `engine_version`, `request_id`, `timestamp`, `verification_url`,
+  `request_echo`, `data_versions`, `ruleset_versions`).
+- `X-Request-ID` middleware and response header.
+- Deterministic `meta.verification_url` derived from the validated request.
+- `proteus-mcp` console script (stdio MCP server) exposing the
+  `ancient_phonology.search` tool.
+
+#### Documentation
+- Added `docs/API.md` describing the full REST contract, error responses,
+  reproducibility, deprecation policy, and environment variables.
+- Added `docs/MCP.md` describing the MCP prototype, the
+  `ancient_phonology.search` tool, and Claude Desktop config example.
+- Committed OpenAPI artifact at `docs/api/openapi.json` and MCP tool schema
+  at `docs/mcp/tools.json`, with drift-check scripts under `scripts/`.
+- Added `docs/CODEMAPS/mcp.md`; updated `docs/CODEMAPS/api.md` and the
+  README REST API / MCP Server sections.
+
+#### Compatibility
+- Preserved the top-level `data_versions` field in `SearchResponse`; it
+  mirrors `meta.data_versions`.
 
 ### Breaking Changes
 
