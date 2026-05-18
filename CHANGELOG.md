@@ -2,12 +2,14 @@
 
 ## Unreleased
 
-### Phase 2: REST API and MCP Prototype
+## [0.3.0] - 2026-05-18
 
-Phase 2 REST API and MCP prototype surface is now stable. See
-`docs/API.md` and `docs/MCP.md` for the full contract.
+Phase 2 REST API and MCP prototype surface is now stable. See `docs/API.md`
+and `docs/MCP.md` for the full Phase 2 contract. This release also finalizes
+the Phase 0 core/plugin separation and Phase 1 rule schema validation work.
 
-#### Added (previously delivered in this phase)
+### Added
+
 - `GET /languages` and `GET /version` endpoints.
 - Search response `meta` envelope (`api_version`, `schema_version`,
   `engine_version`, `request_id`, `timestamp`, `verification_url`,
@@ -16,20 +18,28 @@ Phase 2 REST API and MCP prototype surface is now stable. See
 - Deterministic `meta.verification_url` derived from the validated request.
 - `proteus-mcp` console script (stdio MCP server) exposing the
   `ancient_phonology.search` tool.
+- Entry-level review metadata validation (`review_status`, `citation_ready`,
+  `source_type`, `source_ids`, `references`, `reference_urls`, `review_notes`,
+  `reviewed_by`, `reviewed_at`) for Ancient Greek runtime
+  orthographic-note YAML.
+- `ReviewStatus` and `SourceType` literal type aliases in the Ancient Greek
+  orthography-note module.
 
-#### Documentation
-- Added `docs/API.md` describing the full REST contract, error responses,
-  reproducibility, deprecation policy, and environment variables.
-- Added `docs/MCP.md` describing the MCP prototype, the
-  `ancient_phonology.search` tool, and Claude Desktop config example.
-- Committed OpenAPI artifact at `docs/api/openapi.json` and MCP tool schema
-  at `docs/mcp/tools.json`, with drift-check scripts under `scripts/`.
-- Added `docs/CODEMAPS/mcp.md`; updated `docs/CODEMAPS/api.md` and the
-  README REST API / MCP Server sections.
+### Changed
 
-#### Compatibility
 - Preserved the top-level `data_versions` field in `SearchResponse`; it
   mirrors `meta.data_versions`.
+- Runtime validation now keeps orthographic-note `references` and `source_ids`
+  URL-free, restricts `reference_urls` to `http` / `https`, and rejects
+  `evidence_excerpt` in packaged YAML.
+
+### Deprecated
+
+- `SearchRequest.orthography_hint` is marked `deprecated: true` in the OpenAPI
+  schema. The field is still accepted for backward compatibility but is
+  ignored during note generation. It will be removed in a future release.
+- `build_orthographic_notes(orthography_hint=...)` now emits a
+  `DeprecationWarning` and ignores the argument.
 
 ### Breaking Changes
 
@@ -50,25 +60,16 @@ Phase 2 REST API and MCP prototype surface is now stable. See
   the Phase 0 core/plugin separation; the search-side shim is intentionally
   language-agnostic.
 
-### Deprecated
+### Documentation
 
-- `SearchRequest.orthography_hint` is marked `deprecated: true` in the OpenAPI
-  schema. The field is still accepted for backward compatibility but is
-  ignored during note generation. It will be removed in a future release.
-- `build_orthographic_notes(orthography_hint=...)` now emits a
-  `DeprecationWarning` and ignores the argument.
-
-### Added
-
-- Entry-level review metadata validation (`review_status`, `citation_ready`,
-  `source_type`, `source_ids`, `references`, `reference_urls`, `review_notes`,
-  `reviewed_by`, `reviewed_at`) for Ancient Greek runtime
-  orthographic-note YAML.
-- `ReviewStatus` and `SourceType` literal type aliases in the Ancient Greek
-  orthography-note module.
-- Runtime validation now keeps orthographic-note `references` and `source_ids`
-  URL-free, restricts `reference_urls` to `http` / `https`, and rejects
-  `evidence_excerpt` in packaged YAML.
+- Added `docs/API.md` describing the full REST contract, error responses,
+  reproducibility, deprecation policy, and environment variables.
+- Added `docs/MCP.md` describing the MCP prototype, the
+  `ancient_phonology.search` tool, and Claude Desktop config example.
+- Committed OpenAPI artifact at `docs/api/openapi.json` and MCP tool schema
+  at `docs/mcp/tools.json`, with drift-check scripts under `scripts/`.
+- Added `docs/CODEMAPS/mcp.md`; updated `docs/CODEMAPS/api.md` and the
+  README REST API / MCP Server sections.
 
 ### Infrastructure
 

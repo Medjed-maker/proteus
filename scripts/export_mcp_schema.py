@@ -26,7 +26,7 @@ _OUTPUT_SCHEMAS: dict[str, Callable[[], dict[str, Any]]] = {
 }
 
 
-async def _build_schema() -> dict[str, Any]:
+async def build_schema() -> dict[str, Any]:
     """Return the current MCP tool schema payload.
 
     Lists tools from ``app.list_tools()``, converts each tool into a
@@ -69,7 +69,7 @@ def main() -> int:
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
 
-    payload = anyio.run(_build_schema)
+    payload = anyio.run(build_schema)
     rendered = _json_bytes(payload, indent=args.indent)
 
     if args.check:
