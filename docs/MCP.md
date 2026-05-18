@@ -165,3 +165,12 @@ Check for drift without rewriting:
 ```bash
 uv run python scripts/export_mcp_schema.py --check
 ```
+
+## Smoke Testing
+
+Phase 2 acceptance is verified by the automated test suite
+(`tests/test_mcp_search_tool.py`, `tests/test_mcp_schema.py`,
+`tests/test_packaging.py`) and by `scripts/export_mcp_schema.py --check` drift
+detection in CI. End-to-end smoke testing against a real MCP client
+(for example Claude Desktop) is performed by an operator after release using
+the configuration in [`mcp/example-claude-desktop.json`](mcp/example-claude-desktop.json).

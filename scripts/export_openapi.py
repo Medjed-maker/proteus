@@ -17,7 +17,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by direct script usa
 DEFAULT_OUTPUT = Path("docs/api/openapi.json")
 
 
-def _schema_text(*, indent: int) -> str:
+def schema_text(*, indent: int) -> str:
     """Return the current OpenAPI schema serialized deterministically."""
     from api.main import app
 
@@ -79,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     args = _parse_args(argv)
     output: Path = args.output
-    generated = _schema_text(indent=args.indent)
+    generated = schema_text(indent=args.indent)
 
     if args.check:
         return _check_artifact(output, generated)
