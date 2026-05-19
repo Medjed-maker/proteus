@@ -95,6 +95,8 @@
         sectionMatchedRules: "Matched rules",
         sectionUncatalogued: "Uncatalogued differences",
         sectionOrthographicNote: "Orthographic note",
+        orthographicCurrentCandidate: "Current candidate",
+        orthographicAlternativeReading: "Alternative orthographic reading:",
         sectionAlignment: "Alignment",
         sectionWhyCandidate: "Why this candidate?",
         diffVisible: "Differences visible in full alignment.",
@@ -687,11 +689,41 @@
       return details;
     }
 
-    function renderOrthographicNotes(notes) {
+    let _orthographicNoteIdCounter = 0;
+    function _allocateOrthographicNoteId(prefix) {
+      _orthographicNoteIdCounter += 1;
+      return prefix + "-" + _orthographicNoteIdCounter;
+    }
+
+    function renderOrthographicNotes(notes, currentCandidate) {
       if (!Array.isArray(notes) || notes.length === 0) return null;
 
       const list = document.createElement("div");
       list.className = "mt-2 space-y-2";
+
+      if (typeof currentCandidate === "string" && currentCandidate.trim()) {
+        const current = document.createElement("div");
+        current.className = "border-l-2 border-parchment-300 pl-3";
+        current.setAttribute("role", "group");
+
+        const currentLabelId = _allocateOrthographicNoteId("ortho-current");
+        const currentLabel = document.createElement("div");
+        currentLabel.className = "text-xs font-medium uppercase tracking-wide text-ink-muted";
+        currentLabel.id = currentLabelId;
+        currentLabel.textContent = t("orthographicCurrentCandidate");
+        current.appendChild(currentLabel);
+        current.setAttribute("aria-labelledby", currentLabelId);
+
+        const currentText = document.createElement("p");
+        currentText.className = "mt-1 text-sm text-ink break-words";
+        const candidate = document.createElement("strong");
+        candidate.className = "font-semibold";
+        candidate.textContent = currentCandidate.trim();
+        currentText.appendChild(candidate);
+        current.appendChild(currentText);
+
+        list.appendChild(current);
+      }
 
       notes.forEach((note) => {
         const item = document.createElement("div");
@@ -716,10 +748,27 @@
         if (typeof note?.normalized_form === "string" && note.normalized_form.trim()) {
           const forms = document.createElement("p");
           forms.className = "mt-2 text-sm text-ink break-words";
+          const normalizedForm = note.normalized_form.trim();
+          const candidateForm =
+            typeof currentCandidate === "string" ? currentCandidate.trim() : "";
+          const isAlternativeReading =
+            note.kind === "orthographic_correspondence" &&
+            (!candidateForm || normalizedForm !== candidateForm);
+          if (isAlternativeReading) {
+            forms.setAttribute("role", "group");
+
+            const leadId = _allocateOrthographicNoteId("ortho-alternative");
+            const lead = document.createElement("span");
+            lead.className = "mr-1 text-ink-muted";
+            lead.id = leadId;
+            lead.textContent = t("orthographicAlternativeReading");
+            forms.appendChild(lead);
+            forms.setAttribute("aria-labelledby", leadId);
+          }
 
           const normalized = document.createElement("strong");
           normalized.className = "font-semibold";
-          normalized.textContent = note.normalized_form.trim();
+          normalized.textContent = normalizedForm;
           forms.appendChild(normalized);
 
           if (typeof note.romanization === "string" && note.romanization.trim()) {
@@ -770,7 +819,7 @@
         container.appendChild(renderRuleRows(observed));
       }
 
-      const orthographicNotes = renderOrthographicNotes(hit.orthographic_notes);
+      const orthographicNotes = renderOrthographicNotes(hit.orthographic_notes, hit.headword);
       if (orthographicNotes) {
         container.appendChild(renderSectionTitle(t("sectionOrthographicNote")));
         container.appendChild(orthographicNotes);
@@ -916,6 +965,7 @@
     function renderResults(data) {
       const container = document.getElementById("results");
       container.replaceChildren();
+      _orthographicNoteIdCounter = 0;
 
       if (!data || !Array.isArray(data.hits)) {
         renderStatusMessage(t("noResults"));
