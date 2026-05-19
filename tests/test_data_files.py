@@ -8,6 +8,7 @@ import math
 import unicodedata
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import pytest
 import yaml
@@ -1207,6 +1208,23 @@ def test_representative_morphophonemic_rules_match_expected_content(
 RULE_SCHEMA_PATH = (
     ROOT_DIR / "data" / "schemas" / "phonology_rule_file.schema.json"
 )
+
+
+def test_rule_schema_id_is_well_formed_https_url() -> None:
+    """The rule schema $id must be a well-formed HTTPS JSON Schema URL.
+
+    Syntactic check only — does not perform an HTTP fetch (CI must stay
+    offline-safe). Guards against accidental switch to a relative path or
+    a non-HTTPS scheme that would break $ref resolution downstream.
+    """
+    schema = _load_json(RULE_SCHEMA_PATH)
+    assert "$id" in schema, "Rule schema must have a '$id' field"
+    schema_id = schema["$id"]
+    parsed = urlparse(schema_id)
+
+    assert parsed.scheme == "https", f"Schema $id must use HTTPS, got: {parsed.scheme}"
+    assert parsed.netloc, f"Schema $id must have a netloc (host), got: {schema_id}"
+    assert parsed.path.endswith(".schema.json"), f"Schema $id path must end with .schema.json, got: {parsed.path}"
 
 
 @pytest.fixture

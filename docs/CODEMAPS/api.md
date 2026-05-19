@@ -203,6 +203,8 @@ systems, spelling conventions, normalized-form correspondences, and
 beginner-facing reading aids rather than phonological rule steps. However,
 `orthographic_correspondence` notes are an exception: they affect
 `candidate_bucket` (see **`candidate_bucket` determination** above).
+For `παιδίο`, the current candidate can remain `παιδίον` while the note
+separately presents the alternative orthographic reading `παιδίου (paidiou)`.
 
 `references` contains short citation strings loaded from runtime orthography
 data when available. These strings are intentionally URL-free; runtime data

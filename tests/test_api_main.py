@@ -16,6 +16,7 @@ from pydantic import ValidationError
 from api import main as api_main
 from api import _hit_formatting as api_hit_formatting
 from api._models import OrthographicNote, RuleStep, SearchHit, SearchRequest
+from api._request_context import is_valid_request_id
 from phonology import search as search_module
 from phonology.explainer import RuleApplication
 from phonology.profiles import (
@@ -1603,6 +1604,47 @@ class TestSearchEndpoint:
         assert "CCH-001" in payload["hits"][0]["explanation"]
         assert "distance 0.250" in payload["hits"][0]["explanation"]
 
+    def test_search_response_includes_meta_envelope(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+
+        response = client.post(
+            "/search",
+            json={
+                "query_form": "λόγος",
+                "dialect_hint": "attic",
+                "max_candidates": 3,
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        meta = payload["meta"]
+        assert "X-Request-ID" in response.headers, "X-Request-ID header should be present"
+        assert meta["engine_version"] == api_main._APP_VERSION
+        assert meta["api_version"] == api_main.API_VERSION
+        assert meta["schema_version"] == api_main.SCHEMA_VERSION
+        assert meta["request_id"] == response.headers["X-Request-ID"]
+        assert meta["data_versions"] == payload["data_versions"]
+        assert meta["request_echo"]["query_form"] == "λόγος"
+
+    def test_search_response_x_request_id_header_present(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mock_search_dependencies(monkeypatch)
+
+        response = client.post(
+            "/search",
+            json={"query_form": "λόγος", "dialect_hint": "attic"},
+        )
+
+        assert response.status_code == 200
+        request_id = response.headers["X-Request-ID"]
+        assert is_valid_request_id(request_id)
+        assert request_id == request_id.lower()
+        assert request_id == response.json()["meta"]["request_id"]
+
     def test_search_returns_orthographic_notes_for_curated_correspondence(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1645,8 +1687,14 @@ class TestSearchEndpoint:
         assert notes[0]["normalized_form"] == "παιδίου"
         assert notes[0]["romanization"] == "paidiou"
         assert notes[0]["messages"] == [
-            "παιδίο may correspond to normalized form παιδίου (paidiou)."
+            "As an alternative orthographic reading, this form may correspond to "
+            "παιδίου (paidiou).",
         ]
+        assert all(
+            "pre-403/2 BCE" not in message
+            for note in notes
+            for message in note["messages"]
+        )
         assert all("review_status" not in note for note in notes)
         assert all("citation_ready" not in note for note in notes)
         assert response.json()["hits"][0]["candidate_bucket"] == "Supported"
@@ -1737,9 +1785,10 @@ class TestSearchEndpoint:
             for message in note["messages"]
         ]
         assert (
-            "παιδίο は正規化形 παιδίου (paidiou) に対応する可能性があります。"
+            "別の表記上の読解として、この形は παιδίου (paidiou) に対応する可能性があります。"
             in messages
         )
+        assert not any("紀元前403/2年" in message for message in messages)
 
     def test_search_accepts_pre_403_2_attic_orthography_hint_without_note_fallback(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch

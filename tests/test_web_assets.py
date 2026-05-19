@@ -70,31 +70,56 @@ def test_orthographic_note_translation_key_present_in_fallback_html(
 
     assert translations_data["en"]["sectionOrthographicNote"] == "Orthographic note"
     assert translations_data["ja"]["sectionOrthographicNote"] == "表記体系コメント"
+    assert translations_data["en"]["orthographicCurrentCandidate"] == "Current candidate"
+    assert translations_data["ja"]["orthographicCurrentCandidate"] == "現在候補"
+    assert (
+        translations_data["en"]["orthographicAlternativeReading"]
+        == "Alternative orthographic reading:"
+    )
+    assert translations_data["ja"]["orthographicAlternativeReading"] == "別の表記上の読解:"
     assert 'sectionOrthographicNote: "Orthographic note"' in html
+    assert 'orthographicCurrentCandidate: "Current candidate"' in html
+    assert 'orthographicAlternativeReading: "Alternative orthographic reading:"' in html
     assert "orthographicNoteEmpty" not in html
 
 
 def test_frontend_renders_orthographic_notes_before_alignment() -> None:
     html = FRONTEND_HTML_PATH.read_text(encoding="utf-8")
 
-    assert "function renderOrthographicNotes(notes)" in html
+    assert "function renderOrthographicNotes(notes, currentCandidate)" in html
     assert "if (!Array.isArray(notes) || notes.length === 0) return null;" in html
-    assert "renderOrthographicNotes(hit.orthographic_notes)" in html
+    assert "renderOrthographicNotes(hit.orthographic_notes, hit.headword)" in html
+    renderer_start = html.index(
+        "function renderOrthographicNotes(notes, currentCandidate)"
+    )
+    renderer_end = html.index("function splitRules(hit)")
     assert (
         "hit.explanation"
-        not in html[
-            html.index("function renderOrthographicNotes(notes)") : html.index(
-                "function splitRules(hit)"
-            )
-        ]
+        not in html[renderer_start:renderer_end]
     )
-    orthographic_renderer = html[
-        html.index("function renderOrthographicNotes(notes)") : html.index(
-            "function splitRules(hit)"
-        )
-    ]
+    orthographic_renderer = html[renderer_start:renderer_end]
     assert "references" not in orthographic_renderer
     assert "confidence" not in orthographic_renderer
+    assert 'note.kind === "orthographic_correspondence"' in orthographic_renderer
+    assert (
+        'const normalizedForm = note.normalized_form.trim();'
+        in orthographic_renderer
+    )
+    assert (
+        'const candidateForm ='
+        in orthographic_renderer
+    )
+    assert (
+        '(!candidateForm || normalizedForm !== candidateForm)'
+        in orthographic_renderer
+    )
+    assert (
+        'lead.textContent = t("orthographicAlternativeReading")'
+        in orthographic_renderer
+    )
+    assert orthographic_renderer.index(
+        'const isAlternativeReading ='
+    ) < orthographic_renderer.index('lead.textContent = t("orthographicAlternativeReading")')
 
     append_body = html[
         html.index("function appendCardBody") : html.index(
@@ -102,7 +127,7 @@ def test_frontend_renders_orthographic_notes_before_alignment() -> None:
         )
     ]
     assert append_body.index('t("sectionMatchedRules")') < append_body.index(
-        "renderOrthographicNotes(hit.orthographic_notes)"
+        "renderOrthographicNotes(hit.orthographic_notes, hit.headword)"
     )
     assert append_body.index('t("sectionOrthographicNote")') < append_body.index(
         't("sectionAlignment")'

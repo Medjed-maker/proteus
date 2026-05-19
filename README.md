@@ -227,6 +227,8 @@ relatively distant.
 `rules_applied` records phonological rule steps. `orthographic_notes` records
 writing-system, spelling, or beginner-facing comments and should not be merged
 into `rules_applied`.
+For example, `παιδίο` can rank the current candidate `παιδίον` while the
+orthographic note separately presents the alternative reading `παιδίου (paidiou)`.
 
 ### Discovery and probes
 

@@ -48,8 +48,8 @@ Phase 0 (core/plugin 分離) と Phase 1 (rule schema v0.1) が完了し、`POST
 
 ROADMAP `docs/ROADMAP.md` lines 91-96 の受け入れ基準と本 plan のマッピング。章 8 でこの表が緑になることが Phase 2 完了条件。
 
-- [ ] API returns structured candidates → 既存 `POST /search` (章 0 baseline で確認、章 1 で envelope を追加しても shape は backwards-compatible)。
-- [ ] API returns applied rules and explanations → 既存 `SearchHit.rules_applied` / `explanation` (章 0 baseline で確認)。
+- [x] API returns structured candidates → 既存 `POST /search` (章 0 baseline で確認、章 1 で envelope を追加しても shape は backwards-compatible)。
+- [x] API returns applied rules and explanations → 既存 `SearchHit.rules_applied` / `explanation` (章 0 baseline で確認)。
 - [x] MCP server can answer a query through the search engine → 章 5 で `ancient_phonology.search` tool 実装、章 7 で test。
 - [x] MCP response includes candidates, confidence, applied rules, and metadata → 章 5 でツール出力スキーマを REST `SearchResponse` 共有に揃える。
 - [x] API and MCP output schemas are documented → 章 6 で `docs/API.md`, `docs/MCP.md`, `docs/api/openapi.json` を整備。
@@ -682,24 +682,24 @@ Phase 2 で追加した endpoints / MCP server をテストスイートに統合
 ### Atomic checklist
 
 #### 7.1 既存 test 拡張
-- [ ] `tests/test_api_main.py` の `TestSearchEndpoint` に下記を 1 件ずつ追加:
-  - [ ] `test_search_response_includes_meta_envelope` (章 1 と重複 OK — defence in depth)。
-  - [ ] `test_search_response_x_request_id_header_present`。
-- [ ] `tests/test_packaging.py` に下記を追加:
-  - [ ] `test_proteus_mcp_script_installed`: `importlib.metadata.entry_points` (group `console_scripts`) に `proteus-mcp` が含まれる。
-  - [ ] `test_mcp_server_module_in_wheel`: built wheel に `mcp_server/server.py` が含まれる (`uv build --wheel` 後の ZipFile を確認、既存 `tests/test_packaging.py` のパターンに合わせる)。
-- [ ] `tests/test_data_files.py` に下記を追加 (任意):
-  - [ ] `test_rule_schema_id_is_resolvable_url`: `data/schemas/phonology_rule_file.schema.json` の `$id` が URL 形式。
+- [x] `tests/test_api_main.py` の `TestSearchEndpoint` に下記を 1 件ずつ追加:
+  - [x] `test_search_response_includes_meta_envelope` (章 1 と重複 OK — defence in depth)。
+  - [x] `test_search_response_x_request_id_header_present`。
+- [x] `tests/test_packaging.py` に下記を追加:
+  - [x] `test_proteus_mcp_script_installed`: `importlib.metadata.entry_points` (group `console_scripts`) に `proteus-mcp` が含まれる。
+  - [x] `test_mcp_server_module_in_wheel`: built wheel に `mcp_server/server.py` が含まれる (`uv build --wheel` 後の ZipFile を確認、既存 `tests/test_packaging.py` のパターンに合わせる)。
+- [x] `tests/test_data_files.py` に下記を追加 (任意):
+  - [x] `test_rule_schema_id_is_well_formed_https_url`: `data/schemas/phonology_rule_file.schema.json` の `$id` が HTTPS URL 形式 (構文検証のみ)。
 
 #### 7.2 新規 test ファイル (章 1–5 で列挙)
-- [ ] `tests/test_api_search_meta.py` (章 1)
-- [ ] `tests/test_api_request_id.py` (章 1)
-- [ ] `tests/test_api_languages.py` (章 2)
+- [x] `tests/test_api_search_meta.py` (章 1)
+- [x] `tests/test_api_request_id.py` (章 1)
+- [x] `tests/test_api_languages.py` (章 2)
 - [x] `tests/test_api_version.py` (章 3)
-- [ ] `tests/test_api_verification.py` (章 4)
-- [ ] `tests/test_mcp_search_tool.py` (章 5)
-- [ ] `tests/test_mcp_server_init.py` (章 5)
-- [ ] `tests/test_openapi.py` (新規 — 7.3 参照)
+- [x] `tests/test_api_verification.py` (章 4)
+- [x] `tests/test_mcp_search_tool.py` (章 5)
+- [x] `tests/test_mcp_server_init.py` (章 5)
+- [x] `tests/test_openapi.py` (新規 — 7.3 参照)
 
 #### 7.3 OpenAPI / MCP schema drift 検出
 - [x] `tests/test_openapi.py`:

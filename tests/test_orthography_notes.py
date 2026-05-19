@@ -184,12 +184,14 @@ def test_ancient_greek_builder_returns_curated_correspondence_notes() -> None:
     assert correspondence.romanization == "paidiou"
     assert correspondence.confidence == "medium"
     assert correspondence.messages == (
-        "παιδίο may correspond to normalized form παιδίου (paidiou).",
+        "As an alternative orthographic reading, this form may correspond to "
+        "παιδίου (paidiou).",
     )
     reading_aid = notes[1]
     assert reading_aid.label == "Reading aid"
     assert reading_aid.messages == (
-        "Reading aid: this form may correspond to παιδίου (paidiou).",
+        "Reading aid: apart from the current candidate παιδίον, this form may "
+        "also be read as παιδίου (paidiou).",
     )
 
 
@@ -204,9 +206,14 @@ def test_ancient_greek_builder_returns_japanese_messages() -> None:
 
     messages = [message for note in notes for message in note.messages]
 
-    assert "παιδίο は正規化形 παιδίου (paidiou) に対応する可能性があります。" in messages
     assert (
-        "読み替え補助: この形は παιδίου (paidiou) に対応する可能性があります。"
+        "別の表記上の読解として、この形は παιδίου (paidiou) に対応する可能性があります。"
+        in messages
+    )
+    assert not any("紀元前403/2年" in message for message in messages)
+    assert (
+        "読み替え補助: この形は、現在の候補 παιδίον とは別に、"
+        "παιδίου (paidiou) と読む可能性もあります。"
         in messages
     )
     assert any(note.label == "読み替え補助" for note in notes)
@@ -384,7 +391,9 @@ def test_beginner_aid_kind_returns_note_without_tag(
     )
 
     assert [note.kind for note in notes] == ["beginner_aid"]
-    assert notes[0].messages == ("Reading aid: this form may correspond to def (def).",)
+    assert notes[0].messages == (
+        "Reading aid: this form may be read as def (def).",
+    )
 
 
 def test_pre_403_2_attic_kind_returns_note_without_tag(
@@ -455,6 +464,171 @@ def test_pre_403_2_attic_kind_returns_japanese_historical_message(
     assert notes[0].messages == (
         "この形は、紀元前403/2年以前のアッティカ碑文表記を反映している可能性があります。",
     )
+
+
+def test_orthographic_correspondence_with_pre_403_2_attic_tag_omits_historical_second_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tagged entry should not repeat historical text in correspondence note.
+
+    When an orthographic_correspondence entry also carries the pre_403_2_attic
+    tag, the dedicated pre_403_2_attic note already conveys the historical
+    advisory. The correspondence note therefore should emit only its first
+    (candidate-distinction) message to avoid duplicating the historical claim.
+    """
+    entry = orthography_notes_module._CorrespondenceEntry(
+        original="abc",
+        normalized="def",
+        candidate_headwords=("xyz",),
+        romanization="def",
+        kind="orthographic_correspondence",
+        tags=("pre_403_2_attic",),
+        confidence="medium",
+        references=(),
+    )
+    monkeypatch.setattr(
+        orthography_notes_module,
+        "_load_correspondence_entries",
+        lambda: (entry,),
+    )
+
+    notes_en = build_orthographic_notes(
+        query_form="abc",
+        candidate_headword="xyz",
+        candidate_ipa="def",
+        query_ipa="abc",
+        response_language="en",
+    )
+
+    kinds = [note.kind for note in notes_en]
+    assert kinds == ["orthographic_correspondence", "pre_403_2_attic"]
+
+    correspondence = notes_en[0]
+    assert len(correspondence.messages) == 1
+    assert correspondence.messages[0] == (
+        "As an alternative orthographic reading, this form may correspond to "
+        "def (def)."
+    )
+
+    historical = notes_en[1]
+    # Historical claim appears exactly once across all emitted notes.
+    all_messages = [msg for note in notes_en for msg in note.messages]
+    historical_mentions = sum(
+        1 for msg in all_messages if "pre-403/2 BCE" in msg
+    )
+    assert historical_mentions == 1
+    assert "pre-403/2 BCE" in historical.messages[0]
+
+
+def test_orthographic_correspondence_with_pre_403_2_attic_tag_japanese_omits_duplication(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Japanese variant of the dedup behavior."""
+    entry = orthography_notes_module._CorrespondenceEntry(
+        original="abc",
+        normalized="def",
+        candidate_headwords=("xyz",),
+        romanization="def",
+        kind="orthographic_correspondence",
+        tags=("pre_403_2_attic",),
+        confidence="medium",
+        references=(),
+    )
+    monkeypatch.setattr(
+        orthography_notes_module,
+        "_load_correspondence_entries",
+        lambda: (entry,),
+    )
+
+    notes_ja = build_orthographic_notes(
+        query_form="abc",
+        candidate_headword="xyz",
+        candidate_ipa="def",
+        query_ipa="abc",
+        response_language="ja",
+    )
+
+    correspondence = notes_ja[0]
+    assert len(correspondence.messages) == 1
+    assert correspondence.messages[0] == (
+        "別の表記上の読解として、この形は def (def) に対応する可能性があります。"
+    )
+
+    all_messages = [msg for note in notes_ja for msg in note.messages]
+    historical_mentions = sum(
+        1 for msg in all_messages if "紀元前403/2年" in msg
+    )
+    assert historical_mentions == 1
+    historical = notes_ja[1]
+    assert "紀元前403/2年" in historical.messages[0]
+
+
+def test_orthographic_correspondence_uses_normalized_form_message_for_current_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry = orthography_notes_module._CorrespondenceEntry(
+        original="abc",
+        normalized="def",
+        candidate_headwords=("def",),
+        romanization="def",
+        kind="orthographic_correspondence",
+        tags=(),
+        confidence="medium",
+        references=(),
+    )
+    monkeypatch.setattr(
+        orthography_notes_module,
+        "_load_correspondence_entries",
+        lambda: (entry,),
+    )
+
+    notes = build_orthographic_notes(
+        query_form="abc",
+        candidate_headword="def",
+        candidate_ipa="def",
+        query_ipa="abc",
+        response_language="en",
+    )
+
+    assert [note.kind for note in notes] == ["orthographic_correspondence"]
+    assert notes[0].messages == (
+        "abc may correspond to normalized form def (def).",
+    )
+    assert "alternative" not in notes[0].messages[0].lower()
+
+
+def test_orthographic_correspondence_uses_japanese_normalized_form_message_for_current_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry = orthography_notes_module._CorrespondenceEntry(
+        original="abc",
+        normalized="def",
+        candidate_headwords=("def",),
+        romanization="def",
+        kind="orthographic_correspondence",
+        tags=(),
+        confidence="medium",
+        references=(),
+    )
+    monkeypatch.setattr(
+        orthography_notes_module,
+        "_load_correspondence_entries",
+        lambda: (entry,),
+    )
+
+    notes = build_orthographic_notes(
+        query_form="abc",
+        candidate_headword="def",
+        candidate_ipa="def",
+        query_ipa="abc",
+        response_language="ja",
+    )
+
+    assert [note.kind for note in notes] == ["orthographic_correspondence"]
+    assert notes[0].messages == (
+        "abc は正規化形 def (def) に対応する可能性があります。",
+    )
+    assert "別の表記上の読解" not in notes[0].messages[0]
 
 
 def test_beginner_aid_kind_and_tag_do_not_duplicate_note(

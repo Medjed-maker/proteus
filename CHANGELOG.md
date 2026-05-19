@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+
+- Clarified Ancient Greek orthographic-note wording and UI grouping so
+  `παιδίο` can rank the current candidate `παιδίον` while separately presenting
+  `παιδίου (paidiou)` as an alternative orthographic reading.
+
 ## [0.3.0] - 2026-05-18
 
 Phase 2 REST API and MCP prototype surface is now stable. See `docs/API.md`

@@ -12,6 +12,7 @@ import tarfile
 import tomllib
 import zipfile
 import importlib
+from importlib import metadata
 from pathlib import Path
 from types import ModuleType
 
@@ -437,6 +438,46 @@ def test_sdist_force_include_config_bundles_generated_lexicon_and_metadata() -> 
         "data/schemas/phonology_rule_file.schema.json": "data/schemas/phonology_rule_file.schema.json",
     }
     assert sdist_config["hooks"]["custom"]["path"] == "hatch_build.py"
+
+
+def test_proteus_mcp_script_installed() -> None:
+    """Editable installs should expose the MCP console script."""
+    scripts = metadata.entry_points(group="console_scripts")
+    entrypoint = next((item for item in scripts if item.name == "proteus-mcp"), None)
+
+    assert entrypoint is not None, "proteus-mcp console script not found in entry_points"
+    assert entrypoint.value == "mcp_server.server:main", (
+        f"Expected proteus-mcp to point to 'mcp_server.server:main', got: {entrypoint.value}"
+    )
+
+
+@pytest.mark.skipif(shutil.which("uv") is None, reason="uv CLI not available")
+def test_mcp_server_module_in_wheel(tmp_path: Path) -> None:
+    """Built wheels must include the MCP server package."""
+    project_dir = _copy_build_project(tmp_path)
+    wheel_dir = tmp_path / "dist-mcp"
+    wheel_dir.mkdir()
+    _write_fake_lsj_checkout(project_dir)
+
+    result = subprocess.run(
+        [_uv_executable(), "build", "--wheel", "--out-dir", str(wheel_dir)],
+        cwd=project_dir,
+        check=False,
+        capture_output=True,
+        env=_uv_build_env(tmp_path),
+        text=True,
+    )
+
+    _assert_uv_build_succeeded_or_skip(result)
+    wheel_files = sorted(wheel_dir.glob("*.whl"))
+    assert wheel_files, "uv build did not produce a wheel"
+
+    with zipfile.ZipFile(wheel_files[0]) as wheel_zip:
+        asset_names = wheel_zip.namelist()
+
+    assert "mcp_server/server.py" in asset_names, "mcp_server/server.py not found in wheel"
+    assert "mcp_server/_search_adapter.py" in asset_names, "mcp_server/_search_adapter.py not found in wheel"
+    assert "mcp_server/tools/search.py" in asset_names, "mcp_server/tools/search.py not found in wheel"
 
 
 def test_build_hook_prefers_project_src_over_preexisting_phonology_package(

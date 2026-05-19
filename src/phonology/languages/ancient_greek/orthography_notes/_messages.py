@@ -11,40 +11,64 @@ from phonology.orthography_notes import (
 from .schema import _CorrespondenceEntry
 
 
-def _correspondence_message(
+def _correspondence_messages(
     entry: _CorrespondenceEntry,
     *,
+    candidate_headword: str,
     response_language: ResponseLanguage,
-) -> str:
-    """Generate a localized normalized-form correspondence message.
+) -> tuple[str, ...]:
+    """Generate localized normalized-form correspondence messages.
 
     Args:
         entry: _CorrespondenceEntry with original, normalized, and romanization.
+        candidate_headword: Current search candidate this note is attached to.
         response_language: ResponseLanguage such as "ja" for Japanese output.
 
     Returns:
-        Localized message string, e.g. "x may correspond to normalized form y".
+        Localized message. When the normalized form differs from the current
+        candidate, the message presents it as an alternative orthographic
+        reading. The return type is a tuple to leave room for emitting
+        follow-up messages alongside the lead correspondence message without
+        changing call sites. Currently every branch returns a single-element
+        tuple; callers should not rely on the length staying at 1.
     """
-    if response_language == "ja":
+    if candidate_headword == entry.normalized:
+        if response_language == "ja":
+            return (
+                f"{entry.original} は正規化形 {entry.normalized} "
+                f"({entry.romanization}) に対応する可能性があります。",
+            )
         return (
-            f"{entry.original} は正規化形 {entry.normalized} "
-            f"({entry.romanization}) に対応する可能性があります。"
+            f"{entry.original} may correspond to normalized form {entry.normalized} "
+            f"({entry.romanization}).",
         )
-    return (
-        f"{entry.original} may correspond to normalized form {entry.normalized} "
-        f"({entry.romanization})."
-    )
+
+    if response_language == "ja":
+        first = (
+            "別の表記上の読解として、この形は "
+            f"{entry.normalized} ({entry.romanization}) "
+            "に対応する可能性があります。"
+        )
+    else:
+        first = (
+            "As an alternative orthographic reading, this form may correspond to "
+            f"{entry.normalized} ({entry.romanization})."
+        )
+
+    return (first,)
 
 
 def _beginner_message(
     entry: _CorrespondenceEntry,
     *,
+    candidate_headword: str,
     response_language: ResponseLanguage,
 ) -> str:
     """Generate a short localized reading-aid message.
 
     Args:
         entry: _CorrespondenceEntry with normalized and romanization fields.
+        candidate_headword: Current search candidate this note is attached to.
         response_language: ResponseLanguage controlling Japanese versus English
             output.
 
@@ -55,13 +79,25 @@ def _beginner_message(
         The function branches on response_language because payload messages are
         localized at construction time.
     """
+    if candidate_headword == entry.normalized:
+        if response_language == "ja":
+            return (
+                f"読み替え補助: この形は {entry.normalized} "
+                f"({entry.romanization}) と読む可能性があります。"
+            )
+        return (
+            "Reading aid: this form may be read as "
+            f"{entry.normalized} ({entry.romanization})."
+        )
+
     if response_language == "ja":
         return (
-            f"読み替え補助: この形は {entry.normalized} "
-            f"({entry.romanization}) に対応する可能性があります。"
+            f"読み替え補助: この形は、現在の候補 {candidate_headword} とは別に、"
+            f"{entry.normalized} ({entry.romanization}) と読む可能性もあります。"
         )
     return (
-        "Reading aid: this form may correspond to "
+        "Reading aid: apart from the current candidate "
+        f"{candidate_headword}, this form may also be read as "
         f"{entry.normalized} ({entry.romanization})."
     )
 
@@ -123,16 +159,18 @@ def _historical_note(
 def _notes_for_entry(
     entry: _CorrespondenceEntry,
     *,
+    candidate_headword: str,
     response_language: ResponseLanguage,
 ) -> list[OrthographicNotePayload]:
     """Build note payloads for an orthographic correspondence entry.
 
     Args:
         entry: _CorrespondenceEntry whose kind and tags determine emitted notes.
+        candidate_headword: Current search candidate this note is attached to.
         response_language: ResponseLanguage used for localized labels/messages.
 
     Returns:
-        Payloads for orthographic_correspondence via _correspondence_message,
+        Payloads for orthographic_correspondence via _correspondence_messages,
         pre_403_2_attic via _historical_note, and/or beginner_aid via
         _beginner_message. Confidence, normalized form, romanization, and
         references are propagated from the entry.
@@ -148,8 +186,9 @@ def _notes_for_entry(
                     else "Orthographic correspondence"
                 ),
                 messages=(
-                    _correspondence_message(
+                    *_correspondence_messages(
                         entry,
+                        candidate_headword=candidate_headword,
                         response_language=response_language,
                     ),
                 ),
@@ -177,6 +216,7 @@ def _notes_for_entry(
                 messages=(
                     _beginner_message(
                         entry,
+                        candidate_headword=candidate_headword,
                         response_language=response_language,
                     ),
                 ),

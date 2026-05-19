@@ -53,7 +53,7 @@ from ._validators import (
 from ._parser import _load_yaml_mapping, _parse_entry
 from ._messages import (
     _beginner_message,
-    _correspondence_message,
+    _correspondence_messages,
     _historical_message,
     _historical_note,
     _notes_for_entry,
@@ -114,7 +114,13 @@ def build_orthographic_notes(
             normalized_query == entry.original
             and normalized_candidate in entry.candidate_headwords
         ):
-            notes.extend(_notes_for_entry(entry, response_language=response_language))
+            notes.extend(
+                _notes_for_entry(
+                    entry,
+                    candidate_headword=normalized_candidate,
+                    response_language=response_language,
+                )
+            )
 
     return notes
 
