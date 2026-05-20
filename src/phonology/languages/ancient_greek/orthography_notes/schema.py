@@ -69,6 +69,8 @@ class _CorrespondenceEntry:
     review_notes: str = ""
     reviewed_by: str = ""
     reviewed_at: Optional[datetime.datetime] = None
+    pre_reform_spelling: str = ""
+    pre_reform_romanization: str = ""
 
 
 class _ReviewMetadata(TypedDict):

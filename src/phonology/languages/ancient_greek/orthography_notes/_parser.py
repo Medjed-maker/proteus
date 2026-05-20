@@ -17,9 +17,11 @@ from .schema import (
     _ALLOWED_CONFIDENCE,
     _ALLOWED_KINDS,
     _CorrespondenceEntry,
+    _nfc,
 )
 from ._validators import (
     _optional_candidate_headwords,
+    _optional_str,
     _require_str,
     _require_str_list,
     _validate_review_metadata,
@@ -97,6 +99,12 @@ def _parse_entry(raw_entry: Any, *, path: Path, index: int) -> _CorrespondenceEn
         )
     tags = _require_str_list(raw_entry, "tags", path=path, index=index)
     references = _require_str_list(raw_entry, "references", path=path, index=index)
+    pre_reform_spelling = _nfc(
+        _optional_str(raw_entry, "pre_reform_spelling", path=path, index=index)
+    )
+    pre_reform_romanization = _nfc(
+        _optional_str(raw_entry, "pre_reform_romanization", path=path, index=index)
+    )
     review_metadata = _validate_review_metadata(
         raw_entry,
         path=path,
@@ -128,4 +136,6 @@ def _parse_entry(raw_entry: Any, *, path: Path, index: int) -> _CorrespondenceEn
         review_notes=review_metadata["review_notes"],
         reviewed_by=review_metadata["reviewed_by"],
         reviewed_at=review_metadata["reviewed_at"],
+        pre_reform_spelling=pre_reform_spelling,
+        pre_reform_romanization=pre_reform_romanization,
     )

@@ -736,6 +736,8 @@ class TestSearchHit:
                 "period_label": None,
                 "references": ["test-ref"],
                 "confidence": "low",
+                "pre_reform_spelling": None,
+                "pre_reform_romanization": None,
             }
         ]
         assert hit.candidate_bucket == "Exploratory"
@@ -1686,15 +1688,13 @@ class TestSearchEndpoint:
         ]
         assert notes[0]["normalized_form"] == "παιδίου"
         assert notes[0]["romanization"] == "paidiou"
+        assert notes[0]["pre_reform_spelling"] == "παιδίō"
+        assert notes[0]["pre_reform_romanization"] == "paidiō"
         assert notes[0]["messages"] == [
-            "As an alternative orthographic reading, this form may correspond to "
-            "παιδίου (paidiou).",
+            "Considering pre-403/2 BCE Attic inscriptional spelling and related "
+            "orthographic systems, παιδίο may also correspond to παιδίου "
+            "(paidiou).",
         ]
-        assert all(
-            "pre-403/2 BCE" not in message
-            for note in notes
-            for message in note["messages"]
-        )
         assert all("review_status" not in note for note in notes)
         assert all("citation_ready" not in note for note in notes)
         assert response.json()["hits"][0]["candidate_bucket"] == "Supported"
@@ -1785,10 +1785,15 @@ class TestSearchEndpoint:
             for message in note["messages"]
         ]
         assert (
-            "別の表記上の読解として、この形は παιδίου (paidiou) に対応する可能性があります。"
+            "前403/2年以前のアッティカ碑文表記などを考慮すると、"
+            "παιδίο は παιδίου (paidiou) に対応する可能性もあります。"
             in messages
         )
-        assert not any("紀元前403/2年" in message for message in messages)
+        assert (
+            "読み替え補助: この別読解は、現在候補 παιδίον "
+            "とは別の表記体系上の補助候補で、παιδίου (paidiou) と読む可能性があります。"
+            in messages
+        )
 
     def test_search_accepts_pre_403_2_attic_orthography_hint_without_note_fallback(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch

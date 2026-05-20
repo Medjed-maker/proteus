@@ -31,6 +31,7 @@ WEB_ASSET_KEYS = [
     "sectionOrthographicNote",
     "orthographicCurrentCandidate",
     "orthographicAlternativeReading",
+    "orthographicPreReformSpelling",
     "sectionAlignment",
     "sectionWhyCandidate",
     "diffVisible",

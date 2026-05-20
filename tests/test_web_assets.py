@@ -74,12 +74,23 @@ def test_orthographic_note_translation_key_present_in_fallback_html(
     assert translations_data["ja"]["orthographicCurrentCandidate"] == "現在候補"
     assert (
         translations_data["en"]["orthographicAlternativeReading"]
-        == "Alternative orthographic reading:"
+        == "Alternative reading:"
     )
-    assert translations_data["ja"]["orthographicAlternativeReading"] == "別の表記上の読解:"
+    assert translations_data["ja"]["orthographicAlternativeReading"] == "別読解:"
+    assert (
+        translations_data["en"]["orthographicPreReformSpelling"]
+        == "Pre-403/2 BCE Attic spelling:"
+    )
+    assert (
+        translations_data["ja"]["orthographicPreReformSpelling"]
+        == "前403/2年以前のアッティカ碑文表記:"
+    )
     assert 'sectionOrthographicNote: "Orthographic note"' in html
     assert 'orthographicCurrentCandidate: "Current candidate"' in html
-    assert 'orthographicAlternativeReading: "Alternative orthographic reading:"' in html
+    assert 'orthographicAlternativeReading: "Alternative reading:"' in html
+    assert (
+        'orthographicPreReformSpelling: "Pre-403/2 BCE Attic spelling:"' in html
+    )
     assert "orthographicNoteEmpty" not in html
 
 
@@ -120,6 +131,12 @@ def test_frontend_renders_orthographic_notes_before_alignment() -> None:
     assert orthographic_renderer.index(
         'const isAlternativeReading ='
     ) < orthographic_renderer.index('lead.textContent = t("orthographicAlternativeReading")')
+    assert "note.pre_reform_spelling" in orthographic_renderer
+    assert "note.pre_reform_romanization" in orthographic_renderer
+    assert (
+        'preReformLabel.textContent = t("orthographicPreReformSpelling")'
+        in orthographic_renderer
+    )
 
     append_body = html[
         html.index("function appendCardBody") : html.index(

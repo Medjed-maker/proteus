@@ -96,7 +96,8 @@
         sectionUncatalogued: "Uncatalogued differences",
         sectionOrthographicNote: "Orthographic note",
         orthographicCurrentCandidate: "Current candidate",
-        orthographicAlternativeReading: "Alternative orthographic reading:",
+        orthographicAlternativeReading: "Alternative reading:",
+        orthographicPreReformSpelling: "Pre-403/2 BCE Attic spelling:",
         sectionAlignment: "Alignment",
         sectionWhyCandidate: "Why this candidate?",
         diffVisible: "Differences visible in full alignment.",
@@ -779,6 +780,41 @@
           }
 
           item.appendChild(forms);
+        }
+
+        if (
+          typeof note?.pre_reform_spelling === "string" &&
+          note.pre_reform_spelling.trim()
+        ) {
+          const preReform = document.createElement("p");
+          preReform.className = "mt-2 text-sm text-ink break-words";
+          preReform.setAttribute("role", "group");
+
+          const preReformLabelId = _allocateOrthographicNoteId("ortho-pre-reform");
+          const preReformLabel = document.createElement("span");
+          preReformLabel.className = "mr-1 text-ink-muted";
+          preReformLabel.id = preReformLabelId;
+          preReformLabel.textContent = t("orthographicPreReformSpelling");
+          preReform.appendChild(preReformLabel);
+          preReform.setAttribute("aria-labelledby", preReformLabelId);
+
+          const preReformSpelling = document.createElement("strong");
+          preReformSpelling.className = "font-semibold";
+          preReformSpelling.textContent = note.pre_reform_spelling.trim();
+          preReform.appendChild(preReformSpelling);
+
+          if (
+            typeof note.pre_reform_romanization === "string" &&
+            note.pre_reform_romanization.trim()
+          ) {
+            const preReformRoman = document.createElement("span");
+            preReformRoman.className = "ml-1 text-ink-muted";
+            preReformRoman.textContent =
+              "(" + note.pre_reform_romanization.trim() + ")";
+            preReform.appendChild(preReformRoman);
+          }
+
+          item.appendChild(preReform);
         }
 
         if (item.childNodes.length > 0) {

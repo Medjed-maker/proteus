@@ -11,11 +11,33 @@ from phonology.orthography_notes import (
 from .schema import _CorrespondenceEntry
 
 
+def _uses_attic_historical_context(entry: _CorrespondenceEntry) -> bool:
+    """Return True when the entry opts into pre-403/2 BCE Attic context messaging.
+
+    The opt-in is conveyed by the YAML tag ``attic_historical_context``. Entries
+    already classified under the ``pre_403_2_attic`` kind/tag receive a
+    dedicated historical note, so they are excluded here to avoid emitting the
+    same pre-reform claim twice within a single candidate's notes.
+
+    Apply the tag to orthographic-correspondence entries whose pre-reform form
+    follows the pre-403/2 BCE Attic inscriptional convention (e.g. ``παιδίο``
+    standing for ``παιδίου`` with a single Ο representing long /oː/). The full
+    tag vocabulary is documented under ``_meta.tag_vocabulary`` in
+    ``orthographic_correspondences.yaml``.
+    """
+    return (
+        "attic_historical_context" in entry.tags
+        and entry.kind != "pre_403_2_attic"
+        and "pre_403_2_attic" not in entry.tags
+    )
+
+
 def _correspondence_messages(
     entry: _CorrespondenceEntry,
     *,
     candidate_headword: str,
     response_language: ResponseLanguage,
+    include_historical_context: bool = False,
 ) -> tuple[str, ...]:
     """Generate localized normalized-form correspondence messages.
 
@@ -23,6 +45,8 @@ def _correspondence_messages(
         entry: _CorrespondenceEntry with original, normalized, and romanization.
         candidate_headword: Current search candidate this note is attached to.
         response_language: ResponseLanguage such as "ja" for Japanese output.
+        include_historical_context: Whether to include cautious pre-403/2 BCE
+            Attic context in the correspondence message.
 
     Returns:
         Localized message. When the normalized form differs from the current
@@ -33,6 +57,18 @@ def _correspondence_messages(
         tuple; callers should not rely on the length staying at 1.
     """
     if candidate_headword == entry.normalized:
+        if include_historical_context:
+            if response_language == "ja":
+                return (
+                    "前403/2年以前のアッティカ碑文表記などを考慮すると、"
+                    f"{entry.original} は正規化形 {entry.normalized} "
+                    f"({entry.romanization}) に対応する可能性があります。",
+                )
+            return (
+                "Considering pre-403/2 BCE Attic inscriptional spelling and related "
+                f"orthographic systems, {entry.original} may correspond to normalized "
+                f"form {entry.normalized} ({entry.romanization}).",
+            )
         if response_language == "ja":
             return (
                 f"{entry.original} は正規化形 {entry.normalized} "
@@ -43,15 +79,28 @@ def _correspondence_messages(
             f"({entry.romanization}).",
         )
 
+    if not include_historical_context:
+        if response_language == "ja":
+            return (
+                "別の表記上の読解として、この形は "
+                f"{entry.normalized} ({entry.romanization}) "
+                "に対応する可能性があります。",
+            )
+        return (
+            "As an alternative orthographic reading, this form may correspond to "
+            f"{entry.normalized} ({entry.romanization}).",
+        )
+
     if response_language == "ja":
         first = (
-            "別の表記上の読解として、この形は "
-            f"{entry.normalized} ({entry.romanization}) "
-            "に対応する可能性があります。"
+            "前403/2年以前のアッティカ碑文表記などを考慮すると、"
+            f"{entry.original} は {entry.normalized} "
+            f"({entry.romanization}) に対応する可能性もあります。"
         )
     else:
         first = (
-            "As an alternative orthographic reading, this form may correspond to "
+            "Considering pre-403/2 BCE Attic inscriptional spelling and related "
+            f"orthographic systems, {entry.original} may also correspond to "
             f"{entry.normalized} ({entry.romanization})."
         )
 
@@ -92,12 +141,13 @@ def _beginner_message(
 
     if response_language == "ja":
         return (
-            f"読み替え補助: この形は、現在の候補 {candidate_headword} とは別に、"
-            f"{entry.normalized} ({entry.romanization}) と読む可能性もあります。"
+            f"読み替え補助: この別読解は、現在候補 {candidate_headword} "
+            "とは別の表記体系上の補助候補で、"
+            f"{entry.normalized} ({entry.romanization}) と読む可能性があります。"
         )
     return (
-        "Reading aid: apart from the current candidate "
-        f"{candidate_headword}, this form may also be read as "
+        "Reading aid: this alternative reading is an orthographic aid separate "
+        f"from the current candidate {candidate_headword}, and may be read as "
         f"{entry.normalized} ({entry.romanization})."
     )
 
@@ -175,6 +225,8 @@ def _notes_for_entry(
         _beginner_message. Confidence, normalized form, romanization, and
         references are propagated from the entry.
     """
+    pre_reform_spelling = entry.pre_reform_spelling or None
+    pre_reform_romanization = entry.pre_reform_romanization or None
     notes: list[OrthographicNotePayload] = []
     if entry.kind == "orthographic_correspondence":
         notes.append(
@@ -190,12 +242,17 @@ def _notes_for_entry(
                         entry,
                         candidate_headword=candidate_headword,
                         response_language=response_language,
+                        include_historical_context=_uses_attic_historical_context(
+                            entry
+                        ),
                     ),
                 ),
                 confidence=entry.confidence,
                 normalized_form=entry.normalized,
                 romanization=entry.romanization,
                 references=entry.references,
+                pre_reform_spelling=pre_reform_spelling,
+                pre_reform_romanization=pre_reform_romanization,
             )
         )
     if entry.kind == "pre_403_2_attic" or "pre_403_2_attic" in entry.tags:

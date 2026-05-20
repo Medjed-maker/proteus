@@ -175,6 +175,32 @@
                 "description": "Historical period or writing-system label for the note.",
                 "title": "Period Label"
               },
+              "pre_reform_romanization": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Romanization of the pre-reform spelling, using macron-ō for the long /oː/ written as single Ο before the orthographic reform.",
+                "title": "Pre Reform Romanization"
+              },
+              "pre_reform_spelling": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Pre-403/2 BCE Attic inscriptional spelling paired with the normalized form, when applicable (e.g., παιδίō for παιδίου).",
+                "title": "Pre Reform Spelling"
+              },
               "references": {
                 "description": "Short source or documentation references supporting the note.",
                 "items": {

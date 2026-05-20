@@ -438,6 +438,20 @@ class OrthographicNote(BaseModel):
     confidence: Literal["low", "medium", "high"] = Field(
         description="Qualitative confidence assigned to the orthographic note.",
     )
+    pre_reform_spelling: str | None = Field(
+        default=None,
+        description=(
+            "Pre-403/2 BCE Attic inscriptional spelling paired with the normalized "
+            "form, when applicable (e.g., παιδίō for παιδίου)."
+        ),
+    )
+    pre_reform_romanization: str | None = Field(
+        default=None,
+        description=(
+            "Romanization of the pre-reform spelling, using macron-ō for the long "
+            "/oː/ written as single Ο before the orthographic reform."
+        ),
+    )
 
 
 class SearchHit(BaseModel):

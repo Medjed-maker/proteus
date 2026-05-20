@@ -30,6 +30,8 @@ class OrthographicNotePayload:
     romanization: str | None = None
     period_label: str | None = None
     references: tuple[str, ...] = ()
+    pre_reform_spelling: str | None = None
+    pre_reform_romanization: str | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.messages, str):
