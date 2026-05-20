@@ -196,6 +196,8 @@ The bucket is computed in two steps:
 - period_label: str | None
 - references: list[str]
 - confidence: Literal["low", "medium", "high"]
+- pre_reform_spelling: str | None
+- pre_reform_romanization: str | None
 ```
 
 `orthographic_notes` is separate from `rules_applied`: it explains writing
@@ -204,7 +206,10 @@ beginner-facing reading aids rather than phonological rule steps. However,
 `orthographic_correspondence` notes are an exception: they affect
 `candidate_bucket` (see **`candidate_bucket` determination** above).
 For `παιδίο`, the current candidate can remain `παιδίον` while the note
-separately presents the alternative orthographic reading `παιδίου (paidiou)`.
+separately presents the alternative orthographic reading `παιδίου (paidiou)`,
+and the optional `pre_reform_spelling` / `pre_reform_romanization` fields can
+expose the pre-403/2 BCE Attic inscriptional form `παιδίō (paidiō)` alongside
+it.
 
 `references` contains short citation strings loaded from runtime orthography
 data when available. These strings are intentionally URL-free; runtime data

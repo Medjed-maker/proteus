@@ -561,6 +561,8 @@ def _build_search_hit(
                     period_label=note.period_label,
                     references=list(note.references),
                     confidence=note.confidence,
+                    pre_reform_spelling=note.pre_reform_spelling,
+                    pre_reform_romanization=note.pre_reform_romanization,
                 )
                 for note in orthographic_note_builder(
                     query_form=query_form,

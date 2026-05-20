@@ -168,7 +168,7 @@ Serves the packaged changelog HTML page.
 | `SearchResponse` | Top-level search output. | `query`, `query_ipa`, `query_mode`, `hits`, `truncated`, `data_versions`, `meta`. |
 | `SearchHit` | Ranked candidate. | `headword`, `ipa`, `distance`, `confidence`, `dialect_attribution`, `match_type`, `rules_applied`, `orthographic_notes`, `explanation`. |
 | `RuleStep` | One phonological rule application. | `rule_id`, `rule_name`, `rule_name_en`, `from_phone`, `to_phone`, `position`. |
-| `OrthographicNote` | Candidate-level spelling or writing-system note. | `kind`, `label`, `messages`, `normalized_form`, `romanization`, `period_label`, `references`, `confidence`. |
+| `OrthographicNote` | Candidate-level spelling or writing-system note. | `kind`, `label`, `messages`, `normalized_form`, `romanization`, `period_label`, `references`, `confidence`, `pre_reform_spelling`, `pre_reform_romanization`. |
 | `DataVersions` | Data source metadata. | `lexicon`, `lexicon_updated_at`, `matrix`, `matrix_generated_at`, `rules`. |
 | `ResponseMeta` | Search response metadata. | `api_version`, `schema_version`, `engine_version`, `data_versions`, `ruleset_versions`, `request_id`, `timestamp`, `verification_url`, `request_echo`. |
 | `RequestEcho` | Sanitized validated request echo. | `query_form`, `language`, `dialect_hint`, `max_candidates`, `response_language`. |
@@ -176,7 +176,7 @@ Serves the packaged changelog HTML page.
 | `LanguagesResponse` | Language profile list. | `languages`, `meta`. |
 | `VersionInfo` | Runtime version metadata. | `engine_version`, `api_version`, `schema_version`, `rule_schema_version`, `build_timestamp`, `git_sha`, `python_version`, `mcp_server_version`. |
 
-日本語要約: `rules_applied` は音韻変化、`orthographic_notes` は表記・綴字上の注記です。この 2 つは用途が異なるため統合しません。たとえば `παιδίο` の検索で現在候補が `παιδίον` の場合でも、表記体系コメントは別読解として `παιδίου (paidiou)` を提示できます。
+日本語要約: `rules_applied` は音韻変化、`orthographic_notes` は表記・綴字上の注記です。この 2 つは用途が異なるため統合しません。たとえば `παιδίο` の検索で現在候補が `παιδίον` の場合でも、表記体系コメントは別読解として `παιδίου (paidiou)` を提示し、必要に応じて改革前アッティカ碑文表記 `παιδίō (paidiō)` を `pre_reform_spelling` / `pre_reform_romanization` フィールドで併記します。
 
 ### `SearchHit.explanation` content guidelines
 

@@ -66,7 +66,7 @@ def _valid_raw_entry(**overrides: object) -> dict[str, Any]:
         "candidate_headwords": ["παιδίον"],
         "romanization": "paidiou",
         "kind": "orthographic_correspondence",
-        "tags": ["beginner_aid", "inscriptional"],
+        "tags": ["beginner_aid", "inscriptional", "attic_historical_context"],
         "confidence": "medium",
         "review_status": "needs_expert_review",
         "citation_ready": False,
@@ -137,8 +137,10 @@ def test_orthographic_correspondence_yaml_contains_only_provisional_seed() -> No
             "normalized": "παιδίου",
             "candidate_headwords": ["παιδίον"],
             "romanization": "paidiou",
+            "pre_reform_spelling": "παιδίō",
+            "pre_reform_romanization": "paidiō",
             "kind": "orthographic_correspondence",
-            "tags": ["beginner_aid", "inscriptional"],
+            "tags": ["beginner_aid", "inscriptional", "attic_historical_context"],
             "confidence": "medium",
             "review_status": "needs_expert_review",
             "citation_ready": False,
@@ -182,16 +184,19 @@ def test_ancient_greek_builder_returns_curated_correspondence_notes() -> None:
     correspondence = notes[0]
     assert correspondence.normalized_form == "παιδίου"
     assert correspondence.romanization == "paidiou"
+    assert correspondence.pre_reform_spelling == "παιδίō"
+    assert correspondence.pre_reform_romanization == "paidiō"
     assert correspondence.confidence == "medium"
     assert correspondence.messages == (
-        "As an alternative orthographic reading, this form may correspond to "
-        "παιδίου (paidiou).",
+        "Considering pre-403/2 BCE Attic inscriptional spelling and related "
+        "orthographic systems, παιδίο may also correspond to παιδίου (paidiou).",
     )
     reading_aid = notes[1]
     assert reading_aid.label == "Reading aid"
     assert reading_aid.messages == (
-        "Reading aid: apart from the current candidate παιδίον, this form may "
-        "also be read as παιδίου (paidiou).",
+        "Reading aid: this alternative reading is an orthographic aid separate "
+        "from the current candidate παιδίον, and may be read as "
+        "παιδίου (paidiou).",
     )
 
 
@@ -207,13 +212,14 @@ def test_ancient_greek_builder_returns_japanese_messages() -> None:
     messages = [message for note in notes for message in note.messages]
 
     assert (
-        "別の表記上の読解として、この形は παιδίου (paidiou) に対応する可能性があります。"
+        "前403/2年以前のアッティカ碑文表記などを考慮すると、"
+        "παιδίο は παιδίου (paidiou) に対応する可能性もあります。"
         in messages
     )
     assert not any("紀元前403/2年" in message for message in messages)
     assert (
-        "読み替え補助: この形は、現在の候補 παιδίον とは別に、"
-        "παιδίου (paidiou) と読む可能性もあります。"
+        "読み替え補助: この別読解は、現在候補 παιδίον "
+        "とは別の表記体系上の補助候補で、παιδίου (paidiou) と読む可能性があります。"
         in messages
     )
     assert any(note.label == "読み替え補助" for note in notes)
@@ -597,6 +603,41 @@ def test_orthographic_correspondence_uses_normalized_form_message_for_current_ca
     assert "alternative" not in notes[0].messages[0].lower()
 
 
+def test_orthographic_correspondence_uses_historical_context_for_current_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry = orthography_notes_module._CorrespondenceEntry(
+        original="abc",
+        normalized="def",
+        candidate_headwords=("def",),
+        romanization="def",
+        kind="orthographic_correspondence",
+        tags=("attic_historical_context",),
+        confidence="medium",
+        references=(),
+    )
+    monkeypatch.setattr(
+        orthography_notes_module,
+        "_load_correspondence_entries",
+        lambda: (entry,),
+    )
+
+    notes = build_orthographic_notes(
+        query_form="abc",
+        candidate_headword="def",
+        candidate_ipa="def",
+        query_ipa="abc",
+        response_language="en",
+    )
+
+    assert [note.kind for note in notes] == ["orthographic_correspondence"]
+    assert notes[0].messages == (
+        "Considering pre-403/2 BCE Attic inscriptional spelling and related "
+        "orthographic systems, abc may correspond to normalized form def (def).",
+    )
+    assert "alternative" not in notes[0].messages[0].lower()
+
+
 def test_orthographic_correspondence_uses_japanese_normalized_form_message_for_current_candidate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -629,6 +670,40 @@ def test_orthographic_correspondence_uses_japanese_normalized_form_message_for_c
         "abc は正規化形 def (def) に対応する可能性があります。",
     )
     assert "別の表記上の読解" not in notes[0].messages[0]
+
+
+def test_orthographic_correspondence_uses_japanese_historical_context_for_current_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry = orthography_notes_module._CorrespondenceEntry(
+        original="abc",
+        normalized="def",
+        candidate_headwords=("def",),
+        romanization="def",
+        kind="orthographic_correspondence",
+        tags=("attic_historical_context",),
+        confidence="medium",
+        references=(),
+    )
+    monkeypatch.setattr(
+        orthography_notes_module,
+        "_load_correspondence_entries",
+        lambda: (entry,),
+    )
+
+    notes = build_orthographic_notes(
+        query_form="abc",
+        candidate_headword="def",
+        candidate_ipa="def",
+        query_ipa="abc",
+        response_language="ja",
+    )
+
+    assert [note.kind for note in notes] == ["orthographic_correspondence"]
+    assert notes[0].messages == (
+        "前403/2年以前のアッティカ碑文表記などを考慮すると、"
+        "abc は正規化形 def (def) に対応する可能性があります。",
+    )
 
 
 def test_beginner_aid_kind_and_tag_do_not_duplicate_note(
@@ -958,3 +1033,186 @@ def test_orthographic_note_data_error_is_raised_on_missing_file(
 
 def test_prepare_orthographic_data_succeeds_with_valid_data() -> None:
     prepare_orthographic_data()  # Should not raise
+
+
+def test_parse_entry_reads_optional_pre_reform_fields() -> None:
+    raw_entry = _valid_raw_entry(
+        pre_reform_spelling="παιδίō",
+        pre_reform_romanization="paidiō",
+    )
+
+    entry = _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
+
+    assert entry.pre_reform_spelling == "παιδίō"
+    assert entry.pre_reform_romanization == "paidiō"
+
+
+def test_parse_entry_defaults_pre_reform_fields_to_empty_string() -> None:
+    raw_entry = _valid_raw_entry()
+    raw_entry.pop("pre_reform_spelling", None)
+    raw_entry.pop("pre_reform_romanization", None)
+
+    entry = _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
+
+    assert entry.pre_reform_spelling == ""
+    assert entry.pre_reform_romanization == ""
+
+
+def test_parse_entry_nfc_normalizes_pre_reform_fields() -> None:
+    """NFD-encoded pre-reform inputs are stored as their NFC-equivalent strings."""
+    import unicodedata
+
+    nfd_spelling = unicodedata.normalize("NFD", "παιδίō")
+    nfd_romanization = unicodedata.normalize("NFD", "paidiō")
+    assert nfd_spelling != "παιδίō"  # sanity: precomposed differs from decomposed
+    raw_entry = _valid_raw_entry(
+        pre_reform_spelling=nfd_spelling,
+        pre_reform_romanization=nfd_romanization,
+    )
+
+    entry = _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
+
+    assert entry.pre_reform_spelling == "παιδίō"
+    assert entry.pre_reform_romanization == "paidiō"
+    assert entry.pre_reform_spelling == unicodedata.normalize(
+        "NFC", entry.pre_reform_spelling
+    )
+    assert entry.pre_reform_romanization == unicodedata.normalize(
+        "NFC", entry.pre_reform_romanization
+    )
+
+
+def test_attic_historical_context_tag_triggers_historical_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Entries tagged ``attic_historical_context`` get the pre-403/2 BCE phrasing."""
+    entry = orthography_notes_module._CorrespondenceEntry(
+        original="abc",
+        normalized="def",
+        candidate_headwords=("xyz",),
+        romanization="def",
+        kind="orthographic_correspondence",
+        tags=("attic_historical_context",),
+        confidence="medium",
+        references=(),
+    )
+    monkeypatch.setattr(
+        orthography_notes_module,
+        "_load_correspondence_entries",
+        lambda: (entry,),
+    )
+
+    notes = build_orthographic_notes(
+        query_form="abc",
+        candidate_headword="xyz",
+        candidate_ipa="def",
+        query_ipa="abc",
+        response_language="en",
+    )
+
+    correspondence = notes[0]
+    assert correspondence.messages == (
+        "Considering pre-403/2 BCE Attic inscriptional spelling and related "
+        "orthographic systems, abc may also correspond to def (def).",
+    )
+
+
+def test_attic_historical_context_suppressed_when_pre_403_2_attic_tag_also_present(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When both tags coexist, the dedicated historical note takes precedence."""
+    entry = orthography_notes_module._CorrespondenceEntry(
+        original="abc",
+        normalized="def",
+        candidate_headwords=("xyz",),
+        romanization="def",
+        kind="orthographic_correspondence",
+        tags=("attic_historical_context", "pre_403_2_attic"),
+        confidence="medium",
+        references=(),
+    )
+    monkeypatch.setattr(
+        orthography_notes_module,
+        "_load_correspondence_entries",
+        lambda: (entry,),
+    )
+
+    notes = build_orthographic_notes(
+        query_form="abc",
+        candidate_headword="xyz",
+        candidate_ipa="def",
+        query_ipa="abc",
+        response_language="en",
+    )
+
+    correspondence = notes[0]
+    # Falls back to the non-historical alternative-reading phrasing because the
+    # pre_403_2_attic note already carries the historical advisory.
+    assert correspondence.messages == (
+        "As an alternative orthographic reading, this form may correspond to "
+        "def (def).",
+    )
+
+
+def test_correspondence_note_propagates_pre_reform_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry = orthography_notes_module._CorrespondenceEntry(
+        original="abc",
+        normalized="def",
+        candidate_headwords=("xyz",),
+        romanization="def",
+        kind="orthographic_correspondence",
+        tags=(),
+        confidence="medium",
+        references=(),
+        pre_reform_spelling="dEf",
+        pre_reform_romanization="dEf",
+    )
+    monkeypatch.setattr(
+        orthography_notes_module,
+        "_load_correspondence_entries",
+        lambda: (entry,),
+    )
+
+    notes = build_orthographic_notes(
+        query_form="abc",
+        candidate_headword="xyz",
+        candidate_ipa="def",
+        query_ipa="abc",
+        response_language="en",
+    )
+
+    assert notes[0].pre_reform_spelling == "dEf"
+    assert notes[0].pre_reform_romanization == "dEf"
+
+
+def test_correspondence_note_pre_reform_fields_none_when_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entry = orthography_notes_module._CorrespondenceEntry(
+        original="abc",
+        normalized="def",
+        candidate_headwords=("xyz",),
+        romanization="def",
+        kind="orthographic_correspondence",
+        tags=(),
+        confidence="medium",
+        references=(),
+    )
+    monkeypatch.setattr(
+        orthography_notes_module,
+        "_load_correspondence_entries",
+        lambda: (entry,),
+    )
+
+    notes = build_orthographic_notes(
+        query_form="abc",
+        candidate_headword="xyz",
+        candidate_ipa="def",
+        query_ipa="abc",
+        response_language="en",
+    )
+
+    assert notes[0].pre_reform_spelling is None
+    assert notes[0].pre_reform_romanization is None

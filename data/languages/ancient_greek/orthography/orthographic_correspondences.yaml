@@ -5,14 +5,39 @@ _meta:
   references:
     - "Buck, Introduction to the Study of the Greek Dialects, section 4 orthography notes."
   note: "Small curated runtime seed set for orthographic notes."
+  notation:
+    pre_reform_spelling: >
+      Greek-script string that may include the Latin macron vowels "ō" (U+014D)
+      and "ē" (U+0113) following the classical-editorial convention used by
+      Buck and standard inscriptional editions, where a single Greek omicron or
+      epsilon stands for an etymologically long /oː/ or /eː/. The macron is the
+      conventional notation for the long vowel and is intentionally retained;
+      do not replace it with a Greek letter. Strings are NFC-normalized at load
+      time by `_parser.py`.
+    pre_reform_romanization: >
+      Plain ASCII + macron transliteration that mirrors the macron usage in
+      `pre_reform_spelling` (e.g. "paidiō"). Distinct from `romanization`,
+      which always reflects the post-reform normalized form.
+  tag_vocabulary:
+    beginner_aid: "Emit a short reading-aid note alongside the correspondence."
+    inscriptional: "Form attested in (or modeled on) ancient Greek inscriptions."
+    attic_historical_context: >
+      Opt in to a cautious pre-403/2 BCE Attic context message on the
+      correspondence note. Apply only to entries whose orthographic shape
+      reflects the pre-reform Attic inscriptional convention (single Ο/Ε for
+      long /oː/, /eː/, etc.). Mutually exclusive with the `pre_403_2_attic`
+      kind/tag, which already carries its own historical note. Consumed by
+      `_uses_attic_historical_context` in `_messages.py`.
 
 entries:
   - original: "παιδίο"
     normalized: "παιδίου"
     candidate_headwords: ["παιδίον"]
     romanization: "paidiou"
+    pre_reform_spelling: "παιδίō"
+    pre_reform_romanization: "paidiō"
     kind: "orthographic_correspondence"
-    tags: ["beginner_aid", "inscriptional"]
+    tags: ["beginner_aid", "inscriptional", "attic_historical_context"]
     confidence: "medium"
     review_status: needs_expert_review
     citation_ready: false
