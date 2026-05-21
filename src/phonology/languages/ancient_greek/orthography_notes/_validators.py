@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
+import unicodedata
 from urllib.parse import urlparse
 
 from .schema import (
@@ -149,6 +150,35 @@ def _optional_str(raw: dict[str, Any], key: str, *, path: Path, index: int) -> s
             f"Orthographic entry {index} in {path} must define {key!r} as a string"
         )
     return _nfc(value.strip())
+
+
+def _optional_pre_reform_spelling(
+    raw: dict[str, Any], *, path: Path, index: int
+) -> str:
+    """Read optional pre-reform Greek spelling and reject non-Greek letters.
+
+    Args:
+        raw: Raw YAML entry mapping.
+        path: YAML file path for error messages.
+        index: Entry index for error messages.
+
+    Returns:
+        Empty string for absent/None values, otherwise NFC-normalized Greek text.
+
+    Raises:
+        ValueError: If the value contains non-Greek letters or is not a string.
+    """
+    value = _optional_str(raw, "pre_reform_spelling", path=path, index=index)
+    if any(
+        char.isalpha() and "GREEK" not in unicodedata.name(char, "")
+        for char in value
+    ):
+        raise ValueError(
+            f"Orthographic entry {index} in {path} must keep "
+            "'pre_reform_spelling' in Greek script; use Latin letters only "
+            "in 'pre_reform_romanization'"
+        )
+    return value
 
 
 def _validate_iso_date(value: str, *, key: str, path: Path, index: int) -> date:

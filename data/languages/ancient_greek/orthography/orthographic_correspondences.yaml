@@ -7,17 +7,21 @@ _meta:
   note: "Small curated runtime seed set for orthographic notes."
   notation:
     pre_reform_spelling: >
-      Greek-script string that may include the Latin macron vowels "ō" (U+014D)
-      and "ē" (U+0113) following the classical-editorial convention used by
-      Buck and standard inscriptional editions, where a single Greek omicron or
-      epsilon stands for an etymologically long /oː/ or /eː/. The macron is the
-      conventional notation for the long vowel and is intentionally retained;
-      do not replace it with a Greek letter. Strings are NFC-normalized at load
-      time by `_parser.py`.
+      Pure Greek-script string reflecting the pre-403/2 BCE Attic inscriptional
+      convention, where a single Greek omicron (Ο) or epsilon (Ε) stands for an
+      etymologically long /oː/ or /eː/ (e.g. "παιδίο" for later "παιδίου").
+      Keep the Greek letters as-is; do NOT splice in the Latin macron vowels
+      "ō" (U+014D) or "ē" (U+0113). Long-vowel information is carried by the
+      paired `pre_reform_romanization` field, not by the Greek string. When the
+      search query word already matches the pre-reform form, this field may
+      hold the same value as the entry's `original`. Strings are NFC-normalized
+      at load time by `_parser.py`.
     pre_reform_romanization: >
-      Plain ASCII + macron transliteration that mirrors the macron usage in
-      `pre_reform_spelling` (e.g. "paidiō"). Distinct from `romanization`,
-      which always reflects the post-reform normalized form.
+      Plain ASCII + macron transliteration of `pre_reform_spelling` where the
+      etymological long /oː/ and /eː/ are spelled "ō" (U+014D) and "ē" (U+0113)
+      respectively (e.g. "paidiō"). This is the only place the macron lives;
+      it is intentionally absent from `pre_reform_spelling`. Distinct from
+      `romanization`, which always reflects the post-reform normalized form.
   tag_vocabulary:
     beginner_aid: "Emit a short reading-aid note alongside the correspondence."
     inscriptional: "Form attested in (or modeled on) ancient Greek inscriptions."
@@ -34,7 +38,7 @@ entries:
     normalized: "παιδίου"
     candidate_headwords: ["παιδίον"]
     romanization: "paidiou"
-    pre_reform_spelling: "παιδίō"
+    pre_reform_spelling: "παιδίο"
     pre_reform_romanization: "paidiō"
     kind: "orthographic_correspondence"
     tags: ["beginner_aid", "inscriptional", "attic_historical_context"]

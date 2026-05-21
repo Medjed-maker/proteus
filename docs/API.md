@@ -176,7 +176,7 @@ Serves the packaged changelog HTML page.
 | `LanguagesResponse` | Language profile list. | `languages`, `meta`. |
 | `VersionInfo` | Runtime version metadata. | `engine_version`, `api_version`, `schema_version`, `rule_schema_version`, `build_timestamp`, `git_sha`, `python_version`, `mcp_server_version`. |
 
-日本語要約: `rules_applied` は音韻変化、`orthographic_notes` は表記・綴字上の注記です。この 2 つは用途が異なるため統合しません。たとえば `παιδίο` の検索で現在候補が `παιδίον` の場合でも、表記体系コメントは別読解として `παιδίου (paidiou)` を提示し、必要に応じて改革前アッティカ碑文表記 `παιδίō (paidiō)` を `pre_reform_spelling` / `pre_reform_romanization` フィールドで併記します。
+日本語要約: `rules_applied` は音韻変化、`orthographic_notes` は表記・綴字上の注記です。この 2 つは用途が異なるため統合しません。たとえば `παιδίο` の検索で現在候補が `παιδίον` の場合でも、表記体系コメントは別読解として `παιδίου (paidiou)` を提示し、必要に応じて改革前アッティカ碑文表記 `παιδίο (paidiō)` を `pre_reform_spelling` / `pre_reform_romanization` フィールドで併記します。
 
 ### `SearchHit.explanation` content guidelines
 

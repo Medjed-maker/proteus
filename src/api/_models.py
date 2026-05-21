@@ -442,7 +442,7 @@ class OrthographicNote(BaseModel):
         default=None,
         description=(
             "Pre-403/2 BCE Attic inscriptional spelling paired with the normalized "
-            "form, when applicable (e.g., παιδίō for παιδίου)."
+            "form, when applicable (e.g., παιδίο for παιδίου)."
         ),
     )
     pre_reform_romanization: str | None = Field(

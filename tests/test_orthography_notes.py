@@ -137,7 +137,7 @@ def test_orthographic_correspondence_yaml_contains_only_provisional_seed() -> No
             "normalized": "παιδίου",
             "candidate_headwords": ["παιδίον"],
             "romanization": "paidiou",
-            "pre_reform_spelling": "παιδίō",
+            "pre_reform_spelling": "παιδίο",
             "pre_reform_romanization": "paidiō",
             "kind": "orthographic_correspondence",
             "tags": ["beginner_aid", "inscriptional", "attic_historical_context"],
@@ -184,7 +184,7 @@ def test_ancient_greek_builder_returns_curated_correspondence_notes() -> None:
     correspondence = notes[0]
     assert correspondence.normalized_form == "παιδίου"
     assert correspondence.romanization == "paidiou"
-    assert correspondence.pre_reform_spelling == "παιδίō"
+    assert correspondence.pre_reform_spelling == "παιδίο"
     assert correspondence.pre_reform_romanization == "paidiō"
     assert correspondence.confidence == "medium"
     assert correspondence.messages == (
@@ -212,8 +212,8 @@ def test_ancient_greek_builder_returns_japanese_messages() -> None:
     messages = [message for note in notes for message in note.messages]
 
     assert (
-        "前403/2年以前のアッティカ碑文表記などを考慮すると、"
-        "παιδίο は παιδίου (paidiou) に対応する可能性もあります。"
+        "前403/2年以前のアッティカ碑文表記では、"
+        "παιδίο が後代・標準表記の παιδίου (paidiou) に対応する可能性があります。"
         in messages
     )
     assert not any("紀元前403/2年" in message for message in messages)
@@ -701,7 +701,7 @@ def test_orthographic_correspondence_uses_japanese_historical_context_for_curren
 
     assert [note.kind for note in notes] == ["orthographic_correspondence"]
     assert notes[0].messages == (
-        "前403/2年以前のアッティカ碑文表記などを考慮すると、"
+        "前403/2年以前のアッティカ碑文表記では、"
         "abc は正規化形 def (def) に対応する可能性があります。",
     )
 
@@ -1037,14 +1037,47 @@ def test_prepare_orthographic_data_succeeds_with_valid_data() -> None:
 
 def test_parse_entry_reads_optional_pre_reform_fields() -> None:
     raw_entry = _valid_raw_entry(
-        pre_reform_spelling="παιδίō",
+        pre_reform_spelling="παιδίο",
         pre_reform_romanization="paidiō",
     )
 
     entry = _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
 
-    assert entry.pre_reform_spelling == "παιδίō"
+    assert entry.pre_reform_spelling == "παιδίο"
     assert entry.pre_reform_romanization == "paidiō"
+
+
+@pytest.mark.parametrize(
+    "pre_reform_spelling",
+    ["παιδίō", "παιδē", "paidiou", "παιδίou", "абв"],
+)
+def test_parse_entry_rejects_latin_letters_in_pre_reform_spelling(
+    pre_reform_spelling: str,
+) -> None:
+    raw_entry = _valid_raw_entry(
+        pre_reform_spelling=pre_reform_spelling,
+        pre_reform_romanization="paidiō",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="pre_reform_spelling.*Greek script",
+    ):
+        _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
+
+
+@pytest.mark.parametrize("pre_reform_spelling", ["", "παιδίο", "ἀγαθός"])
+def test_parse_entry_accepts_valid_greek_pre_reform_spelling(
+    pre_reform_spelling: str,
+) -> None:
+    raw_entry = _valid_raw_entry(
+        pre_reform_spelling=pre_reform_spelling,
+        pre_reform_romanization="paidiō",
+    )
+
+    entry = _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
+
+    assert entry.pre_reform_spelling == pre_reform_spelling
 
 
 def test_parse_entry_defaults_pre_reform_fields_to_empty_string() -> None:
@@ -1062,9 +1095,9 @@ def test_parse_entry_nfc_normalizes_pre_reform_fields() -> None:
     """NFD-encoded pre-reform inputs are stored as their NFC-equivalent strings."""
     import unicodedata
 
-    nfd_spelling = unicodedata.normalize("NFD", "παιδίō")
+    nfd_spelling = unicodedata.normalize("NFD", "παιδίο")
     nfd_romanization = unicodedata.normalize("NFD", "paidiō")
-    assert nfd_spelling != "παιδίō"  # sanity: precomposed differs from decomposed
+    assert nfd_spelling != "παιδίο"  # sanity: precomposed differs from decomposed
     raw_entry = _valid_raw_entry(
         pre_reform_spelling=nfd_spelling,
         pre_reform_romanization=nfd_romanization,
@@ -1072,7 +1105,7 @@ def test_parse_entry_nfc_normalizes_pre_reform_fields() -> None:
 
     entry = _parse_entry(raw_entry, path=Path("test.yaml"), index=0)
 
-    assert entry.pre_reform_spelling == "παιδίō"
+    assert entry.pre_reform_spelling == "παιδίο"
     assert entry.pre_reform_romanization == "paidiō"
     assert entry.pre_reform_spelling == unicodedata.normalize(
         "NFC", entry.pre_reform_spelling

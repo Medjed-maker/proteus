@@ -69,6 +69,10 @@ class _CorrespondenceEntry:
     review_notes: str = ""
     reviewed_by: str = ""
     reviewed_at: Optional[datetime.datetime] = None
+    # pre-403/2 BCE Attic inscriptional form in pure Greek script (single Ο/Ε
+    # for long /oː/, /eː/); may equal `original` when the search query word
+    # itself is already a pre-reform spelling. Long-vowel info is carried by
+    # `pre_reform_romanization`. See YAML `_meta.notation` for the convention.
     pre_reform_spelling: str = ""
     pre_reform_romanization: str = ""
 
