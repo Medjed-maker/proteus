@@ -1688,7 +1688,7 @@ class TestSearchEndpoint:
         ]
         assert notes[0]["normalized_form"] == "παιδίου"
         assert notes[0]["romanization"] == "paidiou"
-        assert notes[0]["pre_reform_spelling"] == "παιδίō"
+        assert notes[0]["pre_reform_spelling"] == "παιδίο"
         assert notes[0]["pre_reform_romanization"] == "paidiō"
         assert notes[0]["messages"] == [
             "Considering pre-403/2 BCE Attic inscriptional spelling and related "
@@ -1785,8 +1785,8 @@ class TestSearchEndpoint:
             for message in note["messages"]
         ]
         assert (
-            "前403/2年以前のアッティカ碑文表記などを考慮すると、"
-            "παιδίο は παιδίου (paidiou) に対応する可能性もあります。"
+            "前403/2年以前のアッティカ碑文表記では、"
+            "παιδίο が後代・標準表記の παιδίου (paidiou) に対応する可能性があります。"
             in messages
         )
         assert (

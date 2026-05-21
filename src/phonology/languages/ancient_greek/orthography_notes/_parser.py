@@ -21,6 +21,7 @@ from .schema import (
 )
 from ._validators import (
     _optional_candidate_headwords,
+    _optional_pre_reform_spelling,
     _optional_str,
     _require_str,
     _require_str_list,
@@ -99,8 +100,8 @@ def _parse_entry(raw_entry: Any, *, path: Path, index: int) -> _CorrespondenceEn
         )
     tags = _require_str_list(raw_entry, "tags", path=path, index=index)
     references = _require_str_list(raw_entry, "references", path=path, index=index)
-    pre_reform_spelling = _nfc(
-        _optional_str(raw_entry, "pre_reform_spelling", path=path, index=index)
+    pre_reform_spelling = _optional_pre_reform_spelling(
+        raw_entry, path=path, index=index
     )
     pre_reform_romanization = _nfc(
         _optional_str(raw_entry, "pre_reform_romanization", path=path, index=index)

@@ -74,9 +74,12 @@ def test_orthographic_note_translation_key_present_in_fallback_html(
     assert translations_data["ja"]["orthographicCurrentCandidate"] == "現在候補"
     assert (
         translations_data["en"]["orthographicAlternativeReading"]
-        == "Alternative reading:"
+        == "Alternative reading (separate from current candidate):"
     )
-    assert translations_data["ja"]["orthographicAlternativeReading"] == "別読解:"
+    assert (
+        translations_data["ja"]["orthographicAlternativeReading"]
+        == "別読解（現在候補とは別）:"
+    )
     assert (
         translations_data["en"]["orthographicPreReformSpelling"]
         == "Pre-403/2 BCE Attic spelling:"
@@ -87,7 +90,11 @@ def test_orthographic_note_translation_key_present_in_fallback_html(
     )
     assert 'sectionOrthographicNote: "Orthographic note"' in html
     assert 'orthographicCurrentCandidate: "Current candidate"' in html
-    assert 'orthographicAlternativeReading: "Alternative reading:"' in html
+    assert (
+        'orthographicAlternativeReading: '
+        '"Alternative reading (separate from current candidate):"'
+        in html
+    )
     assert (
         'orthographicPreReformSpelling: "Pre-403/2 BCE Attic spelling:"' in html
     )

@@ -208,7 +208,7 @@ beginner-facing reading aids rather than phonological rule steps. However,
 For `παιδίο`, the current candidate can remain `παιδίον` while the note
 separately presents the alternative orthographic reading `παιδίου (paidiou)`,
 and the optional `pre_reform_spelling` / `pre_reform_romanization` fields can
-expose the pre-403/2 BCE Attic inscriptional form `παιδίō (paidiō)` alongside
+expose the pre-403/2 BCE Attic inscriptional form `παιδίο (paidiō)` alongside
 it.
 
 `references` contains short citation strings loaded from runtime orthography

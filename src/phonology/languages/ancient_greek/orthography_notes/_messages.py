@@ -60,7 +60,7 @@ def _correspondence_messages(
         if include_historical_context:
             if response_language == "ja":
                 return (
-                    "前403/2年以前のアッティカ碑文表記などを考慮すると、"
+                    "前403/2年以前のアッティカ碑文表記では、"
                     f"{entry.original} は正規化形 {entry.normalized} "
                     f"({entry.romanization}) に対応する可能性があります。",
                 )
@@ -93,9 +93,9 @@ def _correspondence_messages(
 
     if response_language == "ja":
         first = (
-            "前403/2年以前のアッティカ碑文表記などを考慮すると、"
-            f"{entry.original} は {entry.normalized} "
-            f"({entry.romanization}) に対応する可能性もあります。"
+            "前403/2年以前のアッティカ碑文表記では、"
+            f"{entry.original} が後代・標準表記の {entry.normalized} "
+            f"({entry.romanization}) に対応する可能性があります。"
         )
     else:
         first = (
