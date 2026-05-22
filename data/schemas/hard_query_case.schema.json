@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proteus.local/schemas/hard_query_case.schema.json",
+  "title": "Proteus hard query case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "visibility",
+    "input_form",
+    "language",
+    "dialect_hint",
+    "expected_candidates",
+    "reasoning",
+    "source_notes",
+    "existing_search_failure",
+    "review_status",
+    "false_positive_notes",
+    "false_negative_notes"
+  ],
+  "properties": {
+    "case_id": {
+      "type": "string",
+      "pattern": "^hq-[a-z0-9][a-z0-9-]{2,80}$",
+      "description": "Stable case id, for example hq-ag-0001."
+    },
+    "visibility": {
+      "type": "string",
+      "enum": [
+        "public_seed",
+        "public_anonymized",
+        "private_collaborator",
+        "embargoed"
+      ]
+    },
+    "input_form": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "language": {
+      "type": "string",
+      "enum": ["ancient_greek"],
+      "description": "Registered language profile id. Extend this enum when a new profile is added to src/phonology/languages/."
+    },
+    "dialect_hint": {
+      "type": "string",
+      "enum": ["attic", "koine"],
+      "description": "Supported dialect for the language. Extend this enum when a profile adds a dialect to supported_dialects."
+    },
+    "max_candidates": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 20
+    },
+    "expected_candidates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["headword"],
+        "properties": {
+          "headword": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "acceptable_forms": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "default": []
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 280,
+            "default": ""
+          }
+        }
+      }
+    },
+    "reasoning": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 800
+    },
+    "source_notes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "short_citation", "note"],
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "(?i)^(?!.*(?:https?://|www\\.))"
+          },
+          "short_citation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180,
+            "pattern": "(?i)^(?!.*(?:https?://|www\\.))"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 280
+          }
+        }
+      }
+    },
+    "existing_search_failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "query", "failure_type", "notes"],
+      "properties": {
+        "tool": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "failure_type": {
+          "type": "string",
+          "enum": [
+            "exact_search_miss",
+            "rank_too_low",
+            "wrong_candidate",
+            "manual_only",
+            "not_yet_checked"
+          ]
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 400
+        }
+      }
+    },
+    "manual_search": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "checked_by": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 600
+        }
+      }
+    },
+    "tool_assisted_search": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "checked_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 600
+        }
+      }
+    },
+    "review_status": {
+      "type": "string",
+      "enum": [
+        "not_reviewed",
+        "collected",
+        "source_checked",
+        "expert_reviewed",
+        "rejected"
+      ]
+    },
+    "reviewer": {
+      "type": "string",
+      "maxLength": 80,
+      "default": ""
+    },
+    "false_positive_notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 280
+      }
+    },
+    "false_negative_notes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 280
+      }
+    }
+  }
+}

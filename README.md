@@ -61,7 +61,10 @@ proteus/
 │   │       ├── lexicon/         # LSJ headword list with IPA
 │   │       ├── matrices/        # Phonological distance matrix
 │   │       └── orthography/     # Provisional orthographic-note seeds
+│   ├── evaluation/
+│   │   └── hard_queries/        # Public Phase 3 validation seeds
 │   └── schemas/
+│       ├── hard_query_case.schema.json      # Phase 3 validation case schema
 │       └── phonology_rule_file.schema.json  # Machine-readable rule schema
 ├── docs/
 │   ├── phonology_rules.md       # Rule context notation and examples
@@ -110,8 +113,14 @@ uv run uvicorn api.main:app --reload
 # Run tests
 uv run pytest
 
+# Run quick tests only (skip integration tests that load real lexicon dependencies)
+uv run pytest -m "not integration"
+
 # Validate rule files against JSON Schema
 uv run python tools/validate_rule_files.py
+
+# Validate the public Phase 3 hard-query seed dataset
+uv run python tools/validate_hard_queries.py --public-only data/evaluation/hard_queries/public_seed_cases.yaml
 ```
 
 If you skip the extraction step, the editable install still succeeds, but `/ready`
@@ -217,6 +226,24 @@ Search responses include structured candidates in `hits`, explanatory
 envelope with `api_version`, `schema_version`, `engine_version`, `request_id`,
 `verification_url`, and `request_echo`. The top-level `data_versions` field is
 kept for compatibility and mirrors `meta.data_versions`.
+
+## Scholarly Validation
+
+Phase 3 hard-query validation is documented in
+[`docs/VALIDATION.md`](docs/VALIDATION.md). Public seed cases live in
+[`data/evaluation/hard_queries/`](data/evaluation/hard_queries/), while
+unpublished collaborator cases and embargoed notes must remain outside the
+public repository until they are cleared or anonymized.
+
+Collaborators can start from
+[`docs/hard_query_collection_template.md`](docs/hard_query_collection_template.md).
+The quality evaluator is separate from the search-latency benchmark:
+
+```bash
+uv run python tools/evaluate_hard_queries.py \
+  --cases data/evaluation/hard_queries/public_seed_cases.yaml \
+  --output-json /tmp/proteus-hard-query-eval.json
+```
 
 `distance` is a normalized phonological distance on a 0.0-1.0 scale: `0.0`
 means an exact phonological match, and smaller values indicate closer

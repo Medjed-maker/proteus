@@ -47,13 +47,14 @@ from ._models import (
     DataVersions,
     LanguageInfo,
     LanguagesResponse,
-    SearchRequest,
+    SearchHit as SearchHit,
+    SearchRequest as SearchRequest,
     SearchResponse,
     VersionInfo,
 )
 from ._request_context import (
     PUBLIC_BASE_URL_ENV_VAR,
-    generate_request_id,
+    generate_request_id as generate_request_id,
     is_valid_request_id,
     resolve_public_base_url,
     validate_public_base_url,
@@ -68,7 +69,7 @@ from ._search_runner import (
     UnsupportedLanguageError,
     _LOG_RAW_QUERY_ENV_VAR as _LOG_RAW_QUERY_ENV_VAR,
     _summarize_query_for_logs,  # re-export for tests
-    run_search,
+    run_search as run_search,
 )
 
 logger = logging.getLogger(__name__)

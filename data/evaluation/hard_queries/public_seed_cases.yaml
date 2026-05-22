@@ -1,0 +1,83 @@
+metadata:
+  dataset_id: "phase3-public-seed"
+  status: "public_seed"
+  description: >
+    Small repo-safe seed set for Phase 3 hard query validation. The full
+    20-case collection may include non-public collaborator logs until cases are
+    cleared for publication.
+  data_boundary: >
+    This file stores source identifiers and short citations only. It does not
+    store long Greek source text, private reviewer comments, or embargoed
+    collaborator data.
+
+cases:
+  - case_id: "hq-ag-0001"
+    visibility: "public_seed"
+    input_form: "παιδίο"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "παιδίον"
+        acceptable_forms: ["παιδίου"]
+        note: "The current runtime seed treats παιδίου as a normalized reading for the παιδίον candidate."
+    reasoning: >
+      Student-facing inscriptional orthography aid should keep παιδίο,
+      παιδίου, and παιδίον distinct while avoiding citation-ready claims until
+      source evidence and expert review are recorded.
+    source_notes:
+      - source_id: "orthographic-note-pilot-paidio"
+        short_citation: "Proteus orthographic note pilot"
+        note: "Public implementation seed; direct inscriptional source evidence remains unconfirmed."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "παιδίο"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching does not explain the normalized reading or candidate-headword relationship."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-05-22"
+      summary: "Kept as a semi-real pilot case for reviewer workflow and provisional orthographic aid validation."
+    tool_assisted_search:
+      checked_at: "2026-05-22"
+      summary: "Proteus should return παιδίον and attach provisional orthographic notes when available."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes: []
+    false_negative_notes:
+      - "If παιδίον is absent from the top candidates, the orthographic aid cannot support the pilot workflow."
+
+  - case_id: "hq-ag-0002"
+    visibility: "public_seed"
+    input_form: "λόγος"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 5
+    expected_candidates:
+      - headword: "λόγος"
+        acceptable_forms: []
+        note: "Control case: exact lemma should remain a top candidate while the hard-query evaluator is developed."
+    reasoning: >
+      A control case keeps the evaluator honest: exact matches should not be
+      degraded while harder orthographic and dialectal cases are added.
+    source_notes:
+      - source_id: "lsj-logos-control"
+        short_citation: "LSJ, λόγος"
+        note: "Common public lemma used only as an evaluator control; no source text is reproduced."
+    existing_search_failure:
+      tool: "not applicable"
+      query: "λόγος"
+      failure_type: "not_yet_checked"
+      notes: "This is a control case rather than a documented failure of an external search tool."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-05-22"
+      summary: "Control lemma is present in the packaged lexicon."
+    tool_assisted_search:
+      checked_at: "2026-05-22"
+      summary: "Proteus should return λόγος at rank 1 or within the requested top-N."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes: []
+    false_negative_notes:
+      - "If λόγος is absent, the evaluator or baseline search setup is broken."

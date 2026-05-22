@@ -26,6 +26,11 @@ Adding JSON fields is considered backward-compatible. Removing existing fields
 or changing their types is breaking. Clients should ignore unknown response
 keys.
 
+Phase 3 hard-query validation data does not change this REST contract. The
+dataset and evaluator live under `data/evaluation/hard_queries/` and `tools/`;
+they call the same search runner to measure quality, false positives, and false
+negatives without adding response fields.
+
 ## Endpoints
 
 ### `POST /search`
