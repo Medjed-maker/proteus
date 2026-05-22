@@ -70,33 +70,45 @@ def test_orthographic_note_translation_key_present_in_fallback_html(
 
     assert translations_data["en"]["sectionOrthographicNote"] == "Orthographic note"
     assert translations_data["ja"]["sectionOrthographicNote"] == "表記体系コメント"
-    assert translations_data["en"]["orthographicCurrentCandidate"] == "Current candidate"
-    assert translations_data["ja"]["orthographicCurrentCandidate"] == "現在候補"
+    assert (
+        translations_data["en"]["orthographicGroupTitle"]
+        == "Orthographically annotated candidates"
+    )
+    assert translations_data["ja"]["orthographicGroupTitle"] == "表記体系コメントあり"
+    assert (
+        translations_data["en"]["orthographicCurrentCandidate"]
+        == "Current candidate:"
+    )
+    assert translations_data["ja"]["orthographicCurrentCandidate"] == "現在候補:"
     assert (
         translations_data["en"]["orthographicAlternativeReading"]
-        == "Alternative reading (separate from current candidate):"
+        == "Writing-system alternative reading:"
     )
     assert (
         translations_data["ja"]["orthographicAlternativeReading"]
-        == "別読解（現在候補とは別）:"
+        == "表記体系上の別読解:"
     )
     assert (
         translations_data["en"]["orthographicPreReformSpelling"]
-        == "Pre-403/2 BCE Attic spelling:"
+        == "Pre-403/2 BCE Attic inscriptional spelling:"
     )
     assert (
         translations_data["ja"]["orthographicPreReformSpelling"]
-        == "前403/2年以前のアッティカ碑文表記:"
+        == "前403/2年以前のアッティカ碑文表記として:"
     )
     assert 'sectionOrthographicNote: "Orthographic note"' in html
-    assert 'orthographicCurrentCandidate: "Current candidate"' in html
+    assert (
+        'orthographicGroupTitle: "Orthographically annotated candidates"' in html
+    )
+    assert 'orthographicCurrentCandidate: "Current candidate:"' in html
     assert (
         'orthographicAlternativeReading: '
-        '"Alternative reading (separate from current candidate):"'
+        '"Writing-system alternative reading:"'
         in html
     )
     assert (
-        'orthographicPreReformSpelling: "Pre-403/2 BCE Attic spelling:"' in html
+        'orthographicPreReformSpelling: '
+        '"Pre-403/2 BCE Attic inscriptional spelling:"' in html
     )
     assert "orthographicNoteEmpty" not in html
 
@@ -104,11 +116,14 @@ def test_orthographic_note_translation_key_present_in_fallback_html(
 def test_frontend_renders_orthographic_notes_before_alignment() -> None:
     html = FRONTEND_HTML_PATH.read_text(encoding="utf-8")
 
-    assert "function renderOrthographicNotes(notes, currentCandidate)" in html
+    assert "function renderOrthographicNotes(notes, currentCandidate, queryForm)" in html
     assert "if (!Array.isArray(notes) || notes.length === 0) return null;" in html
-    assert "renderOrthographicNotes(hit.orthographic_notes, hit.headword)" in html
+    assert (
+        "renderOrthographicNotes(\n        hit.orthographic_notes,"
+        in html
+    )
     renderer_start = html.index(
-        "function renderOrthographicNotes(notes, currentCandidate)"
+        "function renderOrthographicNotes(notes, currentCandidate, queryForm)"
     )
     renderer_end = html.index("function splitRules(hit)")
     assert (
@@ -118,7 +133,11 @@ def test_frontend_renders_orthographic_notes_before_alignment() -> None:
     orthographic_renderer = html[renderer_start:renderer_end]
     assert "references" not in orthographic_renderer
     assert "confidence" not in orthographic_renderer
-    assert 'note.kind === "orthographic_correspondence"' in orthographic_renderer
+    assert "function appendOrthographicRelation" in html
+    assert 'arrow.textContent = " → "' in html
+    assert 'const query = typeof queryForm === "string" ? queryForm.trim() : "";' in orthographic_renderer
+    assert "appendOrthographicRelation(currentText, query, currentCandidate.trim())" in orthographic_renderer
+    assert "note.kind === ORTHO_KIND_CORRESPONDENCE" in orthographic_renderer
     assert (
         'const normalizedForm = note.normalized_form.trim();'
         in orthographic_renderer
@@ -144,6 +163,7 @@ def test_frontend_renders_orthographic_notes_before_alignment() -> None:
         'preReformLabel.textContent = t("orthographicPreReformSpelling")'
         in orthographic_renderer
     )
+    assert "isAlternativeReading ? query : \"\"" in orthographic_renderer
 
     append_body = html[
         html.index("function appendCardBody") : html.index(
@@ -151,7 +171,7 @@ def test_frontend_renders_orthographic_notes_before_alignment() -> None:
         )
     ]
     assert append_body.index('t("sectionMatchedRules")') < append_body.index(
-        "renderOrthographicNotes(hit.orthographic_notes, hit.headword)"
+        "renderOrthographicNotes("
     )
     assert append_body.index('t("sectionOrthographicNote")') < append_body.index(
         't("sectionAlignment")'
@@ -159,3 +179,38 @@ def test_frontend_renders_orthographic_notes_before_alignment() -> None:
     assert append_body.index('t("sectionWhyCandidate")') < append_body.index(
         "renderNotesDetails(hit)"
     )
+
+
+def test_frontend_highlights_orthographic_candidates_above_supported_group() -> None:
+    """Verify that candidates with orthographic notes are displayed before the supported group."""
+    html = FRONTEND_HTML_PATH.read_text(encoding="utf-8")
+
+    assert "function hasOrthographicNotes(hit)" in html
+    assert (
+        "return Array.isArray(hit?.orthographic_notes) && "
+        "hit.orthographic_notes.length > 0;"
+        in html
+    )
+    assert "const orthographic = indexedHits.filter(({ hit }) => hasOrthographicNotes(hit));" in html
+    assert (
+        "({ hit }) => !hasOrthographicNotes(hit) && isSupportedCandidate(hit)"
+        in html
+    )
+    assert (
+        "({ hit }) => !hasOrthographicNotes(hit) && !isSupportedCandidate(hit)"
+        in html
+    )
+
+    assert 'const ORTHO_KIND_CORRESPONDENCE = "orthographic_correspondence";' in html
+
+    results_renderer = html[
+        html.index("function renderResults") : html.index("/* ------------------------------------------------------------------ */", html.index("function renderResults"))
+    ]
+    assert 'const queryForm = data.query || "";' in results_renderer
+    assert "renderCandidateCards(orthographic, queryForm)" in results_renderer
+    assert "renderCandidateCards(supported, queryForm)" in results_renderer
+    assert "renderExploratorySection(queryMode, exploratory, queryForm)" in results_renderer
+    assert results_renderer.index('t("orthographicGroupTitle")') < results_renderer.index(
+        't("supportedGroupTitle")'
+    )
+    assert 't("orthographicGroupDesc")' in results_renderer

@@ -86,7 +86,9 @@
         queryModeFullLabel: "Full form mode",
         queryModeFullDetail: "Results are ranked as full-form phonological candidates.",
         supportedGroupTitle: "Supported candidates",
-        supportedGroupDesc: "Exact, rule-supported, and orthographically annotated candidates are shown first.",
+        supportedGroupDesc: "Exact and rule-supported candidates are shown after any orthographically annotated candidates.",
+        orthographicGroupTitle: "Orthographically annotated candidates",
+        orthographicGroupDesc: "Candidates with writing-system notes are highlighted here; rank numbers still reflect the original search order.",
         exploratoryGroupTitle: "Exploratory candidates",
         exploratoryShortDesc: "Very short inputs broaden the search space; exploratory candidates are shown for quick inspection.",
         exploratoryPartialDesc: "Single-wildcard queries increase exploratory matches; these candidates are shown for review.",
@@ -95,9 +97,9 @@
         sectionMatchedRules: "Matched rules",
         sectionUncatalogued: "Uncatalogued differences",
         sectionOrthographicNote: "Orthographic note",
-        orthographicCurrentCandidate: "Current candidate",
-        orthographicAlternativeReading: "Alternative reading (separate from current candidate):",
-        orthographicPreReformSpelling: "Pre-403/2 BCE Attic spelling:",
+        orthographicCurrentCandidate: "Current candidate:",
+        orthographicAlternativeReading: "Writing-system alternative reading:",
+        orthographicPreReformSpelling: "Pre-403/2 BCE Attic inscriptional spelling:",
         sectionAlignment: "Alignment",
         sectionWhyCandidate: "Why this candidate?",
         diffVisible: "Differences visible in full alignment.",
@@ -361,6 +363,7 @@
     /* ------------------------------------------------------------------ */
 
     const DETAILED_CARD_THRESHOLD = 3;
+    const ORTHO_KIND_CORRESPONDENCE = "orthographic_correspondence";
 
     // Client-side fallback for query-mode classification.  The server
     // returns query_mode in the response, so this is only reached when
@@ -484,6 +487,10 @@
       return matchType === "Exact" || matchType === "Rule-based" || uncertainty === "Low";
     }
 
+    function hasOrthographicNotes(hit) {
+      return Array.isArray(hit?.orthographic_notes) && hit.orthographic_notes.length > 0;
+    }
+
     function renderDialectBadges(attribution) {
       const container = document.createElement("div");
       container.className = "flex flex-wrap gap-1.5 mt-2";
@@ -536,7 +543,19 @@
       }
     }
 
-    function renderExploratorySection(queryMode, items) {
+    function renderCandidateCards(items, queryForm) {
+      const fragment = document.createDocumentFragment();
+      items.forEach(({ hit, index }, groupIndex) => {
+        fragment.appendChild(
+          groupIndex < DETAILED_CARD_THRESHOLD
+            ? renderDetailedCard(hit, index, queryForm)
+            : renderCompactCard(hit, index, queryForm)
+        );
+      });
+      return fragment;
+    }
+
+    function renderExploratorySection(queryMode, items, queryForm) {
       const details = document.createElement("details");
       details.className = "mb-4";
       details.open = true;
@@ -554,13 +573,7 @@
       hint.textContent = describeExploratoryGroup(queryMode);
       body.appendChild(hint);
 
-      items.forEach(({ hit, index }, groupIndex) => {
-        body.appendChild(
-          groupIndex < DETAILED_CARD_THRESHOLD
-            ? renderDetailedCard(hit, index)
-            : renderCompactCard(hit, index)
-        );
-      });
+      body.appendChild(renderCandidateCards(items, queryForm));
 
       details.appendChild(body);
       return details;
@@ -696,11 +709,41 @@
       return prefix + "-" + _orthographicNoteIdCounter;
     }
 
-    function renderOrthographicNotes(notes, currentCandidate) {
+    function appendOrthographicRelation(parent, sourceForm, targetForm, romanization = null) {
+      const source = typeof sourceForm === "string" ? sourceForm.trim() : "";
+      const target = typeof targetForm === "string" ? targetForm.trim() : "";
+      if (source) {
+        const sourceText = document.createElement("strong");
+        sourceText.className = "font-semibold";
+        sourceText.textContent = source;
+        parent.appendChild(sourceText);
+      }
+      if (source && target) {
+        const arrow = document.createElement("span");
+        arrow.className = "text-ink-muted";
+        arrow.textContent = " → ";
+        parent.appendChild(arrow);
+      }
+      if (target) {
+        const targetText = document.createElement("strong");
+        targetText.className = "font-semibold";
+        targetText.textContent = target;
+        parent.appendChild(targetText);
+      }
+      if (typeof romanization === "string" && romanization.trim()) {
+        const roman = document.createElement("span");
+        roman.className = "ml-1 text-ink-muted";
+        roman.textContent = "(" + romanization.trim() + ")";
+        parent.appendChild(roman);
+      }
+    }
+
+    function renderOrthographicNotes(notes, currentCandidate, queryForm) {
       if (!Array.isArray(notes) || notes.length === 0) return null;
 
       const list = document.createElement("div");
       list.className = "mt-2 space-y-2";
+      const query = typeof queryForm === "string" ? queryForm.trim() : "";
 
       if (typeof currentCandidate === "string" && currentCandidate.trim()) {
         const current = document.createElement("div");
@@ -717,10 +760,7 @@
 
         const currentText = document.createElement("p");
         currentText.className = "mt-1 text-sm text-ink break-words";
-        const candidate = document.createElement("strong");
-        candidate.className = "font-semibold";
-        candidate.textContent = currentCandidate.trim();
-        currentText.appendChild(candidate);
+        appendOrthographicRelation(currentText, query, currentCandidate.trim());
         current.appendChild(currentText);
 
         list.appendChild(current);
@@ -753,7 +793,7 @@
           const candidateForm =
             typeof currentCandidate === "string" ? currentCandidate.trim() : "";
           const isAlternativeReading =
-            note.kind === "orthographic_correspondence" &&
+            note.kind === ORTHO_KIND_CORRESPONDENCE &&
             (!candidateForm || normalizedForm !== candidateForm);
           if (isAlternativeReading) {
             forms.setAttribute("role", "group");
@@ -767,17 +807,12 @@
             forms.setAttribute("aria-labelledby", leadId);
           }
 
-          const normalized = document.createElement("strong");
-          normalized.className = "font-semibold";
-          normalized.textContent = normalizedForm;
-          forms.appendChild(normalized);
-
-          if (typeof note.romanization === "string" && note.romanization.trim()) {
-            const romanization = document.createElement("span");
-            romanization.className = "ml-1 text-ink-muted";
-            romanization.textContent = "(" + note.romanization.trim() + ")";
-            forms.appendChild(romanization);
-          }
+          appendOrthographicRelation(
+            forms,
+            isAlternativeReading ? query : "",
+            normalizedForm,
+            note.romanization
+          );
 
           item.appendChild(forms);
         }
@@ -798,21 +833,12 @@
           preReform.appendChild(preReformLabel);
           preReform.setAttribute("aria-labelledby", preReformLabelId);
 
-          const preReformSpelling = document.createElement("strong");
-          preReformSpelling.className = "font-semibold";
-          preReformSpelling.textContent = note.pre_reform_spelling.trim();
-          preReform.appendChild(preReformSpelling);
-
-          if (
-            typeof note.pre_reform_romanization === "string" &&
-            note.pre_reform_romanization.trim()
-          ) {
-            const preReformRoman = document.createElement("span");
-            preReformRoman.className = "ml-1 text-ink-muted";
-            preReformRoman.textContent =
-              "(" + note.pre_reform_romanization.trim() + ")";
-            preReform.appendChild(preReformRoman);
-          }
+          appendOrthographicRelation(
+            preReform,
+            "",
+            note.pre_reform_spelling.trim(),
+            note.pre_reform_romanization
+          );
 
           item.appendChild(preReform);
         }
@@ -833,7 +859,7 @@
       };
     }
 
-    function appendCardBody(container, hit, { explicit, observed }) {
+    function appendCardBody(container, hit, { explicit, observed }, queryForm) {
       container.appendChild(renderSectionTitle(t("sectionDiffSummary")));
       const differenceSummary = document.createElement("p");
       differenceSummary.className = "mt-2 text-sm text-ink-light";
@@ -855,7 +881,11 @@
         container.appendChild(renderRuleRows(observed));
       }
 
-      const orthographicNotes = renderOrthographicNotes(hit.orthographic_notes, hit.headword);
+      const orthographicNotes = renderOrthographicNotes(
+        hit.orthographic_notes,
+        hit.headword,
+        queryForm
+      );
       if (orthographicNotes) {
         container.appendChild(renderSectionTitle(t("sectionOrthographicNote")));
         container.appendChild(orthographicNotes);
@@ -877,7 +907,7 @@
       container.appendChild(renderNotesDetails(hit));
     }
 
-    function renderDetailedCard(hit, index) {
+    function renderDetailedCard(hit, index, queryForm) {
       const { explicit, observed } = splitRules(hit);
 
       const card = document.createElement("article");
@@ -927,11 +957,11 @@
       meta.appendChild(renderMetaBadge(t("badgeFallbackEdits"), String(hit.observed_change_count ?? observed.length)));
       card.appendChild(meta);
 
-      appendCardBody(card, hit, { explicit, observed });
+      appendCardBody(card, hit, { explicit, observed }, queryForm);
       return card;
     }
 
-    function renderCompactCard(hit, index) {
+    function renderCompactCard(hit, index, queryForm) {
       const { explicit, observed } = splitRules(hit);
       const card = document.createElement("details");
       card.className = "bg-white border border-parchment-200 rounded-xl p-5 mb-4 shadow-sm";
@@ -993,7 +1023,7 @@
       metaDetails.appendChild(renderMetaBadge(t("badgeFallbackEdits"), String(hit.observed_change_count ?? observed.length)));
       body.appendChild(metaDetails);
 
-      appendCardBody(body, hit, { explicit, observed });
+      appendCardBody(body, hit, { explicit, observed }, queryForm);
       card.appendChild(body);
       return card;
     }
@@ -1031,8 +1061,24 @@
         .map((hit, index) => ({ hit, index }))
         .filter(({ hit }) => hit && typeof hit === "object");
 
-      const supported = indexedHits.filter(({ hit }) => isSupportedCandidate(hit));
-      const exploratory = indexedHits.filter(({ hit }) => !isSupportedCandidate(hit));
+      const queryForm = data.query || "";
+      const orthographic = indexedHits.filter(({ hit }) => hasOrthographicNotes(hit));
+      const supported = indexedHits.filter(
+        ({ hit }) => !hasOrthographicNotes(hit) && isSupportedCandidate(hit)
+      );
+      const exploratory = indexedHits.filter(
+        ({ hit }) => !hasOrthographicNotes(hit) && !isSupportedCandidate(hit)
+      );
+
+      if (orthographic.length) {
+        container.appendChild(
+          renderGroupHeader(
+            t("orthographicGroupTitle"),
+            t("orthographicGroupDesc")
+          )
+        );
+        container.appendChild(renderCandidateCards(orthographic, queryForm));
+      }
 
       if (supported.length) {
         container.appendChild(
@@ -1041,17 +1087,13 @@
             t("supportedGroupDesc")
           )
         );
-        supported.forEach(({ hit, index }, groupIndex) => {
-          container.appendChild(
-            groupIndex < DETAILED_CARD_THRESHOLD
-              ? renderDetailedCard(hit, index)
-              : renderCompactCard(hit, index)
-          );
-        });
+        container.appendChild(renderCandidateCards(supported, queryForm));
       }
 
       if (exploratory.length) {
-        container.appendChild(renderExploratorySection(queryMode, exploratory));
+        container.appendChild(
+          renderExploratorySection(queryMode, exploratory, queryForm)
+        );
       }
     }
 
