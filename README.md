@@ -229,10 +229,16 @@ writing-system, spelling, or beginner-facing comments and should not be merged
 into `rules_applied`.
 For example, `παιδίο` can rank the current candidate `παιδίον` while the
 orthographic note separately presents the alternative reading `παιδίου (paidiou)`.
-In that display, `παιδίο -> παιδίον` is the search candidate chosen by ranking,
-while `παιδίο -> παιδίου` is a writing-system reading aid. The normalized form
-`παιδίου (paidiou)` is the later or standard-form reading; `παιδίο (paidiō)` is
-shown as the pre-403/2 BCE Attic inscriptional spelling and reading.
+In the UI, the orthographic-note group separates three distinct relations
+between the query and the candidate:
+
+- `Current candidate: παιδίο → παιδίον` is the search candidate chosen by ranking.
+- `Writing-system alternative reading: παιδίο → παιδίου (paidiou)` is a
+  writing-system reading aid.
+- `Pre-403/2 BCE Attic inscriptional spelling: παιδίο (paidiō)` shows the
+  inscriptional spelling and reading.
+
+The normalized form `παιδίου (paidiou)` is the later or standard-form reading.
 
 ### Discovery and probes
 

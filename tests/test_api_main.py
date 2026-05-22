@@ -986,7 +986,7 @@ class TestFrontendHtml:
         assert translations["supportedGroupTitle"] == "Supported candidates"
         assert (
             translations["supportedGroupDesc"]
-            == "Exact, rule-supported, and orthographically annotated candidates are shown first."
+            == "Exact and rule-supported candidates are shown after any orthographically annotated candidates."
         )
         assert translations["exploratoryGroupTitle"] == "Exploratory candidates"
         # "Exploratory candidates (" is now built dynamically via t() + count suffix;

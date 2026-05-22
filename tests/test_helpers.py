@@ -21,6 +21,8 @@ WEB_ASSET_KEYS = [
     "queryModeFullDetail",
     "supportedGroupTitle",
     "supportedGroupDesc",
+    "orthographicGroupTitle",
+    "orthographicGroupDesc",
     "exploratoryGroupTitle",
     "exploratoryShortDesc",
     "exploratoryPartialDesc",
