@@ -80,6 +80,7 @@ testpaths = ["tests"]
 addopts = "--tb=short -v"
 markers = [
     "internal_search_execution: tests that intentionally inspect internal search execution metadata",
+    "integration: tests that load real lexicon/runtime dependencies and may be slow",
 ]
 
 [tool.mypy]

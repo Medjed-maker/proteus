@@ -100,6 +100,15 @@ Expose the search engine for external use and LLM grounding.
 ### Goal
 Validate whether the tool solves real research pain.
 
+### Implementation Plan
+Detailed checklist: `tasks/phase3_scholarly_validation_hard_query_collection_plan.md`.
+
+Public seed data, validation schema, and evaluator tooling are tracked in
+`data/evaluation/hard_queries/`, `data/schemas/hard_query_case.schema.json`,
+`tools/validate_hard_queries.py`, and `tools/evaluate_hard_queries.py`.
+Unpublished collaborator cases remain outside the public repository until they
+are cleared or anonymized.
+
 ### Required Work
 - Collect hard queries from researchers
 - Record cases where existing search fails

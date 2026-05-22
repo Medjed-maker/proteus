@@ -15,6 +15,11 @@ metadata envelope used by REST search responses.
 
 The runtime tool schema is committed at [`mcp/tools.json`](mcp/tools.json).
 
+Phase 3 hard-query validation does not change the MCP tool schema. The
+evaluation dataset and runner are repo-side quality tooling that exercise the
+same search engine and record expected-candidate hits, false positives, and
+false negatives outside the MCP wire contract.
+
 ## Installation
 
 For local development:
