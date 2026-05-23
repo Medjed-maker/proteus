@@ -1,0 +1,27 @@
+_meta:
+  status: proof_of_concept
+  provider: "Perseus Digital Library / Scaife-compatible metadata"
+  license_note: >
+    Metadata-only source references. Do not redistribute source texts through
+    this file; follow the referenced provider license and attribution terms.
+  note: >
+    Static Phase 4 seed data for validating corpus adapter wiring. These
+    entries link search results to external source metadata only.
+
+entries:
+  LSJ-063772:
+    - source_id: "Perseus:text:1999.04.0057:entry=lo%2Fgos"
+      corpus: "Perseus Digital Library LSJ"
+      short_citation: "LSJ, logos"
+      external_url: "https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.04.0057:entry=lo%2Fgos"
+      license_note: "Perseus Digital Library reference metadata; linked content remains with its provider."
+      access_policy: "open_metadata"
+      citation_ready: false
+  LSJ-008909:
+    - source_id: "Perseus:text:1999.04.0057:entry=a%29%2Fnqrwpos"
+      corpus: "Perseus Digital Library LSJ"
+      short_citation: "LSJ, anthropos"
+      external_url: "https://www.perseus.tufts.edu/hopper/text?doc=Perseus:text:1999.04.0057:entry=a%29%2Fnqrwpos"
+      license_note: "Perseus Digital Library reference metadata; linked content remains with its provider."
+      access_policy: "open_metadata"
+      citation_ready: false

@@ -8,6 +8,7 @@ from pathlib import Path
 import threading
 from typing import Literal, Protocol
 
+from .corpus import CorpusAdapter
 from ._paths import DEFAULT_LANGUAGE_ID
 from .orthography_notes import OrthographicNoteBuilder
 
@@ -38,6 +39,7 @@ class LanguageProfile:
     dialect_skeleton_builders: tuple[Callable[[list[str]], list[str]], ...] = ()
     orthographic_note_builder: OrthographicNoteBuilder | None = None
     orthographic_data_preparer: Callable[[], None] | None = None
+    corpus_adapter_factory: Callable[[], CorpusAdapter] | None = None
 
 
 _REGISTRY: dict[str, LanguageProfile] = {}

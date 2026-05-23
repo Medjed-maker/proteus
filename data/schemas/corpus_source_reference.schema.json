@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://proteus.local/data/schemas/corpus_source_reference.schema.json",
+  "title": "Proteus corpus source references",
+  "type": "object",
+  "required": ["_meta", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "_meta": {
+      "type": "object",
+      "required": ["status", "provider", "license_note", "note"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "proof_of_concept"
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "license_note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "entries": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/source_reference"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "source_reference": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "corpus",
+        "short_citation",
+        "external_url",
+        "license_note",
+        "access_policy",
+        "citation_ready"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "corpus": {
+          "type": "string",
+          "minLength": 1
+        },
+        "short_citation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "external_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "license_note": {
+          "type": "string",
+          "minLength": 1
+        },
+        "access_policy": {
+          "type": "string",
+          "enum": [
+            "open_metadata",
+            "linked_restricted_text",
+            "expert_review_required"
+          ]
+        },
+        "citation_ready": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

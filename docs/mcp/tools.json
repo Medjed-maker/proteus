@@ -499,6 +499,14 @@
                 "title": "Rules Applied",
                 "type": "array"
               },
+              "source_references": {
+                "description": "External source metadata references for this candidate. Contains identifiers, short citations, links, and license notes only; source texts and excerpts are intentionally excluded.",
+                "items": {
+                  "$ref": "#/$defs/SourceReference"
+                },
+                "title": "Source References",
+                "type": "array"
+              },
               "uncertainty": {
                 "default": "High",
                 "description": "Qualitative uncertainty label for the ranked candidate.",
@@ -527,6 +535,64 @@
               "explanation"
             ],
             "title": "SearchHit",
+            "type": "object"
+          },
+          "SourceReference": {
+            "additionalProperties": false,
+            "description": "External source metadata attached to a search candidate.\n\nThe model intentionally carries identifiers, short citations, links, and\nlicense notes only. It must not carry source text or passage excerpts.",
+            "properties": {
+              "access_policy": {
+                "description": "How clients may access the referenced source.",
+                "enum": [
+                  "open_metadata",
+                  "linked_restricted_text",
+                  "expert_review_required"
+                ],
+                "title": "Access Policy",
+                "type": "string"
+              },
+              "citation_ready": {
+                "description": "Whether this metadata has been reviewed for citation use.",
+                "title": "Citation Ready",
+                "type": "boolean"
+              },
+              "corpus": {
+                "description": "Human-readable corpus or provider name.",
+                "title": "Corpus",
+                "type": "string"
+              },
+              "external_url": {
+                "description": "HTTP(S) landing page for the source.",
+                "maxLength": 2048,
+                "title": "External Url",
+                "type": "string"
+              },
+              "license_note": {
+                "description": "Short license and attribution note.",
+                "title": "License Note",
+                "type": "string"
+              },
+              "short_citation": {
+                "description": "Short display citation.",
+                "title": "Short Citation",
+                "type": "string"
+              },
+              "source_id": {
+                "description": "Corpus-local or CTS-style source identifier.",
+                "title": "Source Id",
+                "type": "string"
+              }
+            },
+            "required": [
+              "source_id",
+              "corpus",
+              "short_citation",
+              "external_url",
+              "license_note",
+              "access_policy",
+              "citation_ready"
+            ],
+            "title": "SourceReference",
             "type": "object"
           }
         },

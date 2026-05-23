@@ -27,6 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from packaging.version import InvalidVersion, Version
 
 from phonology import search as phonology_search
+from phonology.corpus import CorpusSourceDataError, EMPTY_CORPUS_ADAPTER
 from phonology.distance import MatrixData, load_matrix_document
 from phonology.explainer import get_rules_version
 from phonology.orthography_notes import OrthographicNoteDataError
@@ -91,6 +92,7 @@ _SEARCH_DEPENDENCY_LOAD_ERRORS = (
     OSError,
     yaml.YAMLError,
     OrthographicNoteDataError,
+    CorpusSourceDataError,
 )
 _SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL = (
     "Search dependencies are not ready. Verify packaged matrices, rules, and lexicon assets "
@@ -662,6 +664,11 @@ def _load_search_dependencies(
         data_versions = _build_data_versions(language)
         if profile.orthographic_data_preparer is not None:
             profile.orthographic_data_preparer()
+        corpus_adapter = (
+            profile.corpus_adapter_factory()
+            if profile.corpus_adapter_factory is not None
+            else EMPTY_CORPUS_ADAPTER
+        )
         return SearchDependencies(
             profile=profile,
             lexicon=lexicon,
@@ -672,6 +679,7 @@ def _load_search_dependencies(
             lexicon_map=_load_lexicon_map(language),
             ipa_index=_load_ipa_index(language),
             data_versions=data_versions,
+            corpus_adapter=corpus_adapter,
         )
     except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
         raise SearchDependenciesNotReadyError(

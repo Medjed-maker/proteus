@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from ..._paths import resolve_language_data_dir
 from ...profiles import LanguageProfile
+from ...corpus import load_static_corpus_adapter
 from .ipa import apply_koine_consonant_shifts, get_known_phones, to_ipa
 from .orthography_notes import (
     build_orthographic_notes,
@@ -36,8 +37,10 @@ def build_profile(
     lexicon_dir = resolve_language_data_dir(language_id, "lexicon")
     matrix_dir = resolve_language_data_dir(language_id, "matrices")
     rules_dir = resolve_language_data_dir(language_id, "rules")
+    corpus_sources_dir = resolve_language_data_dir(language_id, "corpus_sources")
 
     matrix_path = matrix_dir / f"{matrix_name}.{matrix_format}"
+    corpus_sources_path = corpus_sources_dir / "perseus_scaife_sources.yaml"
 
     return LanguageProfile(
         language_id=language_id,
@@ -56,4 +59,5 @@ def build_profile(
         dialect_skeleton_builders=(apply_koine_consonant_shifts,),
         orthographic_note_builder=build_orthographic_notes,
         orthographic_data_preparer=prepare_orthographic_data,
+        corpus_adapter_factory=lambda: load_static_corpus_adapter(corpus_sources_path),
     )
