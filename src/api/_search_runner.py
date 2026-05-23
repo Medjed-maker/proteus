@@ -23,12 +23,13 @@ import os
 from typing import Any, NamedTuple
 
 from phonology import search as phonology_search
+from phonology.corpus import CorpusAdapter, EMPTY_CORPUS_ADAPTER, safe_lookup
 from phonology.distance import MatrixData
 from phonology.profiles import LanguageProfile, get_default_language_profile
 from phonology.search._types import QueryMode
 
 from ._hit_formatting import _build_search_hit
-from ._models import DataVersions, SearchRequest, SearchResponse
+from ._models import DataVersions, SearchHit, SearchRequest, SearchResponse
 from ._response_meta import build_response_meta
 
 # The runner is part of the api package's search surface; routing logs to
@@ -58,6 +59,7 @@ class SearchDependencies(NamedTuple):
     ipa_index: phonology_search.IpaIndex
     data_versions: DataVersions
     profile: LanguageProfile | None = None
+    corpus_adapter: CorpusAdapter = EMPTY_CORPUS_ADAPTER
 
 
 class SearchDependenciesNotReadyError(RuntimeError):
@@ -190,8 +192,16 @@ def run_search(
             "Search failed due to an internal error."
         ) from err
 
-    hits = [
-        _build_search_hit(
+    hits: list[SearchHit] = []
+    for result in execution.results:
+        source_references = safe_lookup(
+            deps.corpus_adapter,
+            entry_id=result.entry_id,
+            headword=result.lemma,
+            language=profile.language_id,
+            logger=logger,
+        )
+        hit = _build_search_hit(
             result,
             query_ipa=execution.query_ipa,
             rules_registry=deps.rules_registry,
@@ -199,9 +209,9 @@ def run_search(
             lang=request.response_language,
             query_form=request.query_form,
             orthographic_note_builder=profile.orthographic_note_builder,
+            source_references=source_references,
         )
-        for result in execution.results
-    ]
+        hits.append(hit)
     meta = build_response_meta(
         request_id=request_id,
         request=request,

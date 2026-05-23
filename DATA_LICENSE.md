@@ -108,6 +108,33 @@ The repository should prefer:
 
 The repository should avoid storing restricted corpus texts.
 
+Phase 4 corpus adapter proof-of-concept data follows this policy by storing
+only the following under `data/languages/*/corpus_sources/`:
+
+- source identifiers
+- external links
+- license notes
+- review status
+- short citations (limited to 200 characters or 40 words, whichever is shorter)
+
+Short citations may include:
+- titles and authors
+- publication years
+- DOIs
+- brief bibliographic metadata (under 50 characters)
+- a single sentence, only if the entire citation including all metadata remains under the 200 character or 40 word limit
+
+It must NOT store:
+- source text, passage text, or evidence excerpts
+- multi-sentence passages or full paragraphs
+- long quotations
+- any excerpt exceeding the short-citation limit
+
+Citations over that limit must be converted to metadata-only entries (source identifiers, links, and license notes only).
+
+Metadata ingested from papyri.info, PHI, AIO, or similar services may support candidate
+generation, but it is not citation-ready runtime note data until reviewed.
+
 ### 2.6 Hard Query Data
 Hard queries are examples of difficult forms that researchers submit or that are collected during validation.
 

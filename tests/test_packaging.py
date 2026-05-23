@@ -24,6 +24,7 @@ from phonology import build_lexicon
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 EXPECTED_WHEEL_ASSETS = {
+    "phonology/data/languages/ancient_greek/corpus_sources/perseus_scaife_sources.yaml",
     "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json",
     "phonology/data/languages/ancient_greek/matrices/attic_doric.json",
     "phonology/data/languages/ancient_greek/orthography/orthographic_correspondences.yaml",
@@ -33,6 +34,7 @@ EXPECTED_WHEEL_ASSETS = {
     "phonology/data/languages/ancient_greek/rules/buck/grammar_rules.yaml",
     "phonology/data/languages/ancient_greek/rules/morphophonemic_alternations.yaml",
     "phonology/data/languages/ancient_greek/rules/vowel_shifts.yaml",
+    "phonology/data/schemas/corpus_source_reference.schema.json",
     "phonology/data/schemas/phonology_rule_file.schema.json",
     "web/changelog.html",
     "web/index.html",
@@ -335,9 +337,11 @@ def test_wheel_force_include_config_and_packaged_layout_support_runtime_loaders(
         "data/languages/ancient_greek/lexicon/greek_lemmas.json": "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.json",
         "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json": "phonology/data/languages/ancient_greek/lexicon/greek_lemmas.schema.json",
         "data/languages/ancient_greek/lexicon/pos_overrides.yaml": "phonology/data/languages/ancient_greek/lexicon/pos_overrides.yaml",
+        "data/languages/ancient_greek/corpus_sources": "phonology/data/languages/ancient_greek/corpus_sources",
         "data/languages/ancient_greek/matrices": "phonology/data/languages/ancient_greek/matrices",
         "data/languages/ancient_greek/orthography": "phonology/data/languages/ancient_greek/orthography",
         "data/languages/ancient_greek/rules": "phonology/data/languages/ancient_greek/rules",
+        "data/schemas/corpus_source_reference.schema.json": "phonology/data/schemas/corpus_source_reference.schema.json",
         "data/schemas/phonology_rule_file.schema.json": "phonology/data/schemas/phonology_rule_file.schema.json",
         "src/web/index.html": "web/index.html",
         "src/web/changelog.html": "web/changelog.html",
@@ -435,6 +439,8 @@ def test_sdist_force_include_config_bundles_generated_lexicon_and_metadata() -> 
     assert sdist_config["force-include"] == {
         "data/languages/ancient_greek/lexicon/greek_lemmas.json": "data/languages/ancient_greek/lexicon/greek_lemmas.json",
         "data/languages/ancient_greek/lexicon/greek_lemmas.meta.json": "data/languages/ancient_greek/lexicon/greek_lemmas.meta.json",
+        "data/languages/ancient_greek/corpus_sources": "data/languages/ancient_greek/corpus_sources",
+        "data/schemas/corpus_source_reference.schema.json": "data/schemas/corpus_source_reference.schema.json",
         "data/schemas/phonology_rule_file.schema.json": "data/schemas/phonology_rule_file.schema.json",
     }
     assert sdist_config["hooks"]["custom"]["path"] == "hatch_build.py"

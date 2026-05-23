@@ -18,7 +18,7 @@ path prefixes.
 | Field | Meaning |
 | --- | --- |
 | `meta.api_version` | REST API contract version, currently `1.0`. |
-| `meta.schema_version` | Public response schema version, currently `1.0.0`. |
+| `meta.schema_version` | Public response schema version, currently `1.1.0`. |
 | `meta.engine_version` | Installed `proteus` package version. |
 | `data_versions` | Data source versions used by the search response. |
 
@@ -88,6 +88,7 @@ Example response excerpt:
       "confidence": 1.0,
       "rules_applied": [],
       "orthographic_notes": [],
+      "source_references": [],
       "explanation": "Exact phonological match."
     }
   ],
@@ -99,7 +100,7 @@ Example response excerpt:
   },
   "meta": {
     "api_version": "1.0",
-    "schema_version": "1.0.0",
+    "schema_version": "1.1.0",
     "engine_version": "<engine-version>",
     "data_versions": {
       "lexicon": "2.0.0",
@@ -171,9 +172,10 @@ Serves the packaged changelog HTML page.
 | --- | --- | --- |
 | `SearchRequest` | Search input. | `query_form`, `language`, `dialect_hint`, `max_candidates`, `response_language`; deprecated `orthography_hint`, `lang`. |
 | `SearchResponse` | Top-level search output. | `query`, `query_ipa`, `query_mode`, `hits`, `truncated`, `data_versions`, `meta`. |
-| `SearchHit` | Ranked candidate. | `headword`, `ipa`, `distance`, `confidence`, `dialect_attribution`, `match_type`, `rules_applied`, `orthographic_notes`, `explanation`. |
+| `SearchHit` | Ranked candidate. | `headword`, `ipa`, `distance`, `confidence`, `dialect_attribution`, `match_type`, `rules_applied`, `orthographic_notes`, `source_references`, `explanation`. |
 | `RuleStep` | One phonological rule application. | `rule_id`, `rule_name`, `rule_name_en`, `from_phone`, `to_phone`, `position`. |
 | `OrthographicNote` | Candidate-level spelling or writing-system note. | `kind`, `label`, `messages`, `normalized_form`, `romanization`, `period_label`, `references`, `confidence`, `pre_reform_spelling`, `pre_reform_romanization`. |
+| `SourceReference` | Candidate-level external source metadata. | `source_id`, `corpus`, `short_citation`, `external_url`, `license_note`, `access_policy`, `citation_ready`. |
 | `DataVersions` | Data source metadata. | `lexicon`, `lexicon_updated_at`, `matrix`, `matrix_generated_at`, `rules`. |
 | `ResponseMeta` | Search response metadata. | `api_version`, `schema_version`, `engine_version`, `data_versions`, `ruleset_versions`, `request_id`, `timestamp`, `verification_url`, `request_echo`. |
 | `RequestEcho` | Sanitized validated request echo. | `query_form`, `language`, `dialect_hint`, `max_candidates`, `response_language`. |
@@ -198,6 +200,14 @@ Recommended content shape:
 
 If richer provenance is needed in the future, add separate structured fields
 on `SearchHit` instead of overloading `explanation`.
+
+### `SearchHit.source_references` content guidelines
+
+`hits[].source_references` contains metadata-only links to external source
+records. It never contains source text, passage excerpts, or long quotations.
+Restricted corpora are linked rather than redistributed, and
+`citation_ready=false` means the reference is useful for discovery but should be
+reviewed before scholarly citation.
 
 ## Error Responses
 

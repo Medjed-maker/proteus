@@ -122,6 +122,12 @@ Example logical call:
 `SearchRequest.language` field after the MCP `source_language` value is
 validated and normalized.
 
+Each candidate uses the same `SearchHit` model as REST. If
+`source_references` is present, MCP clients should treat it as metadata-only
+attribution and link data. The field must not be expanded into quoted source
+text, and `citation_ready=false` references require human review before
+scholarly citation.
+
 ## Verification & Reproducibility
 
 Each tool response includes a generated `meta.request_id` and a

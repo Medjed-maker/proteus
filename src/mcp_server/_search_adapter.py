@@ -68,6 +68,10 @@ def load_and_validate_search_deps(request_language: str) -> SearchDependencies:
 
     Encapsulates the api_main.load_search_dependencies call and handles
     UnsupportedLanguageError and SearchDependenciesNotReadyError.
+    ``api_main.load_search_dependencies`` is the single source of truth that
+    populates ``corpus_adapter`` (via ``profile.corpus_adapter_factory``) for
+    both REST and MCP paths, so source-reference enrichment behaves
+    identically across both surfaces.
 
     Args:
         request_language: Language code from the search request.

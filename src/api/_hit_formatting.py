@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
+from phonology.corpus import SourceReference
 from phonology.explainer import (
     Explanation,
     RuleApplication,
@@ -507,6 +508,7 @@ def _build_search_hit(
     query_form: str | None = None,
     orthographic_note_builder: OrthographicNoteBuilder | None = None,
     orthography_hint: str | None = None,
+    source_references: tuple[SourceReference, ...] = (),
 ) -> SearchHit:
     """Convert a core search result into the public API response shape."""
     source_ipa = result.ipa or ""
@@ -621,5 +623,6 @@ def _build_search_hit(
             for step in steps
         ],
         orthographic_notes=orthographic_notes,
+        source_references=list(source_references),
         explanation=to_prose(explanation),
     )

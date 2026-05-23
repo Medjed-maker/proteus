@@ -17,6 +17,11 @@ from pydantic import (
 )
 from pydantic.json_schema import SkipJsonSchema
 from phonology._paths import DEFAULT_LANGUAGE_ID
+
+# SourceReference is re-exported so that ``SearchHit.source_references`` resolves
+# to a concrete type in the generated OpenAPI / MCP schema. Application code
+# should continue to import it from ``phonology.corpus``.
+from phonology.corpus import SourceReference
 from phonology.profiles import get_default_language_profile, get_language_profile
 
 __all__ = [
@@ -29,6 +34,7 @@ __all__ = [
     "SearchRequest",
     "RuleStep",
     "OrthographicNote",
+    "SourceReference",
     "SearchHit",
     "SearchResponse",
 ]
@@ -532,6 +538,14 @@ class SearchHit(BaseModel):
         description=(
             "Candidate-level notes about orthographic correspondences, historical "
             "spelling systems, or beginner-facing reading aids."
+        ),
+    )
+    source_references: list[SourceReference] = Field(
+        default_factory=list,
+        description=(
+            "External source metadata references for this candidate. Contains "
+            "identifiers, short citations, links, and license notes only; source "
+            "texts and excerpts are intentionally excluded."
         ),
     )
     explanation: str = Field(

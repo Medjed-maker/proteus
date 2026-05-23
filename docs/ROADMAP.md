@@ -136,6 +136,8 @@ are cleared or anonymized.
 ### Goal
 Connect search results to real source metadata without violating data licenses.
 
+Implementation plan: `tasks/phase4_corpus_adapter_poc_plan.md`
+
 ### Candidate Sources
 - Perseus / Scaife
 - papyri.info
