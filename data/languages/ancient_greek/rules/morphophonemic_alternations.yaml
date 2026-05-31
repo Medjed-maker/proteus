@@ -1,6 +1,6 @@
 meta:
-  version: "1.0.0"
-  updated_at: "2026-04-20"
+  version: "1.1.0"
+  updated_at: "2026-05-31"
   status: provisional
   review_status: not_expert_reviewed
   citation_ready: false
@@ -270,3 +270,42 @@ rules:
       - { standard: "ἔργον", dialect: "ἔργο", meaning: "work, deed" }
       - { standard: "θέατρον", dialect: "θέατρο", meaning: "theater" }
     note: "Models absence of word-final nu in neuter -ον forms as a runtime search-explanation convenience using the suffix slice -on -> -o. The lemma gender constraint keeps this as not a general final -ν deletion rule."
+
+  - id: MPH-018
+    name_en: "Doric primary active third plural -onti"
+    name_ja: "ドーリス方言の能動現在三人称複数 -onti"
+    input: "onti"
+    output: "oːsi"
+    context: "_#"
+    dialects: [attic, ionic]
+    period: "archaic and classical periods"
+    references: ["Buck §61", "Buck §138.4", "Smyth §463"]
+    examples:
+      - { standard: "φέροντι", dialect: "φέρουσι", meaning: "they carry" }
+    note: "Models the Attic-Ionic assibilated ending as a suffix-sized correspondence against Doric and West Greek -onti."
+
+  - id: MPH-019
+    name_en: "Doric and Northwest Greek first plural -mes"
+    name_ja: "ドーリス・北西ギリシャ方言の一人称複数 -mes"
+    input: "men"
+    output: "mes"
+    context: "_#"
+    dialects: [doric, northwest_greek]
+    period: "archaic and classical periods"
+    references: ["Buck §138.3", "Smyth §463"]
+    examples:
+      - { standard: "φέρομεν", dialect: "φέρομες", meaning: "we carry" }
+    note: "Records the recurring first-person plural ending contrast as a word-final suffix rule."
+
+  - id: MPH-020
+    name_en: "Doric genitive plural -ān"
+    name_ja: "ドーリス方言の属格複数 -ᾶν"
+    input: "aːn"
+    output: "ɔːn"
+    context: "_#"
+    dialects: [attic]
+    period: "archaic and classical periods"
+    references: ["Buck §27", "Smyth §§59-65"]
+    examples:
+      - { standard: "Μουσᾶν", dialect: "Μουσῶν", meaning: "of the Muses" }
+    note: "Encodes the runtime suffix slice for Doric -ᾶν compared with the familiar Attic contracted -ῶν."

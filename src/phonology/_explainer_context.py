@@ -143,6 +143,28 @@ def _matches_word_boundary(
     return next_token is None
 
 
+def _matches_word_initial_before_vowel(
+    lemma_tokens: Sequence[str],
+    query_tokens: Sequence[str],
+    lemma_start: int,
+    lemma_end: int,
+    query_start: int,
+    query_end: int,
+    context_tail_tokens: tuple[str, ...] | None,
+) -> bool:
+    """Return True when the rule span starts the word and is followed by a vowel."""
+    del context_tail_tokens
+    if lemma_start != 0 or query_start != 0:
+        return False
+    next_token = _lookup_next_token(
+        lemma_tokens,
+        query_tokens,
+        lemma_end=lemma_end,
+        query_end=query_end,
+    )
+    return _is_vowel(next_token)
+
+
 def _matches_intervocalic(
     lemma_tokens: Sequence[str],
     query_tokens: Sequence[str],
@@ -242,6 +264,7 @@ def _matches_except_after_eir(
 
 _CONTEXT_HANDLERS: dict[str, _ContextHandler] = {
     "_#": _matches_word_boundary,
+    "#_v": _matches_word_initial_before_vowel,
     "v_v": _matches_intervocalic,
     "_nc": _matches_nasal_consonant,
     "after e, i, or r": _matches_after_eir,

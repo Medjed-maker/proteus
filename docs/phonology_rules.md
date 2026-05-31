@@ -53,6 +53,24 @@ Koine consonant normalization, so searches can compare a Koine-style query IPA
 form against the existing Attic-oriented lexicon IPA and surface the matching
 Koine consonant rules during explanation.
 
+The runtime profile does not currently expose Doric, Ionic, or Aeolic as public
+API dialect hints. Rules labelled with those dialects are explanation metadata
+for cross-dialect correspondences; they do not imply that `dialect_hint` accepts
+those labels.
+
+The `dialects` field is restricted to a canonical controlled vocabulary, enforced
+by the `dialects.items.enum` constraint in the JSON Schema (and mirrored by the
+`ALLOWED_DIALECTS` allowlist in `tests/test_data_files.py`). The currently
+allowed labels are:
+
+`attic`, `cretan`, `cyprian`, `doric`, `elean`, `ionic`, `ionic_east`, `koine`,
+`lesbian`, `northwest_greek`, `severe_doric`, `west_greek`.
+
+Only `attic` and `koine` are accepted as public `dialect_hint` values at the API;
+the remaining labels are explanation metadata only. Adding a new dialect label
+requires updating both the schema enum and the test allowlist (kept in sync by
+`test_dialect_allowlist_matches_schema_enum`).
+
 Phonological rule YAML files are limited to phonological and morphophonemic
 explanations. Writing-system comments, spelling conventions, normalized-form
 correspondences, and beginner reading aids belong in `orthographic_notes`
@@ -84,9 +102,27 @@ empty outputs cannot be introduced accidentally. By convention, place
 `change_type` between `period:` and `references:` (see CCH-003 in
 `data/languages/ancient_greek/rules/consonant_changes.yaml`).
 
+Insertion rules must set `input: ""` and `is_insertion: true`. This explicit
+flag is required because empty-input rules can otherwise match too broadly.
+For example, the digamma rule models Doric query-side `w` against an Attic
+lemma where the inherited sound is absent:
+
+```yaml
+input: ""
+output: "w"
+is_insertion: true
+context: "all environments"
+```
+
+`is_insertion` is intentionally restricted to the literal value `true`: it is an
+explicit opt-in gate for empty-input rules, not a boolean toggle. Non-insertion
+rules simply omit the field entirely — there is no `is_insertion: false`. The
+shared JSON Schema enforces this bidirectionally (`input: ""` requires
+`is_insertion: true`, and `is_insertion: true` requires `input: ""`).
+
 Use `change_type: retention` when the rule records that a segment is preserved
-in a context where it might otherwise be expected to change or delete. For
-example, this records input form `pa`, retained segment `p`, and output `pa`:
+in a context where it might otherwise be expected to change or delete. The
+simplest case is an identity mapping, where `input` equals `output`:
 
 ```yaml
 input: p
@@ -98,6 +134,17 @@ examples:
     dialect: pa
 ```
 
+Retention rules may also use `input ≠ output`. These encode a **reverse
+cross-dialect mapping**: the `input` is the form taken by the innovating dialect
+(often Attic-Ionic), and the `output` is the conservatively retained form. For
+example, `VSH-025` records that Attic-Ionic fronted inherited `/u/` to `/y/`
+while Doric retained `/u/`, so the rule maps `input: y` → `output: u`. The
+existing `VSH-002` (Doric long-alpha retention) and `MPH-004`/`MPH-005`/`MPH-006`
+(Doric ending retentions) follow the same reverse-mapping convention. In all
+cases the rule documents which segment a conservative dialect kept, expressed in
+the runtime IPA token space so it can be matched against the innovating-dialect
+lemma.
+
 The shared JSON Schema currently restricts `change_type` to `retention` or
 `deletion`. Other change classes (assimilation, palatalization, etc.) should
 omit `change_type` entirely; the field is intentionally minimal until a
@@ -106,6 +153,11 @@ broader classification scheme is reviewed.
 ## Vowel Rules
 
 Vowel rules may instead use short descriptive English phrases such as `all environments`, `after e, i, or r`, or `vowel contraction across hiatus` when a prose description is clearer than the compact notation.
+
+For Doric secondary long mid vowels, the committed runtime rules distinguish
+severe Doric as the open-vowel pattern (`eː` -> `ɛː`, `oː` -> `ɔː`). Mild Doric
+may pattern closer to Attic `ει`/`ου`, but that subdialect distinction is not a
+separate public converter mode yet.
 
 For an all-environments vowel rule, the prose maps directly onto the `context` field:
 

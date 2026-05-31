@@ -14,7 +14,7 @@ import yaml
 from phonology import search as search_module
 from phonology.distance import load_matrix
 from phonology.explainer import RuleApplication
-from phonology.ipa_converter import to_ipa
+from phonology.ipa_converter import to_ipa, tokenize_ipa
 from phonology.search import (
     LexiconRecord,
     extend_stage,
@@ -596,6 +596,100 @@ class TestExtendStage:
             and application.input_phoneme == "n"
             and application.output_phoneme == "ɡ"
             for application in results[0].rule_applications
+        )
+
+    def test_extend_stage_uses_packaged_attic_ionic_assibilation_rule(
+        self, known_phones: tuple[str, ...]
+    ) -> None:
+        """Use CCH-016 for Doric -ti beside Attic-Ionic -si."""
+        lemma_ipa = to_ipa("δίδωτι")
+        lexicon_map = {
+            "L1": LexiconRecord(
+                entry={
+                    "headword": "δίδωτι",
+                    "ipa": lemma_ipa,
+                    "dialect": "doric",
+                },
+                token_count=len(tokenize_ipa(lemma_ipa)),
+            )
+        }
+
+        results = extend_stage(
+            to_ipa("δίδωσι"),
+            ["L1"],
+            lexicon_map,
+            matrix=load_matrix(MATRIX_FILE),
+            phone_inventory=known_phones,
+        )
+
+        assert len(results) == 1
+        assert results[0].applied_rules == ["CCH-016"]
+        assert results[0].dialect_attribution == (
+            "lemma dialect: doric; query-compatible dialects: attic, ionic"
+        )
+
+    def test_extend_stage_uses_packaged_digamma_insertion_rule(
+        self, known_phones: tuple[str, ...]
+    ) -> None:
+        """Use CCH-017 for a Doric query preserving initial digamma."""
+        lemma_ipa = to_ipa("οἶκος")
+        lexicon_map = {
+            "L1": LexiconRecord(
+                entry={
+                    "headword": "οἶκος",
+                    "ipa": lemma_ipa,
+                    "dialect": "attic",
+                },
+                token_count=len(tokenize_ipa(lemma_ipa)),
+            )
+        }
+
+        results = extend_stage(
+            to_ipa("ϝοῖκος"),
+            ["L1"],
+            lexicon_map,
+            matrix=load_matrix(MATRIX_FILE),
+            phone_inventory=known_phones,
+        )
+
+        assert len(results) == 1
+        assert results[0].applied_rules == ["CCH-017"]
+        assert results[0].rule_applications[0].input_phoneme == ""
+        assert results[0].rule_applications[0].output_phoneme == "w"
+        assert results[0].dialect_attribution == (
+            "lemma dialect: attic; query-compatible dialects: doric, west_greek"
+        )
+
+    def test_extend_stage_uses_packaged_doric_genitive_plural_rule(
+        self, known_phones: tuple[str, ...]
+    ) -> None:
+        """Use MPH-020 for Doric -aːn beside Attic -ɔːn."""
+        lemma_ipa = to_ipa("Μουσᾶν")
+        lexicon_map = {
+            "L1": LexiconRecord(
+                entry={
+                    "headword": "Μουσᾶν",
+                    "ipa": lemma_ipa,
+                    "dialect": "doric",
+                },
+                token_count=len(tokenize_ipa(lemma_ipa)),
+            )
+        }
+
+        results = extend_stage(
+            to_ipa("Μουσῶν"),
+            ["L1"],
+            lexicon_map,
+            matrix=load_matrix(MATRIX_FILE),
+            phone_inventory=known_phones,
+        )
+
+        assert len(results) == 1
+        assert results[0].applied_rules == ["MPH-020"]
+        assert results[0].rule_applications[0].input_phoneme == "aːn"
+        assert results[0].rule_applications[0].output_phoneme == "ɔːn"
+        assert results[0].dialect_attribution == (
+            "lemma dialect: doric; query-compatible dialects: attic"
         )
 
     @pytest.mark.parametrize(

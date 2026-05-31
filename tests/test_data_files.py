@@ -40,6 +40,23 @@ VOWEL_RULES_PATH = RULES_DIR / "vowel_shifts.yaml"
 PHONOLOGY_RULES_DOC_PATH = ROOT_DIR / "docs" / "phonology_rules.md"
 MIN_LEMMAS_COUNT = 100
 ALLOWED_CHANGE_TYPES = {"retention", "deletion"}
+# Canonical Ancient Greek dialect vocabulary. Kept in sync with the
+# `dialects.items.enum` constraint in phonology_rule_file.schema.json
+# (verified by test_dialect_allowlist_matches_schema_enum).
+ALLOWED_DIALECTS = {
+    "attic",
+    "cretan",
+    "cyprian",
+    "doric",
+    "elean",
+    "ionic",
+    "ionic_east",
+    "koine",
+    "lesbian",
+    "northwest_greek",
+    "severe_doric",
+    "west_greek",
+}
 _skip_no_lexicon = pytest.mark.skipif(
     not LEXICON_PATH.exists(),
     reason="Lexicon not generated; run scripts/extract-lsj.sh",
@@ -191,7 +208,16 @@ def _assert_rule_schema(
         assert_nonempty_str(rule["id"], "id", rule_id)
         assert_nonempty_str(rule["name_en"], "name_en", rule_id)
         assert_nonempty_str(rule["name_ja"], "name_ja", rule_id)
-        assert_nonempty_str(rule["input"], "input", rule_id)
+        if rule.get("is_insertion") is True:
+            assert rule["input"] == "", (
+                f"rule {rule_id}: insertion rules must use an empty input"
+            )
+        else:
+            assert_nonempty_str(rule["input"], "input", rule_id)
+        if "is_insertion" in rule:
+            assert rule["is_insertion"] is True, (
+                f"rule {rule_id}: is_insertion may only be set to true"
+            )
         if rule.get("change_type") == "deletion":
             assert isinstance(rule["output"], str), (
                 f"rule {rule_id}: 'output' must be a string"
@@ -204,6 +230,10 @@ def _assert_rule_schema(
         ), f"rule {rule_id}: 'context' must be a non-empty string or null"
         assert_nonempty_str(rule["period"], "period", rule_id)
         assert_nonempty_list_of_str(rule["dialects"], "dialects", rule_id)
+        for dialect in rule["dialects"]:
+            assert dialect in ALLOWED_DIALECTS, (
+                f"rule {rule_id}: unknown dialect {dialect!r}"
+            )
         assert_nonempty_list_of_str(rule["references"], "references", rule_id)
         if "change_type" in rule:
             assert rule["change_type"] in ALLOWED_CHANGE_TYPES, (
@@ -825,14 +855,14 @@ def test_rule_directory_contains_expected_three_yaml_files(
     }
 
 
-def test_all_rule_files_flatten_to_exactly_fifty_four_unique_rules(
+def test_all_rule_files_flatten_to_exactly_sixty_three_unique_rules(
     all_rules: list[dict[str, object]],
 ) -> None:
     rule_ids = [rule["id"] for rule in all_rules]
 
-    # expected 54 rules = VSH 22 + CCH 15 + MPH 17
+    # expected 63 rules = VSH 25 + CCH 18 + MPH 20
     assert len(rule_ids) == len(set(rule_ids))
-    assert len(all_rules) == 54
+    assert len(all_rules) == 63
 
 
 def test_phonology_rules_doc_defines_context_notation_examples() -> None:
@@ -851,6 +881,10 @@ def test_phonology_rules_doc_defines_context_notation_examples() -> None:
         "Accent-related patterns are not currently encoded as executable rules."
         in document
     )
+    assert "Doric, Ionic, or Aeolic" in document
+    assert "API dialect hints" in document
+    assert "`is_insertion: true`" in document
+    assert "severe Doric" in document
     assert "`#_V`" in document
     assert "`_#`" in document
     assert "`{p,t,k}_`" in document
@@ -884,7 +918,7 @@ def test_vowel_shift_rules_use_new_schema_and_define_minimum_expected_rules(
 ) -> None:
     _assert_rule_schema(
         vowel_rules,
-        expected_ids={f"VSH-{n:03d}" for n in range(1, 23)},
+        expected_ids={f"VSH-{n:03d}" for n in range(1, 26)},
     )
 
 
@@ -900,6 +934,9 @@ def test_representative_vowel_shift_rules_match_expected_content(
     koine_eta_iotacism = _find_rule(vowel_rules, "VSH-005")
     koine_oi_merger = _find_rule(vowel_rules, "VSH-007")
     koine_long_o_raising = _find_rule(vowel_rules, "VSH-022")
+    severe_doric_e = _find_rule(vowel_rules, "VSH-023")
+    severe_doric_o = _find_rule(vowel_rules, "VSH-024")
+    doric_u_retention = _find_rule(vowel_rules, "VSH-025")
 
     assert vowel_shift["input"] == "aː"
     assert vowel_shift["output"] == "ɛː"
@@ -952,6 +989,20 @@ def test_representative_vowel_shift_rules_match_expected_content(
         "Horrocks 2010: 169-170",
     ]
 
+    assert severe_doric_e["input"] == "eː"
+    assert severe_doric_e["output"] == "ɛː"
+    assert severe_doric_e["dialects"] == ["doric", "severe_doric"]
+    assert "mild Doric" in severe_doric_e["note"]
+
+    assert severe_doric_o["input"] == "oː"
+    assert severe_doric_o["output"] == "ɔː"
+    assert severe_doric_o["dialects"] == ["doric", "severe_doric"]
+
+    assert doric_u_retention["input"] == "y"
+    assert doric_u_retention["output"] == "u"
+    assert doric_u_retention["change_type"] == "retention"
+    assert doric_u_retention["references"] == ["Buck §14", "Allen Vox Graeca 2.6"]
+
 
 def _initial_vowel_with_modifiers(ipa: str) -> str:
     """Extract the initial base character and its trailing modifiers from an IPA string.
@@ -999,6 +1050,24 @@ def test_koine_vowel_shift_rule_inputs_match_current_ipa_conversion(
     assert ouranos_ipa == "oːranós"
     assert koine_long_o_raising["input"] == ouranos_initial_vowel
     assert _initial_vowel_with_modifiers("\u0301oːranós") == "oː"
+
+
+def test_new_dialectal_vowel_rule_inputs_match_current_ipa_conversion(
+    vowel_rules: list[dict[str, object]],
+) -> None:
+    """Verify new dialectal vowel rule sides match current runtime IPA tokens."""
+    severe_doric_e = _find_rule(vowel_rules, "VSH-023")
+    severe_doric_o = _find_rule(vowel_rules, "VSH-024")
+    doric_u_retention = _find_rule(vowel_rules, "VSH-025")
+
+    assert tokenize_ipa(to_ipa("εἰμί"))[0] == severe_doric_e["input"]
+    assert tokenize_ipa(to_ipa("ἠμί"))[0] == severe_doric_e["output"]
+
+    assert tokenize_ipa(to_ipa("τοῦ"))[-1] == severe_doric_o["input"]
+    assert tokenize_ipa(to_ipa("τῶ"))[-1] == severe_doric_o["output"]
+
+    assert tokenize_ipa(to_ipa("φύσις"))[1] == doric_u_retention["input"]
+    assert doric_u_retention["output"] in tokenize_ipa("pʰusis")
 
 
 @pytest.mark.parametrize(
@@ -1051,6 +1120,32 @@ def test_runtime_velar_assimilation_rule_matches_current_ipa_conversion(
     assert "runtime IPA" in rule["note"]
     assert unassimilated_tokens[1] == rule["input"]
     assert assimilated_tokens[1] == rule["output"]
+
+
+def test_new_consonant_rules_match_current_ipa_conversion(
+    consonant_rules: list[dict[str, object]],
+) -> None:
+    assibilation = _find_rule(consonant_rules, "CCH-016")
+    digamma = _find_rule(consonant_rules, "CCH-017")
+    psilosis = _find_rule(consonant_rules, "CCH-018")
+
+    didoti_tokens = tokenize_ipa(to_ipa("δίδωτι"))
+    didosi_tokens = tokenize_ipa(to_ipa("δίδωσι"))
+    assert didoti_tokens[-2] == assibilation["input"]
+    assert didosi_tokens[-2] == assibilation["output"]
+    assert assibilation["context"] == "_{i}"
+
+    assert digamma["input"] == ""
+    assert digamma["output"] == tokenize_ipa(to_ipa("ϝοῖκος"))[0]
+    assert digamma["is_insertion"] is True
+    assert digamma["dialects"] == ["doric", "west_greek"]
+
+    hemera_tokens = tokenize_ipa(to_ipa("ἡμέρα"))
+    amera_tokens = tokenize_ipa(to_ipa("ἀμέρα"))
+    assert hemera_tokens[0] == psilosis["input"]
+    assert psilosis["output"] == ""
+    assert psilosis["change_type"] == "deletion"
+    assert amera_tokens[0] != psilosis["input"]
 
 
 def test_word_final_nu_absence_rule_matches_current_ipa_conversion(
@@ -1159,7 +1254,7 @@ def test_consonant_rules_use_new_schema_and_define_expected_rules(
 ) -> None:
     _assert_rule_schema(
         consonant_rules,
-        expected_ids={f"CCH-{n:03d}" for n in range(1, 16)},
+        expected_ids={f"CCH-{n:03d}" for n in range(1, 19)},
     )
 
 
@@ -1168,7 +1263,7 @@ def test_morphophonemic_rules_use_new_schema_and_define_expected_rules(
 ) -> None:
     _assert_rule_schema(
         morphophonemic_rules,
-        expected_ids={f"MPH-{n:03d}" for n in range(1, 18)},
+        expected_ids={f"MPH-{n:03d}" for n in range(1, 21)},
     )
 
 
@@ -1179,6 +1274,9 @@ def test_representative_morphophonemic_rules_match_expected_content(
     doric_masculine = _find_rule(morphophonemic_rules, "MPH-004")
     contracted_oe = _find_rule(morphophonemic_rules, "MPH-012")
     nominal_eos = _find_rule(morphophonemic_rules, "MPH-013")
+    doric_third_plural = _find_rule(morphophonemic_rules, "MPH-018")
+    doric_first_plural = _find_rule(morphophonemic_rules, "MPH-019")
+    doric_genitive_plural = _find_rule(morphophonemic_rules, "MPH-020")
 
     assert attic_masculine["input"] == "as"
     assert attic_masculine["output"] == "ɛːs"
@@ -1201,6 +1299,23 @@ def test_representative_morphophonemic_rules_match_expected_content(
     assert nominal_eos["output"] == "eos"
     assert nominal_eos["context"] == "_#"
     assert nominal_eos["examples"][0]["dialect"] == "βασιλέος"
+
+    assert doric_third_plural["input"] == "onti"
+    assert doric_third_plural["output"] == "oːsi"
+    assert doric_third_plural["context"] == "_#"
+    assert doric_third_plural["references"] == [
+        "Buck §61",
+        "Buck §138.4",
+        "Smyth §463",
+    ]
+
+    assert doric_first_plural["input"] == "men"
+    assert doric_first_plural["output"] == "mes"
+    assert doric_first_plural["dialects"] == ["doric", "northwest_greek"]
+
+    assert doric_genitive_plural["input"] == "aːn"
+    assert doric_genitive_plural["output"] == "ɔːn"
+    assert doric_genitive_plural["examples"][0]["standard"] == "Μουσᾶν"
 
 
 # JSON Schema validation tests for rule files
@@ -1225,6 +1340,22 @@ def test_rule_schema_id_is_well_formed_https_url() -> None:
     assert parsed.scheme == "https", f"Schema $id must use HTTPS, got: {parsed.scheme}"
     assert parsed.netloc, f"Schema $id must have a netloc (host), got: {schema_id}"
     assert parsed.path.endswith(".schema.json"), f"Schema $id path must end with .schema.json, got: {parsed.path}"
+
+
+def test_dialect_allowlist_matches_schema_enum() -> None:
+    """Keep ALLOWED_DIALECTS in sync with the schema's dialects enum.
+
+    The dialect controlled vocabulary lives in two places: this test module's
+    ALLOWED_DIALECTS constant (used in per-rule assertions) and the
+    ``dialects.items.enum`` constraint in the JSON Schema (used by
+    validate_rule_files and CI). This test fails if the two drift apart.
+    """
+    schema = _load_json(RULE_SCHEMA_PATH)
+    schema_enum = schema["$defs"]["rule"]["properties"]["dialects"]["items"]["enum"]
+
+    assert set(schema_enum) == ALLOWED_DIALECTS, (
+        "schema dialects enum and ALLOWED_DIALECTS must contain the same labels"
+    )
 
 
 @pytest.fixture
