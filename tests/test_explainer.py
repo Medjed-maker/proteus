@@ -379,6 +379,31 @@ def test_explain_matches_empty_input_rule_only_when_explicitly_allowed() -> None
     assert [application.rule_id for application in applications] == ["INS-ALLOWED"]
 
 
+def test_explain_supports_word_initial_before_vowel_context() -> None:
+    """Verify #_V context matches initial h deletion before a vowel."""
+    applications = explain(
+        query_tokens=["a"],
+        lemma_tokens=["h", "a"],
+        alignment=Alignment(
+            aligned_query=(None, "a"),
+            aligned_lemma=("h", "a"),
+        ),
+        rules=[
+            _rule(
+                rule_id="CTX-INITIAL-VOWEL",
+                input_phoneme="h",
+                output_phoneme="",
+                context="#_V",
+                name_ja="語頭母音前規則",
+            )
+        ],
+    )
+
+    assert [application.rule_id for application in applications] == [
+        "CTX-INITIAL-VOWEL"
+    ]
+
+
 def test_explain_uses_context_to_choose_between_competing_rules() -> None:
     """Verify context-sensitive competing rules resolve to the rule matching each environment."""
     rules = [

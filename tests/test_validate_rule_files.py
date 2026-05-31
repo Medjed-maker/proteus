@@ -48,7 +48,7 @@ def _valid_rule_document() -> RuleDocument:
                 "input": "p",
                 "output": "b",
                 "context": None,
-                "dialects": ["test"],
+                "dialects": ["attic"],
                 "period": "test",
                 "references": ["test"],
                 "examples": [
@@ -619,3 +619,90 @@ def test_rule_schema_allows_non_empty_output_for_retention(
     rule["output"] = "p"
 
     assert _validate_document(tmp_path, document) == []
+
+
+def test_rule_schema_rejects_unknown_dialect(tmp_path: Path) -> None:
+    """Dialect labels outside the canonical vocabulary must be rejected."""
+    document = _valid_rule_document()
+    rule = document["rules"][0]
+    rule["dialects"] = ["not_a_real_dialect"]
+
+    errors = _validate_document(tmp_path, document)
+
+    assert errors
+    assert any(
+        list(e.path) == ["rules", 0, "dialects", 0]
+        for e in errors
+        if isinstance(e, ValidationError)
+    )
+
+
+def test_rule_schema_allows_canonical_dialect(tmp_path: Path) -> None:
+    """A rule using a canonical dialect label should validate cleanly."""
+    document = _valid_rule_document()
+    rule = document["rules"][0]
+    rule["dialects"] = ["doric", "severe_doric"]
+
+    assert _validate_document(tmp_path, document) == []
+
+
+def test_rule_schema_allows_explicit_insertion_rule(tmp_path: Path) -> None:
+    """Empty-input insertion rules must opt in with is_insertion: true."""
+    document = _valid_rule_document()
+    rule = document["rules"][0]
+    rule["input"] = ""
+    rule["output"] = "w"
+    rule["is_insertion"] = True
+
+    assert _validate_document(tmp_path, document) == []
+
+
+def test_rule_schema_rejects_empty_input_without_insertion_flag(
+    tmp_path: Path,
+) -> None:
+    document = _valid_rule_document()
+    rule = document["rules"][0]
+    rule["input"] = ""
+    rule["output"] = "w"
+
+    errors = _validate_document(tmp_path, document)
+
+    assert any(
+        list(error.path) == ["rules", 0]
+        and "'is_insertion' is a required property" in error.message
+        for error in errors
+        if isinstance(error, ValidationError)
+    )
+
+
+def test_rule_schema_rejects_false_insertion_flag(tmp_path: Path) -> None:
+    document = _valid_rule_document()
+    rule = document["rules"][0]
+    rule["input"] = ""
+    rule["output"] = "w"
+    rule["is_insertion"] = False
+
+    errors = _validate_document(tmp_path, document)
+
+    assert any(
+        list(error.path) == ["rules", 0, "is_insertion"]
+        and "True was expected" in error.message
+        for error in errors
+        if isinstance(error, ValidationError)
+    )
+
+
+def test_rule_schema_rejects_insertion_flag_for_non_empty_input(
+    tmp_path: Path,
+) -> None:
+    document = _valid_rule_document()
+    rule = document["rules"][0]
+    rule["is_insertion"] = True
+
+    errors = _validate_document(tmp_path, document)
+
+    assert any(
+        list(error.path) == ["rules", 0, "input"] and "'' was expected" in error.message
+        for error in errors
+        if isinstance(error, ValidationError)
+    )

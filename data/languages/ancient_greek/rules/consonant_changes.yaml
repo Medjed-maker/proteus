@@ -1,6 +1,6 @@
 meta:
-  version: "1.0.0"
-  updated_at: "2026-04-20"
+  version: "1.1.0"
+  updated_at: "2026-05-31"
   status: provisional
   review_status: not_expert_reviewed
   citation_ready: false
@@ -249,3 +249,46 @@ rules:
     examples:
       - { standard: "ἄγκυρα", reconstruction: "*ἄνκυρα", meaning: "anchor" }
     note: "Historical velar nasal assimilation is approximated in Proteus runtime IPA as `n -> ɡ`, because the current converter and packaged lexicon encode forms like ἄγκυρα as /aɡkyra/ rather than with /ŋ/."
+
+  - id: CCH-016
+    name_en: "Attic-Ionic assibilation of tau before iota"
+    name_ja: "アッティカ・イオニア方言の i 前における τ > σ"
+    input: "t"
+    output: "s"
+    context: "_{i}"
+    dialects: [attic, ionic]
+    period: "archaic and classical periods"
+    references: ["Buck §61", "Smyth §99"]
+    examples:
+      - { standard: "δίδωτι", dialect: "δίδωσι", meaning: "he gives" }
+      - { standard: "εἴκατι", dialect: "εἴκοσι", meaning: "twenty" }
+    note: "Doric and other West Greek dialects often preserve /ti/ where Attic-Ionic has /si/."
+
+  - id: CCH-017
+    name_en: "Doric and West Greek retention of digamma"
+    name_ja: "ドーリス・西ギリシャ方言におけるディガンマ保持"
+    input: ""
+    output: "w"
+    is_insertion: true
+    context: "all environments"
+    dialects: [doric, west_greek]
+    period: "archaic and classical periods"
+    references: ["Buck §50", "Buck §54", "Smyth §17"]
+    examples:
+      - { standard: "οἶκος", dialect: "ϝοῖκος", meaning: "house" }
+      - { standard: "ἔργον", dialect: "ϝέργον", meaning: "work, deed" }
+    note: "Modeled as an explicit empty-input insertion so a Doric query with ϝ can be explained against an Attic lemma where /w/ was lost."
+
+  - id: CCH-018
+    name_en: "Psilosis: loss of initial aspiration"
+    name_ja: "プシローシス：語頭気息 h の脱落"
+    input: "h"
+    output: ""
+    context: "#_V"
+    dialects: [ionic_east, lesbian, elean, cyprian, cretan]
+    period: "archaic and classical periods"
+    change_type: deletion
+    references: ["Buck §57", "Smyth §9"]
+    examples:
+      - { standard: "ἡμέρα", dialect: "ἀμέρα", meaning: "day" }
+    note: "Accent and breathing contrasts are otherwise outside the current executable rule scope; this rule covers only the runtime /h/ phone produced from rough breathing."

@@ -117,6 +117,41 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "input": {
+                "const": ""
+              }
+            },
+            "required": ["input"]
+          },
+          "then": {
+            "properties": {
+              "is_insertion": {
+                "const": true
+              }
+            },
+            "required": ["is_insertion"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "is_insertion": {
+                "const": true
+              }
+            },
+            "required": ["is_insertion"]
+          },
+          "then": {
+            "properties": {
+              "input": {
+                "const": ""
+              }
+            }
+          }
         }
       ],
       "properties": {
@@ -137,6 +172,10 @@
           "type": "string",
           "description": "Source phone(s) in IPA notation"
         },
+        "is_insertion": {
+          "const": true,
+          "description": "True when an empty-input rule explicitly models insertion on the query side."
+        },
         "output": {
           "type": "string",
           "description": "Resulting phone(s) in IPA notation. Empty string only for deletion rules.",
@@ -156,9 +195,23 @@
         },
         "dialects": {
           "type": "array",
-          "description": "Applicable dialect(s) or chronological varieties",
+          "description": "Applicable dialect(s) or chronological varieties. Restricted to the canonical Ancient Greek dialect vocabulary; only 'attic' and 'koine' are public dialect_hint values, the rest are explanation metadata.",
           "items": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "attic",
+              "cretan",
+              "cyprian",
+              "doric",
+              "elean",
+              "ionic",
+              "ionic_east",
+              "koine",
+              "lesbian",
+              "northwest_greek",
+              "severe_doric",
+              "west_greek"
+            ]
           },
           "minItems": 1
         },

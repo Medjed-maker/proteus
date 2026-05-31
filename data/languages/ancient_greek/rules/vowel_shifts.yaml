@@ -1,6 +1,6 @@
 meta:
-  version: "1.0.0"
-  updated_at: "2026-04-02"
+  version: "1.1.0"
+  updated_at: "2026-05-31"
   status: provisional
   review_status: not_expert_reviewed
   citation_ready: false
@@ -333,3 +333,44 @@ rules:
     references: ["Allen Vox Graeca 3.2", "Horrocks 2010: 169-170"]
     examples:
       - { standard: "οὐρανός", phonetic: "[oːranos] → [uranos]", meaning: "sky" }
+
+  - id: VSH-023
+    name_en: "Severe Doric open secondary long e"
+    name_ja: "厳密ドーリス方言の二次的長 e の開音化"
+    input: "eː"
+    output: "ɛː"
+    context: "all environments"
+    dialects: [doric, severe_doric]
+    period: "classical period"
+    references: ["Buck §25", "Smyth §37"]
+    examples:
+      - { standard: "εἰμί", dialect: "ἠμί", meaning: "I am" }
+    note: "Severe Doric uses η for the open secondary long front vowel; mild Doric may pattern closer to Attic ει."
+
+  - id: VSH-024
+    name_en: "Severe Doric open secondary long o"
+    name_ja: "厳密ドーリス方言の二次的長 o の開音化"
+    input: "oː"
+    output: "ɔː"
+    context: "all environments"
+    dialects: [doric, severe_doric]
+    period: "classical period"
+    references: ["Buck §25", "Smyth §37"]
+    examples:
+      - { standard: "τοῦ", dialect: "τῶ", meaning: "of the" }
+      - { standard: "λόγους", dialect: "λόγως", meaning: "words (accusative plural)" }
+    note: "Severe Doric uses ω for the open secondary long back vowel; mild Doric may pattern closer to Attic ου."
+
+  - id: VSH-025
+    name_en: "Doric retention of inherited u"
+    name_ja: "ドーリス方言の継承 u 保持"
+    input: "y"
+    output: "u"
+    change_type: "retention"
+    context: "all environments"
+    dialects: [doric]
+    period: "archaic and classical periods"
+    references: ["Buck §14", "Allen Vox Graeca 2.6"]
+    examples:
+      - { standard: "φύσις", dialect: "φύσις", phonetic: "[pʰýsis] → [pʰúsis]", meaning: "nature" }
+    note: "Attic-Ionic fronts inherited /u/ to /y/; this reverse mapping records Doric retention for cross-dialect comparison."
