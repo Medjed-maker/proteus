@@ -123,8 +123,8 @@
         uncertaintyHigh: "High",
         ruleSupportYes: "Yes",
         ruleSupportNo: "No",
-        confidenceLabel: "confidence",
-        confidenceUnknown: "confidence: unknown",
+        phonologicalSimilarityLabel: "phonological similarity",
+        phonologicalSimilarityUnknown: "phonological similarity: unknown",
         matchedRulesLabel: "matched rules",
         fallbackEditsLabel: "fallback edits",
         rankLabel: "Rank ",
@@ -415,26 +415,38 @@
       return                ["bg-red-100 text-red-800",         "bg-red-500"];
     }
 
+    // Formats a 0.0–1.0 similarity score as a "87.0%" string.
+    // Shared by the detailed badge and the compact-card meta line.
+    function similarityPctText(value) {
+      const clamped = Math.max(0, Math.min(1, value));
+      return (clamped * 100).toFixed(1) + "%";
+    }
+
     function renderConfidenceBadge(confidence) {
       confidence = Math.max(0, Math.min(1, confidence));
-      const pct = (confidence * 100).toFixed(1);
-      const [badgeCls, barCls] = confidenceColor(confidence);
+      const pct = similarityPctText(confidence);
+      const [, barCls] = confidenceColor(confidence);
 
       const wrapper = document.createElement("div");
-      wrapper.className = "flex items-center gap-2 shrink-0";
+      wrapper.className = "flex flex-col items-end gap-0.5 shrink-0";
 
-      const badge = document.createElement("span");
-      badge.className = "text-xs font-medium px-2 py-0.5 rounded-full " + badgeCls;
-      badge.textContent = pct + "%";
+      const label = document.createElement("span");
+      label.className = "text-xs uppercase tracking-wide text-ink-muted";
+      label.textContent = t("phonologicalSimilarityLabel");
+
+      const value = document.createElement("span");
+      value.className = "text-lg font-bold tabular-nums text-ink leading-none";
+      value.textContent = pct;
 
       const barOuter = document.createElement("div");
-      barOuter.className = "w-16 h-1.5 rounded-full bg-parchment-200 overflow-hidden";
+      barOuter.className = "w-24 h-1.5 rounded-full bg-parchment-200 overflow-hidden mt-0.5";
       const barInner = document.createElement("div");
       barInner.className = "h-full rounded-full " + barCls;
-      barInner.style.width = pct + "%";
+      barInner.style.width = pct;
       barOuter.appendChild(barInner);
 
-      wrapper.appendChild(badge);
+      wrapper.appendChild(label);
+      wrapper.appendChild(value);
       wrapper.appendChild(barOuter);
       return wrapper;
     }
@@ -981,11 +993,11 @@
 
       const metaParts = [];
       if (typeof hit.confidence === "number" && Number.isFinite(hit.confidence)) {
-        metaParts.push(t("confidenceLabel") + " " + hit.confidence.toFixed(2));
+        metaParts.push(t("phonologicalSimilarityLabel") + " " + similarityPctText(hit.confidence));
       } else if (typeof hit.distance === "number" && Number.isFinite(hit.distance)) {
-        metaParts.push(t("confidenceLabel") + " " + (1 - hit.distance).toFixed(2));
+        metaParts.push(t("phonologicalSimilarityLabel") + " " + similarityPctText(1 - hit.distance));
       } else {
-        metaParts.push(t("confidenceUnknown"));
+        metaParts.push(t("phonologicalSimilarityUnknown"));
       }
       metaParts.push(translateMatchType(hit.match_type || "Distance-only"));
       metaParts.push((hit.applied_rule_count ?? 0) + " " + t("matchedRulesLabel"));

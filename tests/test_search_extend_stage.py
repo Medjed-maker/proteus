@@ -390,6 +390,47 @@ class TestExtendStage:
         )
         assert ":" in results[0].alignment_visualization.splitlines()[1]
 
+    def test_extend_stage_matches_doric_long_alpha_via_dichronous_tolerance(
+        self, known_phones: tuple[str, ...]
+    ) -> None:
+        """Match VSH-002 for μήτηρ -> μάτηρ even though unmarked α tokenizes as /a/.
+
+        VSH-002 (ɛː -> aː) is the catalogued Doric long-alpha retention rule, but
+        ``to_ipa("μάτηρ")`` yields short ``a`` for the unmarked alpha. The
+        rule-matcher's dichronous length tolerance lets ``aː`` match ``a`` so the
+        real rule applies without a data-level workaround. The match keeps its
+        true (non-zero) phonological distance rather than being promoted to 1.0.
+        """
+        lemma_ipa = to_ipa("μήτηρ")
+        lexicon_map = {
+            "L1": LexiconRecord(
+                entry={"headword": "μήτηρ", "ipa": lemma_ipa, "dialect": "attic"},
+                token_count=len(tokenize_ipa(lemma_ipa)),
+            )
+        }
+
+        results = extend_stage(
+            to_ipa("μάτηρ"),
+            ["L1"],
+            lexicon_map,
+            matrix=load_matrix(MATRIX_FILE),
+            phone_inventory=known_phones,
+        )
+
+        assert results[0].applied_rules == ["VSH-002"]
+        assert [
+            application.rule_id for application in results[0].rule_applications
+        ] == ["VSH-002"]
+        assert [
+            (application.input_phoneme, application.output_phoneme)
+            for application in results[0].rule_applications
+        ] == [("ɛː", "aː")]
+        assert (
+            results[0].dialect_attribution
+            == "lemma dialect: attic; query-compatible dialects: doric"
+        )
+        assert 0.5 < results[0].confidence < 1.0
+
     def test_extend_stage_uses_packaged_morphophonemic_rule_for_runtime_suffix_match(
         self, known_phones: tuple[str, ...]
     ) -> None:
@@ -923,6 +964,7 @@ class TestExtendStage:
         assert [
             application.rule_id for application in results[0].rule_applications
         ] == ["OBS-SUB"]
+        assert results[0].confidence == pytest.approx(0.25)
         assert "." in results[0].alignment_visualization.splitlines()[1]
         assert ":" not in results[0].alignment_visualization.splitlines()[1]
 
@@ -970,6 +1012,7 @@ class TestExtendStage:
             "OBS-DEL",
             "RULE-BX",
         ]
+        assert results[0].confidence < 1.0
         marker_line = results[0].alignment_visualization.splitlines()[1]
         assert marker_line.endswith(" :")
         assert marker_line.count(":") == 1

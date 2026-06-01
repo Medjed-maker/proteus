@@ -30,8 +30,28 @@ from ._explainer_types import (
     _RuleMatchResult,
     _WordFinalSuffixMatch,
 )
+from ._phones import phones_match, token_seq_matches
 
 logger = logging.getLogger("phonology.explainer")
+
+
+def _phone_equal(actual: str, expected: str, *, strict: bool) -> bool:
+    """Compare a form phone to a rule phone, exactly or with length tolerance.
+
+    The strict pass is used first so explicitly length-marked forms keep their
+    exact rule; directional dichronous length tolerance is only applied as a
+    fallback (see :func:`_find_matching_rule_candidate`).
+    """
+    return actual == expected if strict else phones_match(actual, expected)
+
+
+def _phone_seq_equal(
+    actual: Sequence[str], expected: Sequence[str], *, strict: bool
+) -> bool:
+    """Sequence form of :func:`_phone_equal`."""
+    if strict:
+        return tuple(actual) == tuple(expected)
+    return token_seq_matches(actual, expected)
 
 
 def _matches_lemma_constraints(
@@ -246,6 +266,7 @@ def _matches_block_columns(
     *,
     lemma_index: int,
     query_index: int,
+    strict: bool,
 ) -> bool:
     """Return True when a candidate rule matches the aligned columns at this block offset."""
     column_index = _block_column_index(
@@ -270,17 +291,15 @@ def _matches_block_columns(
         lemma_token = block.aligned_lemma[column_index]
 
         if lemma_token is not None:
-            if (
-                input_index >= input_length
-                or lemma_token != candidate.input_tokens[input_index]
+            if input_index >= input_length or not _phone_equal(
+                lemma_token, candidate.input_tokens[input_index], strict=strict
             ):
                 return False
             input_index += 1
 
         if query_token is not None:
-            if (
-                output_index >= output_length
-                or query_token != candidate.output_tokens[output_index]
+            if output_index >= output_length or not _phone_equal(
+                query_token, candidate.output_tokens[output_index], strict=strict
             ):
                 return False
             output_index += 1
@@ -314,6 +333,7 @@ def _matches_word_final_suffix(
     query_tokens: Sequence[str],
     lemma_index: int,
     query_index: int,
+    strict: bool,
 ) -> _WordFinalSuffixMatch | None:
     """Return match metadata when a `_#` rule matches the word-final suffix."""
     context = candidate.rule.get("context")
@@ -324,9 +344,13 @@ def _matches_word_final_suffix(
     query_candidate_start = len(query_tokens) - len(candidate.output_tokens)
     if lemma_candidate_start < 0 or query_candidate_start < 0:
         return None
-    if tuple(lemma_tokens[lemma_candidate_start:]) != candidate.input_tokens:
+    if not _phone_seq_equal(
+        lemma_tokens[lemma_candidate_start:], candidate.input_tokens, strict=strict
+    ):
         return None
-    if tuple(query_tokens[query_candidate_start:]) != candidate.output_tokens:
+    if not _phone_seq_equal(
+        query_tokens[query_candidate_start:], candidate.output_tokens, strict=strict
+    ):
         return None
 
     global_lemma_start = block.lemma_start_position + lemma_index
@@ -345,11 +369,14 @@ def _matches_word_final_suffix(
     block_output_length = len(block.query_tokens) - query_index
     if block_input_length < 0 or block_output_length < 0:
         return None
-    if (
-        candidate.input_tokens[input_offset : input_offset + block_input_length]
-        != block.lemma_tokens[lemma_index:]
-        or candidate.output_tokens[output_offset : output_offset + block_output_length]
-        != block.query_tokens[query_index:]
+    if not _phone_seq_equal(
+        block.lemma_tokens[lemma_index:],
+        candidate.input_tokens[input_offset : input_offset + block_input_length],
+        strict=strict,
+    ) or not _phone_seq_equal(
+        block.query_tokens[query_index:],
+        candidate.output_tokens[output_offset : output_offset + block_output_length],
+        strict=strict,
     ):
         return None
 
@@ -380,6 +407,7 @@ def _find_word_final_suffix_match(
     *,
     lemma_index: int,
     query_index: int,
+    strict: bool,
 ) -> _RuleMatchResult | None:
     """Return a normalized match result for a `_#` suffix rule candidate."""
     suffix_match = _matches_word_final_suffix(
@@ -389,6 +417,7 @@ def _find_word_final_suffix_match(
         query_tokens=query_tokens,
         lemma_index=lemma_index,
         query_index=query_index,
+        strict=strict,
     )
     if suffix_match is None:
         return None
@@ -409,18 +438,21 @@ def _find_normal_block_match(
     *,
     lemma_index: int,
     query_index: int,
+    strict: bool,
 ) -> _RuleMatchResult | None:
     """Return a normalized match result for a non-suffix block candidate."""
     input_length = len(candidate.input_tokens)
     output_length = len(candidate.output_tokens)
-    if (
-        block.lemma_tokens[lemma_index : lemma_index + input_length]
-        != candidate.input_tokens
+    if not _phone_seq_equal(
+        block.lemma_tokens[lemma_index : lemma_index + input_length],
+        candidate.input_tokens,
+        strict=strict,
     ):
         return None
-    if (
-        block.query_tokens[query_index : query_index + output_length]
-        != candidate.output_tokens
+    if not _phone_seq_equal(
+        block.query_tokens[query_index : query_index + output_length],
+        candidate.output_tokens,
+        strict=strict,
     ):
         return None
     if not _matches_block_columns(
@@ -428,6 +460,7 @@ def _find_normal_block_match(
         candidate,
         lemma_index=lemma_index,
         query_index=query_index,
+        strict=strict,
     ):
         return None
 
@@ -464,32 +497,44 @@ def _find_matching_rule_candidate(
     query_index: int,
     lemma_metadata: RuleMetadata | None = None,
 ) -> _RuleMatchResult | None:
-    """Return the first matching rule candidate at the current block cursor."""
-    for candidate in tokenized_rules:
-        if not _matches_lemma_constraints(candidate.rule, lemma_metadata):
-            continue
+    """Return the first matching rule candidate at the current block cursor.
 
-        suffix_match = _find_word_final_suffix_match(
-            block,
-            query_tokens,
-            lemma_tokens,
-            candidate,
-            lemma_index=lemma_index,
-            query_index=query_index,
-        )
-        if suffix_match is not None:
-            return suffix_match
+    Rules are tried in two passes. The strict pass requires exact phone
+    equality and reproduces the historical matching behavior. Only when no rule
+    matches exactly does the tolerant pass run, which lets unmarked dichronous
+    vowels (alpha, iota, upsilon) satisfy explicitly long rule phones so that
+    length-ambiguous forms such as unmarked ``μάτηρ`` still resolve to their
+    catalogued rule. This ordering ensures an explicitly length-marked form
+    keeps its exact rule rather than a looser dichronous fallback.
+    """
+    for strict in (True, False):
+        for candidate in tokenized_rules:
+            if not _matches_lemma_constraints(candidate.rule, lemma_metadata):
+                continue
 
-        normal_match = _find_normal_block_match(
-            block,
-            query_tokens,
-            lemma_tokens,
-            candidate,
-            lemma_index=lemma_index,
-            query_index=query_index,
-        )
-        if normal_match is not None:
-            return normal_match
+            suffix_match = _find_word_final_suffix_match(
+                block,
+                query_tokens,
+                lemma_tokens,
+                candidate,
+                lemma_index=lemma_index,
+                query_index=query_index,
+                strict=strict,
+            )
+            if suffix_match is not None:
+                return suffix_match
+
+            normal_match = _find_normal_block_match(
+                block,
+                query_tokens,
+                lemma_tokens,
+                candidate,
+                lemma_index=lemma_index,
+                query_index=query_index,
+                strict=strict,
+            )
+            if normal_match is not None:
+                return normal_match
     return None
 
 

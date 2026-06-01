@@ -963,6 +963,32 @@ def test_find_matching_rule_candidate_returns_single_token_match_result() -> Non
     assert match.word_final_suffix_match is None
 
 
+def test_explain_does_not_reverse_directional_dichronous_length_rule() -> None:
+    """A short output must not satisfy a rule that explicitly lengthens the output."""
+    applications = explain(
+        ["a", "n", "t"],
+        ["aː", "n", "t"],
+        Alignment(
+            aligned_query=("a", "n", "t"),
+            aligned_lemma=("aː", "n", "t"),
+        ),
+        [
+            _rule(
+                rule_id="VSH-003",
+                input_phoneme="a",
+                output_phoneme="aː",
+                context="_NC",
+            )
+        ],
+    )
+
+    assert [application.rule_id for application in applications] == ["OBS-SUB"]
+    assert [
+        (application.input_phoneme, application.output_phoneme)
+        for application in applications
+    ] == [("aː", "a")]
+
+
 def test_find_matching_rule_candidate_prefers_longest_multi_token_rule() -> None:
     """Verify candidate selection keeps longest-match-first behavior."""
     block = explainer_module._MismatchBlock(
@@ -1031,6 +1057,37 @@ def test_find_matching_rule_candidate_returns_word_final_suffix_match_result() -
     assert match.consumed_lemma_tokens == 1
     assert match.consumed_query_tokens == 0
     assert match.word_final_suffix_match is not None
+
+
+def test_explain_matches_suffix_rule_with_dichronous_length_tolerance() -> None:
+    """Verify `_#` suffix rules apply dichronous length tolerance when matching.
+
+    A suffix rule expecting long vowel form 'aːn' should successfully match
+    lemma ending 'an' (short vowel) when dichronous length tolerance is enabled.
+    This allows Greek morphophonemic suffix rules to handle vowel length ambiguity.
+    """
+    applications = explain(
+        ["m", "ɔː", "n"],
+        ["m", "a", "n"],
+        Alignment(
+            aligned_query=("m", "ɔː", "n"),
+            aligned_lemma=("m", "a", "n"),
+        ),
+        [
+            _rule(
+                rule_id="MPH-SUFFIX",
+                input_phoneme="aːn",
+                output_phoneme="ɔːn",
+                context="_#",
+            )
+        ],
+    )
+
+    assert [application.rule_id for application in applications] == ["MPH-SUFFIX"]
+    assert [
+        (application.input_phoneme, application.output_phoneme)
+        for application in applications
+    ] == [("aːn", "ɔːn")]
 
 
 def test_find_matching_rule_candidate_rejects_context_mismatch() -> None:
