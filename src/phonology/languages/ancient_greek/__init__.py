@@ -2,6 +2,7 @@
 
 from .orthography_notes import build_orthographic_notes
 from .ipa import (
+    apply_attic_sigma_sigma_to_tau_tau_shift,
     apply_koine_consonant_shifts,
     get_known_phones,
     greek_to_ipa,
@@ -12,6 +13,7 @@ from .ipa import (
 )
 
 __all__ = [
+    "apply_attic_sigma_sigma_to_tau_tau_shift",
     "apply_koine_consonant_shifts",
     "build_orthographic_notes",
     "get_known_phones",

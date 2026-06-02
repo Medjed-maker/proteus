@@ -275,6 +275,40 @@ def apply_koine_consonant_shifts(phones: list[str]) -> list[str]:
     return shifted
 
 
+def apply_attic_sigma_sigma_to_tau_tau_shift(phones: list[str]) -> list[str]:
+    """Generate the Attic ``ss > tt`` compatibility shape for skeleton indexing.
+
+    This is a skeleton-indexing helper, not a strict phonological rule
+    application: it rewrites adjacent ``s s`` *pairs* to ``t t`` so that a
+    ``θάλαττα``-style query can also reach a ``θάλασσα`` (``ss``) lemma.
+
+    Only adjacent sigma pairs are converted, scanning left to right and
+    consuming two phones at a time. An odd-length sigma run keeps its trailing
+    sigma unchanged (e.g. ``["s", "s", "s"] -> ["t", "t", "s"]``); such runs do
+    not occur in real Ancient Greek forms, so this edge case only documents the
+    deterministic behaviour rather than modelling an attested change.
+    """
+    normalized_phones = [strip_ignored_ipa_combining_marks(phone) for phone in phones]
+    shifted: list[str] = []
+    index = 0
+
+    while index < len(normalized_phones):
+        if (
+            normalized_phones[index] == "s"
+            and index + 1 < len(normalized_phones)
+            and normalized_phones[index + 1] == "s"
+        ):
+            shifted.append(_reapply_ipa_accents("t", phones[index]))
+            shifted.append(_reapply_ipa_accents("t", phones[index + 1]))
+            index += 2
+            continue
+
+        shifted.append(phones[index])
+        index += 1
+
+    return shifted
+
+
 def strip_diacritics(greek_text: str) -> str:
     """Remove all diacritics, returning bare Greek letters.
 

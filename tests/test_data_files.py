@@ -409,6 +409,20 @@ def test_lexicon_metadata_and_representative_lemma_regressions() -> None:
         == "data/languages/ancient_greek/lexicon/greek_lemmas.schema.json"
     )
     assert metadata["dialect"] == "attic"
+    assert "LSJ extraction plus Proteus curated supplemental entries" in metadata[
+        "source"
+    ]
+    assert "LSJ extraction plus Proteus curated supplemental entries" in metadata[
+        "description"
+    ]
+    assert (
+        "supplemental sources: Proteus curated supplement for missing LSJ "
+        "extraction entries"
+        in metadata["note"]
+    )
+    assert metadata["license"] == (
+        "CC-BY-SA-4.0; supplemental entries curated by Proteus maintainers"
+    )
     assert len(lexicon["lemmas"]) > MIN_LEMMAS_COUNT
 
     anthropos = find("ἄνθρωπος")
@@ -429,6 +443,18 @@ def test_lexicon_metadata_and_representative_lemma_regressions() -> None:
     assert hosanei["pos"] == "adverb", (
         f"Expected POS 'adverb' for lemma 'ὡσανεί' but got {hosanei['pos']}"
     )
+
+    thalassa = find("θάλασσα")
+    assert thalassa == {
+        "id": "LSJ-047735",
+        "headword": "θάλασσα",
+        "transliteration": "thalassa",
+        "ipa": "tʰálassa",
+        "pos": "noun",
+        "gloss": "sea",
+        "dialect": "attic",
+        "gender": "feminine",
+    }
 
     hopos = find_all("ὅπως")
     assert hopos, "Lemma 'ὅπως' not found in lexicon"

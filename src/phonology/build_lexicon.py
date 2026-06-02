@@ -33,6 +33,7 @@ _FINGERPRINT_INPUTS = (
     Path("src/phonology/betacode.py"),
     Path("data/languages/ancient_greek/lexicon/pos_overrides.yaml"),
     Path("data/languages/ancient_greek/lexicon/greek_lemmas.schema.json"),
+    Path("data/languages/ancient_greek/lexicon/supplemental_lemmas.yaml"),
 )
 
 
@@ -66,6 +67,18 @@ def _default_output_path(project_root: Path) -> Path:
 def _metadata_path_for_output(output_path: Path) -> Path:
     """Return the sidecar metadata path for a generated lexicon output."""
     return output_path.with_name(f"{output_path.stem}.meta.json")
+
+
+def _default_supplemental_path(project_root: Path) -> Path:
+    """Return the default curated supplemental lexicon path."""
+    return (
+        project_root
+        / "data"
+        / "languages"
+        / "ancient_greek"
+        / "lexicon"
+        / "supplemental_lemmas.yaml"
+    )
 
 
 def _default_lsj_repo_dir(project_root: Path) -> Path:
@@ -336,17 +349,24 @@ def _run_extractor(
     output_path: Path,
     limit: int | None = None,
     dry_run: bool = False,
+    supplemental_path: Path | None = None,
 ) -> int:
     """Invoke the LSJ extractor using the in-tree source module."""
     from phonology.lsj_extractor import _load_pos_overrides, main as extract_lsj
 
     _load_pos_overrides(cli_mode=True)
+    resolved_supplemental_path = (
+        supplemental_path
+        if supplemental_path is not None
+        else _default_supplemental_path(_default_project_root())
+    )
 
     return extract_lsj(
         xml_dir=xml_dir,
         output_path=output_path,
         limit=limit,
         dry_run=dry_run,
+        supplemental_path=resolved_supplemental_path,
     )
 
 
@@ -359,13 +379,18 @@ def _fingerprint_path_label(path: Path, project_root: Path) -> str:
         return resolved_path.as_posix()
 
 
+def _compute_tracked_relative_paths(project_root: Path) -> tuple[Path, ...]:
+    """Return deduplicated repo-relative paths for non-XML fingerprint inputs."""
+    return tuple(
+        dict.fromkeys((*_FINGERPRINT_INPUTS, *_discover_lsj_package_files(project_root)))
+    )
+
+
 def _tracked_input_records(project_root: Path, xml_dir: Path) -> list[dict[str, Any]]:
     """Return fingerprint records for source inputs and LSJ XML files."""
     from phonology.lsj_extractor import find_xml_files
 
-    tracked_relative_paths = tuple(
-        dict.fromkeys((*_FINGERPRINT_INPUTS, *_discover_lsj_package_files(project_root)))
-    )
+    tracked_relative_paths = _compute_tracked_relative_paths(project_root)
     tracked_paths = [
         project_root / relative_path for relative_path in tracked_relative_paths
     ]
@@ -423,6 +448,14 @@ def _current_record_from_path(path: Path, path_label: str) -> dict[str, Any]:
         "size": stat.st_size,
         "mtime_ns": stat.st_mtime_ns,
         "content_hash": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+
+
+def _current_non_lsj_fingerprint_input_labels(project_root: Path) -> set[str]:
+    """Return current non-LSJ fingerprint input labels required for reuse."""
+    return {
+        _fingerprint_path_label(project_root / relative_path, project_root)
+        for relative_path in _compute_tracked_relative_paths(project_root)
     }
 
 
@@ -506,6 +539,16 @@ def _metadata_input_records_for_reuse(
                 "content_hash": content_hash,
             }
         )
+    recorded_paths = {str(record["path"]) for record in records}
+    missing_current_inputs = sorted(
+        _current_non_lsj_fingerprint_input_labels(project_root) - recorded_paths
+    )
+    if missing_current_inputs:
+        logger.info(
+            "Freshness metadata is missing current fingerprint input(s): %s",
+            ", ".join(missing_current_inputs),
+        )
+        return None
     return records
 
 
@@ -769,6 +812,7 @@ def ensure_generated_lexicon(
         output_path=resolved_output_path,
         limit=limit,
         dry_run=dry_run,
+        supplemental_path=_default_supplemental_path(resolved_project_root),
     )
     if exit_code != 0:
         raise RuntimeError(f"LSJ extraction failed with exit code {exit_code}")

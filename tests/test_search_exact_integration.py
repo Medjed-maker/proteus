@@ -5,6 +5,8 @@ Extracted from ``tests/test_search.py`` during the search package refactor.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -15,6 +17,14 @@ from phonology.search import LexiconRecord, SearchResult, search
 from tests._helpers.score_stage_mock import assert_only_expected_score_stage_kwargs
 
 MATRIX_FILE = "attic_doric.json"
+ROOT_DIR = Path(__file__).resolve().parents[1]
+LEXICON_PATH = (
+    ROOT_DIR / "data" / "languages" / "ancient_greek" / "lexicon" / "greek_lemmas.json"
+)
+_skip_no_lexicon = pytest.mark.skipif(
+    not LEXICON_PATH.exists(),
+    reason="Lexicon not generated; run scripts/extract-lsj.sh",
+)
 
 
 class TestSearchExactMatchIntegration:
@@ -87,6 +97,45 @@ class TestSearchExactMatchIntegration:
         assert results[0].confidence == 1.0, (
             f"Expected top result confidence 1.0, got {results[0].confidence!r}"
         )
+
+    def test_attic_tt_query_surfaces_ss_lemma_with_rule(self) -> None:
+        """θάλαττα should find θάλασσα and explain the ss -> tt correspondence."""
+        lexicon = [
+            {
+                "id": "LSJ-047735",
+                "headword": "θάλασσα",
+                "ipa": "tʰálassa",
+                "pos": "noun",
+                "gender": "feminine",
+                "gloss": "sea",
+                "dialect": "attic",
+            }
+        ]
+        matrix = load_matrix(MATRIX_FILE)
+
+        results = search("θάλαττα", lexicon, matrix, max_results=5, dialect="attic")
+
+        thalassa = next(
+            (result for result in results if result.lemma == "θάλασσα"), None
+        )
+        assert thalassa is not None, "Expected θάλασσα in search results"
+        assert "CCH-006" in thalassa.applied_rules
+
+    @_skip_no_lexicon
+    def test_attic_tt_query_finds_committed_ss_lemma_in_small_result_set(
+        self,
+    ) -> None:
+        """Full generated lexicon should still surface θάλασσα within top 5."""
+        lexicon = json.loads(LEXICON_PATH.read_text(encoding="utf-8"))["lemmas"]
+        matrix = load_matrix(MATRIX_FILE)
+
+        results = search("θάλαττα", lexicon, matrix, max_results=5, dialect="attic")
+
+        thalassa = next(
+            (result for result in results if result.lemma == "θάλασσα"), None
+        )
+        assert thalassa is not None, "Expected θάλασσα in search results"
+        assert "CCH-006" in thalassa.applied_rules
 
     def test_search_deduplicates_homograph_entries(
         self, monkeypatch: pytest.MonkeyPatch

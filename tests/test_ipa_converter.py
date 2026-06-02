@@ -6,6 +6,7 @@ import pytest
 
 from phonology.distance import word_distance
 from phonology.ipa_converter import (
+    apply_attic_sigma_sigma_to_tau_tau_shift,
     apply_koine_consonant_shifts,
     greek_to_ipa,
     strip_diacritics,
@@ -212,6 +213,28 @@ class TestApplyKoineConsonantShifts:
             "a",
             "ð\u0301",
             "a",
+        ]
+
+
+class TestApplyAtticSigmaSigmaToTauTauShift:
+    def test_converts_adjacent_sigma_pair_to_tau_pair(self) -> None:
+        assert apply_attic_sigma_sigma_to_tau_tau_shift(
+            ["tʰ", "á", "l", "a", "s", "s", "a"]
+        ) == ["tʰ", "á", "l", "a", "t", "t", "a"]
+
+    def test_preserves_non_adjacent_sigma(self) -> None:
+        assert apply_attic_sigma_sigma_to_tau_tau_shift(["s", "a", "s"]) == [
+            "s",
+            "a",
+            "s",
+        ]
+
+    def test_handles_odd_length_sigma_run(self) -> None:
+        """Only the leading adjacent pair shifts; an odd trailing sigma remains."""
+        assert apply_attic_sigma_sigma_to_tau_tau_shift(["s", "s", "s"]) == [
+            "t",
+            "t",
+            "s",
         ]
 
 

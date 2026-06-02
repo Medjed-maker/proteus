@@ -2164,6 +2164,210 @@ class TestBuildDocument:
     def _sample_entries(self) -> list[dict[str, Any]]:
         return _sample_document_entries()
 
+    def test_load_supplemental_lemmas_reads_yaml_entries(
+        self, tmp_path: Path
+    ) -> None:
+        supplemental_path = tmp_path / "supplemental_lemmas.yaml"
+        supplemental_path.write_text(
+            """
+lemmas:
+  - id: "LSJ-047735"
+    headword: "θάλασσα"
+    transliteration: "thalassa"
+    ipa: "tʰálassa"
+    pos: "noun"
+    gender: "feminine"
+    gloss: "sea"
+    dialect: "attic"
+""",
+            encoding="utf-8",
+        )
+
+        entries = lsj_extractor_module.load_supplemental_lemmas(supplemental_path)
+
+        assert entries == [
+            {
+                "id": "LSJ-047735",
+                "headword": "θάλασσα",
+                "transliteration": "thalassa",
+                "ipa": "tʰálassa",
+                "pos": "noun",
+                "gender": "feminine",
+                "gloss": "sea",
+                "dialect": "attic",
+            }
+        ]
+
+    def test_merge_supplemental_lemmas_rejects_headword_conflicting_with_existing(
+        self,
+    ) -> None:
+        entries = self._sample_entries()
+        supplemental_entries = [
+            {
+                "id": "LSJ-999999",
+                "headword": "λόγος",
+                "transliteration": "logos",
+                "ipa": "lóɡos",
+                "pos": "noun",
+                "gender": "masculine",
+                "gloss": "word",
+                "dialect": "attic",
+            }
+        ]
+
+        with pytest.raises(ValueError, match="conflicts with an existing lexicon entry"):
+            lsj_extractor_module.merge_supplemental_lemmas(
+                entries, supplemental_entries
+            )
+
+    def test_merge_supplemental_lemmas_skips_identical_existing_entry(self) -> None:
+        entries = self._sample_entries()
+        supplemental_entries = [dict(entries[0])]
+
+        merged = lsj_extractor_module.merge_supplemental_lemmas(
+            entries, supplemental_entries
+        )
+
+        assert merged == sorted(entries, key=lambda entry: str(entry.get("id", "")))
+        assert [entry["id"] for entry in merged].count(entries[0]["id"]) == 1
+
+    def test_merge_supplemental_lemmas_sorts_without_supplemental_entries(
+        self,
+    ) -> None:
+        entries = list(reversed(self._sample_entries()))
+
+        merged = lsj_extractor_module.merge_supplemental_lemmas(entries, [])
+
+        assert merged == sorted(entries, key=lambda entry: str(entry.get("id", "")))
+
+    def test_merge_supplemental_lemmas_rejects_id_conflicting_with_existing(
+        self,
+    ) -> None:
+        entries = self._sample_entries()
+        supplemental_entries = [
+            {
+                "id": entries[0]["id"],
+                "headword": "θάλασσα",
+                "transliteration": "thalassa",
+                "ipa": "tʰálassa",
+                "pos": "noun",
+                "gender": "feminine",
+                "gloss": "sea",
+                "dialect": "attic",
+            }
+        ]
+
+        with pytest.raises(ValueError, match="conflicts with an existing lexicon entry"):
+            lsj_extractor_module.merge_supplemental_lemmas(
+                entries, supplemental_entries
+            )
+
+    def test_merge_supplemental_lemmas_rejects_duplicate_id_within_supplemental(
+        self,
+    ) -> None:
+        entries = self._sample_entries()
+        supplemental_entries = [
+            {
+                "id": "LSJ-999999",
+                "headword": "θάλασσα",
+                "transliteration": "thalassa",
+                "ipa": "tʰálassa",
+                "pos": "noun",
+                "gender": "feminine",
+                "gloss": "sea",
+                "dialect": "attic",
+            },
+            {
+                "id": "LSJ-999999",
+                "headword": "κῦμα",
+                "transliteration": "kuma",
+                "ipa": "kŷma",
+                "pos": "noun",
+                "gender": "neuter",
+                "gloss": "wave",
+                "dialect": "attic",
+            },
+        ]
+
+        with pytest.raises(ValueError, match="Duplicate supplemental lexicon id"):
+            lsj_extractor_module.merge_supplemental_lemmas(
+                entries, supplemental_entries
+            )
+
+    def test_merge_supplemental_lemmas_rejects_duplicate_headword_within_supplemental(
+        self,
+    ) -> None:
+        entries = self._sample_entries()
+        supplemental_entries = [
+            {
+                "id": "LSJ-999998",
+                "headword": "θάλασσα",
+                "transliteration": "thalassa",
+                "ipa": "tʰálassa",
+                "pos": "noun",
+                "gender": "feminine",
+                "gloss": "sea",
+                "dialect": "attic",
+            },
+            {
+                "id": "LSJ-999999",
+                "headword": "θάλασσα",
+                "transliteration": "thalassa",
+                "ipa": "tʰálassa",
+                "pos": "noun",
+                "gender": "feminine",
+                "gloss": "sea",
+                "dialect": "attic",
+            },
+        ]
+
+        with pytest.raises(ValueError, match="Duplicate supplemental lexicon headword"):
+            lsj_extractor_module.merge_supplemental_lemmas(
+                entries, supplemental_entries
+            )
+
+    def test_load_supplemental_lemmas_rejects_entry_missing_required_field(
+        self, tmp_path: Path
+    ) -> None:
+        supplemental_path = tmp_path / "supplemental_lemmas.yaml"
+        supplemental_path.write_text(
+            """
+lemmas:
+  - id: "LSJ-047735"
+    headword: "θάλασσα"
+    transliteration: "thalassa"
+    ipa: "tʰálassa"
+    gender: "feminine"
+    gloss: "sea"
+    dialect: "attic"
+""",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="(?i)schema.*pos|pos.*required"):
+            lsj_extractor_module.load_supplemental_lemmas(supplemental_path)
+
+    def test_load_supplemental_lemmas_rejects_noun_without_gender(
+        self, tmp_path: Path
+    ) -> None:
+        supplemental_path = tmp_path / "supplemental_lemmas.yaml"
+        supplemental_path.write_text(
+            """
+lemmas:
+  - id: "LSJ-047735"
+    headword: "θάλασσα"
+    transliteration: "thalassa"
+    ipa: "tʰálassa"
+    pos: "noun"
+    gloss: "sea"
+    dialect: "attic"
+""",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="(?i)schema.*gender|gender.*required"):
+            lsj_extractor_module.load_supplemental_lemmas(supplemental_path)
+
     def test_build_document_structure(self) -> None:
         entries = self._sample_entries()
         doc = build_lexicon_document(entries)
@@ -2175,6 +2379,31 @@ class TestBuildDocument:
         assert doc["_meta"]["note"].endswith("output dialect is attic")
         assert doc["_meta"]["license"] == "CC-BY-SA-4.0"
         assert doc["lemmas"] == entries
+
+    def test_build_document_records_supplemental_provenance(self) -> None:
+        entries = self._sample_entries()
+        doc = build_lexicon_document(
+            entries,
+            supplemental_sources=(
+                "Proteus curated supplement for missing LSJ extraction entries",
+            ),
+        )
+
+        assert "LSJ extraction plus Proteus curated supplemental entries" in doc[
+            "_meta"
+        ]["source"]
+        assert "LSJ extraction plus Proteus curated supplemental entries" in doc[
+            "_meta"
+        ]["description"]
+        assert (
+            "supplemental sources: Proteus curated supplement for missing LSJ "
+            "extraction entries"
+            in doc["_meta"]["note"]
+        )
+        assert (
+            doc["_meta"]["license"]
+            == "CC-BY-SA-4.0; supplemental entries curated by Proteus maintainers"
+        )
 
     def test_build_document_uses_single_entry_dialect_in_metadata_text(self) -> None:
         entries = [
@@ -2497,6 +2726,70 @@ class TestXmlIterationAndCli:
         )
         assert "Lexicon written: 1 entries" in capsys.readouterr().out
 
+    def test_main_forwards_supplemental_source_to_document_builder(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        output_path = tmp_path / "out.json"
+        supplemental_path = tmp_path / "supplemental_lemmas.yaml"
+        supplemental_path.write_text(
+            """
+meta:
+  source: "Proteus curated supplement for missing LSJ extraction entries"
+lemmas:
+  - id: "LSJ-999999"
+    headword: "θάλασσα"
+    transliteration: "thalassa"
+    ipa: "tʰálassa"
+    pos: "noun"
+    gender: "feminine"
+    gloss: "sea"
+    dialect: "attic"
+""",
+            encoding="utf-8",
+        )
+        captured: dict[str, object] = {}
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "extract_all",
+            lambda *_args, **_kwargs: iter([_sample_document_entries()[0]]),
+        )
+        monkeypatch.setattr(
+            lsj_extractor_module, "validate_document", lambda *_args, **_kwargs: None
+        )
+
+        def fake_build_lexicon_document(
+            entries: list[dict[str, Any]],
+            *,
+            supplemental_sources: tuple[str, ...] = (),
+        ) -> dict[str, Any]:
+            captured["supplemental_sources"] = supplemental_sources
+            return build_lexicon_document(
+                entries, supplemental_sources=supplemental_sources
+            )
+
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "build_lexicon_document",
+            fake_build_lexicon_document,
+        )
+
+        assert (
+            lsj_extractor_module.main(
+                xml_dir=tmp_path,
+                output_path=output_path,
+                supplemental_path=supplemental_path,
+            )
+            == 0
+        )
+
+        assert captured["supplemental_sources"] == (
+            "Proteus curated supplement for missing LSJ extraction entries",
+        )
+        metadata = json.loads(output_path.read_text(encoding="utf-8"))["_meta"]
+        assert "supplemental sources: Proteus curated supplement" in metadata["note"]
+
     def test_main_requires_xml_dir(self) -> None:
         with pytest.raises(ValueError, match="xml_dir is required"):
             lsj_extractor_module.main(xml_dir=None, output_path=Path("out.json"))
@@ -2567,7 +2860,48 @@ class TestXmlIterationAndCli:
             "output_path": output_path,
             "limit": 3,
             "dry_run": True,
+            "supplemental_path": lsj_extractor_module._default_supplemental_path(),
         }
+
+    def test_run_cli_explicit_supplemental_overrides_default(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        captured: dict[str, object] = {}
+        xml_dir = tmp_path / "xml"
+        supplemental_path = tmp_path / "custom_supplemental.yaml"
+
+        def fake_load_pos_overrides(
+            *, cli_mode: bool = False
+        ) -> dict[str, frozenset[str]]:
+            captured["cli_mode"] = cli_mode
+            return lsj_extractor_module._empty_pos_overrides()
+
+        monkeypatch.setattr(
+            lsj_extractor_module, "_load_pos_overrides", fake_load_pos_overrides
+        )
+
+        def fake_main(**kwargs: object) -> int:
+            captured.update(kwargs)
+            return 0
+
+        monkeypatch.setattr(lsj_extractor_module, "main", fake_main)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "lsj_extractor.py",
+                "--xml-dir",
+                str(xml_dir),
+                "--supplemental",
+                str(supplemental_path),
+            ],
+        )
+
+        assert lsj_extractor_module.run_cli() == 0
+        assert captured["cli_mode"] is True
+        assert captured["supplemental_path"] == supplemental_path
 
     def test_run_cli_returns_one_for_preload_failure(
         self,

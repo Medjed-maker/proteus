@@ -1,0 +1,14 @@
+meta:
+  status: supplemental
+  source: "Proteus curated supplement for missing LSJ extraction entries"
+  note: "Small manually reviewed additions merged into the generated lexicon."
+
+lemmas:
+  - id: "LSJ-047735"
+    headword: "θάλασσα"
+    transliteration: "thalassa"
+    ipa: "tʰálassa"
+    pos: "noun"
+    gender: "feminine"
+    gloss: "sea"
+    dialect: "attic"
