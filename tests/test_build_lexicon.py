@@ -267,11 +267,13 @@ def test_run_extractor_forwards_arguments_to_lsj_extractor_main(
         output_path: Path,
         limit: int | None = None,
         dry_run: bool = False,
+        supplemental_path: Path | None = None,
     ) -> int:
         captured["xml_dir"] = xml_dir
         captured["output_path"] = output_path
         captured["limit"] = limit
         captured["dry_run"] = dry_run
+        captured["supplemental_path"] = supplemental_path
         return 17
 
     monkeypatch.setattr(lsj_extractor_module, "_load_pos_overrides", fake_load)
@@ -291,6 +293,7 @@ def test_run_extractor_forwards_arguments_to_lsj_extractor_main(
         "output_path": output_path,
         "limit": 9,
         "dry_run": True,
+        "supplemental_path": build_lexicon._default_supplemental_path(ROOT_DIR),
     }
 
 
@@ -308,6 +311,11 @@ def test_ensure_generated_lexicon_reuses_fresh_output_for_missing_custom_lsj_xml
     )
     _write_valid_lexicon_output(tmp_path, output_path)
 
+    monkeypatch.setattr(
+        build_lexicon,
+        "_FINGERPRINT_INPUTS",
+        (Path("src/phonology/ipa_converter.py"),),
+    )
     tracked_source = tmp_path / "src" / "phonology" / "ipa_converter.py"
     tracked_source.parent.mkdir(parents=True, exist_ok=True)
     tracked_source.write_text("# source\n", encoding="utf-8")
@@ -365,6 +373,11 @@ def test_ensure_generated_lexicon_reuses_fresh_output_when_env_checkout_is_missi
     )
     _write_valid_lexicon_output(tmp_path, output_path)
 
+    monkeypatch.setattr(
+        build_lexicon,
+        "_FINGERPRINT_INPUTS",
+        (Path("src/phonology/ipa_converter.py"),),
+    )
     tracked_source = tmp_path / "src" / "phonology" / "ipa_converter.py"
     tracked_source.parent.mkdir(parents=True, exist_ok=True)
     tracked_source.write_text("# source\n", encoding="utf-8")
@@ -469,11 +482,13 @@ def test_ensure_generated_lexicon_does_not_shortcut_offline_reuse_when_env_check
         output_path: Path,
         limit: int | None = None,
         dry_run: bool = False,
+        supplemental_path: Path | None = None,
     ) -> int:
         captured["xml_dir"] = xml_dir
         captured["output_path"] = output_path
         captured["limit"] = limit
         captured["dry_run"] = dry_run
+        captured["supplemental_path"] = supplemental_path
         output_path.write_text('{"fresh": true}\n', encoding="utf-8")
         return 0
 
@@ -503,6 +518,7 @@ def test_ensure_generated_lexicon_does_not_shortcut_offline_reuse_when_env_check
         "output_path": output_path,
         "limit": None,
         "dry_run": False,
+        "supplemental_path": build_lexicon._default_supplemental_path(tmp_path),
     }
     assert (
         json.loads(
@@ -654,6 +670,7 @@ def test_ensure_generated_lexicon_reruns_when_output_exists_and_skip_disabled(
         output_path: Path,
         limit: int | None = None,
         dry_run: bool = False,
+        supplemental_path: Path | None = None,
     ) -> int:
         captured["xml_dir"] = xml_dir
         captured["output_path"] = output_path
@@ -742,6 +759,7 @@ def test_ensure_generated_lexicon_reruns_when_output_exists_but_metadata_is_stal
         output_path: Path,
         limit: int | None = None,
         dry_run: bool = False,
+        supplemental_path: Path | None = None,
     ) -> int:
         captured["xml_dir"] = xml_dir
         captured["output_path"] = output_path
@@ -926,6 +944,74 @@ def test_ensure_generated_lexicon_reuses_fresh_output_without_default_lsj_checko
     assert did_generate is False
 
 
+def test_is_output_fresh_without_checkout_rejects_metadata_missing_current_input(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    tracked_source, xml_dir = _write_default_fingerprint_inputs(tmp_path)
+    supplemental_path = (
+        tmp_path
+        / "data"
+        / "languages"
+        / "ancient_greek"
+        / "lexicon"
+        / "supplemental_lemmas.yaml"
+    )
+    supplemental_path.parent.mkdir(parents=True, exist_ok=True)
+    supplemental_path.write_text("lemmas: []\n", encoding="utf-8")
+    output_path = (
+        tmp_path
+        / "data"
+        / "languages"
+        / "ancient_greek"
+        / "lexicon"
+        / "greek_lemmas.json"
+    )
+    _write_valid_lexicon_output(tmp_path, output_path)
+    metadata_path = build_lexicon._metadata_path_for_output(output_path)
+
+    monkeypatch.setattr(
+        build_lexicon,
+        "_FINGERPRINT_INPUTS",
+        (
+            Path("src/phonology/ipa_converter.py"),
+            Path("data/languages/ancient_greek/lexicon/supplemental_lemmas.yaml"),
+        ),
+    )
+    old_records = [
+        build_lexicon._current_record_from_path(
+            tracked_source,
+            "src/phonology/ipa_converter.py",
+        ),
+        build_lexicon._current_record_from_path(
+            xml_dir / "grc.lsj.perseus-eng1.xml",
+            "data/external/lsj/CTS_XML_TEI/perseus/pdllex/grc/lsj/grc.lsj.perseus-eng1.xml",
+        ),
+    ]
+    build_lexicon._write_metadata(
+        metadata_path,
+        {
+            "schema_version": build_lexicon.FINGERPRINT_SCHEMA_VERSION,
+            "fingerprint": build_lexicon._fingerprint_digest_for_records(old_records),
+            "inputs": old_records,
+        },
+    )
+    shutil.rmtree(build_lexicon._default_lsj_repo_dir(tmp_path))
+    caplog.set_level(logging.INFO, logger=build_lexicon.logger.name)
+
+    assert (
+        build_lexicon._is_output_fresh_without_checkout(
+            project_root=tmp_path,
+            output_path=output_path,
+            metadata_path=metadata_path,
+        )
+        is False
+    )
+    assert "missing current fingerprint input" in caplog.text
+    assert "supplemental_lemmas.yaml" in caplog.text
+
+
 def test_ensure_generated_lexicon_reruns_when_existing_output_is_invalid_json(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -967,6 +1053,7 @@ def test_ensure_generated_lexicon_reruns_when_existing_output_is_invalid_json(
         output_path: Path,
         limit: int | None = None,
         dry_run: bool = False,
+        supplemental_path: Path | None = None,
     ) -> int:
         captured["xml_dir"] = xml_dir
         captured["output_path"] = output_path
@@ -1042,6 +1129,7 @@ def test_ensure_generated_lexicon_reruns_when_existing_output_is_schema_invalid(
         output_path: Path,
         limit: int | None = None,
         dry_run: bool = False,
+        supplemental_path: Path | None = None,
     ) -> int:
         captured["xml_dir"] = xml_dir
         captured["output_path"] = output_path
@@ -1174,6 +1262,7 @@ def test_ensure_generated_lexicon_reruns_when_source_changes_and_default_lsj_che
         output_path: Path,
         limit: int | None = None,
         dry_run: bool = False,
+        supplemental_path: Path | None = None,
     ) -> int:
         captured["xml_dir"] = xml_dir
         captured["output_path"] = output_path
@@ -1255,6 +1344,7 @@ def test_ensure_generated_lexicon_runs_checkout_and_extractor_when_missing(
         output_path: Path,
         limit: int | None = None,
         dry_run: bool = False,
+        supplemental_path: Path | None = None,
     ) -> int:
         captured["xml_dir"] = xml_dir
         captured["output_path"] = output_path
@@ -1459,6 +1549,13 @@ def test_build_fingerprint_payload_tracks_xml_inputs(
         "xml/grc.lsj.perseus-eng1.xml",
         "xml/grc.lsj.perseus-eng2.xml",
     ]
+
+
+def test_default_fingerprint_inputs_include_supplemental_lemmas() -> None:
+    assert (
+        Path("data/languages/ancient_greek/lexicon/supplemental_lemmas.yaml")
+        in build_lexicon._FINGERPRINT_INPUTS
+    )
 
 
 def test_fingerprint_path_label_returns_absolute_path_for_inputs_outside_project_root(

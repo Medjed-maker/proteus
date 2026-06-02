@@ -9,6 +9,7 @@ original public import path used by existing callers.
 from __future__ import annotations
 
 from .languages.ancient_greek.ipa import (
+    apply_attic_sigma_sigma_to_tau_tau_shift,
     apply_koine_consonant_shifts,
     get_known_phones,
     greek_to_ipa,
@@ -29,6 +30,7 @@ def to_ipa(text: str, *, dialect: str = "attic") -> str:
 
 
 __all__ = [
+    "apply_attic_sigma_sigma_to_tau_tau_shift",
     "apply_koine_consonant_shifts",
     "get_known_phones",
     "greek_to_ipa",

@@ -18,6 +18,7 @@ from ..ipa_converter import to_ipa
 from ._document import (
     build_lexicon_document,
     validate_document,
+    validate_supplemental_lemma_entries,
 )
 from ._extract import extract_entry
 from ._xml_iter import extract_all, find_xml_files, iter_xml_entries
@@ -34,6 +35,7 @@ __all__ = [
     "iter_xml_entries",
     "build_lexicon_document",
     "validate_document",
+    "validate_supplemental_lemma_entries",
     "logger",
     "to_ipa",
 ]

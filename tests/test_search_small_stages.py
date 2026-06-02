@@ -437,6 +437,29 @@ class TestBuildKmerIndex:
         # "pʰ l" kmer exists via tokenization with phone_inventory
         assert index["pʰ l"] == ["L1"]
 
+    def test_default_language_adds_attic_tt_compatibility_kmers(self) -> None:
+        """Verify Attic dialect σσ→ττ transformation generates compatibility k-mers.
+
+        For θάλασσα (tʰálassa), the index should contain both the original
+        k-mers ("l s") and Attic-variant k-mers ("l t", "t t") derived from
+        the σσ→ττ shift that produces tʰálatta.
+        """
+        index = build_kmer_index(
+            [
+                {
+                    "id": "LSJ-047735",
+                    "headword": "θάλασσα",
+                    "ipa": "tʰálassa",
+                    "dialect": "attic",
+                }
+            ],
+            k=2,
+        )
+
+        assert index["l s"] == ["LSJ-047735"]
+        assert index["l t"] == ["LSJ-047735"]
+        assert index["t t"] == ["LSJ-047735"]
+
     def test_normalized_default_language_fills_in_ancient_greek_defaults(self) -> None:
         """Default-language compatibility accepts the API/profile-normalized ID form."""
         index = build_kmer_index(
