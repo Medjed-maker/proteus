@@ -24,7 +24,7 @@ src/mcp_server/_search_adapter.py
     | loads dependencies through api.main.load_search_dependencies
     | executes api._search_runner.run_search
     v
-src/phonology/search.py and language profiles
+src/phonology/search/ and language profiles
     |
     v
 McpSearchOutput JSON

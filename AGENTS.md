@@ -6,7 +6,7 @@ Proteus uses a `src/` layout. Core code lives in `src/`: `phonology/` contains I
 
 ## Build, Test, and Development Commands
 
-Install dependencies with `uv sync --all-extras --dev`. Run the full test suite with `uv run pytest`. For focused work, use `uv run pytest tests/test_distance.py` or `uv run pytest tests/test_api_main.py::TestHealthEndpoint::test_api_health -v`. Start the local API with `uv run uvicorn api.main:app --reload`. Regenerate the bundled distance matrix with `uv run python -m phonology.matrix_generator`. Build a wheel with `uv build`.
+Install dependencies with `uv sync --all-extras --dev`. Run the full test suite with `uv run pytest`. For focused work, use `uv run pytest tests/test_distance.py` or `uv run pytest tests/test_api_main.py::TestHealthEndpoint::test_api_health -v`. Start the local API with `uv run uvicorn api.main:app --reload`. Regenerate the bundled distance matrix with `uv run python -m phonology.languages.ancient_greek.matrix_generator`. Build a wheel with `uv build`.
 
 ## Coding Style & Naming Conventions
 

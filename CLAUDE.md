@@ -33,7 +33,7 @@ bash scripts/build-css.sh
 uv run uvicorn api.main:app --reload
 
 # Regenerate the Attic-Doric distance matrix
-uv run python -m phonology.matrix_generator
+uv run python -m phonology.languages.ancient_greek.matrix_generator
 
 # Build wheel
 uv build
@@ -45,24 +45,61 @@ uv build
 
 The package uses `src/` layout with hatchling as the build backend.
 
-**`phonology/`** — Core computation layer:
-- **`ipa_converter.py`** — Greek script → IPA conversion. Greedy left-to-right tokenizer handles diphthongs, rough breathing, diaeresis, iota subscript. `greek_to_ipa()` returns phone list; `tokenize_ipa()` parses compact/space-separated IPA strings back into phone tokens using a priority-ordered inventory.
-- **`distance.py`** — Weighted edit distance (Needleman-Wunsch) over IPA sequences. Two scoring modes: raw (using `phone_distance()` with DEFAULT_COST=5.0) and normalized 0.0-1.0 (capping substitutions at 1.0). Matrix loading includes TOCTOU-safe symlink/path traversal checks.
-- **`search.py`** — Three-stage search pipeline (`seed_stage`, `extend_stage`, `filter_stage`) with `SearchResult` and `SearchConfig` dataclasses.
-- **`explainer.py`** — Loads YAML phonological rules from `data/rules/`, validates structure and unique IDs. `explain_alignment()` is stubbed.
-- **`matrix_generator.py`** — Reads/validates/regenerates `data/matrices/attic_doric.json`. Enforces symmetry, completeness, and [0.0, 1.0] bounds on sound-class sub-matrices (vowels, stops, dialect_pairs).
-- **`_paths.py`** — Shared utility to locate `data/` directories by walking up from the module to find `pyproject.toml`.
+**`phonology/`** — Language-independent computation layer. Nothing here may
+reference Ancient Greek (enforced by `tests/test_core_language_independence.py`,
+which scans `src/phonology/` excluding `languages/` for dialect/language terms).
+
+- **`core/ipa.py`** — Language-agnostic IPA helpers, including the longest-match
+  `tokenize_ipa(text, *, phone_inventory=...)` tokenizer. The phone inventory is
+  injected by the active language profile; the algorithm itself is generic.
+- **`core/ports/`** — Outward-facing core contracts (the "ports") that plugins
+  and adapters implement or supply:
+  - **`profiles.py`** — `LanguageProfile` / `IpaConverter` plus the language
+    registry (`get_default_language_profile()`, `register_default_profiles()`).
+    Plugins self-register via the `proteus.languages` entry-point group.
+  - **`orthography_notes.py`** — `OrthographicNotePayload` and the
+    `OrthographicNoteBuilder` protocol. `OrthographicNoteKind` defines only the
+    language-independent base kinds; plugins may supply additional kinds.
+  - **`corpus/`** — Corpus source-metadata models and the `CorpusAdapter`
+    protocol.
+- **`distance.py`** — Weighted edit distance (Needleman-Wunsch) over IPA
+  sequences. Two scoring modes: raw (`phone_distance()`, DEFAULT_COST=5.0) and
+  normalized 0.0-1.0. Matrix loading includes TOCTOU-safe symlink/path checks.
+- **`search/`** — Three-stage search pipeline package (seed → extend → filter)
+  with k-mer indexing, scoring, and filtering. Language-dependent behavior
+  (converter, phone inventory, dialect skeleton builders) arrives via the
+  profile at the public boundary.
+- **`explainer.py`** — Public facade for rule-based explanation; re-exports the
+  symbols defined across the **`explain/`** subpackage (`_rule_paths`,
+  `_rule_loader`, `_rule_tokenize`, `_rule_match`, `_context`, `_types`,
+  `_prose`). Loads YAML phonological rules from a profile-supplied rules dir.
+- **`log_odds.py`** — Log-odds / likelihood-ratio computation over IPA
+  alignments.
+- **`_paths.py` / `_trusted_paths.py`** — Shared utilities to locate `data/`
+  directories and to validate trusted runtime directory overrides.
+
+**`phonology/languages/ancient_greek/`** — The Ancient Greek plugin. Owns all
+Greek-specific logic: the grapheme→IPA converter (`ipa.py`), phone inventory
+(`phones.py`), `profile.py` (`build_profile()` entry point), dialect skeleton
+builders, the orthography-note builder and its `AncientGreekNoteKind`
+vocabulary, and data-prep tooling (`lsj/`, `lsj_extractor.py`,
+`build_lexicon.py`, `matrix_generator.py`, `betacode.py`, `buck.py`,
+`transliterate.py`).
 
 **`api/`** — FastAPI REST layer:
-- **`main.py`** — Endpoints: `GET /` (frontend HTML), `POST /search`, `GET /health` (liveness — always OK), `GET /ready` (readiness — 503 until search dependencies load). Serves static assets from `web/static/`. Pydantic models define the full request/response schema including `RuleStep` and `SearchHit`.
+- **`main.py`** — Endpoints: `GET /` (frontend HTML), `POST /search`,
+  `GET /health` (liveness — always OK), `GET /ready` (readiness — 503 until
+  search dependencies load). Serves static assets from `web/static/`. Pydantic
+  models define the full request/response schema including `RuleStep` and
+  `SearchHit`.
 
 ### Data Files (`data/`)
 
-- **`matrices/attic_doric.json`** — Phonological distance matrix with `sound_classes.vowels`, `sound_classes.stops`, and `sound_classes.dialect_pairs` sections.
-- **`rules/ancient_greek/`** — YAML rule files (`vowel_shifts.yaml`, `consonant_changes.yaml`) with structured rule entries (id, name, from/to phones, dialect, weight).
-- **`lexicon/greek_lemmas.json`** — LSJ headword list with IPA transcriptions; validated against `greek_lemmas.schema.json`.
-
-Data files are bundled into the wheel via `[tool.hatch.build.targets.wheel.force-include]` and resolved at runtime through `_paths.py` (repo layout) or `importlib.resources` (installed package).
+Language data lives under `data/languages/<language_id>/` (matrices, rules,
+lexicon, orthography, corpus_sources); shared JSON schemas live under
+`data/schemas/`. Data files are bundled into the wheel via
+`[tool.hatch.build.targets.wheel.force-include]` and resolved at runtime through
+`_paths.py` (repo layout) or `importlib.resources` (installed package).
 
 ### Key Design Decisions
 
