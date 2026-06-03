@@ -105,7 +105,7 @@ proteus/
 uv sync --all-extras
 
 # Generate the lexicon before using /ready or /search
-uv run --extra extract python -m phonology.build_lexicon --if-missing
+uv run --extra extract python -m phonology.languages.ancient_greek.build_lexicon --if-missing
 
 # Run development server
 uv run uvicorn api.main:app --reload
@@ -159,11 +159,11 @@ CC BY-SA 4.0 license and attribution requirements; see `DATA_LICENSE.md` and
 ```bash
 # Generate or refresh lexicon explicitly
 # (--if-missing: skip generation if fresh output exists)
-uv run --extra extract python -m phonology.build_lexicon [--xml-dir DIR] [--lsj-repo-dir DIR] [--if-missing]
+uv run --extra extract python -m phonology.languages.ancient_greek.build_lexicon [--xml-dir DIR] [--lsj-repo-dir DIR] [--if-missing]
 ```
 
 The `--xml-dir` and `--lsj-repo-dir` options apply directly to
-`python -m phonology.build_lexicon`. `scripts/extract-lsj.sh` forwards the same
+`python -m phonology.languages.ancient_greek.build_lexicon`. `scripts/extract-lsj.sh` forwards the same
 arguments to that module, while `PROTEUS_LSJ_REPO_DIR` is read by both
 `uv build` and the extraction workflow.
 

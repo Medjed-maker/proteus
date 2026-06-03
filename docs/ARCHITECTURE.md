@@ -72,6 +72,33 @@ The core layer must not directly reference:
 - language-specific phoneme inventories
 - language-specific sound changes
 
+This is enforced automatically by `tests/test_core_language_independence.py`,
+which fails if any dialect/language term (`attic`, `doric`, `ionic`, `koine`,
+`ancient_greek`) appears anywhere under `src/phonology/` except `languages/`.
+
+### Source layout mapping
+
+The conceptual layers above map onto the package structure as follows:
+
+```text
+src/phonology/                 # language-independent core
+├── core/
+│   ├── ipa.py                 # generic IPA tokenizer (inventory injected)
+│   └── ports/                 # outward-facing core contracts
+│       ├── profiles.py        # LanguageProfile, IpaConverter, registry
+│       ├── orthography_notes.py  # payload types + OrthographicNoteBuilder
+│       └── corpus/            # CorpusAdapter protocol + source models
+├── distance.py                # weighted edit distance over IPA
+├── search/                    # seed → extend → filter pipeline
+├── explainer.py + explain/    # rule-matching + explanation (facade + impl)
+├── log_odds.py
+└── languages/                 # language plugins (see below)
+    └── ancient_greek/         # converter, phones, rules, lexicon, tooling
+```
+
+Language plugins register through the `proteus.languages` entry-point group;
+the core resolves them at runtime and never imports a plugin by name.
+
 ## 4. Language Plugin Layer
 Each language is implemented as a plugin.
 
