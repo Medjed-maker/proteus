@@ -25,6 +25,7 @@ from phonology.search import (
 from tests._helpers.fakes import (
     fake_seed_stage_returning,
     install_seed_stage,
+    install_test_language_profile,
 )
 from tests._helpers.score_stage_mock import assert_only_expected_score_stage_kwargs
 
@@ -32,12 +33,22 @@ from tests._helpers.score_stage_mock import assert_only_expected_score_stage_kwa
 class TestSearchPartial:
     """Tests for partial/wildcard query behavior."""
 
+
+    @staticmethod
+    def _install_default_profile_converter(
+        monkeypatch: pytest.MonkeyPatch,
+        converter: object,
+    ) -> None:
+        """Route default-language public compat calls through a test converter."""
+        profile = replace(search_module.get_default_language_profile(), converter=converter)
+        monkeypatch.setattr(search_module, "get_default_language_profile", lambda: profile)
+
     def test_monkeypatched_to_ipa_preserves_default_ancient_greek_defaults(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(search_module, "to_ipa", lambda query, dialect="attic": "pa")
 
-        phone_inventory, dialect_skeleton_builders = (
+        phone_inventory, vowel_phones, dialect_skeleton_builders = (
             search_module._public_compatibility_search_defaults(
                 language="ancient_greek",
                 phone_inventory=None,
@@ -47,10 +58,11 @@ class TestSearchPartial:
 
         profile = search_module.get_default_language_profile()
         assert phone_inventory == profile.phone_inventory
+        assert vowel_phones == profile.vowel_phones
         assert dialect_skeleton_builders == profile.dialect_skeleton_builders
 
     def test_custom_converter_preserves_default_ancient_greek_defaults(self) -> None:
-        phone_inventory, dialect_skeleton_builders = (
+        phone_inventory, vowel_phones, dialect_skeleton_builders = (
             search_module._public_compatibility_search_defaults(
                 language="ancient_greek",
                 phone_inventory=None,
@@ -60,19 +72,48 @@ class TestSearchPartial:
 
         profile = search_module.get_default_language_profile()
         assert phone_inventory == profile.phone_inventory
+        assert vowel_phones == profile.vowel_phones
         assert dialect_skeleton_builders == profile.dialect_skeleton_builders
 
     def test_custom_converter_keeps_explicit_ancient_greek_defaults(self) -> None:
-        phone_inventory, dialect_skeleton_builders = (
+        phone_inventory, vowel_phones, dialect_skeleton_builders = (
             search_module._public_compatibility_search_defaults(
                 language="ancient_greek",
                 phone_inventory=("x",),
+                vowel_phones=("x",),
                 dialect_skeleton_builders=(),
             )
         )
 
         assert phone_inventory == ("x",)
+        assert vowel_phones == ("x",)
         assert dialect_skeleton_builders == ()
+
+    def test_public_defaults_logs_invalid_language_fallback(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caplog.set_level("DEBUG", logger="phonology.search")
+
+        result = search_module._public_compatibility_search_defaults(
+            language="missing_profile",
+            phone_inventory=("x",),
+            vowel_phones=("x",),
+            dialect_skeleton_builders=(),
+            allow_fallback=True,
+        )
+
+        assert result == (("x",), ("x",), ())
+        assert "missing_profile" in caplog.text
+        assert "Unsupported language profile" in caplog.text
+
+    def test_public_defaults_rejects_invalid_language_by_default(self) -> None:
+        with pytest.raises(ValueError, match="Unsupported language profile"):
+            search_module._public_compatibility_search_defaults(
+                language="missing_profile",
+                phone_inventory=("x",),
+                vowel_phones=("x",),
+                dialect_skeleton_builders=(),
+            )
 
     def test_search_normalizes_partial_query_before_ipa_conversion(
         self, monkeypatch: pytest.MonkeyPatch
@@ -85,6 +126,7 @@ class TestSearchPartial:
             return "pa"
 
         monkeypatch.setattr(search_module, "to_ipa", fake_to_ipa)
+        self._install_default_profile_converter(monkeypatch, fake_to_ipa)
         monkeypatch.setattr(search_module, "_score_stage", lambda *args, **kwargs: [])
         monkeypatch.setattr(
             search_module,
@@ -120,6 +162,7 @@ class TestSearchPartial:
             return query
 
         monkeypatch.setattr(search_module, "to_ipa", fake_to_ipa)
+        self._install_default_profile_converter(monkeypatch, fake_to_ipa)
         install_seed_stage(monkeypatch, fake_seed_stage_returning([]))
 
         def fake_score_stage(query_ipa, candidates, lexicon_map, matrix, **_kwargs):
@@ -231,6 +274,7 @@ class TestSearchPartial:
             fake_select_partial_token_fallback_candidates,
         )
         monkeypatch.setattr(search_module, "_score_stage", lambda *args, **kwargs: [])
+        install_test_language_profile(monkeypatch)
 
         search_module.search_execution(
             "pʰ*",
@@ -265,6 +309,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2", "L3"]))
         monkeypatch.setattr(
             search_module,
@@ -319,6 +364,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1"]))
         monkeypatch.setattr(
             search_module,
@@ -410,6 +456,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": query
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
 
         def fake_score_stage(
             query_ipa: str,
@@ -468,6 +515,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": query
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
 
         def fake_seed_stage(
             query_ipa: str, index: object, k: int = 2, **_kwargs: Any
@@ -546,6 +594,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": query
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
 
         def fake_seed_stage(
             query_ipa: str, index: object, k: int = 2, **_kwargs: Any
@@ -594,6 +643,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2"]))
 
         def fake_score_stage(
@@ -637,6 +687,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         install_seed_stage(
             monkeypatch,
             fake_seed_stage_returning(
@@ -707,6 +758,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         exact_ids = [f"L{index:03d}" for index in range(120)]
         install_seed_stage(monkeypatch, fake_seed_stage_returning(exact_ids))
 
@@ -761,6 +813,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1"]))
         monkeypatch.setattr(
             search_module,
@@ -804,6 +857,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1"]))
         monkeypatch.setattr(
             search_module,
@@ -852,6 +906,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "pa"
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2"]))
         monkeypatch.setattr(
             search_module,
@@ -887,6 +942,7 @@ class TestSearchPartial:
             "to_ipa",
             lambda query, dialect="attic": {"bc": "b c", "a": "a"}.get(query, query),
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2", "L3"]))
         monkeypatch.setattr(
             search_module,
@@ -950,6 +1006,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "p a"
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2"]))
         monkeypatch.setattr(
             search_module,
@@ -1013,6 +1070,7 @@ class TestSearchPartial:
         monkeypatch.setattr(
             search_module, "to_ipa", lambda query, dialect="attic": "p a"
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         install_seed_stage(monkeypatch, fake_seed_stage_returning(["L1", "L2"]))
         monkeypatch.setattr(
             search_module,
@@ -1080,6 +1138,7 @@ class TestSearchPartial:
                 query, query
             ),
         )
+        self._install_default_profile_converter(monkeypatch, search_module.to_ipa)
         install_seed_stage(
             monkeypatch, fake_seed_stage_returning(["L1", "L2", "L3", "L4"])
         )

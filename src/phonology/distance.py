@@ -9,24 +9,21 @@ helpers expose a 0.0-1.0 normalized scale for API-facing consumers.
 from __future__ import annotations
 
 import errno
-import functools
-import importlib.resources as resources
 import json
+import logging
 import os
 import stat
 import threading
+from collections.abc import Iterable
+from functools import lru_cache
 from numbers import Real
 from pathlib import Path
 from typing import Any, Callable, Sequence, TypeGuard
 
-from ._paths import (
-    DEFAULT_LANGUAGE_ID,
-    resolve_language_data_dir,
-    resolve_repo_data_dir,
-)
+from ._paths import resolve_repo_data_dir
 from ._trusted_paths import resolve_trusted_dir_override, validate_no_symlinks_in_path
-from .ipa_converter import (
-    get_known_phones,
+from .core.ipa import (
+    sorted_phone_inventory,
     strip_ignored_ipa_combining_marks,
     tokenize_ipa,
 )
@@ -49,6 +46,8 @@ __all__ = [
     "UNKNOWN_SUBSTITUTION_COST",
 ]
 
+logger = logging.getLogger(__name__)
+
 MatrixData = dict[str, dict[str, float]]
 MatrixMeta = dict[str, Any]
 DEFAULT_COST = 5.0
@@ -56,6 +55,10 @@ UNKNOWN_SUBSTITUTION_COST = 1.0
 _TRUSTED_MATRICES_DIR_ENV_VAR = "PROTEUS_TRUSTED_MATRICES_DIR"
 _TRUSTED_EXTERNAL_MATRIX_DIRS: set[Path] = set()
 _TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK = threading.Lock()
+
+# Path structure for language-scoped matrix assets: ``data/languages/<id>/matrices``.
+_LANGUAGE_MATRIX_PATH_PREFIX = ("data", "languages")
+_MATRIX_DIR_SEGMENT = "matrices"
 
 
 def register_trusted_matrices_dir(
@@ -113,14 +116,46 @@ def _normalize_ipa_sequence(seq: Sequence[str]) -> list[str]:
     return [_normalize_ipa_phone(phone) for phone in seq]
 
 
-@functools.lru_cache(maxsize=1)
-def _get_known_ipa_phones() -> frozenset[str]:
-    """Return the cached set of known IPA phones, loading on first use."""
-    return frozenset(get_known_phones())
+@lru_cache(maxsize=8)
+def _canonical_phone_inventory(phone_inventory: tuple[str, ...]) -> tuple[str, ...]:
+    """Cache longest-match canonicalization for a hashable inventory.
+
+    Keyed by the inventory tuple value, so repeated distance calls with the same
+    inventory (the search hot path) avoid re-sorting on every phone comparison.
+    """
+    return sorted_phone_inventory(phone_inventory)
+
+
+@lru_cache(maxsize=8)
+def _known_phone_set(canonical_inventory: tuple[str, ...]) -> frozenset[str]:
+    """Cache the known-phone set, keyed by the canonical inventory value.
+
+    Value-keyed, so it stays correct across registry resets without explicit
+    invalidation: a different inventory yields a different key.
+    """
+    return frozenset(canonical_inventory)
+
+
+def _resolve_phone_inventory(
+    phone_inventory: Iterable[str] | None = None,
+) -> tuple[str, ...]:
+    """Return explicit or default phones in longest-match tokenization order."""
+    if phone_inventory is None:
+        # Local import breaks a circular dependency: core.ports.profiles imports
+        # this module (register_language_profile -> register_trusted_matrices_dir).
+        from .core.ports.profiles import get_default_language_profile
+
+        phone_inventory = get_default_language_profile().phone_inventory
+
+    # The search hot path passes a tuple (PhoneInventory); cache its sort.
+    # Non-hashable iterables (e.g. lists) fall back to direct computation.
+    if isinstance(phone_inventory, tuple):
+        return _canonical_phone_inventory(phone_inventory)
+    return sorted_phone_inventory(phone_inventory)
 
 
 def _get_trusted_matrices_dir() -> Path:
-    """Resolve the trusted matrices directory from env, package data, or repo layout."""
+    """Resolve the trusted matrices directory from env, profile, or repo layout."""
     override_path = resolve_trusted_dir_override(
         env_var=_TRUSTED_MATRICES_DIR_ENV_VAR,
         description="trusted matrices",
@@ -129,31 +164,18 @@ def _get_trusted_matrices_dir() -> Path:
         return override_path
 
     try:
-        resource_dir = resources.files("phonology").joinpath(
-            "data",
-            "languages",
-            DEFAULT_LANGUAGE_ID,
-            "matrices",
+        # Local import breaks a circular dependency (see _resolve_phone_inventory).
+        from .core.ports.profiles import get_default_language_profile
+
+        return get_default_language_profile().matrix_path.parent
+    except (FileNotFoundError, ValueError) as exc:
+        # No / ambiguous profile is a configuration issue; surface it rather than
+        # falling back silently to the repo-level matrices directory.
+        logger.warning(
+            "Falling back to repo matrices directory; "
+            "could not resolve a default language profile: %s",
+            exc,
         )
-    except (ModuleNotFoundError, FileNotFoundError):
-        resource_dir = None
-
-    # resources.files() may return a Traversable that does not implement
-    # os.PathLike (e.g. when loaded from a zip archive), so verify the
-    # interface before attempting filesystem resolution.
-    if (
-        resource_dir is not None
-        and isinstance(resource_dir, os.PathLike)
-        and resource_dir.is_dir()
-    ):
-        try:
-            return Path(os.fspath(resource_dir))
-        except TypeError:
-            pass
-
-    try:
-        return resolve_language_data_dir(DEFAULT_LANGUAGE_ID, "matrices")
-    except FileNotFoundError:
         return resolve_repo_data_dir("matrices")
 
 
@@ -202,14 +224,17 @@ def _resolve_matrix_path(path: Path | str, trusted_dir: Path) -> Path:
         return candidate_path
 
     parts = candidate_path.parts
-    language_prefix = ("data", "languages", DEFAULT_LANGUAGE_ID, "matrices")
+    prefix_len = len(_LANGUAGE_MATRIX_PATH_PREFIX)
+    # ``data/languages/<id>/matrices/<rest>`` -> strip the language-scoped prefix.
     if (
-        len(parts) >= len(language_prefix)
-        and parts[: len(language_prefix)] == language_prefix
+        len(parts) >= prefix_len + 2
+        and parts[:prefix_len] == _LANGUAGE_MATRIX_PATH_PREFIX
+        and parts[prefix_len + 1] == _MATRIX_DIR_SEGMENT
     ):
-        candidate_path = Path(*parts[len(language_prefix) :])
+        rest = parts[prefix_len + 2 :]
+        candidate_path = Path(*rest) if rest else Path(".")
         return trusted_dir / candidate_path
-    if len(parts) >= 2 and parts[:2] == ("data", "matrices"):
+    if len(parts) >= 2 and parts[:2] == ("data", _MATRIX_DIR_SEGMENT):
         candidate_path = Path(*parts[2:])
 
     return trusted_dir / candidate_path
@@ -318,7 +343,7 @@ def load_matrix(path: Path | str) -> MatrixData:
     Args:
         path: Path or string naming a matrix JSON file. Relative inputs are
             resolved from the trusted matrices directory, so both
-            ``"attic_doric.json"`` and ``"data/matrices/attic_doric.json"``
+            ``"<matrix>.json"`` and ``"data/matrices/<matrix>.json"``
             resolve to the packaged runtime asset.
 
     Returns:
@@ -357,30 +382,48 @@ def load_matrix_document(path: Path | str) -> tuple[MatrixData, MatrixMeta]:
     return matrix, meta
 
 
-def phone_distance(p1: str, p2: str, matrix: MatrixData) -> float:
+def phone_distance(
+    p1: str,
+    p2: str,
+    matrix: MatrixData,
+    *,
+    phone_inventory: Iterable[str] | None = None,
+) -> float:
     """Return the distance between two IPA phones.
 
     Args:
         p1: IPA phone string.
         p2: IPA phone string.
         matrix: Distance matrix as returned by load_matrix().
+        phone_inventory: Optional IPA phone inventory for known-phone checks.
 
     Returns:
         Raw substitution cost. The following logic applies:
         (1) Identical phones (p1 == p2) have cost 0.0.
         (2) For a pair present in the distance matrix, return the matrix value.
-        (3) If both phones are known to the inventory (retrieved via
-            get_known_phones()) but the pair is missing from the matrix, return
+        (3) If both phones are known to the resolved inventory but the pair is
+            missing from the matrix, return
             UNKNOWN_SUBSTITUTION_COST (1.0).
         (4) If at least one phone is unknown to the inventory, return
             DEFAULT_COST (5.0).
     """
     p1 = _normalize_ipa_phone(p1)
     p2 = _normalize_ipa_phone(p2)
-    return _phone_distance_raw(p1, p2, matrix)
+    return _phone_distance_raw(
+        p1,
+        p2,
+        matrix,
+        known_phones=_known_phone_set(_resolve_phone_inventory(phone_inventory)),
+    )
 
 
-def _phone_distance_raw(p1: str, p2: str, matrix: MatrixData) -> float:
+def _phone_distance_raw(
+    p1: str,
+    p2: str,
+    matrix: MatrixData,
+    *,
+    known_phones: frozenset[str],
+) -> float:
     """Return phone distance for IPA phones that are already normalized."""
     if p1 == p2:
         return 0.0
@@ -388,7 +431,6 @@ def _phone_distance_raw(p1: str, p2: str, matrix: MatrixData) -> float:
         return matrix[p1][p2]
     if p2 in matrix and p1 in matrix[p2]:
         return matrix[p2][p1]
-    known_phones = _get_known_ipa_phones()
     if p1 in known_phones and p2 in known_phones:
         return UNKNOWN_SUBSTITUTION_COST
     return DEFAULT_COST
@@ -438,7 +480,11 @@ def _edit_distance(
 
 
 def phonological_distance(
-    seq1: list[str], seq2: list[str], matrix: MatrixData
+    seq1: list[str],
+    seq2: list[str],
+    matrix: MatrixData,
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> float:
     """Compute a raw phonological distance using weighted edit distance.
 
@@ -446,18 +492,25 @@ def phonological_distance(
         seq1: First phone sequence.
         seq2: Second phone sequence.
         matrix: Nested phone distance matrix.
+        phone_inventory: Optional IPA phone inventory for known-phone checks.
 
     Returns:
         Raw total cost accumulated across the full-sequence alignment.
     """
     normalized_seq1 = _normalize_ipa_sequence(seq1)
     normalized_seq2 = _normalize_ipa_sequence(seq2)
+    known_phones = _known_phone_set(_resolve_phone_inventory(phone_inventory))
     return _edit_distance(
         normalized_seq1,
         normalized_seq2,
         matrix,
         DEFAULT_COST,
-        _phone_distance_raw,
+        lambda p1, p2, distance_matrix: _phone_distance_raw(
+            p1,
+            p2,
+            distance_matrix,
+            known_phones=known_phones,
+        ),
     )
 
 
@@ -527,7 +580,11 @@ def normalized_phonological_distance(
 
 
 def sequence_distance(
-    seq1: Sequence[str], seq2: Sequence[str], matrix: MatrixData
+    seq1: Sequence[str],
+    seq2: Sequence[str],
+    matrix: MatrixData,
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> float:
     """Compute phonological distance between two phone sequences.
 
@@ -535,11 +592,17 @@ def sequence_distance(
         seq1: First phone sequence (list of IPA strings).
         seq2: Second phone sequence.
         matrix: Distance matrix.
+        phone_inventory: Optional IPA phone inventory for known-phone checks.
 
     Returns:
         Raw total cost from full-sequence weighted edit distance.
     """
-    return phonological_distance(list(seq1), list(seq2), matrix)
+    return phonological_distance(
+        list(seq1),
+        list(seq2),
+        matrix,
+        phone_inventory=phone_inventory,
+    )
 
 
 def normalized_sequence_distance(
@@ -551,26 +614,54 @@ def normalized_sequence_distance(
     return normalized_phonological_distance(seq1_list, seq2_list, matrix)
 
 
-def word_distance(word1_ipa: str, word2_ipa: str, matrix: MatrixData) -> float:
+def word_distance(
+    word1_ipa: str,
+    word2_ipa: str,
+    matrix: MatrixData,
+    *,
+    phone_inventory: Iterable[str] | None = None,
+) -> float:
     """Convenience wrapper: distance between two IPA-transcribed words.
 
     Args:
         word1_ipa: Compact or space-separated IPA phones for word 1.
         word2_ipa: Compact or space-separated IPA phones for word 2.
         matrix: Distance matrix.
+        phone_inventory: Optional IPA phone inventory for tokenization.
 
     Returns:
         Raw total cost from full-sequence weighted edit distance.
     """
+    resolved_phone_inventory = _resolve_phone_inventory(phone_inventory)
     return phonological_distance(
-        tokenize_ipa(word1_ipa), tokenize_ipa(word2_ipa), matrix
+        tokenize_ipa(word1_ipa, phone_inventory=resolved_phone_inventory),
+        tokenize_ipa(word2_ipa, phone_inventory=resolved_phone_inventory),
+        matrix,
+        phone_inventory=resolved_phone_inventory,
     )
 
 
 def normalized_word_distance(
-    word1_ipa: str, word2_ipa: str, matrix: MatrixData
+    word1_ipa: str,
+    word2_ipa: str,
+    matrix: MatrixData,
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> float:
-    """Compute normalized phonological distance for IPA-transcribed words."""
-    seq1 = tokenize_ipa(word1_ipa)
-    seq2 = tokenize_ipa(word2_ipa)
+    """Compute normalized phonological distance for IPA-transcribed words.
+
+    Args:
+        word1_ipa: Compact or space-separated IPA phones for word 1.
+        word2_ipa: Compact or space-separated IPA phones for word 2.
+        matrix: Distance matrix.
+        phone_inventory: Optional IPA phone inventory for tokenization only.
+            Unlike word_distance(), the normalized scoring model treats all
+            non-matrix pairs equally regardless of phone inventory membership.
+
+    Returns:
+        Normalized distance in the 0.0-1.0 range.
+    """
+    resolved_phone_inventory = _resolve_phone_inventory(phone_inventory)
+    seq1 = tokenize_ipa(word1_ipa, phone_inventory=resolved_phone_inventory)
+    seq2 = tokenize_ipa(word2_ipa, phone_inventory=resolved_phone_inventory)
     return normalized_phonological_distance(seq1, seq2, matrix)

@@ -160,11 +160,6 @@
           },
           "kind": {
             "description": "Machine-readable category for the orthographic note.",
-            "enum": [
-              "orthographic_correspondence",
-              "beginner_aid",
-              "pre_403_2_attic"
-            ],
             "title": "Kind",
             "type": "string"
           },
@@ -567,14 +562,12 @@
         "description": "Client request for a phonological search query.",
         "properties": {
           "dialect_hint": {
-            "default": "attic",
-            "description": "Dialect hint for IPA conversion. Built-in Ancient Greek values are 'attic' and 'koine'.",
+            "description": "Dialect hint for IPA conversion. When omitted, the default is resolved from the selected language profile during validation.",
             "title": "Dialect Hint",
             "type": "string"
           },
           "language": {
-            "default": "ancient_greek",
-            "description": "Language profile used for phonological search.",
+            "description": "Language profile used for phonological search. When omitted, the configured default language profile is resolved during validation.",
             "title": "Language",
             "type": "string"
           },

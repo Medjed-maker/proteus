@@ -8,9 +8,9 @@ which tests monkeypatch at ``search_module``-module level.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 import unicodedata
 
-from .._phones import VOWEL_PHONES
 from ._constants import _PARTIAL_QUERY_MARKERS
 from ._types import PartialQueryPattern, PartialQueryShape, QueryMode
 
@@ -131,6 +131,21 @@ def _parse_partial_query(query: str) -> PartialQueryPattern | None:
     )
 
 
-def _extract_consonant_skeleton(tokens: list[str]) -> list[str]:
-    """Drop vowels from a tokenized IPA sequence to form a consonant skeleton."""
-    return [token for token in tokens if token not in VOWEL_PHONES]
+def _extract_consonant_skeleton(
+    tokens: list[str],
+    *,
+    vowel_phones: Iterable[str] = (),
+) -> list[str]:
+    """Drop vowels from a tokenized IPA sequence to form a consonant skeleton.
+
+    Args:
+        tokens: Tokenized IPA sequence.
+        vowel_phones: Vowel phone symbols to exclude from the skeleton.
+            Defaults to an empty tuple; callers should pass the language-specific
+            vowel inventory explicitly.
+
+    Returns:
+        List of consonant tokens (tokens not in vowel_phones).
+    """
+    vowels = frozenset(vowel_phones)
+    return [token for token in tokens if token not in vowels]

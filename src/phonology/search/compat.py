@@ -8,7 +8,7 @@ from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Protocol, cast
 
-from .._paths import DEFAULT_LANGUAGE_ID
+from ..core.ports.profiles import LanguageProfile
 
 if TYPE_CHECKING:
     from ._dependencies import (
@@ -44,13 +44,23 @@ _DialectSkeletonBuilder = Callable[[list[str]], list[str]]
 class _CoreSearchModule(Protocol):
     """Typed subset of ``phonology.search`` used by public compat wrappers."""
 
+    def get_default_language_profile(self) -> LanguageProfile: ...
+
+    def get_language_profile(self, language_id: str) -> LanguageProfile: ...
+
     def _public_compatibility_search_defaults(
         self,
         *,
-        language: str,
+        language: str | None,
         phone_inventory: Iterable[str] | None,
+        vowel_phones: Iterable[str] | None,
         dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None,
-    ) -> tuple[Iterable[str] | None, Iterable[_DialectSkeletonBuilder] | None]: ...
+        allow_fallback: bool = False,
+    ) -> tuple[
+        Iterable[str] | None,
+        Iterable[str] | None,
+        Iterable[_DialectSkeletonBuilder] | None,
+    ]: ...
 
     def _build_kmer_index_for_inventory(
         self,
@@ -58,6 +68,7 @@ class _CoreSearchModule(Protocol):
         *,
         k: int,
         phone_inventory: PhoneInventory,
+        vowel_phones: Iterable[str] | None = None,
         dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
     ) -> KmerIndex: ...
 
@@ -72,7 +83,7 @@ class _CoreSearchModule(Protocol):
         self,
         query: str,
         *,
-        dialect: str = "attic",
+        dialect: str | None = None,
         converter: IpaConverter | None = None,
         phone_inventory: PhoneInventory,
         query_ipa: str | None = None,
@@ -85,6 +96,7 @@ class _CoreSearchModule(Protocol):
         *,
         k: int,
         phone_inventory: PhoneInventory,
+        vowel_phones: Iterable[str] | None = None,
     ) -> list[str]: ...
 
     def _extend_stage_core(
@@ -93,9 +105,12 @@ class _CoreSearchModule(Protocol):
         candidates: Iterable[str],
         lexicon_map: LexiconLookup,
         matrix: DistanceMatrix,
-        language: str | Path = DEFAULT_LANGUAGE_ID,
+        language: str | Path | None = None,
         *,
         phone_inventory: PhoneInventory,
+        vowel_phones: Iterable[str] | None = None,
+        phone_matcher: Callable[[str, str], bool] | None = None,
+        always_match_contexts: Iterable[str] | None = None,
     ) -> list[SearchResult]: ...
 
     def _execute_search(
@@ -105,13 +120,16 @@ class _CoreSearchModule(Protocol):
         matrix: DistanceMatrix,
         *,
         max_results: int = 5,
-        dialect: str = "attic",
+        dialect: str | None = None,
         index: KmerIndex | None = None,
         unigram_index: KmerIndex | None = None,
         prebuilt_lexicon_map: LexiconMap | None = None,
-        language: str = DEFAULT_LANGUAGE_ID,
+        language: str | Path | None = None,
         converter: IpaConverter | None = None,
         phone_inventory: PhoneInventory,
+        vowel_phones: tuple[str, ...] = (),
+        phone_matcher: Callable[[str, str], bool] | None = None,
+        always_match_contexts: tuple[str, ...] = (),
         dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
         query_ipa: str | None = None,
         prepared_query: PreparedQueryIpa | None = None,
@@ -164,27 +182,144 @@ def _normalize_phone_inventory(
     )
 
 
-def _resolve_public_defaults(
+def _resolve_defaults_from_profile(
+    profile: LanguageProfile,
     *,
-    language: str | Path,
     phone_inventory: Iterable[str] | None,
-    dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
+    vowel_phones: Iterable[str] | None,
+    dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None,
 ) -> tuple[
     PhoneInventory,
+    tuple[str, ...],
+    Iterable[_DialectSkeletonBuilder] | None,
+]:
+    """Backfill unset public defaults from a resolved language profile."""
+    return (
+        _normalize_phone_inventory(
+            profile.phone_inventory if phone_inventory is None else phone_inventory
+        ),
+        tuple(profile.vowel_phones if vowel_phones is None else vowel_phones),
+        (
+            profile.dialect_skeleton_builders
+            if dialect_skeleton_builders is None
+            else dialect_skeleton_builders
+        ),
+    )
+
+
+def _resolve_public_defaults(
+    *,
+    language: str | Path | None,
+    phone_inventory: Iterable[str] | None,
+    vowel_phones: Iterable[str] | None = None,
+    dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
+    profile: LanguageProfile | None = None,
+) -> tuple[
+    PhoneInventory,
+    tuple[str, ...],
     Iterable[_DialectSkeletonBuilder] | None,
 ]:
     """Resolve public defaults before crossing into the internal core."""
-    if not isinstance(language, str):
-        return _normalize_phone_inventory(phone_inventory), dialect_skeleton_builders
+    if isinstance(language, Path):
+        return (
+            _normalize_phone_inventory(phone_inventory),
+            tuple(vowel_phones or ()),
+            dialect_skeleton_builders,
+        )
 
-    backfilled_inventory, backfilled_builders = (
+    if profile is None and language is None:
+        profile = _core_module().get_default_language_profile()
+
+    if profile is not None:
+        return _resolve_defaults_from_profile(
+            profile,
+            phone_inventory=phone_inventory,
+            vowel_phones=vowel_phones,
+            dialect_skeleton_builders=dialect_skeleton_builders,
+        )
+
+    backfilled_inventory, backfilled_vowels, backfilled_builders = (
         _core_module()._public_compatibility_search_defaults(
             language=language,
             phone_inventory=phone_inventory,
+            vowel_phones=vowel_phones,
             dialect_skeleton_builders=dialect_skeleton_builders,
         )
     )
-    return _normalize_phone_inventory(backfilled_inventory), backfilled_builders
+    return (
+        _normalize_phone_inventory(backfilled_inventory),
+        tuple(backfilled_vowels or ()),
+        backfilled_builders,
+    )
+
+
+def _resolve_public_language_profile(
+    language: str | Path | None,
+    *,
+    require_registered: bool,
+) -> LanguageProfile | None:
+    """Resolve registered profiles for converter-using APIs."""
+    if isinstance(language, Path):
+        return None
+    if language is None:
+        return _core_module().get_default_language_profile()
+
+    normalized_language = language.strip().lower()
+    try:
+        return _core_module().get_language_profile(normalized_language)
+    except ValueError:
+        if require_registered:
+            raise
+        return None
+
+
+def _resolve_public_converter(
+    *,
+    language: str | Path | None,
+    converter: IpaConverter | None,
+    profile: LanguageProfile | None = None,
+) -> IpaConverter | None:
+    """Backfill registered language converters from profiles."""
+    if converter is not None or isinstance(language, Path):
+        return converter
+
+    if profile is None:
+        if language is None:
+            profile = _core_module().get_default_language_profile()
+        else:
+            normalized_language = language.strip().lower()
+            profile = _core_module().get_language_profile(normalized_language)
+    return profile.converter
+
+
+def _resolve_public_language_argument(
+    language: str | Path | None,
+    profile: LanguageProfile | None,
+) -> str | Path | None:
+    """Return the language value to pass to internal rule-loading helpers."""
+    if isinstance(language, Path):
+        return language
+    if profile is not None:
+        profile_language = getattr(profile, "language_id", None)
+        if isinstance(profile_language, str):
+            return profile_language
+    if language is None:
+        return None
+    return language.strip().lower()
+
+
+def _resolve_public_dialect(
+    dialect: str | None,
+    profile: LanguageProfile | None,
+) -> str | None:
+    """Return an explicit dialect or the resolved profile's default dialect."""
+    if dialect is not None:
+        return dialect
+    if profile is not None:
+        profile_dialect = getattr(profile, "default_dialect", None)
+        if isinstance(profile_dialect, str):
+            return profile_dialect
+    return None
 
 
 def build_kmer_index(
@@ -192,19 +327,22 @@ def build_kmer_index(
     k: int = _DEFAULT_KMER_SIZE,
     *,
     phone_inventory: Iterable[str] | None = None,
+    vowel_phones: Iterable[str] | None = None,
     dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
-    language: str = DEFAULT_LANGUAGE_ID,
+    language: str | None = None,
 ) -> KmerIndex:
-    """Build a k-mer index, preserving public Ancient Greek defaults."""
-    resolved_inventory, resolved_builders = _resolve_public_defaults(
+    """Build a k-mer index, preserving public profile defaults."""
+    resolved_inventory, resolved_vowels, resolved_builders = _resolve_public_defaults(
         language=language,
         phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
         dialect_skeleton_builders=dialect_skeleton_builders,
     )
     return _core_module()._build_kmer_index_for_inventory(
         lexicon,
         k=k,
         phone_inventory=resolved_inventory,
+        vowel_phones=resolved_vowels,
         dialect_skeleton_builders=resolved_builders,
     )
 
@@ -213,10 +351,10 @@ def build_lexicon_map(
     lexicon: Sequence[LexiconEntry],
     *,
     phone_inventory: Iterable[str] | None = None,
-    language: str = DEFAULT_LANGUAGE_ID,
+    language: str | None = None,
 ) -> LexiconMap:
     """Build a lexicon map with cached IPA token counts for each entry."""
-    resolved_inventory, _resolved_builders = _resolve_public_defaults(
+    resolved_inventory, _resolved_vowels, _resolved_builders = _resolve_public_defaults(
         language=language,
         phone_inventory=phone_inventory,
         dialect_skeleton_builders=None,
@@ -230,21 +368,29 @@ def build_lexicon_map(
 def prepare_query_ipa(
     query: str,
     *,
-    dialect: str = "attic",
+    dialect: str | None = None,
     converter: IpaConverter | None = None,
     phone_inventory: Iterable[str] | None = None,
     query_ipa: str | None = None,
-    language: str = DEFAULT_LANGUAGE_ID,
+    language: str | Path | None = None,
 ) -> PreparedQueryIpa:
     """Classify, normalize, and convert a query without crossing wildcard gaps."""
-    resolved_inventory, _resolved_builders = _resolve_public_defaults(
+    profile = _resolve_public_language_profile(language, require_registered=True)
+    resolved_inventory, _resolved_vowels, _resolved_builders = _resolve_public_defaults(
         language=language,
         phone_inventory=phone_inventory,
+        profile=profile,
     )
+    resolved_converter = _resolve_public_converter(
+        language=language,
+        converter=converter,
+        profile=profile,
+    )
+    resolved_dialect = _resolve_public_dialect(dialect, profile)
     return _core_module()._prepare_query_ipa_core(
         query,
-        dialect=dialect,
-        converter=converter,
+        dialect=resolved_dialect,
+        converter=resolved_converter,
         phone_inventory=resolved_inventory,
         query_ipa=query_ipa,
     )
@@ -256,18 +402,21 @@ def seed_stage(
     k: int = _DEFAULT_KMER_SIZE,
     *,
     phone_inventory: Iterable[str] | None = None,
-    language: str = DEFAULT_LANGUAGE_ID,
+    vowel_phones: Iterable[str] | None = None,
+    language: str | None = None,
 ) -> list[str]:
     """Stage 1: rank candidate ids by shared consonant-skeleton k-mers."""
-    resolved_inventory, _resolved_builders = _resolve_public_defaults(
+    resolved_inventory, resolved_vowels, _resolved_builders = _resolve_public_defaults(
         language=language,
         phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
     )
     return _core_module()._seed_stage_core(
         query_ipa,
         index,
         k=k,
         phone_inventory=resolved_inventory,
+        vowel_phones=resolved_vowels,
     )
 
 
@@ -276,22 +425,31 @@ def extend_stage(
     candidates: Iterable[str],
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
-    language: str = DEFAULT_LANGUAGE_ID,
+    language: str | Path | None = None,
     *,
     phone_inventory: Iterable[str] | None = None,
 ) -> list[SearchResult]:
     """Stage 2: score and annotate candidate IPA forms."""
-    resolved_inventory, _resolved_builders = _resolve_public_defaults(
+    profile = _resolve_public_language_profile(language, require_registered=False)
+    resolved_inventory, resolved_vowels, _resolved_builders = _resolve_public_defaults(
         language=language,
         phone_inventory=phone_inventory,
+        profile=profile,
     )
     return _core_module()._extend_stage_core(
         query_ipa,
         candidates,
         lexicon_map,
         matrix,
-        language=language,
+        language=_resolve_public_language_argument(language, profile),
         phone_inventory=resolved_inventory,
+        vowel_phones=resolved_vowels,
+        phone_matcher=getattr(profile, "phone_matcher", None)
+        if profile is not None
+        else None,
+        always_match_contexts=getattr(profile, "always_match_contexts", ())
+        if profile is not None
+        else (),
     )
 
 
@@ -300,13 +458,14 @@ def search_execution(
     lexicon: Sequence[LexiconEntry],
     matrix: DistanceMatrix,
     max_results: int = 5,
-    dialect: str = "attic",
+    dialect: str | None = None,
     index: KmerIndex | None = None,
     unigram_index: KmerIndex | None = None,
     prebuilt_lexicon_map: LexiconMap | None = None,
-    language: str = DEFAULT_LANGUAGE_ID,
+    language: str | Path | None = None,
     converter: IpaConverter | None = None,
     phone_inventory: Iterable[str] | None = None,
+    vowel_phones: Iterable[str] | None = None,
     dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
     query_ipa: str | None = None,
     prepared_query: PreparedQueryIpa | None = None,
@@ -315,23 +474,40 @@ def search_execution(
     unigram_fallback_limit: int | None = _DEFAULT_FALLBACK_CANDIDATE_LIMIT,
 ) -> SearchExecutionResult:
     """Run full three-stage search and return the full execution result."""
-    resolved_inventory, resolved_builders = _resolve_public_defaults(
+    profile = _resolve_public_language_profile(language, require_registered=True)
+    resolved_inventory, resolved_vowels, resolved_builders = _resolve_public_defaults(
         language=language,
         phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
         dialect_skeleton_builders=dialect_skeleton_builders,
+        profile=profile,
     )
+    resolved_converter = _resolve_public_converter(
+        language=language,
+        converter=converter,
+        profile=profile,
+    )
+    resolved_language = _resolve_public_language_argument(language, profile)
+    resolved_dialect = _resolve_public_dialect(dialect, profile)
     return _core_module()._execute_search(
         query,
         lexicon=lexicon,
         matrix=matrix,
         max_results=max_results,
-        dialect=dialect,
+        dialect=resolved_dialect,
         index=index,
         unigram_index=unigram_index,
         prebuilt_lexicon_map=prebuilt_lexicon_map,
-        language=language,
-        converter=converter,
+        language=resolved_language,
+        converter=resolved_converter,
         phone_inventory=resolved_inventory,
+        vowel_phones=resolved_vowels,
+        phone_matcher=getattr(profile, "phone_matcher", None)
+        if profile is not None
+        else None,
+        always_match_contexts=getattr(profile, "always_match_contexts", ())
+        if profile is not None
+        else (),
         dialect_skeleton_builders=resolved_builders,
         query_ipa=query_ipa,
         prepared_query=prepared_query,
@@ -346,13 +522,14 @@ def search(
     lexicon: Sequence[LexiconEntry],
     matrix: DistanceMatrix,
     max_results: int = 5,
-    dialect: str = "attic",
+    dialect: str | None = None,
     index: KmerIndex | None = None,
     unigram_index: KmerIndex | None = None,
     prebuilt_lexicon_map: LexiconMap | None = None,
-    language: str = DEFAULT_LANGUAGE_ID,
+    language: str | Path | None = None,
     converter: IpaConverter | None = None,
     phone_inventory: Iterable[str] | None = None,
+    vowel_phones: Iterable[str] | None = None,
     dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
     query_ipa: str | None = None,
     prepared_query: PreparedQueryIpa | None = None,
@@ -373,6 +550,7 @@ def search(
         language=language,
         converter=converter,
         phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
         dialect_skeleton_builders=dialect_skeleton_builders,
         query_ipa=query_ipa,
         prepared_query=prepared_query,

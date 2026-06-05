@@ -14,7 +14,7 @@ from mcp_server.server import app
 from mcp_server.tools.search import McpSearchInput
 from phonology import search as search_module
 from phonology.explainer import RuleApplication
-from phonology.profiles import get_default_language_profile
+from phonology.core.ports.profiles import get_default_language_profile
 from phonology.search import SearchResult
 from tests.conftest import assert_uuid4_hex, mock_search_dependencies
 

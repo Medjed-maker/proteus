@@ -25,6 +25,7 @@ _skip_no_lexicon = pytest.mark.skipif(
     not LEXICON_PATH.exists(),
     reason="Lexicon not generated; run scripts/extract-lsj.sh",
 )
+pytestmark = pytest.mark.usefixtures("default_profile_follows_search_to_ipa")
 
 
 class TestSearchExactMatchIntegration:

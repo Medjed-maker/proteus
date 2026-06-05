@@ -31,8 +31,11 @@ from tests._helpers.fakes import (
     fake_seed_stage_returning,
     install_lexicon_map,
     install_seed_stage,
+    install_test_language_profile,
 )
 from tests._helpers.score_stage_mock import assert_only_expected_score_stage_kwargs
+
+pytestmark = pytest.mark.usefixtures("default_profile_follows_search_to_ipa")
 
 MATRIX_FILE = "attic_doric.json"
 
@@ -58,6 +61,7 @@ class TestSearch:
     ) -> NoReturn:
         """Raise if explicit converters fail to bypass search_module.to_ipa."""
         raise AssertionError("explicit converter should bypass search_module.to_ipa")
+
 
     @staticmethod
     def _fake_score_stage(
@@ -232,6 +236,7 @@ class TestSearch:
             {"id": "L2", "headword": "iota", "ipa": "i", "dialect": "attic"},
             {"id": "L3", "headword": "omicron", "ipa": "ou", "dialect": "attic"},
         ]
+        install_test_language_profile(monkeypatch)
 
         search(
             "query",
@@ -307,6 +312,7 @@ class TestSearch:
             "L2": LexiconRecord(entry=lexicon[1], token_count=1),
             "L3": LexiconRecord(entry=lexicon[2], token_count=2),
         }
+        install_test_language_profile(monkeypatch)
 
         search(
             "query",
@@ -520,6 +526,7 @@ class TestSearch:
             {"id": "L1", "headword": "alpha", "ipa": "aː", "dialect": "attic"},
             {"id": "L2", "headword": "beta", "ipa": "b", "dialect": "attic"},
         ]
+        install_test_language_profile(monkeypatch)
 
         search(
             "query",
@@ -678,6 +685,7 @@ class TestSearch:
             language="ancient_greek",
             **_kwargs: results,
         )
+        install_test_language_profile(monkeypatch)
 
         search(
             "query",
@@ -1923,6 +1931,7 @@ class TestSearch:
                 "dialect": "test",
             },
         )
+        install_test_language_profile(monkeypatch)
         index = build_kmer_index(lexicon, k=2, language="test")
         captured: dict[str, list[str]] = {}
 
@@ -1964,7 +1973,6 @@ class TestSearch:
             "_annotate_search_results_for_inventory",
             lambda **kwargs: kwargs["results"],
         )
-
         execution = search_module.search_execution(
             "ignored",
             lexicon=lexicon,
@@ -2054,6 +2062,12 @@ class TestSearch:
             "filter_stage",
             lambda results, max_results: results[:max_results],
         )
+        if expected_language != "ancient_greek":
+            install_test_language_profile(
+                monkeypatch,
+                expected_language,
+                converter=lambda text, *, dialect: "pten",
+            )
         lexicon = [
             {"id": "L1", "headword": "πτην", "ipa": "pten", "dialect": "attic"},
         ]

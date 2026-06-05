@@ -23,9 +23,9 @@ import os
 from typing import Any, NamedTuple
 
 from phonology import search as phonology_search
-from phonology.corpus import CorpusAdapter, EMPTY_CORPUS_ADAPTER, safe_lookup
+from phonology.core.ports.corpus import CorpusAdapter, EMPTY_CORPUS_ADAPTER, safe_lookup
 from phonology.distance import MatrixData
-from phonology.profiles import LanguageProfile, get_default_language_profile
+from phonology.core.ports.profiles import LanguageProfile, get_default_language_profile
 from phonology.search._types import QueryMode
 
 from ._hit_formatting import _build_search_hit

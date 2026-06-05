@@ -9,7 +9,7 @@ import time
 from typing import Any
 
 from phonology.distance import load_matrix
-from phonology.profiles import get_default_language_profile, register_default_profiles
+from phonology.core.ports.profiles import get_default_language_profile, register_default_profiles
 from phonology.search import build_ipa_index, build_kmer_index, build_lexicon_map, search
 
 

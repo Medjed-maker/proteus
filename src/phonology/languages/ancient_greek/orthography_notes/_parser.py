@@ -7,15 +7,15 @@ from typing import Any, cast
 
 import yaml
 
-from phonology.orthography_notes import (
+from phonology.core.ports.orthography_notes import (
     OrthographicNoteConfidence,
-    OrthographicNoteKind,
 )
-from phonology.transliterate import transliterate
+from ..transliterate import transliterate
 
 from .schema import (
     _ALLOWED_CONFIDENCE,
     _ALLOWED_KINDS,
+    AncientGreekNoteKind,
     _CorrespondenceEntry,
     _nfc,
 )
@@ -125,7 +125,7 @@ def _parse_entry(raw_entry: Any, *, path: Path, index: int) -> _CorrespondenceEn
             index=index,
         ),
         romanization=romanization,
-        kind=cast(OrthographicNoteKind, kind),
+        kind=cast(AncientGreekNoteKind, kind),
         tags=tags,
         confidence=cast(OrthographicNoteConfidence, confidence),
         references=references,

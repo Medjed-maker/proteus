@@ -29,7 +29,8 @@ class build_hook(BuildHookInterface):
             For standard builds, ensures the project's ``src`` directory is on
             ``sys.path`` and calls
             ``ensure_generated_lexicon(project_root=..., skip_if_present=True)``.
-            Importing ``phonology.build_lexicon`` may occur as part of this setup.
+            Imports the Ancient Greek lexicon builder to prepare the generated
+            lexicon asset.
             Stale lexicon outputs are regenerated instead of being silently reused.
 
             For editable builds, lexicon generation is skipped entirely and the
@@ -61,7 +62,9 @@ class build_hook(BuildHookInterface):
             sys.path.insert(0, src_dir)
 
         try:
-            from phonology.build_lexicon import ensure_generated_lexicon
+            from phonology.languages.ancient_greek.build_lexicon import (
+                ensure_generated_lexicon,
+            )
 
             ensure_generated_lexicon(
                 project_root=Path(self.root),

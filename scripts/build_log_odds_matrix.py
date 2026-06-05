@@ -43,7 +43,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from phonology.explainer import Alignment
-from phonology.ipa_converter import greek_to_ipa
+from phonology.languages.ancient_greek.ipa import greek_to_ipa
 from phonology.log_odds import (
     NWParams,
     accumulate_counts,

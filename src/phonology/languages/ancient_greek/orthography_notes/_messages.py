@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from phonology.orthography_notes import (
+from phonology.core.ports.orthography_notes import (
     OrthographicNoteConfidence,
     OrthographicNotePayload,
     ResponseLanguage,

@@ -4,17 +4,20 @@ Given aligned phoneme sequences and a rule inventory, detect which
 phonological rules explain each mismatch block and generate structured
 descriptions suitable for APIs and UI consumers.
 
-This module is now a facade. The implementation has been split across:
-    - ``_explainer_rule_paths``: trusted-directory registry and rule-path
+This module is now a facade. The implementation lives in the ``explain``
+subpackage, split across:
+    - ``explain._rule_paths``: trusted-directory registry and rule-path
       resolution.
-    - ``_explainer_rule_loader``: YAML rule loading and version-metadata
+    - ``explain._rule_loader``: YAML rule loading and version-metadata
       extraction (``load_rules``, ``get_rules_version``).
-    - ``_explainer_rule_tokenize``: ``TokenizedRule`` plus tokenization /
+    - ``explain._rule_tokenize``: ``TokenizedRule`` plus tokenization /
       sorting (``tokenize_rules_for_matching``).
-    - ``_explainer_rule_match``: ``Alignment`` / ``RuleApplication`` /
+    - ``explain._context``: vowel/consonant predicates and context-matching
+      helpers.
+    - ``explain._rule_match``: ``Alignment`` / ``RuleApplication`` /
       mismatch-block matching state machine (``explain`` /
       ``explain_with_tokenized_rules``).
-    - ``_explainer_prose``: ``Explanation`` plus ``to_prose``.
+    - ``explain._prose``: ``Explanation`` plus ``to_prose``.
 
 All private and public symbols that callers historically reached via
 ``phonology.explainer.<name>`` (including ``_MismatchBlock``,
@@ -26,81 +29,80 @@ All private and public symbols that callers historically reached via
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any, TypeAlias
 
-from ._explainer_context import (
-    _AFTER_E_I_R_PHONES,
-    _NASAL_PHONES,
-    _is_consonant,
-    _is_vowel,
-    _lookup_next_token,
-    _lookup_prev_token,
-    _matches_context,
-    _matches_following_set,
-    _matches_same_word_lookahead,
+from .explain._context import (
+    _AFTER_E_I_R_PHONES as _AFTER_E_I_R_PHONES,
+    _NASAL_PHONES as _NASAL_PHONES,
+    _is_consonant as _is_consonant,
+    _is_vowel as _is_vowel,
+    _lookup_next_token as _lookup_next_token,
+    _lookup_prev_token as _lookup_prev_token,
+    _matches_context as _matches_context,
+    _matches_following_set as _matches_following_set,
+    _matches_same_word_lookahead as _matches_same_word_lookahead,
 )
-from ._explainer_rule_match import (
-    _advance_block_cursors,
-    _allows_empty_input,
-    _block_column_index,
+from .explain._rule_match import (
+    _advance_block_cursors as _advance_block_cursors,
+    _allows_empty_input as _allows_empty_input,
+    _block_column_index as _block_column_index,
     _build_description,
-    _build_observed_application_for_column,
-    _collect_block_applications,
-    _current_block_column,
-    _display_phoneme,
+    _build_observed_application_for_column as _build_observed_application_for_column,
+    _collect_block_applications as _collect_block_applications,
+    _current_block_column as _current_block_column,
+    _display_phoneme as _display_phoneme,
     _extract_dialects,
-    _find_matching_rule_candidate,
-    _find_normal_block_match,
-    _find_word_final_suffix_match,
-    _has_crossing_gaps,
-    _is_exact_match,
-    _iter_mismatch_blocks,
-    _matches_block_columns,
-    _matches_lemma_constraints,
-    _matches_word_final_suffix,
+    _find_matching_rule_candidate as _find_matching_rule_candidate,
+    _find_normal_block_match as _find_normal_block_match,
+    _find_word_final_suffix_match as _find_word_final_suffix_match,
+    _has_crossing_gaps as _has_crossing_gaps,
+    _is_exact_match as _is_exact_match,
+    _iter_mismatch_blocks as _iter_mismatch_blocks,
+    _matches_block_columns as _matches_block_columns,
+    _matches_lemma_constraints as _matches_lemma_constraints,
+    _matches_word_final_suffix as _matches_word_final_suffix,
     _rule_name_en_for_description,
     _rule_name_for_description,
     explain,
     explain_with_tokenized_rules,
 )
-from ._explainer_types import (
+from .explain._types import (
     Alignment,
     POSITION_UNKNOWN,
     RuleApplication,
     RuleMetadata,
-    _MismatchBlock,
-    _RuleMatchResult,
-    _WordFinalSuffixMatch,
+    _MismatchBlock as _MismatchBlock,
+    _RuleMatchResult as _RuleMatchResult,
+    _WordFinalSuffixMatch as _WordFinalSuffixMatch,
 )
-from ._explainer_rule_loader import (
-    _extract_rule_file_version,
-    _extract_scalar_node_value,
-    _is_valid_rule_version_value,
+from .explain._rule_loader import (
+    _extract_rule_file_version as _extract_rule_file_version,
+    _extract_scalar_node_value as _extract_scalar_node_value,
+    _is_valid_rule_version_value as _is_valid_rule_version_value,
     get_rules_version,
     load_rules,
 )
-from ._explainer_rule_paths import (
-    _RULES_BASE_DIR_OVERRIDE,
-    _TRUSTED_EXTERNAL_RULES_DIRS,
-    _TRUSTED_EXTERNAL_RULES_DIRS_LOCK,
+from .explain._rule_paths import (
+    _RULES_BASE_DIR_OVERRIDE as _RULES_BASE_DIR_OVERRIDE,
+    _TRUSTED_EXTERNAL_RULES_DIRS as _TRUSTED_EXTERNAL_RULES_DIRS,
+    _TRUSTED_EXTERNAL_RULES_DIRS_LOCK as _TRUSTED_EXTERNAL_RULES_DIRS_LOCK,
     _get_rules_base_dir,
-    _resolve_and_validate_rules_dir,
-    _resolve_rules_dir,
+    _resolve_and_validate_rules_dir as _resolve_and_validate_rules_dir,
+    _resolve_rules_dir as _resolve_rules_dir,
     clear_trusted_external_rules_dirs,
     register_trusted_rules_dir,
 )
-from ._explainer_rule_tokenize import (
+from .explain._rule_tokenize import (
     Rule,
     TokenizedRule,
-    _ALWAYS_MATCH_CONTEXTS,
-    _rule_specificity,
-    _tokenize_context_tail,
-    _tokenize_rule_side,
-    _tokenize_rules,
+    _ALWAYS_MATCH_CONTEXTS as _ALWAYS_MATCH_CONTEXTS,
+    _rule_specificity as _rule_specificity,
+    _tokenize_context_tail as _tokenize_context_tail,
+    _tokenize_rule_side as _tokenize_rule_side,
+    _tokenize_rules as _tokenize_rules,
     tokenize_rules_for_matching,
 )
-from ._explainer_prose import Explanation, to_prose
+from .explain._prose import Explanation, to_prose
 
 logger = logging.getLogger("phonology.explainer")
 

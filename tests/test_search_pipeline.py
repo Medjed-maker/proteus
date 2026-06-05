@@ -10,7 +10,7 @@ import pytest
 
 from api.main import _load_ipa_index, _load_lexicon_map, load_lexicon_entries
 from phonology.distance import load_matrix
-from phonology.profiles import get_default_language_profile
+from phonology.core.ports.profiles import get_default_language_profile
 from phonology.search import (
     IpaIndex,
     KmerIndex,
@@ -59,13 +59,13 @@ def packaged_kmer_index(
 @pytest.fixture(scope="module")
 def packaged_lexicon_map() -> LexiconMap:
     """Return the cached packaged lexicon map."""
-    return _load_lexicon_map()
+    return _load_lexicon_map(get_default_language_profile().language_id)
 
 
 @pytest.fixture(scope="module")
 def packaged_ipa_index() -> IpaIndex:
     """Return the cached packaged exact-IPA index."""
-    return _load_ipa_index()
+    return _load_ipa_index(get_default_language_profile().language_id)
 
 
 def _search_packaged(

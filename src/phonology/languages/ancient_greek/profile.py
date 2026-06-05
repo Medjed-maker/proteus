@@ -8,14 +8,15 @@ phone inventory, dialect skeleton builders, and orthographic notes.
 from __future__ import annotations
 
 from ..._paths import resolve_language_data_dir
-from ...profiles import LanguageProfile
-from ...corpus import load_static_corpus_adapter
+from ...core.ports.profiles import LanguageProfile
+from ...core.ports.corpus import load_static_corpus_adapter
 from .ipa import (
     apply_attic_sigma_sigma_to_tau_tau_shift,
     apply_koine_consonant_shifts,
     get_known_phones,
     to_ipa,
 )
+from .phones import VOWEL_PHONES, phones_match
 from .orthography_notes import (
     build_orthographic_notes,
     prepare_orthographic_data,
@@ -61,6 +62,8 @@ def build_profile(
         description=(
             "Ancient Greek pilot profile with Attic and Koine search support."
         ),
+        vowel_phones=tuple(sorted(VOWEL_PHONES)),
+        phone_matcher=phones_match,
         dialect_skeleton_builders=(
             apply_koine_consonant_shifts,
             apply_attic_sigma_sigma_to_tau_tau_shift,
@@ -68,4 +71,8 @@ def build_profile(
         orthographic_note_builder=build_orthographic_notes,
         orthographic_data_preparer=prepare_orthographic_data,
         corpus_adapter_factory=lambda: load_static_corpus_adapter(corpus_sources_path),
+        always_match_contexts=(
+            "vowel contraction across hiatus",
+            "quantitative metathesis environments",
+        ),
     )

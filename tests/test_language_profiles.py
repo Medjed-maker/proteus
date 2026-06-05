@@ -6,12 +6,15 @@ from collections.abc import Callable
 from dataclasses import replace
 import json
 from pathlib import Path
+import threading
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
 from phonology.distance import load_matrix
-from phonology.profiles import (
+from phonology.core.ports import profiles as profiles_module
+from phonology.core.ports.profiles import (
     LanguageProfile,
     get_default_language_profile,
     get_language_profile,
@@ -19,28 +22,223 @@ from phonology.profiles import (
     register_default_profiles,
     register_language_profile,
 )
-from phonology.orthography_notes import OrthographicNotePayload
+from phonology.core.ports.orthography_notes import OrthographicNotePayload
 from phonology.languages.ancient_greek import build_orthographic_notes
 
 # Import test-only function directly
-from phonology.profiles import _reset_language_registry_for_tests
+from phonology.core.ports.profiles import _reset_language_registry_for_tests
 from phonology import search as search_module
 from phonology.search import search_execution
 from api._models import SearchRequest
 from tests.conftest import _toy_converter
 
 
-def test_default_profiles_are_explicitly_registered_and_resettable(
+class _FakeLanguageEntryPoint:
+    """Small entry point test double with the subset profiles.py needs."""
+
+    def __init__(
+        self,
+        name: str,
+        builder: Callable[[], LanguageProfile],
+    ) -> None:
+        self.name = name
+        self._builder = builder
+
+    def load(self) -> Callable[[], LanguageProfile]:
+        return self._builder
+
+
+def test_explicit_default_profile_lookup_rediscovers_after_registry_reset(
     isolated_language_registry: None,
 ) -> None:
     default_language_id = "ancient_greek"
-    with pytest.raises(ValueError, match="Unsupported language profile"):
-        get_language_profile(default_language_id)
+    default_profile = get_language_profile(default_language_id)
 
-    register_default_profiles()
-    default_profile = get_default_language_profile()
+    assert default_profile.language_id == default_language_id
+    assert get_default_language_profile() == default_profile
 
-    assert get_language_profile(default_language_id) == default_profile
+
+def test_register_default_profiles_discovers_entry_points_and_trusts_assets(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    profile = build_toy_profile(tmp_path, "toy_entry")
+    profile.matrix_path.write_text(json.dumps({"p": {"p": 0.0}}), encoding="utf-8")
+
+    _reset_language_registry_for_tests()
+    try:
+        with monkeypatch.context() as patch_context:
+            patch_context.setattr(
+                profiles_module,
+                "_language_profile_entry_points",
+                lambda: (_FakeLanguageEntryPoint("toy_entry", lambda: profile),),
+            )
+
+            register_default_profiles()
+
+        assert get_language_profile("toy_entry") == profile
+        assert get_default_language_profile() == profile
+        assert load_matrix(profile.matrix_path) == {"p": {"p": 0.0}}
+    finally:
+        _reset_language_registry_for_tests()
+        register_default_profiles()
+
+
+def test_explicit_language_profile_lookup_discovers_entry_points_when_empty(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    profile = build_toy_profile(tmp_path, "toy_entry")
+
+    _reset_language_registry_for_tests()
+    try:
+        with monkeypatch.context() as patch_context:
+            patch_context.setattr(
+                profiles_module,
+                "_language_profile_entry_points",
+                lambda: (_FakeLanguageEntryPoint("toy_entry", lambda: profile),),
+            )
+
+            assert get_language_profile("toy_entry") == profile
+            with pytest.raises(ValueError, match="Unsupported language profile"):
+                get_language_profile("unknown_toy")
+    finally:
+        _reset_language_registry_for_tests()
+        register_default_profiles()
+
+
+def test_register_default_profiles_requires_at_least_one_entry_point(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _reset_language_registry_for_tests()
+    try:
+        with monkeypatch.context() as patch_context:
+            patch_context.setattr(
+                profiles_module,
+                "_language_profile_entry_points",
+                lambda: (),
+            )
+
+            with pytest.raises(
+                ValueError,
+                match="No language profile entry points registered",
+            ):
+                register_default_profiles()
+            with pytest.raises(
+                ValueError,
+                match="No language profile entry points registered",
+            ):
+                get_default_language_profile()
+    finally:
+        _reset_language_registry_for_tests()
+        register_default_profiles()
+
+
+def test_default_language_env_selects_registered_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_language_registry: None,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    alpha = build_toy_profile(tmp_path, "toy_alpha")
+    beta = build_toy_profile(tmp_path, "toy_beta")
+    register_language_profile(alpha)
+    register_language_profile(beta)
+    monkeypatch.setenv("PROTEUS_DEFAULT_LANGUAGE", " Toy_Beta ")
+
+    assert get_default_language_profile() == beta
+
+
+def test_configured_default_profile_lookup_is_non_recursive(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_language_registry: None,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    profile = build_toy_profile(tmp_path, "toy_default")
+    register_language_profile(profile)
+    monkeypatch.setenv("PROTEUS_DEFAULT_LANGUAGE", "toy_default")
+
+    def fail_recursive_lookup(_language_id: str | None = None) -> LanguageProfile:
+        raise AssertionError("get_default_language_profile must not call get_language_profile")
+
+    monkeypatch.setattr(profiles_module, "get_language_profile", fail_recursive_lookup)
+
+    assert get_default_language_profile() == profile
+
+
+def test_default_profile_discovery_runs_once_for_concurrent_lazy_lookup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_language_registry: None,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    profile = build_toy_profile(tmp_path, "toy_concurrent")
+    calls = 0
+    call_lock = threading.Lock()
+    barrier = threading.Barrier(4)
+    errors: list[BaseException] = []
+    results: list[LanguageProfile] = []
+
+    def fake_register_default_profiles() -> None:
+        nonlocal calls
+        with call_lock:
+            calls += 1
+        register_language_profile(profile)
+
+    def worker() -> None:
+        try:
+            barrier.wait(timeout=5.0)
+            results.append(get_language_profile("toy_concurrent"))
+        except BaseException as exc:
+            errors.append(exc)
+
+    monkeypatch.setattr(
+        profiles_module,
+        "register_default_profiles",
+        fake_register_default_profiles,
+    )
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5.0)
+
+    alive_threads = [t for t in threads if t.is_alive()]
+    assert not alive_threads, f"Test hung: threads failed to join (deadlocked?): {errors}"
+    assert not errors, f"Exceptions occurred in workers: {errors}"
+    assert calls == 1
+    assert results == [profile, profile, profile, profile]
+
+
+def test_single_registered_profile_is_default_without_env(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_language_registry: None,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    monkeypatch.delenv("PROTEUS_DEFAULT_LANGUAGE", raising=False)
+    profile = build_toy_profile(tmp_path, "toy_single")
+    register_language_profile(profile)
+
+    assert get_default_language_profile() == profile
+
+
+def test_multiple_registered_profiles_require_explicit_default_env(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_language_registry: None,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    monkeypatch.delenv("PROTEUS_DEFAULT_LANGUAGE", raising=False)
+    register_language_profile(build_toy_profile(tmp_path, "toy_alpha"))
+    register_language_profile(build_toy_profile(tmp_path, "toy_beta"))
+
+    with pytest.raises(ValueError, match="PROTEUS_DEFAULT_LANGUAGE"):
+        get_default_language_profile()
 
 
 def test_list_language_profiles_snapshot_returns_registered_profiles(
@@ -82,18 +280,16 @@ def test_list_language_profiles_returns_tuple(
     assert isinstance(list_language_profiles(), tuple)
 
 
-def test_default_rules_registry_uses_default_profile_after_registry_reset(
+def test_default_rules_registry_rediscovers_default_profile_after_registry_reset(
     isolated_language_registry: None,
 ) -> None:
-    """Default search rules remain available without API import side effects."""
+    """Default search rules remain available through entry point rediscovery."""
     default_language_id = "ancient_greek"
     registry = search_module.get_rules_registry(default_language_id)
 
     assert registry is not None
     assert len(registry) > 0
-
-    with pytest.raises(ValueError, match="Unsupported language profile"):
-        get_language_profile(default_language_id)
+    assert get_language_profile(default_language_id).language_id == default_language_id
 
 
 def test_search_request_uses_default_profile_after_registry_reset(
@@ -134,6 +330,7 @@ def test_language_profile_defaults_orthographic_note_builder_to_none(
     )
 
     assert profile.orthographic_note_builder is None
+    assert profile.always_match_contexts == ()
 
 
 def test_language_profile_preserves_custom_orthographic_note_builder(
@@ -200,6 +397,15 @@ def test_default_ancient_greek_profile_sets_orthographic_note_builder() -> None:
     profile = get_default_language_profile()
 
     assert profile.orthographic_note_builder is build_orthographic_notes
+
+
+def test_default_ancient_greek_profile_sets_always_match_contexts() -> None:
+    profile = get_default_language_profile()
+
+    assert profile.always_match_contexts == (
+        "vowel contraction across hiatus",
+        "quantitative metathesis environments",
+    )
 
 
 def test_language_profile_description_defaults_to_empty_string(
@@ -382,7 +588,7 @@ rules:
         default_dialect="toy",
         supported_dialects=("toy",),
         converter=_toy_converter,
-        phone_inventory=("ts", "p", "a"),
+        phone_inventory=("ts", "a", "p"),
         lexicon_path=tmp_path / "lexicon.json",
         matrix_path=matrix_dir / "matrix.json",
         rules_dir=rules_dir,
@@ -465,6 +671,76 @@ rules:
 
     assert [result.lemma for result in execution.results] == ["pats"]
     assert execution.results[0].applied_rules == ["TOY-CTX-TS"]
+
+
+def test_non_default_search_execution_backfills_profile_converter_and_inventory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    isolated_language_registry: None,
+) -> None:
+    rules_dir = tmp_path / "rules"
+    matrix_dir = tmp_path / "matrices"
+    rules_dir.mkdir()
+    matrix_dir.mkdir()
+    (rules_dir / "rules.yaml").write_text(
+        "schema_version: '1.0.0'\nrules: []\n",
+        encoding="utf-8",
+    )
+
+    captured: dict[str, object] = {}
+
+    def converter(text: str, *, dialect: str) -> str:
+        captured["text"] = text
+        captured["dialect"] = dialect
+        return "tsa"
+
+    profile = LanguageProfile(
+        language_id="toy_profile_defaults",
+        display_name="Toy Profile Defaults",
+        default_dialect="toy",
+        supported_dialects=("toy",),
+        converter=converter,
+        phone_inventory=("ts", "a", "p"),
+        lexicon_path=tmp_path / "lexicon.json",
+        matrix_path=matrix_dir / "matrix.json",
+        rules_dir=rules_dir,
+    )
+    register_language_profile(profile)
+
+    def fake_execute_search(
+        query: str, *args: object, **kwargs: Any
+    ) -> search_module.SearchExecutionResult:
+        captured["phone_inventory"] = tuple(kwargs["phone_inventory"])
+        captured["query_ipa"] = kwargs["converter"](
+            query,
+            dialect=kwargs["dialect"],
+        )
+        return search_module.SearchExecutionResult(
+            results=[],
+            query_ipa=str(captured["query_ipa"]),
+        )
+
+    monkeypatch.setattr(search_module, "_execute_search", fake_execute_search)
+    execution = search_execution(
+        "orthographicquery",
+        lexicon=(
+            {
+                "id": "toy-tsa",
+                "headword": "tsa",
+                "ipa": "tsa",
+                "dialect": "toy",
+            },
+        ),
+        matrix={"ts": {"ts": 0.0}, "a": {"a": 0.0}},
+        max_results=1,
+        dialect=profile.default_dialect,
+        language=profile.language_id,
+    )
+
+    assert captured["text"] == "orthographicquery"
+    assert captured["dialect"] == "toy"
+    assert captured["phone_inventory"] == profile.phone_inventory
+    assert execution.query_ipa == "tsa"
 
 
 def test_register_language_profile_trusts_matrix_dir(

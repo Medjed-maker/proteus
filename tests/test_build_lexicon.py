@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from phonology import build_lexicon
-import phonology.lsj_extractor as lsj_extractor_module
+from phonology.languages.ancient_greek import build_lexicon
+import phonology.languages.ancient_greek.lsj_extractor as lsj_extractor_module
 
 pytestmark = pytest.mark.usefixtures("reset_pos_overrides_cache")
 
@@ -295,6 +295,40 @@ def test_run_extractor_forwards_arguments_to_lsj_extractor_main(
         "dry_run": True,
         "supplemental_path": build_lexicon._default_supplemental_path(ROOT_DIR),
     }
+
+
+def test_run_extractor_skips_missing_default_supplemental_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    xml_dir = tmp_path / "xml"
+    output_path = tmp_path / "out.json"
+    xml_dir.mkdir()
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        lsj_extractor_module,
+        "_load_pos_overrides",
+        lambda *, cli_mode=False: {},
+    )
+    monkeypatch.setattr(build_lexicon, "_default_project_root", lambda: tmp_path)
+
+    def fake_main(
+        *,
+        xml_dir: Path,
+        output_path: Path,
+        limit: int | None = None,
+        dry_run: bool = False,
+        supplemental_path: Path | None = None,
+    ) -> int:
+        del xml_dir, output_path, limit, dry_run
+        captured["supplemental_path"] = supplemental_path
+        return 0
+
+    monkeypatch.setattr(lsj_extractor_module, "main", fake_main)
+
+    assert build_lexicon._run_extractor(xml_dir=xml_dir, output_path=output_path) == 0
+    assert captured["supplemental_path"] is None
 
 
 def test_ensure_generated_lexicon_reuses_fresh_output_for_missing_custom_lsj_xml_input(
@@ -1600,25 +1634,40 @@ def test_tracked_input_records_discovers_lsj_package_files(
     xml_dir.mkdir()
     xml_path = xml_dir / "grc.lsj.perseus-eng1.xml"
     xml_path.write_text("<TEI/>\n", encoding="utf-8")
-    explicit_path = tmp_path / "src" / "phonology" / "build_lexicon.py"
+    explicit_path = (
+        tmp_path
+        / "src"
+        / "phonology"
+        / "languages"
+        / "ancient_greek"
+        / "build_lexicon.py"
+    )
     explicit_path.parent.mkdir(parents=True)
     explicit_path.write_text("# explicit\n", encoding="utf-8")
-    discovered_path = tmp_path / "src" / "phonology" / "lsj" / "_new.py"
+    discovered_path = (
+        tmp_path
+        / "src"
+        / "phonology"
+        / "languages"
+        / "ancient_greek"
+        / "lsj"
+        / "_new.py"
+    )
     discovered_path.parent.mkdir(parents=True)
     discovered_path.write_text("# discovered\n", encoding="utf-8")
 
     monkeypatch.setattr(
         build_lexicon,
         "_FINGERPRINT_INPUTS",
-        (Path("src/phonology/build_lexicon.py"),),
+        (Path("src/phonology/languages/ancient_greek/build_lexicon.py"),),
     )
     monkeypatch.setattr(lsj_extractor_module, "find_xml_files", lambda _path: [xml_path])
 
     records = build_lexicon._tracked_input_records(tmp_path, xml_dir)
 
     assert {record["path"] for record in records} == {
-        "src/phonology/build_lexicon.py",
-        "src/phonology/lsj/_new.py",
+        "src/phonology/languages/ancient_greek/build_lexicon.py",
+        "src/phonology/languages/ancient_greek/lsj/_new.py",
         "xml/grc.lsj.perseus-eng1.xml",
     }
 
@@ -2006,16 +2055,15 @@ def test_clone_lsj_repo_rejects_existing_repo_dir_outside_project_root_with_shar
         build_lexicon._clone_lsj_repo(evil_repo_dir, project_root)
 
 
-def test_clone_lsj_repo_allows_new_repo_dir_outside_project_root(
+def test_clone_lsj_repo_rejects_new_repo_dir_outside_project_root(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A missing external repo dir should be allowed for first-time clone."""
+    """A missing external repo dir must be rejected before first-time clone."""
     project_root = tmp_path / "project"
     project_root.mkdir()
     external_root = tmp_path / "external"
     repo_dir = external_root / "lsj"
-    temp_repo_dir = repo_dir.with_name(f"{repo_dir.name}.tmp")
 
     def fake_run_subprocess(
         command: list[str],
@@ -2023,22 +2071,16 @@ def test_clone_lsj_repo_allows_new_repo_dir_outside_project_root(
         cwd: Path | None = None,
         timeout: int | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        del cwd, timeout
-        if command[1] == "clone":
-            xml_dir = build_lexicon._lsj_xml_dir_for_repo(temp_repo_dir)
-            xml_dir.mkdir(parents=True, exist_ok=True)
-            (temp_repo_dir / "new.txt").write_text("new\n", encoding="utf-8")
-        return subprocess.CompletedProcess(command, 0)
+        del command, cwd, timeout
+        raise AssertionError("clone should not start for an external target")
 
     monkeypatch.setattr(build_lexicon.shutil, "which", lambda name: "/usr/bin/git")
     monkeypatch.setattr(build_lexicon, "_run_subprocess", fake_run_subprocess)
 
-    build_lexicon._clone_lsj_repo(repo_dir, project_root)
+    with pytest.raises(RuntimeError, match="not under project root"):
+        build_lexicon._clone_lsj_repo(repo_dir, project_root)
 
-    assert repo_dir.is_dir()
-    assert (repo_dir / "new.txt").read_text(encoding="utf-8") == "new\n"
-    assert build_lexicon._lsj_xml_dir_for_repo(repo_dir).is_dir()
-    assert not temp_repo_dir.exists()
+    assert not external_root.exists()
 
 
 def test_clone_lsj_repo_requires_git_executable(
@@ -2138,6 +2180,28 @@ def test_clone_lsj_repo_rejects_symlink_repo_dir(
     # (rmtree on a symlink would remove the symlink itself, leaving it dangling).
     assert symlink_dir.is_symlink()
     assert real_dir.is_dir()
+
+
+def test_clone_lsj_repo_rejects_symlink_parent_before_mkdir(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Parent symlinks must be rejected before creating checkout directories."""
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    real_data_dir = project_root / "real-data"
+    real_data_dir.mkdir()
+    symlink_data_dir = project_root / "data"
+    symlink_data_dir.symlink_to(real_data_dir)
+    repo_dir = symlink_data_dir / "external" / "lsj"
+
+    monkeypatch.setattr(build_lexicon.shutil, "which", lambda name: "/usr/bin/git")
+
+    with pytest.raises(RuntimeError, match="Safety check failed.*symbolic link"):
+        build_lexicon._clone_lsj_repo(repo_dir, project_root)
+
+    assert symlink_data_dir.is_symlink()
+    assert not (real_data_dir / "external").exists()
 
 
 def test_clone_lsj_repo_failure_keeps_existing_checkout_and_cleans_temp_dir(

@@ -26,6 +26,8 @@ from tests._helpers.fakes import (
     install_seed_stage,
 )
 
+pytestmark = pytest.mark.usefixtures("default_profile_follows_search_to_ipa")
+
 
 @pytest.fixture
 def mock_load_rules(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -19,15 +19,15 @@ from ..explainer import (
     load_rules,  # noqa: F401 (test access via search_module)
     tokenize_rules_for_matching,  # noqa: F401 (test access via search_module)
 )
-from .._paths import DEFAULT_LANGUAGE_ID  # noqa: F401 (kept for downstream test imports)
-from ..profiles import (  # noqa: F401 (test access via search_module)
+from ..core.ports.profiles import (  # noqa: F401 (test access via search_module)
+    LanguageProfile,
     get_default_language_profile,
     get_language_profile,
 )
 from ._constants import (
-    _annotation_candidate_limit,
+    _annotation_candidate_limit,  # noqa: F401 (test access via search_module)
     _DEFAULT_FALLBACK_CANDIDATE_LIMIT,  # noqa: F401 (test/typing access via search_module)
-    _LENGTH_PROXIMATE_LIMIT_MULTIPLIER,
+    _LENGTH_PROXIMATE_LIMIT_MULTIPLIER,  # noqa: F401 (test access via search_module)
     _MIN_PARTIAL_STAGE2_CANDIDATES,  # noqa: F401 (test access via search_module)
     _MIN_STAGE2_CANDIDATES,  # noqa: F401 (test access via search_module)
     _partial_candidate_limit,  # noqa: F401 (test access via search_module)
@@ -38,9 +38,9 @@ from ._constants import (
 from ._lookup import (
     _build_entry_lookup,
     _entry_ipa,
-    _inject_exact_ipa_matches,
+    _inject_exact_ipa_matches,  # noqa: F401 (test access via search_module)
     _lookup_entry,
-    _normalize_ipa_lookup_key,
+    _normalize_ipa_lookup_key,  # noqa: F401 (test access via search_module)
     build_ipa_index,
     IpaIndex,
 )
@@ -59,31 +59,31 @@ from ._scoring import (
     _smith_waterman_alignment,
 )
 from ._overlap import (
-    _merge_bounded_candidate_ids,
+    _merge_bounded_candidate_ids,  # noqa: F401 (test access via search_module)
 )
 from ._partial import (
     _match_partial_query,  # noqa: F401 (test access via search_module)
-    _select_partial_fallback_candidates,
-    _select_partial_seed_candidates,
+    _select_partial_fallback_candidates,  # noqa: F401 (test access via search_module)
+    _select_partial_seed_candidates,  # noqa: F401 (test access via search_module)
 )
 from ._filtering import (
-    _apply_mode_quality_filter,
-    _rank_short_query_annotation_candidates,
-    _select_annotation_candidates,
+    _apply_mode_quality_filter,  # noqa: F401 (test access via search_module)
+    _rank_short_query_annotation_candidates,  # noqa: F401 (test access via search_module)
+    _select_annotation_candidates,  # noqa: F401 (test access via search_module)
 )
 from ._debug_logging import (
-    log_candidate_selection as _log_candidate_selection,
-    log_finalization as _log_finalization,
-    log_scoring as _log_scoring,
-    perf_counter_if_debug as _perf_counter_if_debug,
-    summarize_query_ipa_for_logs as _summarize_query_ipa_for_logs,
+    log_candidate_selection as _log_candidate_selection,  # noqa: F401
+    log_finalization as _log_finalization,  # noqa: F401
+    log_scoring as _log_scoring,  # noqa: F401
+    perf_counter_if_debug as _perf_counter_if_debug,  # noqa: F401
+    summarize_query_ipa_for_logs as _summarize_query_ipa_for_logs,  # noqa: F401
 )
 from ._dedup import (
-    _deduplicate_by_headword,
-    _deduplicate_by_headword_common,
+    _deduplicate_by_headword,  # noqa: F401 (test access via search_module)
+    _deduplicate_by_headword_common,  # noqa: F401 (test access via search_module)
 )
 from ._quality import (
-    _rank_short_query_results,
+    _rank_short_query_results,  # noqa: F401 (test access via search_module)
 )
 from ._query import (
     _classify_non_partial_query,
@@ -111,29 +111,29 @@ from ._types import (
     PhoneInventory,
     QueryMode,
     SearchResult,
-    _CandidateSelectionPath,
-    _CandidateSelectionResult,
+    _CandidateSelectionPath,  # noqa: F401 (test/typing access via search_module)
+    _CandidateSelectionResult,  # noqa: F401 (test/typing access via search_module)
 )
 from ._dependencies import (
     IpaConverter,
     PreparedQueryIpa,
     SearchExecutionResult,
     _FallbackLimits,
-    _FinalizationResult,
-    _LazySearchDependencies,
+    _FinalizationResult,  # noqa: F401 (test/typing access via search_module)
+    _LazySearchDependencies,  # noqa: F401 (test/typing access via search_module)
 )
 from ._registry import (
-    _TOKENIZED_RULES_CACHE_MAXSIZE,
+    _TOKENIZED_RULES_CACHE_MAXSIZE,  # noqa: F401 (test access via search_module)
     _get_tokenized_rules,
-    _load_rules_cached,
+    _load_rules_cached,  # noqa: F401 (test access via search_module)
     get_rules_registry,
 )
 from ._selection import (
-    _inject_length_proximate_candidates,
-    _select_partial_token_fallback_candidates,
-    _select_seeded_candidates,
-    _select_token_proximity_fallback_candidates,
-    _select_unigram_fallback_candidates,
+    _inject_length_proximate_candidates,  # noqa: F401 (test access via search_module)
+    _select_partial_token_fallback_candidates,  # noqa: F401
+    _select_seeded_candidates,  # noqa: F401 (test access via search_module)
+    _select_token_proximity_fallback_candidates,  # noqa: F401
+    _select_unigram_fallback_candidates,  # noqa: F401
 )
 from .compat import (
     build_kmer_index,
@@ -148,21 +148,24 @@ from .compat import (
 logger = logging.getLogger(__name__)
 
 
-def _legacy_to_ipa(text: str, *, dialect: str = "attic") -> str:
-    """Convert text to IPA via the default Ancient Greek language profile.
+def _legacy_to_ipa(text: str, *, dialect: str | None = None) -> str:
+    """Convert text to IPA via the default language profile.
 
     Exists as a module-level seam so tests can monkeypatch
     ``search_module.to_ipa`` to inject deterministic IPA strings without
     touching the language registry. Production callers should normally use
     ``LanguageProfile.converter`` directly; this helper is invoked only when
-    the public search API gets ``language="ancient_greek"`` and no explicit
-    converter, in which case it routes the call through
-    ``get_default_language_profile()``.
+    the public search API uses the default profile without an explicit
+    converter.
 
     Note: calling this after ``isolated_language_registry`` resets the
     registry will rebuild the default profile as a side effect.
     """
-    return get_default_language_profile().converter(text, dialect=dialect)
+    profile = get_default_language_profile()
+    return profile.converter(
+        text,
+        dialect=profile.default_dialect if dialect is None else dialect,
+    )
 
 
 # Module-level alias kept as a monkeypatch seam for tests; see ``_legacy_to_ipa``
@@ -170,28 +173,79 @@ def _legacy_to_ipa(text: str, *, dialect: str = "attic") -> str:
 to_ipa = _legacy_to_ipa
 
 
-def _public_compatibility_search_defaults(
+def _backfill_defaults_from_profile(
+    profile: LanguageProfile,
     *,
-    language: str,
     phone_inventory: Iterable[str] | None,
+    vowel_phones: Iterable[str] | None,
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None,
 ) -> tuple[
     Iterable[str] | None,
+    Iterable[str] | None,
     Iterable[Callable[[list[str]], list[str]]] | None,
 ]:
-    """Supply Ancient Greek profile defaults at the public compatibility boundary."""
-    normalized_language = language.strip().lower()
-    if normalized_language != DEFAULT_LANGUAGE_ID:
-        return phone_inventory, dialect_skeleton_builders
-
-    profile = get_default_language_profile()
+    """Fill any unset public defaults from a resolved language profile."""
     return (
         profile.phone_inventory if phone_inventory is None else phone_inventory,
+        profile.vowel_phones if vowel_phones is None else vowel_phones,
         (
             profile.dialect_skeleton_builders
             if dialect_skeleton_builders is None
             else dialect_skeleton_builders
         ),
+    )
+
+
+def _public_compatibility_search_defaults(
+    *,
+    language: str | None,
+    phone_inventory: Iterable[str] | None,
+    vowel_phones: Iterable[str] | None = None,
+    dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None,
+    allow_fallback: bool = False,
+) -> tuple[
+    Iterable[str] | None,
+    Iterable[str] | None,
+    Iterable[Callable[[list[str]], list[str]]] | None,
+]:
+    """Supply profile defaults at the public compatibility boundary.
+
+    Args:
+        language: Registered language id to resolve. ``None`` uses the default
+            language profile.
+        phone_inventory: Explicit inventory to keep, or ``None`` to backfill
+            from the resolved profile.
+        vowel_phones: Explicit vowel phones to keep, or ``None`` to backfill
+            from the resolved profile.
+        dialect_skeleton_builders: Explicit builders to keep, or ``None`` to
+            backfill from the resolved profile.
+        allow_fallback: When ``False`` (default), unrecognized language ids
+            re-raise the profile lookup ``ValueError``. When ``True``, the
+            function preserves the legacy silent fallback and returns the
+            original ``(phone_inventory, vowel_phones,
+            dialect_skeleton_builders)`` tuple unchanged.
+    """
+    if language is None:
+        profile = get_default_language_profile()
+    else:
+        normalized_language = language.strip().lower()
+        try:
+            profile = get_language_profile(normalized_language)
+        except ValueError as exc:
+            logger.debug(
+                "Ignoring unsupported normalized language %r when resolving public search defaults: %s",
+                normalized_language,
+                exc,
+            )
+            if not allow_fallback:
+                raise
+            return phone_inventory, vowel_phones, dialect_skeleton_builders
+
+    return _backfill_defaults_from_profile(
+        profile,
+        phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
+        dialect_skeleton_builders=dialect_skeleton_builders,
     )
 
 
@@ -210,6 +264,7 @@ def _build_kmer_index_for_inventory(
     *,
     k: int,
     phone_inventory: PhoneInventory,
+    vowel_phones: Iterable[str] | None = None,
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
 ) -> KmerIndex:
     """Call k-mer builder, forwarding phone inventory and dialect skeleton builders."""
@@ -217,6 +272,7 @@ def _build_kmer_index_for_inventory(
         lexicon,
         k=k,
         phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
         dialect_skeleton_builders=dialect_skeleton_builders,
     )
 
@@ -236,6 +292,7 @@ def _seed_stage_for_inventory(
     *,
     k: int,
     phone_inventory: PhoneInventory,
+    vowel_phones: Iterable[str] | None = None,
 ) -> list[str]:
     """Call seed-stage core with already-resolved inventory settings."""
     return _seed_stage_core(
@@ -243,6 +300,7 @@ def _seed_stage_for_inventory(
         index,
         k=k,
         phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
     )
 
 
@@ -423,10 +481,47 @@ def _partial_query_ipa_from_fragments(
     raise ValueError(f"Unknown partial query shape: {partial_query.shape!r}")
 
 
+def _resolve_profile_and_converter(
+    dialect: str | None,
+    converter: IpaConverter | None,
+) -> tuple[str, IpaConverter]:
+    """Resolve the effective dialect and IPA converter for query preparation.
+
+    The default profile is consulted only when the dialect must be defaulted or
+    when no explicit converter is supplied and the module ``to_ipa`` seam is
+    still the built-in ``_legacy_to_ipa`` (so tests that monkeypatch
+    ``search_module.to_ipa`` keep their injected converter). ``to_ipa`` is read
+    as a module global at call time to preserve that seam.
+
+    Returns the resolved dialect and converter. When ``dialect`` is ``None`` the
+    profile-resolution condition guarantees a default profile is available, so
+    the returned dialect is always a concrete string.
+    """
+    default_profile = (
+        get_default_language_profile()
+        if dialect is None or (converter is None and to_ipa is _legacy_to_ipa)
+        else None
+    )
+    if dialect is not None:
+        resolved_dialect = dialect
+    else:
+        # dialect is None ⟹ the condition above resolved a default profile.
+        assert default_profile is not None
+        resolved_dialect = default_profile.default_dialect
+
+    if converter is not None:
+        ipa_converter: IpaConverter = converter
+    elif default_profile is not None and to_ipa is _legacy_to_ipa:
+        ipa_converter = default_profile.converter
+    else:
+        ipa_converter = to_ipa
+    return resolved_dialect, ipa_converter
+
+
 def _prepare_query_ipa_core(
     query: str,
     *,
-    dialect: str = "attic",
+    dialect: str | None = None,
     converter: IpaConverter | None = None,
     phone_inventory: PhoneInventory,
     query_ipa: str | None = None,
@@ -440,16 +535,15 @@ def _prepare_query_ipa_core(
 
     Conversion does NOT cross wildcard gaps - each fragment is converted
     independently to maintain phonological accuracy. Public calls preserve
-    Ancient Greek defaults: when ``language`` is the default language id and
-    ``phone_inventory`` is omitted, the default profile's phone inventory is
-    used so multi-character IPA phones are tokenized consistently with
-    ``build_kmer_index``.
+    profile defaults: when ``phone_inventory`` is omitted, the selected
+    profile's phone inventory is used so multi-character IPA phones are
+    tokenized consistently with ``build_kmer_index``.
 
     Args:
         query: The search query string (optionally with wildcards).
             Supports ``*`` for any characters and ``?`` for single character.
         dialect: Dialect/model identifier passed to the IPA converter.
-            Defaults to the public Ancient Greek compatibility dialect, "attic".
+            ``None`` resolves to the selected profile's default dialect.
         converter: An optional IPA converter function conforming to the
             ``IpaConverter`` Protocol (``(str, *, dialect: str) -> str``).
             Defaults to the built-in ``to_ipa`` function if not provided.
@@ -487,20 +581,23 @@ def _prepare_query_ipa_core(
     if not normalized_query.strip():
         raise ValueError("query must be a non-empty string")
 
-    ipa_converter = converter if converter is not None else to_ipa
+    resolved_dialect, ipa_converter = _resolve_profile_and_converter(
+        dialect,
+        converter,
+    )
     partial_query_tokens: PartialQueryTokens | None = None
     if query_ipa is None:
         if partial_query is None:
-            query_ipa = ipa_converter(normalized_query, dialect=dialect)
+            query_ipa = ipa_converter(normalized_query, dialect=resolved_dialect)
         else:
             converted_fragments = _convert_partial_query_fragments(
                 partial_query,
-                dialect=dialect,
+                dialect=resolved_dialect,
                 converter=ipa_converter,
             )
             partial_query_tokens = _tokenize_partial_query(
                 partial_query,
-                dialect=dialect,
+                dialect=resolved_dialect,
                 phone_inventory=phone_inventory,
                 converted_fragments=converted_fragments,
             )
@@ -511,7 +608,7 @@ def _prepare_query_ipa_core(
     elif partial_query is not None:
         partial_query_tokens = _tokenize_partial_query(
             partial_query,
-            dialect=dialect,
+            dialect=resolved_dialect,
             converter=ipa_converter,
             phone_inventory=phone_inventory,
         )
@@ -525,7 +622,7 @@ def _prepare_query_ipa_core(
     )
 
 
-from ._orchestration import _rank_by_token_count_proximity  # noqa: F401 (test-seam re-export)
+from ._orchestration import _rank_by_token_count_proximity  # noqa: E402, F401 (test-seam re-export)
 
 
 def _seed_stage_core(
@@ -534,6 +631,7 @@ def _seed_stage_core(
     *,
     k: int,
     phone_inventory: PhoneInventory,
+    vowel_phones: Iterable[str] | None = None,
 ) -> list[str]:
     """Rank candidate ids using caller-resolved tokenization settings.
 
@@ -544,7 +642,8 @@ def _seed_stage_core(
         raise ValueError(f"seed_stage requires k > 0 for k-mer size, got {k}")
 
     query_skeleton = _extract_consonant_skeleton(
-        tokenize_for_inventory(query_ipa, phone_inventory)
+        tokenize_for_inventory(query_ipa, phone_inventory),
+        vowel_phones=tuple(vowel_phones or ()),
     )
     query_kmers = _iter_kmers(query_skeleton, k)
     if not query_kmers:
@@ -569,14 +668,22 @@ def _annotate_search_results(
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
     phone_inventory: PhoneInventory,
-    language: str | Path = "ancient_greek",
+    vowel_phones: Iterable[str] | None = None,
+    phone_matcher: Callable[[str, str], bool] | None = None,
+    always_match_contexts: Iterable[str] | None = None,
+    language: str | Path | None = None,
 ) -> list[SearchResult]:
     """Stage 2b: annotate ranked hits with explanations and alignments."""
     if not results:
         return []
 
     query_tokens = tokenize_for_inventory(query_ipa, phone_inventory)
-    tokenized_rules = _get_tokenized_rules(language, phone_inventory)
+    resolved_always_match_contexts = tuple(always_match_contexts or ())
+    tokenized_rules = _get_tokenized_rules(
+        language,
+        phone_inventory,
+        resolved_always_match_contexts,
+    )
     annotated: list[SearchResult] = []
 
     for result in results:
@@ -617,6 +724,10 @@ def _annotate_search_results(
             alignment=alignment,
             tokenized_rules=tokenized_rules,
             lemma_metadata=entry,
+            phone_matcher=phone_matcher,
+            phone_inventory=phone_inventory,
+            vowel_phones=tuple(vowel_phones or ()),
+            always_match_contexts=resolved_always_match_contexts,
         )
         matched_dialects = _collect_application_dialects(applications)
         markers = _apply_rule_markers(
@@ -675,8 +786,11 @@ def _annotate_search_results_for_inventory(
     results: list[SearchResult],
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
-    language: str | Path,
+    language: str | Path | None,
     phone_inventory: PhoneInventory,
+    vowel_phones: Iterable[str] | None = None,
+    phone_matcher: Callable[[str, str], bool] | None = None,
+    always_match_contexts: Iterable[str] | None = None,
 ) -> list[SearchResult]:
     """Call annotation without custom-inventory kwargs on the default path."""
     kwargs: dict[str, Any] = {
@@ -686,7 +800,11 @@ def _annotate_search_results_for_inventory(
         "matrix": matrix,
         "language": language,
     }
-    return _annotate_search_results(**_with_phone_inventory(kwargs, phone_inventory))
+    kwargs = _with_phone_inventory(kwargs, phone_inventory)
+    kwargs["vowel_phones"] = vowel_phones
+    kwargs["phone_matcher"] = phone_matcher
+    kwargs["always_match_contexts"] = always_match_contexts
+    return _annotate_search_results(**kwargs)
 
 
 def _extend_stage_core(
@@ -694,18 +812,21 @@ def _extend_stage_core(
     candidates: Iterable[str],
     lexicon_map: LexiconLookup,
     matrix: DistanceMatrix,
-    language: str | Path = "ancient_greek",
+    language: str | Path | None = None,
     *,
     phone_inventory: PhoneInventory,
+    vowel_phones: Iterable[str] | None = None,
+    phone_matcher: Callable[[str, str], bool] | None = None,
+    always_match_contexts: Iterable[str] | None = None,
 ) -> list[SearchResult]:
     """Stage 2: run Smith-Waterman on candidate IPA forms and assemble results.
 
     For each candidate, compute a local alignment score, detect matching
     phonological rules, attribute dialects, and build a three-line ASCII
-    visualization. Public calls preserve Ancient Greek defaults: when
-    ``language`` is the default language id and ``phone_inventory`` is
-    omitted, the default profile's phone inventory is used so multi-character
-    IPA phones are tokenized consistently with ``build_kmer_index``.
+    visualization. Public calls preserve profile defaults: when
+    ``phone_inventory`` is omitted, the selected profile's phone inventory is
+    used so multi-character IPA phones are tokenized consistently with
+    ``build_kmer_index``.
 
     Args:
         query_ipa: IPA transcription of the search query (space-separated or
@@ -717,8 +838,9 @@ def _extend_stage_core(
         matrix: Phonological distance matrix used for substitution scoring.
         language: Language identifier selecting the phonological rule set,
             and the public compatibility default for ``phone_inventory``.
-            Defaults to ``"ancient_greek"``. ``Path`` values are forwarded
-            unchanged to the rule loader and skip the public-default backfill.
+            ``None`` resolves through the default language profile. ``Path``
+            values are forwarded unchanged to the rule loader and skip the
+            public-default backfill.
         phone_inventory: Resolved phone inventory used for greedy
             longest-match tokenization. Pass an empty tuple for generic
             character fallback.
@@ -747,6 +869,9 @@ def _extend_stage_core(
         matrix=matrix,
         language=language,
         phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
+        phone_matcher=phone_matcher,
+        always_match_contexts=always_match_contexts,
     )
 
 
@@ -759,9 +884,9 @@ def filter_stage(results: list[SearchResult], max_results: int) -> list[SearchRe
     ]
 
 
-from ._orchestration import (
-    _execute_search,
-    _finalize_full_form_results,
-    _finalize_partial_form_results,
-    _finalize_short_query_results,
+from ._orchestration import (  # noqa: E402
+    _execute_search,  # noqa: F401 (test access via search_module)
+    _finalize_full_form_results,  # noqa: F401 (test access via search_module)
+    _finalize_partial_form_results,  # noqa: F401 (test access via search_module)
+    _finalize_short_query_results,  # noqa: F401 (test access via search_module)
 )

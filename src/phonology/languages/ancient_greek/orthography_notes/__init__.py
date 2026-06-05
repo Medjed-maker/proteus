@@ -17,45 +17,45 @@ import warnings
 
 import yaml
 
-from phonology.orthography_notes import (
+from phonology.core.ports.orthography_notes import (
     OrthographicNoteDataError,
     OrthographicNotePayload,
     ResponseLanguage,
 )
 
 from .schema import (
-    _ALLOWED_CONFIDENCE,
-    _ALLOWED_KINDS,
-    _ALLOWED_REVIEW_STATUS,
-    _ALLOWED_SOURCE_TYPES,
-    _ORTHOGRAPHY_FILENAME,
-    _REQUIRED_REVIEW_METADATA_KEYS,
-    ReviewStatus,
-    SourceType,
+    _ALLOWED_CONFIDENCE as _ALLOWED_CONFIDENCE,
+    _ALLOWED_KINDS as _ALLOWED_KINDS,
+    _ALLOWED_REVIEW_STATUS as _ALLOWED_REVIEW_STATUS,
+    _ALLOWED_SOURCE_TYPES as _ALLOWED_SOURCE_TYPES,
+    _ORTHOGRAPHY_FILENAME as _ORTHOGRAPHY_FILENAME,
+    _REQUIRED_REVIEW_METADATA_KEYS as _REQUIRED_REVIEW_METADATA_KEYS,
+    ReviewStatus as ReviewStatus,
+    SourceType as SourceType,
     _CorrespondenceEntry,
-    _ReviewMetadata,
+    _ReviewMetadata as _ReviewMetadata,
     _nfc,
 )
 from ._paths import _orthography_data_path
 from ._validators import (
-    _looks_like_url,
-    _optional_candidate_headwords,
-    _optional_str,
-    _require_bool,
-    _require_direct_key,
-    _require_str,
-    _require_str_list,
-    _validate_iso_date,
-    _validate_no_urls,
-    _validate_reference_urls,
-    _validate_review_metadata,
+    _looks_like_url as _looks_like_url,
+    _optional_candidate_headwords as _optional_candidate_headwords,
+    _optional_str as _optional_str,
+    _require_bool as _require_bool,
+    _require_direct_key as _require_direct_key,
+    _require_str as _require_str,
+    _require_str_list as _require_str_list,
+    _validate_iso_date as _validate_iso_date,
+    _validate_no_urls as _validate_no_urls,
+    _validate_reference_urls as _validate_reference_urls,
+    _validate_review_metadata as _validate_review_metadata,
 )
 from ._parser import _load_yaml_mapping, _parse_entry
 from ._messages import (
-    _beginner_message,
-    _correspondence_messages,
-    _historical_message,
-    _historical_note,
+    _beginner_message as _beginner_message,
+    _correspondence_messages as _correspondence_messages,
+    _historical_message as _historical_message,
+    _historical_note as _historical_note,
     _notes_for_entry,
 )
 

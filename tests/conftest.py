@@ -18,7 +18,7 @@ from api.main import app
 from phonology import search as search_module
 from phonology.explainer import RuleApplication
 from phonology.languages.ancient_greek.ipa import get_known_phones
-from phonology.profiles import LanguageProfile, get_default_language_profile
+from phonology.core.ports.profiles import LanguageProfile, get_default_language_profile
 from phonology.search import LexiconRecord, SearchResult
 
 
@@ -42,7 +42,7 @@ def _clear_pos_overrides(lsx: ModuleType | None) -> None:
     """Clear the module's ``_pos_overrides`` cache attribute.
 
     Args:
-        lsx: The ``phonology.lsj_extractor`` module, or ``None`` if not yet imported.
+        lsx: The ``phonology.languages.ancient_greek.lsj_extractor`` module, or ``None`` if not yet imported.
     """
     if lsx is not None:
         lsx._pos_overrides = None
@@ -55,9 +55,9 @@ def reset_pos_overrides_cache() -> Generator[None, None, None]:
     Applied via ``pytestmark`` in test modules that exercise POS extraction
     (test_lsj_extractor, test_build_lexicon).
     """
-    _clear_pos_overrides(sys.modules.get("phonology.lsj_extractor"))
+    _clear_pos_overrides(sys.modules.get("phonology.languages.ancient_greek.lsj_extractor"))
     yield
-    _clear_pos_overrides(sys.modules.get("phonology.lsj_extractor"))
+    _clear_pos_overrides(sys.modules.get("phonology.languages.ancient_greek.lsj_extractor"))
 
 
 @pytest.fixture(autouse=True)
@@ -84,6 +84,27 @@ def clear_rule_cache() -> Generator[None, None, None]:
     api_main._get_rules_version_cached.cache_clear()
 
 
+@pytest.fixture
+def default_profile_follows_search_to_ipa(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Keep legacy ``search_module.to_ipa`` monkeypatch seams working in tests."""
+    base_profile = search_module.get_default_language_profile()
+    original_to_ipa = search_module.to_ipa
+
+    def converter(text: str, *, dialect: str) -> str:
+        current_to_ipa = search_module.to_ipa
+        if current_to_ipa is original_to_ipa:
+            return base_profile.converter(text, dialect=dialect)
+        return current_to_ipa(text, dialect=dialect)
+
+    monkeypatch.setattr(
+        search_module,
+        "get_default_language_profile",
+        lambda: replace(base_profile, converter=converter),
+    )
+
+
 @pytest.fixture(scope="session")
 def known_phones() -> tuple[str, ...]:
     """Return the known IPA phone inventory once for search tests."""
@@ -106,7 +127,7 @@ def isolated_language_registry(
     profile and re-registers it, defeating registry isolation. Tests that need
     IPA conversion must pass ``converter=`` explicitly.
     """
-    from phonology.profiles import (
+    from phonology.core.ports.profiles import (
         _reset_language_registry_for_tests,
         register_default_profiles,
     )
