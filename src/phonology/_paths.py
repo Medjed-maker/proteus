@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-DEFAULT_LANGUAGE_ID = "ancient_greek"
-
 
 def _validate_single_segment(value: str, *, name: str) -> str:
     """Validate a single path segment used for internal data lookup."""
@@ -44,9 +42,6 @@ def resolve_language_data_dir(language_id: str, subdirectory: str) -> Path:
     """Find a language-scoped data directory.
 
     The canonical repo layout is ``data/languages/<language_id>/<subdirectory>``.
-    For the default Ancient Greek profile, legacy ``data/<subdirectory>`` is
-    also accepted when present so older development checkouts and generated
-    temporary projects keep working.
     """
     validated_language_id = _validate_single_segment(language_id, name="language_id")
     validated_subdirectory = _validate_single_segment(
@@ -60,12 +55,6 @@ def resolve_language_data_dir(language_id: str, subdirectory: str) -> Path:
         )
         if candidate.is_dir():
             return candidate
-
-    if validated_language_id == DEFAULT_LANGUAGE_ID:
-        for data_root in _iter_data_roots():
-            candidate = data_root / validated_subdirectory
-            if candidate.is_dir():
-                return candidate
 
     raise FileNotFoundError(
         "Could not resolve an existing data directory for "
@@ -87,14 +76,6 @@ def resolve_repo_data_dir(subdirectory: str) -> Path:
         subdirectory,
         name="subdirectory",
     )
-
-    if validated_subdirectory in {"lexicon", "matrices", "rules"}:
-        try:
-            return resolve_language_data_dir(
-                DEFAULT_LANGUAGE_ID, validated_subdirectory
-            )
-        except FileNotFoundError:
-            pass
 
     for data_root in _iter_data_roots():
         candidate = data_root / validated_subdirectory

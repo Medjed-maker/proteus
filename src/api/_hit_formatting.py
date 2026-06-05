@@ -5,15 +5,15 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
-from phonology.corpus import SourceReference
+from phonology.core.ports.corpus import SourceReference
 from phonology.explainer import (
     Explanation,
     RuleApplication,
     explain_alignment,
     to_prose,
 )
-from phonology.ipa_converter import strip_ignored_ipa_combining_marks
-from phonology.orthography_notes import OrthographicNoteBuilder, OrthographicNoteDataError
+from phonology.core.ipa import strip_ignored_ipa_combining_marks
+from phonology.core.ports.orthography_notes import OrthographicNoteBuilder, OrthographicNoteDataError
 from phonology import search as phonology_search
 
 from ._models import OrthographicNote, RuleStep, SearchHit

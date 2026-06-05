@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-import phonology.corpus as corpus_pkg
-from phonology.corpus import (
+import phonology.core.ports.corpus as corpus_pkg
+from phonology.core.ports.corpus import (
     CompositeCorpusAdapter,
     CorpusSourceDataError,
     EMPTY_CORPUS_ADAPTER,

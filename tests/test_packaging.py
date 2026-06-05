@@ -19,7 +19,7 @@ from types import ModuleType
 import pytest
 import yaml
 
-from phonology import build_lexicon
+from phonology.languages.ancient_greek import build_lexicon
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -390,7 +390,7 @@ packaged_root = Path(sys.argv[1]).resolve()
 sys.path.insert(0, str(packaged_root))
 
 import api.main as api_module
-import phonology.buck as buck_module
+import phonology.languages.ancient_greek.buck as buck_module
 import phonology.distance as distance_module
 import phonology.explainer as explainer_module
 
@@ -460,6 +460,23 @@ def test_proteus_mcp_script_installed() -> None:
     )
 
 
+def test_ancient_greek_language_entry_point_installed() -> None:
+    """Editable installs should expose the pilot language profile entry point."""
+    entry_points = metadata.entry_points(group="proteus.languages")
+    entrypoint = next(
+        (item for item in entry_points if item.name == "ancient_greek"),
+        None,
+    )
+
+    assert entrypoint is not None, (
+        "ancient_greek language profile not found in proteus.languages entry_points"
+    )
+    assert (
+        entrypoint.value
+        == "phonology.languages.ancient_greek.profile:build_profile"
+    )
+
+
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv CLI not available")
 def test_mcp_server_module_in_wheel(tmp_path: Path) -> None:
     """Built wheels must include the MCP server package."""
@@ -495,10 +512,15 @@ def test_build_hook_prefers_project_src_over_preexisting_phonology_package(
     """Verify the build hook imports build helpers from its own project root."""
     project_root = tmp_path / "project"
     project_src = project_root / "src" / "phonology"
-    project_src.mkdir(parents=True)
+    project_build_pkg = (
+        project_src / "languages" / "ancient_greek"
+    )
+    project_build_pkg.mkdir(parents=True)
     marker_path = tmp_path / "project-called.json"
     (project_src / "__init__.py").write_text("", encoding="utf-8")
-    (project_src / "build_lexicon.py").write_text(
+    (project_src / "languages" / "__init__.py").write_text("", encoding="utf-8")
+    (project_build_pkg / "__init__.py").write_text("", encoding="utf-8")
+    (project_build_pkg / "build_lexicon.py").write_text(
         "import json\n"
         "from pathlib import Path\n\n"
         "def ensure_generated_lexicon(**kwargs):\n"
@@ -508,11 +530,14 @@ def test_build_hook_prefers_project_src_over_preexisting_phonology_package(
 
     external_root = tmp_path / "external"
     external_pkg = external_root / "phonology"
-    external_pkg.mkdir(parents=True)
+    external_build_pkg = external_pkg / "languages" / "ancient_greek"
+    external_build_pkg.mkdir(parents=True)
     (external_pkg / "__init__.py").write_text("", encoding="utf-8")
-    (external_pkg / "build_lexicon.py").write_text(
+    (external_pkg / "languages" / "__init__.py").write_text("", encoding="utf-8")
+    (external_build_pkg / "__init__.py").write_text("", encoding="utf-8")
+    (external_build_pkg / "build_lexicon.py").write_text(
         "def ensure_generated_lexicon(**kwargs):\n"
-        "    raise AssertionError('imported external phonology.build_lexicon')\n",
+        "    raise AssertionError('imported external phonology.languages.ancient_greek.build_lexicon')\n",
         encoding="utf-8",
     )
 
@@ -532,10 +557,10 @@ def test_build_hook_prefers_project_src_over_preexisting_phonology_package(
             "allow_clone": False,
         }
         assert str(project_root / "src") not in sys.path
-        imported = importlib.import_module("phonology.build_lexicon")
+        imported = importlib.import_module("phonology.languages.ancient_greek.build_lexicon")
         assert (
             Path(imported.__file__ or "").resolve()
-            == (project_src / "build_lexicon.py").resolve()
+            == (project_build_pkg / "build_lexicon.py").resolve()
         )
     finally:
         while str(external_root) in sys.path:

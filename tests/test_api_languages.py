@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from api import main as api_main
 from api import _models as api_models
-from phonology.profiles import LanguageProfile, register_language_profile
+from phonology.core.ports.profiles import LanguageProfile, register_language_profile
 
 
 def _language_by_id(payload: dict[str, object], language_id: str) -> dict[str, object]:

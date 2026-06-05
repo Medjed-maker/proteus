@@ -3,7 +3,7 @@
 import json
 import shutil
 from pathlib import Path
-from typing import Iterator
+from typing import Iterable, Iterator
 
 import pytest
 
@@ -23,9 +23,9 @@ from phonology.distance import (
     sequence_distance,
     word_distance,
 )
-from phonology._paths import resolve_repo_data_dir
-from phonology import ipa_converter as ipa_converter_module
-from phonology.ipa_converter import greek_to_ipa, to_ipa
+from phonology.languages.ancient_greek import ipa as ipa_converter_module
+from phonology.languages.ancient_greek.ipa import greek_to_ipa, to_ipa
+from phonology.core.ports.profiles import get_default_language_profile
 
 
 @pytest.fixture(autouse=True)
@@ -267,25 +267,20 @@ class TestLoadMatrix:
         monkeypatch.delenv("PROTEUS_TRUSTED_MATRICES_DIR", raising=False)
 
         resolved_dir = distance_module._get_trusted_matrices_dir()
-        expected_dir = resolve_repo_data_dir("matrices")
+        expected_dir = get_default_language_profile().matrix_path.parent
 
         assert resolved_dir.name == "matrices"
         assert resolved_dir.is_dir()
         assert resolved_dir.resolve() == expected_dir.resolve()
 
-    def test_uses_package_resources_when_they_are_pathlike(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    def test_uses_default_profile_matrix_directory(
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.delenv("PROTEUS_TRUSTED_MATRICES_DIR", raising=False)
-        package_root = tmp_path / "package-root"
-        resource_dir = (
-            package_root / "data" / "languages" / "ancient_greek" / "matrices"
-        )
-        resource_dir.mkdir(parents=True)
 
-        monkeypatch.setattr(distance_module.resources, "files", lambda _: package_root)
+        profile = get_default_language_profile()
 
-        assert distance_module._get_trusted_matrices_dir() == resource_dir.resolve()
+        assert distance_module._get_trusted_matrices_dir() == profile.matrix_path.parent
 
 
 class TestPublicApi:
@@ -332,6 +327,13 @@ class TestPhoneDistance:
 
     def test_unknown_pair_uses_default_cost(self) -> None:
         assert phone_distance("!", "?", {}) == DEFAULT_COST
+
+    def test_explicit_phone_inventory_controls_known_unmapped_pairs(self) -> None:
+        assert (
+            phone_distance("ts", "p", {}, phone_inventory=("ts", "p"))
+            == UNKNOWN_SUBSTITUTION_COST
+        )
+        assert phone_distance("ts", "p", {}, phone_inventory=("p",)) == DEFAULT_COST
 
     def test_known_unmapped_pair_uses_unknown_substitution_cost(self) -> None:
         assert phone_distance("s", "n", {}) == UNKNOWN_SUBSTITUTION_COST
@@ -441,11 +443,16 @@ class TestSequenceDistance:
         captured: dict[str, object] = {}
 
         def fake_phonological_distance(
-            seq1: list[str], seq2: list[str], matrix: distance_module.MatrixData
+            seq1: list[str],
+            seq2: list[str],
+            matrix: distance_module.MatrixData,
+            *,
+            phone_inventory: tuple[str, ...] | None = None,
         ) -> float:
             captured["seq1"] = seq1
             captured["seq2"] = seq2
             captured["matrix"] = matrix
+            captured["phone_inventory"] = phone_inventory
             return 1.25
 
         monkeypatch.setattr(
@@ -458,6 +465,7 @@ class TestSequenceDistance:
         assert captured["seq1"] == ["a", "b"]
         assert captured["seq2"] == ["a", "c"]
         assert captured["matrix"] == {"a": {"c": 0.5}}
+        assert captured["phone_inventory"] is None
 
     def test_normalized_sequence_distance_converts_generic_sequences_to_lists(
         self, monkeypatch: pytest.MonkeyPatch
@@ -500,6 +508,16 @@ class TestWordDistance:
 
         assert word_distance("a b d", "a x d", matrix) == pytest.approx(2.0)
 
+    def test_explicit_phone_inventory_preserves_multicharacter_phones(self) -> None:
+        matrix = {"ts": {"p": 0.25}, "p": {"ts": 0.25}}
+
+        assert word_distance(
+            "tsa",
+            "pa",
+            matrix,
+            phone_inventory=("ts", "p", "a"),
+        ) == pytest.approx(0.25)
+
     def test_word_overhang_is_penalized(self) -> None:
         assert word_distance("a", "a b", {}) == pytest.approx(DEFAULT_COST)
 
@@ -537,19 +555,26 @@ class TestWordDistance:
     def test_word_distance_tokenizes_inputs_before_delegating(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        tokenize_calls: list[str] = []
+        tokenize_calls: list[tuple[str, tuple[str, ...]]] = []
         captured: dict[str, object] = {}
 
-        def fake_tokenize_ipa(text: str) -> list[str]:
-            tokenize_calls.append(text)
+        def fake_tokenize_ipa(
+            text: str, *, phone_inventory: Iterable[str]
+        ) -> list[str]:
+            tokenize_calls.append((text, tuple(phone_inventory)))
             return [f"<{text}>"]
 
         def fake_phonological_distance(
-            seq1: list[str], seq2: list[str], matrix: distance_module.MatrixData
+            seq1: list[str],
+            seq2: list[str],
+            matrix: distance_module.MatrixData,
+            *,
+            phone_inventory: tuple[str, ...] | None = None,
         ) -> float:
             captured["seq1"] = seq1
             captured["seq2"] = seq2
             captured["matrix"] = matrix
+            captured["phone_inventory"] = phone_inventory
             return 2.5
 
         monkeypatch.setattr(distance_module, "tokenize_ipa", fake_tokenize_ipa)
@@ -557,22 +582,33 @@ class TestWordDistance:
             distance_module, "phonological_distance", fake_phonological_distance
         )
 
-        result = word_distance("λόγος", "λογος", {"a": {"b": 0.5}})
+        result = word_distance(
+            "tsa",
+            "ta",
+            {"a": {"b": 0.5}},
+            phone_inventory=(phone for phone in ("t", "ts", "a")),
+        )
 
         assert result == pytest.approx(2.5)
-        assert tokenize_calls == ["λόγος", "λογος"]
-        assert captured["seq1"] == ["<λόγος>"]
-        assert captured["seq2"] == ["<λογος>"]
+        assert tokenize_calls == [
+            ("tsa", ("ts", "a", "t")),
+            ("ta", ("ts", "a", "t")),
+        ]
+        assert captured["seq1"] == ["<tsa>"]
+        assert captured["seq2"] == ["<ta>"]
         assert captured["matrix"] == {"a": {"b": 0.5}}
+        assert captured["phone_inventory"] == ("ts", "a", "t")
 
     def test_normalized_word_distance_tokenizes_inputs_before_delegating(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        tokenize_calls: list[str] = []
+        tokenize_calls: list[tuple[str, tuple[str, ...]]] = []
         captured: dict[str, object] = {}
 
-        def fake_tokenize_ipa(text: str) -> list[str]:
-            tokenize_calls.append(text)
+        def fake_tokenize_ipa(
+            text: str, *, phone_inventory: Iterable[str]
+        ) -> list[str]:
+            tokenize_calls.append((text, tuple(phone_inventory)))
             return [f"<{text}>"]
 
         def fake_normalized_distance(
@@ -590,12 +626,20 @@ class TestWordDistance:
             fake_normalized_distance,
         )
 
-        result = normalized_word_distance("λόγος", "λογος", {"a": {"b": 0.5}})
+        result = normalized_word_distance(
+            "tsa",
+            "ta",
+            {"a": {"b": 0.5}},
+            phone_inventory=(phone for phone in ("t", "ts", "a")),
+        )
 
         assert result == pytest.approx(0.4)
-        assert tokenize_calls == ["λόγος", "λογος"]
-        assert captured["seq1"] == ["<λόγος>"]
-        assert captured["seq2"] == ["<λογος>"]
+        assert tokenize_calls == [
+            ("tsa", ("ts", "a", "t")),
+            ("ta", ("ts", "a", "t")),
+        ]
+        assert captured["seq1"] == ["<tsa>"]
+        assert captured["seq2"] == ["<ta>"]
         assert captured["matrix"] == {"a": {"b": 0.5}}
 
 

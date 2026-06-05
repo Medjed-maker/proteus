@@ -16,13 +16,12 @@ from pydantic import (
     field_validator,
 )
 from pydantic.json_schema import SkipJsonSchema
-from phonology._paths import DEFAULT_LANGUAGE_ID
 
 # SourceReference is re-exported so that ``SearchHit.source_references`` resolves
 # to a concrete type in the generated OpenAPI / MCP schema. Application code
-# should continue to import it from ``phonology.corpus``.
-from phonology.corpus import SourceReference
-from phonology.profiles import get_default_language_profile, get_language_profile
+# should continue to import it from ``phonology.core.ports.corpus``.
+from phonology.core.ports.corpus import SourceReference
+from phonology.core.ports.profiles import get_default_language_profile, get_language_profile
 
 __all__ = [
     "DataVersions",
@@ -224,6 +223,11 @@ QueryForm = Annotated[
 ]
 
 
+def _default_language_id() -> str:
+    """Return the configured default language profile identifier."""
+    return get_default_language_profile().language_id
+
+
 class SearchRequest(BaseModel):
     """Client request for a phonological search query."""
 
@@ -241,26 +245,31 @@ class SearchRequest(BaseModel):
             if normalized in {"en", "ja"}:
                 if "response_language" not in payload and "lang" not in payload:
                     payload["response_language"] = normalized
-                payload["language"] = "ancient_greek"
+                payload["language"] = _default_language_id()
                 payload["legacy_language_alias_used"] = True
 
         language_value = payload.get("language")
         if language_value is None:
-            language = "ancient_greek"
+            language = _default_language_id()
         elif isinstance(language_value, str):
-            language = language_value.strip().lower() or "ancient_greek"
+            language = language_value.strip().lower() or _default_language_id()
         else:
             raise ValueError("language must be a string")
 
         try:
             profile = get_language_profile(language)
         except ValueError as exc:
-            if language == DEFAULT_LANGUAGE_ID:
-                profile = get_default_language_profile()
+            # Fallback for a transient registration race: a request for the
+            # configured default language may arrive before that profile is
+            # registered, so resolve it via get_default_language_profile().
+            # Any other unknown id is a genuine error and re-raised below.
+            default_profile = get_default_language_profile()
+            if language == default_profile.language_id:
+                profile = default_profile
             else:
                 raise ValueError(
                     f"invalid language profile: {language!r}; "
-                    "requested profile must be registered in phonology.profiles"
+                    "requested profile must be registered in phonology.core.ports.profiles"
                 ) from exc
 
         dialect_key = "dialect_hint" if "dialect_hint" in payload else "dialect"
@@ -286,11 +295,11 @@ class SearchRequest(BaseModel):
         description="Greek word to search for (Unicode, polytonic or monotonic).",
     )
     dialect_hint: str = Field(
-        default="attic",
+        default_factory=lambda: get_default_language_profile().default_dialect,
         validation_alias=AliasChoices("dialect_hint", "dialect"),
         description=(
-            "Dialect hint for IPA conversion. Built-in Ancient Greek values are "
-            "'attic' and 'koine'."
+            "Dialect hint for IPA conversion. When omitted, the default is "
+            "resolved from the selected language profile during validation."
         ),
     )
     max_candidates: int = Field(
@@ -301,8 +310,11 @@ class SearchRequest(BaseModel):
         description="Maximum number of hits to return.",
     )
     language: str = Field(
-        default="ancient_greek",
-        description="Language profile used for phonological search.",
+        default_factory=_default_language_id,
+        description=(
+            "Language profile used for phonological search. When omitted, the "
+            "configured default language profile is resolved during validation."
+        ),
     )
     response_language: Literal["en", "ja"] = Field(
         default="en",
@@ -353,11 +365,11 @@ class SearchRequest(BaseModel):
     @classmethod
     def _normalize_dialect_hint(cls, value: Any) -> Any:
         if value is None:
-            return "attic"
+            return get_default_language_profile().default_dialect
         if isinstance(value, str):
             normalized = value.strip().lower()
             if not normalized:
-                return "attic"
+                return get_default_language_profile().default_dialect
             return normalized
         return value
 
@@ -390,11 +402,11 @@ class SearchRequest(BaseModel):
     def _normalize_language(cls, value: Any) -> Any:
         """Normalize language identifier to a clean string."""
         if value is None:
-            return "ancient_greek"
+            return _default_language_id()
         if not isinstance(value, str):
             raise ValueError("language must be a string")
         normalized = value.strip().lower()
-        return normalized or "ancient_greek"
+        return normalized or _default_language_id()
 
 
 class RuleStep(BaseModel):
@@ -416,11 +428,12 @@ class RuleStep(BaseModel):
 class OrthographicNote(BaseModel):
     """Candidate-level note about writing-system or spelling conventions."""
 
-    kind: Literal[
-        "orthographic_correspondence",
-        "beginner_aid",
-        "pre_403_2_attic",
-    ] = Field(description="Machine-readable category for the orthographic note.")
+    # Language plugins validate their own note-kind vocabulary; the API returns
+    # the plugin-provided machine-readable value without maintaining a central
+    # allow-list.
+    kind: str = Field(
+        description="Machine-readable category for the orthographic note."
+    )
     label: str = Field(description="Short display label for the note.")
     messages: list[str] = Field(
         description="Human-readable note messages for the candidate."
@@ -458,6 +471,14 @@ class OrthographicNote(BaseModel):
             "/oː/ written as single Ο before the orthographic reform."
         ),
     )
+
+    @field_validator("kind", mode="after")
+    @classmethod
+    def _kind_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("orthographic note kind must not be blank")
+        return value
 
 
 class SearchHit(BaseModel):

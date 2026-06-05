@@ -17,7 +17,7 @@ from phonology.languages.ancient_greek.orthography_notes import (
     build_orthographic_notes,
     prepare_orthographic_data,
 )
-from phonology.orthography_notes import OrthographicNoteDataError, OrthographicNotePayload
+from phonology.core.ports.orthography_notes import OrthographicNoteDataError, OrthographicNotePayload
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]

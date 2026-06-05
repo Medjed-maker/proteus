@@ -6,7 +6,7 @@ import unicodedata
 
 import pytest
 
-from phonology.betacode import beta_to_unicode
+from phonology.languages.ancient_greek.betacode import beta_to_unicode
 
 
 class TestBetaToUnicode:
@@ -35,6 +35,12 @@ class TestBetaToUnicode:
         # σ in the middle of a word stays as σ
         result = beta_to_unicode("sw=ma")
         assert result[0] == "σ"  # initial sigma stays σ (not ς)
+
+    def test_hyphen_forces_final_sigma(self) -> None:
+        # Hyphen acts as a word boundary, forcing final sigma (ς) for the preceding word
+        result = beta_to_unicode("lo/gos-sw=ma")
+
+        assert result == "λόγος-σῶμα"
 
     def test_uppercase_with_smooth_breathing(self) -> None:
         result = beta_to_unicode("*)aqh/nh")

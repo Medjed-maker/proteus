@@ -18,6 +18,7 @@ tests; this helper centralizes that knowledge.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any, Callable, Iterable, Mapping
 
 from phonology import search as _search_module
@@ -93,3 +94,35 @@ def install_lexicon_map(monkeypatch: Any, fake: Callable[..., Any]) -> None:
     # Sanity check that the seam still exists in production code.
     getattr(_search_module, "_build_lexicon_map_for_inventory")
     monkeypatch.setattr(_search_module, "_build_lexicon_map_for_inventory", fake)
+
+
+def install_test_language_profile(
+    monkeypatch: Any,
+    language_id: str = "test",
+    *,
+    converter: object | None = None,
+    phone_inventory: tuple[str, ...] = (),
+) -> None:
+    """Register a lightweight profile seam for public non-default language tests."""
+    original_get_language_profile = _search_module.get_language_profile
+    profile = SimpleNamespace(
+        language_id=language_id,
+        default_dialect="test",
+        converter=converter
+        if converter is not None
+        else (lambda text, *, dialect: text),
+        phone_inventory=phone_inventory,
+        vowel_phones=(),
+        dialect_skeleton_builders=(),
+    )
+
+    def fake_get_language_profile(requested_language_id: str) -> object:
+        if requested_language_id == language_id:
+            return profile
+        return original_get_language_profile(requested_language_id)
+
+    monkeypatch.setattr(
+        _search_module,
+        "get_language_profile",
+        fake_get_language_profile,
+    )

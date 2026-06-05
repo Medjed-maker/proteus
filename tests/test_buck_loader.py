@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from phonology import buck as buck_module
+from phonology.languages.ancient_greek import buck as buck_module
 from phonology._trusted_paths import TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR
-from phonology.buck import load_buck_data
+from phonology.languages.ancient_greek.buck import load_buck_data
 
 
 def _write_buck_fixture(
@@ -55,6 +55,31 @@ def test_load_buck_data_reads_packaged_documents() -> None:
         "grc_synt_175",
         "grc_morph_134_3",
     } <= rule_ids
+
+
+def test_get_buck_rules_dir_uses_language_rules_buck_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rules_dir = tmp_path / "data" / "languages" / "ancient_greek" / "rules"
+
+    def mock_resolve(language: str, data_type: str) -> Path:
+        if language != "ancient_greek" or data_type != "rules":
+            raise ValueError(
+                f"resolve_language_data_dir called with unexpected arguments: "
+                f"language={language!r}, data_type={data_type!r}"
+            )
+        return rules_dir
+
+    monkeypatch.setattr(
+        buck_module,
+        "resolve_language_data_dir",
+        mock_resolve,
+    )
+
+    resolved = buck_module._get_buck_rules_dir()
+
+    assert resolved == rules_dir / "buck"
 
 
 def test_load_buck_data_returns_defensive_copy() -> None:

@@ -17,6 +17,9 @@ dependencies = [
 [project.scripts]
 proteus-mcp = "mcp_server.server:main"
 
+[project.entry-points."proteus.languages"]
+ancient_greek = "phonology.languages.ancient_greek.profile:build_profile"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",

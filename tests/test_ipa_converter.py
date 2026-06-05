@@ -1,11 +1,11 @@
-"""Tests for phonology.ipa_converter."""
+"""Tests for phonology.languages.ancient_greek.ipa."""
 
 import unicodedata
 
 import pytest
 
 from phonology.distance import word_distance
-from phonology.ipa_converter import (
+from phonology.languages.ancient_greek.ipa import (
     apply_attic_sigma_sigma_to_tau_tau_shift,
     apply_koine_consonant_shifts,
     greek_to_ipa,
@@ -79,7 +79,7 @@ class TestGreekToIpa:
     def test_unknown_characters_emit_debug_logs(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        caplog.set_level("DEBUG", logger="phonology.ipa_converter")
+        caplog.set_level("DEBUG", logger="phonology.languages.ancient_greek.ipa")
 
         assert "".join(greek_to_ipa("α1?")) == "a"
 
@@ -89,7 +89,7 @@ class TestGreekToIpa:
     def test_literal_h_is_not_treated_as_a_rough_breathing_marker(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        caplog.set_level("DEBUG", logger="phonology.ipa_converter")
+        caplog.set_level("DEBUG", logger="phonology.languages.ancient_greek.ipa")
 
         assert "".join(greek_to_ipa("αhβ")) == "ab"
 
@@ -129,7 +129,7 @@ class TestGreekToIpa:
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Diphthong boundary marker is consumed without a spurious debug log."""
-        caplog.set_level("DEBUG", logger="phonology.ipa_converter")
+        caplog.set_level("DEBUG", logger="phonology.languages.ancient_greek.ipa")
 
         result = greek_to_ipa("ἀϋτή")
 
@@ -198,7 +198,7 @@ class TestToIpa:
         def fail_if_called(_: str) -> list[str]:
             raise AssertionError("greek_to_ipa should not be called")
 
-        monkeypatch.setattr("phonology.ipa_converter.greek_to_ipa", fail_if_called)
+        monkeypatch.setattr("phonology.languages.ancient_greek.ipa.greek_to_ipa", fail_if_called)
 
         with pytest.raises(NotImplementedError, match="ionic"):
             to_ipa("λόγος", dialect="ionic")
@@ -256,7 +256,7 @@ class TestTokenizeIpa:
     def test_known_h_phone_is_not_treated_as_unknown_literal(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        caplog.set_level("DEBUG", logger="phonology.ipa_converter")
+        caplog.set_level("DEBUG", logger="phonology.languages.ancient_greek.ipa")
 
         assert tokenize_ipa("halos") == ["h", "a", "l", "o", "s"]
         assert "Treating unknown IPA token" not in caplog.text

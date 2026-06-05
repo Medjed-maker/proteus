@@ -24,6 +24,8 @@ from phonology.search import (
 from tests._helpers.fakes import install_seed_stage
 from tests._helpers.score_stage_mock import assert_only_expected_score_stage_kwargs
 
+pytestmark = pytest.mark.usefixtures("default_profile_follows_search_to_ipa")
+
 EXPECTED_FALLBACK_CANDIDATE_LIMIT = 2000
 
 

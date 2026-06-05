@@ -10,10 +10,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from phonology.betacode import beta_to_unicode
-import phonology.lsj as lsj_package
-import phonology.lsj_extractor as lsj_extractor_module
-from phonology.lsj_extractor import (
+from phonology.languages.ancient_greek.betacode import beta_to_unicode
+import phonology.languages.ancient_greek.lsj as lsj_package
+import phonology.languages.ancient_greek.lsj_extractor as lsj_extractor_module
+from phonology.languages.ancient_greek.lsj_extractor import (
     build_lexicon_document,
     extract_entry,
     validate_document,
@@ -361,7 +361,7 @@ class TestLeadingDialectLabels:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         gram = etree.fromstring('<gram type="dialect"/>')
-        monkeypatch.setattr("phonology.lsj._heading._elem_text", lambda _elem: None)
+        monkeypatch.setattr("phonology.languages.ancient_greek.lsj._heading._elem_text", lambda _elem: None)
 
         assert lsj_extractor_module._has_attic_dialect_label(gram) is False
         assert lsj_extractor_module._mapped_heading_dialect(gram) is None
@@ -374,7 +374,7 @@ class TestExtractDialect:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "phonology.lsj._fields._leading_dialect_labels",
+            "phonology.languages.ancient_greek.lsj._fields._leading_dialect_labels",
             lambda _entry: ["doric", "ionic"],
         )
 
@@ -384,7 +384,7 @@ class TestExtractDialect:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(
-            "phonology.lsj._fields._leading_dialect_labels",
+            "phonology.languages.ancient_greek.lsj._fields._leading_dialect_labels",
             lambda _entry: ["unknown_z", "unknown_a"],
         )
 
@@ -405,7 +405,7 @@ class TestLoadPosOverrides:
             lsj_extractor_module, "resolve_repo_data_dir", lambda _name: tmp_path
         )
 
-        caplog.set_level("ERROR", logger="phonology.lsj_extractor")
+        caplog.set_level("ERROR", logger="phonology.languages.ancient_greek.lsj_extractor")
         result = lsj_extractor_module._load_pos_overrides()
 
         assert result == {
@@ -430,7 +430,7 @@ class TestLoadPosOverrides:
             encoding="utf-8",
         )
 
-        caplog.set_level("ERROR", logger="phonology.lsj_extractor")
+        caplog.set_level("ERROR", logger="phonology.languages.ancient_greek.lsj_extractor")
         result = lsj_extractor_module._load_pos_overrides()
 
         assert result == {
@@ -452,7 +452,7 @@ class TestLoadPosOverrides:
         )
         (tmp_path / "pos_overrides.yaml").write_bytes(b"\xff\xfe")
 
-        caplog.set_level("ERROR", logger="phonology.lsj_extractor")
+        caplog.set_level("ERROR", logger="phonology.languages.ancient_greek.lsj_extractor")
         result = lsj_extractor_module._load_pos_overrides()
 
         assert result == {
@@ -474,7 +474,7 @@ class TestLoadPosOverrides:
             Mock(side_effect=FileNotFoundError("missing lexicon dir")),
         )
 
-        caplog.set_level("ERROR", logger="phonology.lsj_extractor")
+        caplog.set_level("ERROR", logger="phonology.languages.ancient_greek.lsj_extractor")
         result = lsj_extractor_module._load_pos_overrides()
 
         assert result == {
@@ -516,7 +516,7 @@ class TestLoadPosOverrides:
             raise OSError("read failed")
 
         monkeypatch.setattr(Path, "read_text", _raise_oserror)
-        caplog.set_level("ERROR", logger="phonology.lsj_extractor")
+        caplog.set_level("ERROR", logger="phonology.languages.ancient_greek.lsj_extractor")
 
         result = lsj_extractor_module._load_pos_overrides()
 
@@ -541,7 +541,7 @@ class TestLoadPosOverrides:
             "common_gender_keys: [a)/nqrwpos, 123]\nnumeral_keys: [de/ka, false]\n",
             encoding="utf-8",
         )
-        caplog.set_level("WARNING", logger="phonology.lsj_extractor")
+        caplog.set_level("WARNING", logger="phonology.languages.ancient_greek.lsj_extractor")
 
         result = lsj_extractor_module._load_pos_overrides()
 
@@ -689,7 +689,7 @@ class TestExtractEntry:
             captured["dialect"] = dialect
             return "mock-ipa"
 
-        monkeypatch.setattr("phonology.lsj_extractor.to_ipa", fake_to_ipa)
+        monkeypatch.setattr("phonology.languages.ancient_greek.lsj_extractor.to_ipa", fake_to_ipa)
 
         result = extract_entry(elem)
 
@@ -733,7 +733,7 @@ class TestExtractEntry:
         elem = _make_entry_xml(
             entry_id="n608", orth="lo/gos", gen="o(", tr="word", dialect=dialect_label
         )
-        caplog.set_level("INFO", logger="phonology.lsj_extractor")
+        caplog.set_level("INFO", logger="phonology.languages.ancient_greek.lsj_extractor")
 
         result = extract_entry(elem)
 
@@ -818,8 +818,8 @@ class TestExtractEntry:
         def fail_to_ipa(_: str, dialect: str = "attic") -> str:
             raise ValueError("bad conversion")
 
-        monkeypatch.setattr("phonology.lsj_extractor.to_ipa", fail_to_ipa)
-        caplog.set_level("INFO", logger="phonology.lsj_extractor")
+        monkeypatch.setattr("phonology.languages.ancient_greek.lsj_extractor.to_ipa", fail_to_ipa)
+        caplog.set_level("INFO", logger="phonology.languages.ancient_greek.lsj_extractor")
 
         result = extract_entry(elem)
 
@@ -842,7 +842,7 @@ class TestExtractEntry:
         def fail_to_ipa(_: str, dialect: str = "attic") -> str:
             raise error
 
-        monkeypatch.setattr("phonology.lsj_extractor.to_ipa", fail_to_ipa)
+        monkeypatch.setattr("phonology.languages.ancient_greek.lsj_extractor.to_ipa", fail_to_ipa)
 
         with pytest.raises(type(error), match=str(error)):
             extract_entry(elem)
@@ -890,6 +890,16 @@ class TestExtractEntry:
 
         assert len(gloss) == 200
         assert gloss.endswith("...")
+
+    def test_extract_gloss_uses_ellipsis_when_truncation_removes_all_combining_marks(
+        self,
+    ) -> None:
+        long_gloss = "\u0301" * 250
+        elem = etree.fromstring(
+            f'<entryFree id="n1" key="lo/gos" type="main"><tr>{long_gloss}</tr></entryFree>'
+        )
+
+        assert lsj_extractor_module._extract_gloss(elem) == "..."
 
     # -- POS and gender heuristics ---------------------------------------
 
@@ -2123,7 +2133,7 @@ class TestExtractEntry:
             '<sense id="s1" n="A" level="1"><tr>test</tr></sense>'
             "</entryFree>"
         )
-        caplog.set_level("INFO", logger="phonology.lsj_extractor")
+        caplog.set_level("INFO", logger="phonology.languages.ancient_greek.lsj_extractor")
         result = extract_entry(elem)
         assert result is None
         assert "Beta Code conversion failed" in caplog.text
@@ -2585,7 +2595,7 @@ class TestXmlIterationAndCli:
         xml_path.write_text("<root/>", encoding="utf-8")
         monkeypatch.setattr(etree, "iterparse", lambda *_args, **_kwargs: context)
         monkeypatch.setattr(
-            "phonology.lsj._xml_iter.extract_entry",
+            "phonology.languages.ancient_greek.lsj._xml_iter.extract_entry",
             lambda _element: {"id": "LSJ-000001"},
         )
 
@@ -2635,7 +2645,7 @@ class TestXmlIterationAndCli:
         monkeypatch.setattr(
             lsj_extractor_module, "extract_all", lambda *_args, **_kwargs: iter(())
         )
-        caplog.set_level("ERROR", logger="phonology.lsj_extractor")
+        caplog.set_level("ERROR", logger="phonology.languages.ancient_greek.lsj_extractor")
 
         assert (
             lsj_extractor_module.main(
@@ -2661,7 +2671,7 @@ class TestXmlIterationAndCli:
             "validate_document",
             Mock(side_effect=ValueError("bad schema")),
         )
-        caplog.set_level("ERROR", logger="phonology.lsj_extractor")
+        caplog.set_level("ERROR", logger="phonology.languages.ancient_greek.lsj_extractor")
 
         assert (
             lsj_extractor_module.main(
@@ -2863,6 +2873,44 @@ lemmas:
             "supplemental_path": lsj_extractor_module._default_supplemental_path(),
         }
 
+    def test_run_cli_skips_missing_default_supplemental_path(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        captured: dict[str, object] = {}
+        xml_dir = tmp_path / "xml"
+        missing_supplemental = tmp_path / "missing_supplemental.yaml"
+
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "_load_pos_overrides",
+            lambda *, cli_mode=False: lsj_extractor_module._empty_pos_overrides(),
+        )
+        monkeypatch.setattr(
+            lsj_extractor_module,
+            "_default_supplemental_path",
+            lambda: missing_supplemental,
+        )
+
+        def fake_main(**kwargs: object) -> int:
+            captured.update(kwargs)
+            return 0
+
+        monkeypatch.setattr(lsj_extractor_module, "main", fake_main)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "lsj_extractor.py",
+                "--xml-dir",
+                str(xml_dir),
+            ],
+        )
+
+        assert lsj_extractor_module.run_cli() == 0
+        assert captured["supplemental_path"] is None
+
     def test_run_cli_explicit_supplemental_overrides_default(
         self,
         tmp_path: Path,
@@ -2871,6 +2919,7 @@ lemmas:
         captured: dict[str, object] = {}
         xml_dir = tmp_path / "xml"
         supplemental_path = tmp_path / "custom_supplemental.yaml"
+        supplemental_path.write_text("lemmas: []\n", encoding="utf-8")
 
         def fake_load_pos_overrides(
             *, cli_mode: bool = False
@@ -2903,6 +2952,48 @@ lemmas:
         assert captured["cli_mode"] is True
         assert captured["supplemental_path"] == supplemental_path
 
+    def test_run_cli_explicit_missing_supplemental_returns_one(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        captured: dict[str, object] = {}
+        xml_dir = tmp_path / "xml"
+        missing_supplemental = tmp_path / "missing_supplemental.yaml"
+
+        def fake_load_pos_overrides(
+            *, cli_mode: bool = False
+        ) -> dict[str, frozenset[str]]:
+            captured["cli_mode"] = cli_mode
+            return lsj_extractor_module._empty_pos_overrides()
+
+        monkeypatch.setattr(
+            lsj_extractor_module, "_load_pos_overrides", fake_load_pos_overrides
+        )
+        mock_main = Mock(side_effect=AssertionError("main should not run"))
+        monkeypatch.setattr(lsj_extractor_module, "main", mock_main)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "lsj_extractor.py",
+                "--xml-dir",
+                str(xml_dir),
+                "--supplemental",
+                str(missing_supplemental),
+            ],
+        )
+        caplog.set_level(
+            "ERROR", logger="phonology.languages.ancient_greek.lsj_extractor"
+        )
+
+        assert lsj_extractor_module.run_cli() == 1
+        assert captured["cli_mode"] is True
+        mock_main.assert_not_called()
+        assert "Supplemental lexicon path is not a regular file" in caplog.text
+        assert str(missing_supplemental) in caplog.text
+
     def test_run_cli_returns_one_for_preload_failure(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -2919,7 +3010,7 @@ lemmas:
             Mock(side_effect=AssertionError("main should not run")),
         )
         monkeypatch.setattr(sys, "argv", ["lsj_extractor.py", "--xml-dir", "xml"])
-        caplog.set_level("ERROR", logger="phonology.lsj_extractor")
+        caplog.set_level("ERROR", logger="phonology.languages.ancient_greek.lsj_extractor")
 
         assert lsj_extractor_module.run_cli() == 1
         assert "Extraction failed unexpectedly" in caplog.text
@@ -2952,7 +3043,7 @@ class TestBetaCodeIntegration:
         expected_headword: str | None,
         expected_ipa: str | None,
     ) -> None:
-        from phonology.ipa_converter import to_ipa
+        from phonology.languages.ancient_greek.ipa import to_ipa
 
         if expected_headword is None:
             with pytest.raises(ValueError, match=r"Uppercase marker '\*' at index 0"):
@@ -2991,7 +3082,7 @@ class TestNestedGenElement:
 
     def test_find_gen_text_deep_returns_empty_when_no_gen(self) -> None:
         """Deep search returns empty string when no <gen> exists anywhere."""
-        from phonology.lsj_extractor import _find_gen_text
+        from phonology.languages.ancient_greek.lsj_extractor import _find_gen_text
 
         xml = etree.fromstring(
             '<entryFree id="n100" key="test" type="main">'
@@ -3002,7 +3093,7 @@ class TestNestedGenElement:
 
     def test_deep_search_does_not_cross_sense_boundary(self) -> None:
         """<gen> inside <sense> should not be found by the deep fallback."""
-        from phonology.lsj_extractor import _find_text_deep
+        from phonology.languages.ancient_greek.lsj_extractor import _find_text_deep
 
         xml = etree.fromstring(
             '<entryFree id="n100" key="test" type="main">'
@@ -3018,7 +3109,7 @@ class TestNestedGenElement:
 
     def test_deep_search_ignores_citation_subtrees(self) -> None:
         """<gen> inside heading citations should not be treated as headword gender."""
-        from phonology.lsj_extractor import _find_gen_text
+        from phonology.languages.ancient_greek.lsj_extractor import _find_gen_text
 
         xml = etree.fromstring(
             '<entryFree id="n101" key="a)gaqo/s" type="main">'

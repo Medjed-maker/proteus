@@ -1,8 +1,8 @@
-"""Tests for phonology._phones."""
+"""Tests for phonology.languages.ancient_greek.phones."""
 
 import pytest
 
-from phonology._phones import VOWEL_PHONES, phones_match, token_seq_matches
+from phonology.languages.ancient_greek.phones import VOWEL_PHONES, phones_match, token_seq_matches
 
 
 def test_vowel_phones_contains_expected_tokens() -> None:

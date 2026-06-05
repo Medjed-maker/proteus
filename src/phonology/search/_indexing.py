@@ -34,6 +34,7 @@ def _build_entry_kmers(
     k: int,
     *,
     phone_inventory: Iterable[str] | None = None,
+    vowel_phones: Iterable[str] | None = None,
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
 ) -> list[str]:
     """Return stable, de-duplicated seed k-mers for one lexicon IPA form.
@@ -42,9 +43,8 @@ def _build_entry_kmers(
     dialect-shifted skeletons produced by ``dialect_skeleton_builders``.
 
     When ``dialect_skeleton_builders`` is ``None`` (the default), no additional
-    dialect skeletons are generated. The Ancient Greek profile passes
-    ``(apply_koine_consonant_shifts,)`` explicitly at the public/profile
-    boundary.
+    dialect skeletons are generated. Language profiles pass their dialect-shift
+    builders explicitly at the public/profile boundary.
 
     Args:
         ipa_text: IPA transcription string for a lexicon entry.
@@ -60,10 +60,17 @@ def _build_entry_kmers(
         De-duplicated list of space-joined k-mer strings.
     """
     original_tokens = tokenize_for_inventory(ipa_text, phone_inventory)
-    original_skeleton = _extract_consonant_skeleton(original_tokens)
+    resolved_vowels = tuple(vowel_phones or ())
+    original_skeleton = _extract_consonant_skeleton(
+        original_tokens,
+        vowel_phones=resolved_vowels,
+    )
 
     extra_skeletons = [
-        _extract_consonant_skeleton(builder(list(original_tokens)))
+        _extract_consonant_skeleton(
+            builder(list(original_tokens)),
+            vowel_phones=resolved_vowels,
+        )
         for builder in (dialect_skeleton_builders or ())
     ]
 
@@ -86,6 +93,7 @@ def build_kmer_index(
     k: int = _DEFAULT_KMER_SIZE,
     *,
     phone_inventory: Iterable[str] | None = None,
+    vowel_phones: Iterable[str] | None = None,
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
 ) -> KmerIndex:
     """Build a consonant-skeleton k-mer index for lexicon lookup.
@@ -99,12 +107,15 @@ def build_kmer_index(
             k-mers. Passing None (the default) causes the function to infer
             the inventory from the lexicon. Invalid phones are ignored/skipped
             during tokenization.
+        vowel_phones: Optional iterable of vowel phone symbols identifying
+            vowel tokens to exclude when extracting consonant-skeleton k-mers.
+            Passing ``None`` causes vowel inference from the language profile.
         dialect_skeleton_builders: Optional callables that each transform a
             token list into a dialect variant for additional skeleton coverage.
             ``None`` (default) means no additional dialect skeletons.
-            Pass an explicit tuple to use dialect-shift augmentation; the
-            Ancient Greek profile passes
-            ``(apply_koine_consonant_shifts,)``.
+            Pass an explicit tuple to use dialect-shift augmentation; language
+            profiles supply their dialect-shift builders at the profile
+            boundary.
 
     Returns:
         KmerIndex mapping each space-joined k-mer to a list of matching
@@ -128,6 +139,7 @@ def build_kmer_index(
                 ipa,
                 k,
                 phone_inventory=phone_inventory,
+                vowel_phones=vowel_phones,
                 dialect_skeleton_builders=dialect_skeleton_builders,
             ):
                 index.setdefault(kmer, []).append(entry_id)

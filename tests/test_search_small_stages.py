@@ -8,7 +8,7 @@ previously lived alongside ``TestSearch`` in ``tests/test_search.py``.
 from __future__ import annotations
 
 import inspect
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any, Callable, get_args, get_type_hints
 import unicodedata
 
@@ -16,17 +16,20 @@ import pytest
 
 from phonology import search as search_module
 import phonology.search.compat as search_compat
-from phonology.ipa_converter import tokenize_ipa
+from phonology.languages.ancient_greek.ipa import tokenize_ipa
 from phonology.search import (
     SearchResult,
     build_kmer_index,
     build_lexicon_map,
     classify_query_mode,
+    extend_stage,
     filter_stage,
     normalize_query_for_search,
+    prepare_query_ipa,
     seed_stage,
 )
 from phonology.search._types import PhoneInventory
+from tests._helpers.fakes import install_test_language_profile
 
 
 class TestFilterStage:
@@ -86,8 +89,11 @@ class TestPublicCompatibilityBoundary:
         assert parameter.default is inspect.Parameter.empty
         assert get_type_hints(target)["phone_inventory"] == PhoneInventory
 
-    def test_public_default_resolvers_return_phone_inventory_type(self) -> None:
+    def test_public_default_resolvers_return_phone_inventory_type(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Compat is the only layer that accepts optional public inventory."""
+        install_test_language_profile(monkeypatch)
         normalize_hints = get_type_hints(search_compat._normalize_phone_inventory)
         resolve_hints = get_type_hints(search_compat._resolve_public_defaults)
 
@@ -96,13 +102,17 @@ class TestPublicCompatibilityBoundary:
         assert return_args, "Return type should have type arguments"
         assert return_args[0] == PhoneInventory
 
-        resolved_inventory, resolved_builders = search_compat._resolve_public_defaults(
-            language="test",
-            phone_inventory=None,
+        resolved_inventory, resolved_vowels, resolved_builders = (
+            search_compat._resolve_public_defaults(
+                language="test",
+                phone_inventory=None,
+            )
         )
         assert resolved_inventory == ()
+        assert resolved_vowels == ()
         assert type(resolved_inventory) is tuple
-        assert resolved_builders is None
+        assert type(resolved_vowels) is tuple
+        assert resolved_builders == ()
 
     @pytest.mark.parametrize(
         "name",
@@ -161,9 +171,251 @@ class TestPublicCompatibilityBoundary:
             "_build_lexicon_map_core",
             fake_build_lexicon_map_core,
         )
+        install_test_language_profile(monkeypatch)
 
         assert build_lexicon_map([], language="test") == {}
         assert captured == {"lexicon": [], "phone_inventory": ()}
+
+    def test_prepare_query_ipa_rejects_unknown_non_default_language(self) -> None:
+        """Unknown profile ids must not fall back to the Ancient Greek converter."""
+        with pytest.raises(ValueError, match="Unsupported language profile"):
+            prepare_query_ipa("pa", language="missing_profile")
+
+    def test_prepare_query_ipa_reuses_profile_for_defaults_and_converter(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Registered non-default profiles are resolved once at the public boundary."""
+        calls: list[str] = []
+        captured: dict[str, object] = {}
+
+        def converter(text: str, *, dialect: str) -> str:
+            return f"{dialect}:{text}"
+
+        profile = SimpleNamespace(
+            phone_inventory=("ts", "p", "a"),
+            vowel_phones=(),
+            dialect_skeleton_builders=(),
+            converter=converter,
+        )
+
+        def fake_get_language_profile(language_id: str) -> object:
+            calls.append(language_id)
+            return profile
+
+        def fake_prepare_query_ipa_core(
+            query: str,
+            *,
+            dialect: str = "attic",
+            converter: object = None,
+            phone_inventory: PhoneInventory,
+            query_ipa: str | None = None,
+        ) -> str:
+            captured["query"] = query
+            captured["dialect"] = dialect
+            captured["converter"] = converter
+            captured["phone_inventory"] = phone_inventory
+            captured["query_ipa"] = query_ipa
+            return "prepared"
+
+        monkeypatch.setattr(
+            search_module,
+            "get_language_profile",
+            fake_get_language_profile,
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_prepare_query_ipa_core",
+            fake_prepare_query_ipa_core,
+        )
+
+        assert prepare_query_ipa("pa", dialect="toy", language="toy_language") == (
+            "prepared"
+        )
+        assert calls == ["toy_language"]
+        assert captured == {
+            "query": "pa",
+            "dialect": "toy",
+            "converter": converter,
+            "phone_inventory": search_compat._normalize_phone_inventory(
+                ("ts", "p", "a")
+            ),
+            "query_ipa": None,
+        }
+
+    def test_prepare_query_ipa_uses_default_profile_dialect_when_omitted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Omitted dialect resolves from the selected default profile."""
+        captured: dict[str, object] = {}
+
+        def converter(text: str, *, dialect: str) -> str:
+            return f"{dialect}:{text}"
+
+        profile = SimpleNamespace(
+            language_id="toy_default",
+            default_dialect="toy",
+            phone_inventory=("p", "a"),
+            vowel_phones=(),
+            dialect_skeleton_builders=(),
+            converter=converter,
+        )
+
+        def fake_prepare_query_ipa_core(
+            query: str,
+            *,
+            dialect: str | None = None,
+            converter: object = None,
+            phone_inventory: PhoneInventory,
+            query_ipa: str | None = None,
+        ) -> str:
+            captured["query"] = query
+            captured["dialect"] = dialect
+            captured["converter"] = converter
+            captured["phone_inventory"] = phone_inventory
+            captured["query_ipa"] = query_ipa
+            return "prepared"
+
+        monkeypatch.setattr(search_module, "get_default_language_profile", lambda: profile)
+        monkeypatch.setattr(
+            search_module,
+            "_prepare_query_ipa_core",
+            fake_prepare_query_ipa_core,
+        )
+
+        assert prepare_query_ipa("pa") == "prepared"
+        assert captured == {
+            "query": "pa",
+            "dialect": "toy",
+            "converter": converter,
+            "phone_inventory": search_compat._normalize_phone_inventory(("p", "a")),
+            "query_ipa": None,
+        }
+
+    def test_default_language_resolves_profile_inventory_and_builders_when_omitted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Omitted language resolves default profile search-token settings."""
+        captured: dict[str, object] = {}
+
+        def builder(tokens: list[str]) -> list[str]:
+            return tokens
+
+        profile = SimpleNamespace(
+            language_id="toy_default",
+            default_dialect="toy",
+            phone_inventory=("ts", "p", "a"),
+            vowel_phones=(),
+            dialect_skeleton_builders=(builder,),
+        )
+
+        def fake_build_kmer_index_for_inventory(
+            lexicon: object,
+            *,
+            k: int,
+            phone_inventory: PhoneInventory,
+            vowel_phones: object = None,
+            dialect_skeleton_builders: object = None,
+        ) -> dict[str, object]:
+            captured["lexicon"] = lexicon
+            captured["k"] = k
+            captured["phone_inventory"] = phone_inventory
+            captured["dialect_skeleton_builders"] = dialect_skeleton_builders
+            return {}
+
+        monkeypatch.setattr(search_module, "get_default_language_profile", lambda: profile)
+        monkeypatch.setattr(
+            search_module,
+            "_build_kmer_index_for_inventory",
+            fake_build_kmer_index_for_inventory,
+        )
+
+        assert build_kmer_index([], language=None) == {}
+        assert captured == {
+            "lexicon": [],
+            "k": 2,
+            "phone_inventory": search_compat._normalize_phone_inventory(("ts", "p", "a")),
+            "dialect_skeleton_builders": (builder,),
+        }
+
+    def test_prepare_query_ipa_uses_registered_profile_default_dialect(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Explicit registered profiles supply converter, inventory, and dialect."""
+        captured: dict[str, object] = {}
+
+        def converter(text: str, *, dialect: str) -> str:
+            return f"{dialect}:{text}"
+
+        profile = SimpleNamespace(
+            language_id="toy_language",
+            default_dialect="toy",
+            phone_inventory=("p", "a"),
+            vowel_phones=(),
+            dialect_skeleton_builders=(),
+            converter=converter,
+        )
+
+        def fake_prepare_query_ipa_core(
+            query: str,
+            *,
+            dialect: str | None = None,
+            converter: object = None,
+            phone_inventory: PhoneInventory,
+            query_ipa: str | None = None,
+        ) -> str:
+            captured["query"] = query
+            captured["dialect"] = dialect
+            captured["converter"] = converter
+            captured["phone_inventory"] = phone_inventory
+            captured["query_ipa"] = query_ipa
+            return "prepared"
+
+        monkeypatch.setattr(search_module, "get_language_profile", lambda _id: profile)
+        monkeypatch.setattr(
+            search_module,
+            "get_default_language_profile",
+            lambda: SimpleNamespace(language_id="other_default"),
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_prepare_query_ipa_core",
+            fake_prepare_query_ipa_core,
+        )
+
+        assert prepare_query_ipa("pa", language="toy_language") == "prepared"
+        assert captured == {
+            "query": "pa",
+            "dialect": "toy",
+            "converter": converter,
+            "phone_inventory": search_compat._normalize_phone_inventory(("p", "a")),
+            "query_ipa": None,
+        }
+
+    def test_default_language_uses_profile_converter(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Omitted language resolves the default profile converter."""
+        captured: dict[str, str] = {}
+
+        def converter(query: str, *, dialect: str) -> str:
+            captured["query"] = query
+            captured["dialect"] = dialect
+            return "p a"
+
+        profile = SimpleNamespace(
+            language_id="toy_default",
+            default_dialect="toy",
+            phone_inventory=("p", "a"),
+            vowel_phones=(),
+            dialect_skeleton_builders=(),
+            converter=converter,
+        )
+        monkeypatch.setattr(search_module, "get_default_language_profile", lambda: profile)
+
+        prepared = prepare_query_ipa("pa", phone_inventory=("p", "a"))
+
+        assert prepared.query_ipa == "p a"
+        assert captured == {"query": "pa", "dialect": "toy"}
 
     def test_default_language_resolves_missing_inventory_before_core(
         self, monkeypatch: pytest.MonkeyPatch, known_phones: tuple[str, ...]
@@ -177,6 +429,7 @@ class TestPublicCompatibilityBoundary:
             *,
             k: int,
             phone_inventory: PhoneInventory,
+            vowel_phones: object = None,
         ) -> list[str]:
             captured["query_ipa"] = query_ipa
             captured["index"] = index
@@ -193,6 +446,144 @@ class TestPublicCompatibilityBoundary:
         assert captured["phone_inventory"] == search_compat._normalize_phone_inventory(
             known_phones
         )
+
+    def test_extend_stage_forwards_profile_annotation_settings(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Public extend_stage backfills profile-specific annotation settings."""
+        captured: dict[str, object] = {}
+
+        def phone_matcher(actual: str, expected: str) -> bool:
+            return actual == expected
+
+        profile = SimpleNamespace(
+            language_id="toy_language",
+            default_dialect="toy",
+            phone_inventory=("ts", "a", "p"),
+            vowel_phones=("a",),
+            phone_matcher=phone_matcher,
+            dialect_skeleton_builders=(),
+            always_match_contexts=("toy context",),
+        )
+
+        def fake_extend_stage_core(
+            query_ipa: str,
+            candidates: object,
+            lexicon_map: object,
+            matrix: object,
+            language: str | None = None,
+            *,
+            phone_inventory: PhoneInventory,
+            vowel_phones: object = None,
+            phone_matcher: object = None,
+            always_match_contexts: object = None,
+        ) -> list[SearchResult]:
+            captured["query_ipa"] = query_ipa
+            captured["candidates"] = candidates
+            captured["lexicon_map"] = lexicon_map
+            captured["matrix"] = matrix
+            captured["language"] = language
+            captured["phone_inventory"] = phone_inventory
+            captured["vowel_phones"] = vowel_phones
+            captured["phone_matcher"] = phone_matcher
+            captured["always_match_contexts"] = always_match_contexts
+            return []
+
+        monkeypatch.setattr(
+            search_module,
+            "get_language_profile",
+            lambda _id: profile,
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_extend_stage_core",
+            fake_extend_stage_core,
+        )
+
+        assert extend_stage(
+            "tsa",
+            ["toy-entry"],
+            {"toy-entry": {"headword": "tsa", "ipa": "tsa"}},
+            {"ts": {"ts": 0.0}, "a": {"a": 0.0}},
+            language="toy_language",
+        ) == []
+        assert captured == {
+            "query_ipa": "tsa",
+            "candidates": ["toy-entry"],
+            "lexicon_map": {"toy-entry": {"headword": "tsa", "ipa": "tsa"}},
+            "matrix": {"ts": {"ts": 0.0}, "a": {"a": 0.0}},
+            "language": "toy_language",
+            "phone_inventory": search_compat._normalize_phone_inventory(
+                ("ts", "a", "p")
+            ),
+            "vowel_phones": ("a",),
+            "phone_matcher": phone_matcher,
+            "always_match_contexts": ("toy context",),
+        }
+
+    def test_extend_stage_core_forwards_annotation_settings(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Internal extend_stage core passes annotation settings through."""
+        captured: dict[str, object] = {}
+        scored_results = [SearchResult(lemma="tsa", confidence=1.0)]
+        annotated_results = [SearchResult(lemma="annotated", confidence=1.0)]
+
+        def phone_matcher(actual: str, expected: str) -> bool:
+            return actual == expected
+
+        def fake_score_stage_for_inventory(**kwargs: object) -> list[SearchResult]:
+            captured["score_kwargs"] = kwargs
+            return scored_results
+
+        def fake_annotate_search_results_for_inventory(
+            **kwargs: object,
+        ) -> list[SearchResult]:
+            captured["annotate_kwargs"] = kwargs
+            return annotated_results
+
+        monkeypatch.setattr(
+            search_module,
+            "_score_stage_for_inventory",
+            fake_score_stage_for_inventory,
+        )
+        monkeypatch.setattr(
+            search_module,
+            "_annotate_search_results_for_inventory",
+            fake_annotate_search_results_for_inventory,
+        )
+
+        result = search_module._extend_stage_core(
+            "tsa",
+            ["toy-entry"],
+            {"toy-entry": {"headword": "tsa", "ipa": "tsa"}},
+            {"ts": {"ts": 0.0}, "a": {"a": 0.0}},
+            language="toy_language",
+            phone_inventory=PhoneInventory(("ts", "a")),
+            vowel_phones=("a",),
+            phone_matcher=phone_matcher,
+            always_match_contexts=("toy context",),
+        )
+
+        assert result == annotated_results
+        assert captured["score_kwargs"] == {
+            "query_ipa": "tsa",
+            "candidates": ["toy-entry"],
+            "lexicon_map": {"toy-entry": {"headword": "tsa", "ipa": "tsa"}},
+            "matrix": {"ts": {"ts": 0.0}, "a": {"a": 0.0}},
+            "phone_inventory": PhoneInventory(("ts", "a")),
+        }
+        assert captured["annotate_kwargs"] == {
+            "query_ipa": "tsa",
+            "results": scored_results,
+            "lexicon_map": {"toy-entry": {"headword": "tsa", "ipa": "tsa"}},
+            "matrix": {"ts": {"ts": 0.0}, "a": {"a": 0.0}},
+            "language": "toy_language",
+            "phone_inventory": PhoneInventory(("ts", "a")),
+            "vowel_phones": ("a",),
+            "phone_matcher": phone_matcher,
+            "always_match_contexts": ("toy context",),
+        }
 
 
 class TestQueryModeHelpers:
@@ -319,12 +710,15 @@ class TestBuildLexiconMap:
         assert result["L1"].ipa_tokens == ("a", "pʰ", "l", "a", "s")
         assert result["L1"].token_count == 5
 
-    def test_non_default_language_keeps_literal_fallback_tokens(self) -> None:
+    def test_non_default_language_keeps_literal_fallback_tokens(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Non-default language tokenization should keep literal fallback tokens.
 
         For the apʰlas input lexicon with language="test", build_lexicon_map
         should cache ("a", "p", "ʰ", "l", "a", "s") with token_count 6.
         """
+        install_test_language_profile(monkeypatch)
         lexicon = [
             {"id": "L1", "headword": "target", "ipa": "apʰlas", "dialect": "test"},
         ]
@@ -426,7 +820,7 @@ class TestBuildKmerIndex:
         assert index["l s"] == ["L1"]
 
     def test_default_language_fills_in_ancient_greek_defaults(self) -> None:
-        """Verify build_kmer_index fills in default phone_inventory and dialect_skeleton_builders for DEFAULT_LANGUAGE_ID."""
+        """Verify build_kmer_index fills in default profile search settings."""
         index = build_kmer_index(
             [{"id": "L1", "headword": "target", "ipa": "apʰlas", "dialect": "attic"}],
             k=2,
@@ -471,9 +865,12 @@ class TestBuildKmerIndex:
         assert index["f l"] == ["L1"]
         assert index["pʰ l"] == ["L1"]
 
-    def test_non_default_language_passes_through_supplied_parameters(self) -> None:
+    def test_non_default_language_passes_through_supplied_parameters(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Verify build_kmer_index passes through supplied phone_inventory and dialect_skeleton_builders for non-default languages unchanged."""
         custom_inventory = ["a", "p", "l", "s"]
+        install_test_language_profile(monkeypatch, language_id="other_lang")
 
         index = build_kmer_index(
             [{"id": "L1", "headword": "target", "ipa": "aplas", "dialect": "generic"}],
@@ -613,9 +1010,10 @@ class TestSeedStage:
         assert candidates == ["L1"]
 
     def test_non_default_language_does_not_inject_ancient_greek_inventory(
-        self,
+        self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Non-default language must keep the literal-character fallback."""
+        install_test_language_profile(monkeypatch)
         lexicon = [
             {"id": "L1", "headword": "target", "ipa": "pʰt", "dialect": "test"},
         ]

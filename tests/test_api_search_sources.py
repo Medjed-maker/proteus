@@ -14,9 +14,9 @@ from api._models import SearchHit
 from mcp_server._search_adapter import _run_search_for_mcp
 from mcp_server.tools.search import McpSearchInput
 from phonology import search as phonology_search
-from phonology.corpus import CorpusAdapter, SourceReference
+from phonology.core.ports.corpus import CorpusAdapter, SourceReference
 from phonology.distance import MatrixData
-from phonology.profiles import get_default_language_profile
+from phonology.core.ports.profiles import get_default_language_profile
 from phonology.search import SearchResult
 from tests.conftest import (
     _make_fake_search_execution,

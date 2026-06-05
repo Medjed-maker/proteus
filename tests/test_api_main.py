@@ -1,6 +1,8 @@
 """Tests for api.main."""
 
 import logging
+import subprocess
+import sys
 import unicodedata
 import warnings
 from collections.abc import Generator
@@ -19,12 +21,12 @@ from api._models import OrthographicNote, RuleStep, SearchHit, SearchRequest
 from api._request_context import is_valid_request_id
 from phonology import search as search_module
 from phonology.explainer import RuleApplication
-from phonology.profiles import (
+from phonology.core.ports.profiles import (
     get_default_language_profile,
     LanguageProfile,
     register_language_profile,
 )
-from phonology.orthography_notes import OrthographicNotePayload
+from phonology.core.ports.orthography_notes import OrthographicNotePayload
 from phonology.search import LexiconRecord, SearchResult
 from tests.conftest import (
     _make_fake_search_execution,
@@ -61,6 +63,58 @@ def _clear_loader_caches() -> None:
     )
     if search_cache_clear is not None:
         search_cache_clear()
+
+
+def test_api_main_imports_after_non_default_profile_is_registered(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Importing api.main must not resolve the default profile at import time."""
+    monkeypatch.delenv("PROTEUS_DEFAULT_LANGUAGE", raising=False)
+    profile_root = tmp_path / "toy-profile"
+    script = f"""
+from pathlib import Path
+
+from phonology.core.ports.profiles import LanguageProfile, register_language_profile
+
+
+def toy_converter(text: str, *, dialect: str) -> str:
+    return text
+
+
+profile_root = Path({str(profile_root)!r})
+rules_dir = profile_root / "rules"
+matrix_dir = profile_root / "matrices"
+rules_dir.mkdir(parents=True)
+matrix_dir.mkdir()
+register_language_profile(
+    LanguageProfile(
+        language_id="toy_api_import",
+        display_name="Toy API Import",
+        default_dialect="toy",
+        supported_dialects=("toy",),
+        converter=toy_converter,
+        phone_inventory=("a",),
+        lexicon_path=profile_root / "lexicon.json",
+        matrix_path=matrix_dir / "matrix.json",
+        rules_dir=rules_dir,
+    )
+)
+
+import api.main
+
+print("imported")
+"""
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.stdout.strip() == "imported"
 
 
 def _install_invalid_query_to_ipa(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -197,10 +251,31 @@ class TestSearchHit:
         assert note.normalized_form == "παιδίου"
         assert note.romanization == "paidiou"
 
+    def test_orthographic_note_accepts_plugin_specific_kind(self) -> None:
+        note = OrthographicNote(
+            kind="phonological_rule",
+            label="Plugin note",
+            messages=["Plugin-specific note."],
+            confidence="medium",
+        )
+
+        assert note.kind == "phonological_rule"
+
+    @pytest.mark.parametrize("kind", ["", "   "])
+    def test_orthographic_note_rejects_blank_kind(self, kind: str) -> None:
+        with pytest.raises(ValidationError) as exc_info:
+            OrthographicNote(
+                kind=kind,
+                label="Plugin note",
+                messages=["Plugin-specific note."],
+                confidence="medium",
+            )
+
+        assert "kind" in str(exc_info.value)
+
     @pytest.mark.parametrize(
         ("field_name", "value"),
         [
-            ("kind", "phonological_rule"),
             ("confidence", "certain"),
             ("messages", "not-a-list"),
         ],
@@ -744,6 +819,38 @@ class TestSearchHit:
         assert [step.rule_id for step in hit.rules_applied] == ["OBS-SUB"]
         assert "Toy message." not in hit.explanation
 
+    def test_build_search_hit_preserves_plugin_specific_orthographic_note_kind(
+        self,
+    ) -> None:
+        def toy_note_builder(**_kwargs: object) -> list[OrthographicNotePayload]:
+            return [
+                OrthographicNotePayload(
+                    kind="toy_language_spelling",
+                    label="Toy note",
+                    messages=("Toy message.",),
+                    confidence="low",
+                )
+            ]
+
+        hit = api_main._build_search_hit(
+            SearchResult(
+                lemma="toy",
+                confidence=0.8,
+                dialect_attribution="lemma dialect: toy",
+                applied_rules=[],
+                ipa="toi",
+            ),
+            query_ipa="toi",
+            rules_registry={},
+            query_mode="Full-form",
+            query_form="toy",
+            orthographic_note_builder=toy_note_builder,
+        )
+
+        assert [note.kind for note in hit.orthographic_notes] == [
+            "toy_language_spelling"
+        ]
+
     def test_build_search_hit_leaves_orthographic_notes_empty_without_builder(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -781,7 +888,7 @@ class TestSearchHit:
             api_hit_formatting, "to_prose", lambda explanation: "example"
         )
 
-        from phonology.orthography_notes import OrthographicNoteDataError
+        from phonology.core.ports.orthography_notes import OrthographicNoteDataError
 
         def failing_note_builder(**_kwargs: object) -> list[OrthographicNotePayload]:
             raise OrthographicNoteDataError("malformed entry")
@@ -1162,7 +1269,7 @@ class TestReadyEndpoint:
     ) -> None:
         """Readiness probe returns 503 when orthographic data is malformed."""
         from dataclasses import replace as dataclass_replace
-        from phonology.orthography_notes import OrthographicNoteDataError
+        from phonology.core.ports.orthography_notes import OrthographicNoteDataError
 
         def failing_preparer() -> None:
             raise OrthographicNoteDataError("bad orthographic data")
@@ -1303,7 +1410,7 @@ class TestSearchDependenciesLoader:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         from dataclasses import replace as dataclass_replace
-        from phonology.orthography_notes import OrthographicNoteDataError
+        from phonology.core.ports.orthography_notes import OrthographicNoteDataError
 
         td = _make_test_dependencies()
 
@@ -2835,6 +2942,14 @@ class TestSearchValidation:
         properties = schema["components"]["schemas"]["SearchRequest"]["properties"]
         assert properties["orthography_hint"]["deprecated"] is True
 
+    def test_search_request_schema_omits_dynamic_defaults(self) -> None:
+        from api.main import app
+
+        schema = app.openapi()
+        properties = schema["components"]["schemas"]["SearchRequest"]["properties"]
+        assert "default" not in properties["dialect_hint"]
+        assert "default" not in properties["language"]
+
     @pytest.mark.parametrize(
         ("value", "expected"),
         [
@@ -3710,11 +3825,11 @@ class TestExplicitLanguageLoaderCaching:
 
         @lru_cache(maxsize=8)
         def fake_load_lexicon_map(
-            language: str = default_language_id,
+            language_id: str,
         ) -> dict[str, object]:
             nonlocal call_count
             call_count += 1
-            return {"language": language}
+            return {"language_id": language_id}
 
         monkeypatch.setattr(api_main, "_load_lexicon_map", fake_load_lexicon_map)
         monkeypatch.setattr(

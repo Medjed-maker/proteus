@@ -18,7 +18,7 @@ from phonology.explainer import (
     load_rules,
     to_prose,
 )
-from phonology.ipa_converter import to_ipa, tokenize_ipa
+from phonology.languages.ancient_greek.ipa import to_ipa, tokenize_ipa
 
 # Intentional private import: these packaged-rule tests need the exact
 # Smith-Waterman alignment used at runtime before calling explain(), so they
@@ -73,28 +73,40 @@ def make_ipa_alignment(
 
 def test_to_prose_returns_canonical_prose_without_mutating_explanation() -> None:
     """to_prose returns prose while leaving Explanation.prose unchanged for callers."""
+    steps = [
+        RuleApplication(
+            rule_id="rule-1",
+            rule_name="Accent Loss",
+            from_phone="o",
+            to_phone="o",
+            position=1,
+            dialects=["attic"],
+            weight=0.5,
+        )
+    ]
     explanation = Explanation(
         source="λόγος",
         target="λογος",
         source_ipa="loɡos",
         target_ipa="loɡos",
         distance=0.5,
-        steps=[
-            RuleApplication(
-                rule_id="rule-1",
-                rule_name="Accent Loss",
-                from_phone="o",
-                to_phone="o",
-                position=1,
-                dialects=["attic"],
-                weight=0.5,
-            )
-        ],
+        steps=steps,
+    )
+    steps.append(
+        RuleApplication(
+            rule_id="rule-2",
+            rule_name="Late Mutation",
+            from_phone="s",
+            to_phone="z",
+            position=4,
+        )
     )
 
     result = to_prose(explanation)
 
     assert "Accent Loss" in result
+    assert "Late Mutation" not in result
+    assert isinstance(explanation.steps, tuple)
     assert "λόγος /loɡos/ aligns to λογος /loɡos/" in result
     assert "weight 0.5" in result
     assert explanation.prose == ""
@@ -932,6 +944,100 @@ def test_tokenize_rules_preserves_context_tail_case_with_inventory() -> None:
     assert tokenized_rules[0].context_tail_tokens == ("A",)
 
 
+def test_tokenize_rules_uses_inventory_for_multicharacter_rule_parts() -> None:
+    """Verify rule sides and lookahead tails use longest-match inventory tokens."""
+    tokenized_rules = explainer_module.tokenize_rules_for_matching(
+        [
+            _rule(
+                rule_id="MULTI-TS",
+                input_phoneme="ts",
+                output_phoneme="p",
+                context="_...tsa",
+            )
+        ],
+        phone_inventory=("ts", "p", "a"),
+    )
+
+    assert tokenized_rules[0].input_tokens == ("ts",)
+    assert tokenized_rules[0].output_tokens == ("p",)
+    assert tokenized_rules[0].context_tail_tokens == ("ts", "a")
+
+
+def test_tokenize_rules_does_not_resolve_default_inventory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Rule tokenization should not depend on the default language profile."""
+    from phonology.core.ports import profiles
+
+    def fake_get_default_language_profile() -> object:
+        raise AssertionError("unexpected default profile lookup")
+
+    monkeypatch.setattr(
+        profiles,
+        "get_default_language_profile",
+        fake_get_default_language_profile,
+    )
+
+    tokenized_rules = explainer_module.tokenize_rules_for_matching(
+        [
+            _rule(
+                rule_id="DEFAULT-MULTI",
+                input_phoneme="ts",
+                output_phoneme="p",
+                context="_...tsa",
+            )
+        ],
+        phone_inventory=None,
+    )
+
+    assert tokenized_rules[0].input_tokens == ("t", "s")
+    assert tokenized_rules[0].output_tokens == ("p",)
+    assert tokenized_rules[0].context_tail_tokens == ("t", "s", "a")
+
+
+def test_same_word_lookahead_uses_explicit_inventory_for_multicharacter_tail() -> None:
+    """Context fallback tokenization should use the caller's phone inventory."""
+    applications = explain(
+        query_tokens=["p", "ts", "a"],
+        lemma_tokens=["x", "ts", "a"],
+        alignment=Alignment(
+            aligned_query=("p", "ts", "a"),
+            aligned_lemma=("x", "ts", "a"),
+        ),
+        rules=[
+            _rule(
+                rule_id="LOOKAHEAD-TS",
+                input_phoneme="x",
+                output_phoneme="p",
+                context="_...tsa",
+            )
+        ],
+        phone_inventory=("ts", "x", "p", "a"),
+    )
+
+    assert [application.rule_id for application in applications] == ["LOOKAHEAD-TS"]
+
+
+def test_language_specific_always_match_contexts_are_injected() -> None:
+    """Language profiles can supply unconditional context labels."""
+    applications = explain(
+        query_tokens=["y"],
+        lemma_tokens=["x"],
+        alignment=Alignment(aligned_query=("y",), aligned_lemma=("x",)),
+        rules=[
+            _rule(
+                rule_id="LANG-CONTEXT",
+                input_phoneme="x",
+                output_phoneme="y",
+                context="language-specific context",
+            )
+        ],
+        always_match_contexts=("language-specific context",),
+    )
+
+    assert [application.rule_id for application in applications] == ["LANG-CONTEXT"]
+
+
 def test_find_matching_rule_candidate_returns_single_token_match_result() -> None:
     """Verify the helper returns consumed lengths and position for a simple match."""
     block = explainer_module._MismatchBlock(
@@ -943,7 +1049,8 @@ def test_find_matching_rule_candidate_returns_single_token_match_result() -> Non
         query_start_position=3,
     )
     tokenized_rules = explainer_module.tokenize_rules_for_matching(
-        [_rule(rule_id="VSH-001", input_phoneme="aː", output_phoneme="ɛː")]
+        [_rule(rule_id="VSH-001", input_phoneme="aː", output_phoneme="ɛː")],
+        phone_inventory=("aː", "ɛː", "k", "s"),
     )
 
     match = explainer_module._find_matching_rule_candidate(
@@ -1081,6 +1188,7 @@ def test_explain_matches_suffix_rule_with_dichronous_length_tolerance() -> None:
                 context="_#",
             )
         ],
+        phone_inventory=("aː", "ɔː", "m", "a", "n"),
     )
 
     assert [application.rule_id for application in applications] == ["MPH-SUFFIX"]
@@ -1458,6 +1566,29 @@ def test_load_rules_accepts_bare_relative_directory_name(
     rules = load_rules("ancient_greek")
 
     assert "TEST-001" in rules
+
+
+def test_resolve_rules_dir_falls_back_when_default_profile_path_is_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Single-segment rule paths stay under the base when profile lookup fails."""
+    from phonology.core.ports import profiles
+
+    rules_base = tmp_path / "rules"
+
+    def missing_default_profile() -> object:
+        raise FileNotFoundError("missing profile rules")
+
+    monkeypatch.setattr(
+        profiles,
+        "get_default_language_profile",
+        missing_default_profile,
+    )
+
+    resolved = explainer_module._resolve_rules_dir("custom", rules_base)
+
+    assert resolved == rules_base / "custom"
 
 
 def test_load_rules_accepts_legacy_repo_style_relative_directory(

@@ -128,11 +128,6 @@
               },
               "kind": {
                 "description": "Machine-readable category for the orthographic note.",
-                "enum": [
-                  "orthographic_correspondence",
-                  "beginner_aid",
-                  "pre_403_2_attic"
-                ],
                 "title": "Kind",
                 "type": "string"
               },

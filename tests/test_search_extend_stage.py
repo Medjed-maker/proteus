@@ -14,13 +14,14 @@ import yaml
 from phonology import search as search_module
 from phonology.distance import load_matrix
 from phonology.explainer import RuleApplication
-from phonology.ipa_converter import to_ipa, tokenize_ipa
+from phonology.languages.ancient_greek.ipa import to_ipa, tokenize_ipa
 from phonology.search import (
     LexiconRecord,
     extend_stage,
     search,
 )
 from phonology.search import _scoring as scoring_module
+from tests._helpers.fakes import install_test_language_profile
 
 MATRIX_FILE = "attic_doric.json"
 
@@ -280,6 +281,7 @@ class TestExtendStage:
         monkeypatch.setattr(
             search_module, "get_rules_registry", fake_get_rules_registry
         )
+        install_test_language_profile(monkeypatch, language_id="test_language")
 
         extend_stage(
             "aː",
@@ -311,6 +313,7 @@ class TestExtendStage:
         monkeypatch.setattr(
             search_module, "get_rules_registry", fake_get_rules_registry
         )
+        install_test_language_profile(monkeypatch, language_id="test_language")
 
         extend_stage(
             "aː",
@@ -1081,7 +1084,9 @@ class TestExtendStage:
     ) -> None:
         """Near-zero alignment scores should still prefer a diagonal traceback."""
         monkeypatch.setattr(scoring_module, "_GAP_PENALTY", 1e-12)
-        monkeypatch.setattr(scoring_module, "_substitution_score", lambda *_args: 0.0)
+        monkeypatch.setattr(
+            scoring_module, "_substitution_score", lambda *_args, **_kwargs: 0.0
+        )
 
         score, aligned_query, aligned_lemma = scoring_module._smith_waterman_alignment(
             ["q"],

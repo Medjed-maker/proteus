@@ -7,18 +7,22 @@ from dataclasses import dataclass
 from typing import Final, Literal, Optional, TypedDict, get_args
 import unicodedata
 
-from phonology.orthography_notes import (
+from phonology.core.ports.orthography_notes import (
     OrthographicNoteConfidence,
-    OrthographicNoteKind,
 )
 
 
-_ORTHOGRAPHY_FILENAME: Final[str] = "orthographic_correspondences.yaml"
-_ALLOWED_KINDS: Final[set[str]] = {
+# Ancient Greek note kinds: the language-independent base kinds plus the
+# Greek-specific pre-403/2 BCE Attic spelling-reform kind. This vocabulary is
+# owned by the plugin; core only defines the language-independent base set.
+AncientGreekNoteKind = Literal[
     "orthographic_correspondence",
     "beginner_aid",
     "pre_403_2_attic",
-}
+]
+
+_ORTHOGRAPHY_FILENAME: Final[str] = "orthographic_correspondences.yaml"
+_ALLOWED_KINDS: Final[set[str]] = set(get_args(AncientGreekNoteKind))
 _ALLOWED_CONFIDENCE: Final[set[str]] = {"low", "medium", "high"}
 ReviewStatus = Literal[
     "not_expert_reviewed",
@@ -57,7 +61,7 @@ class _CorrespondenceEntry:
     normalized: str
     candidate_headwords: tuple[str, ...]
     romanization: str
-    kind: OrthographicNoteKind
+    kind: AncientGreekNoteKind
     tags: tuple[str, ...]
     confidence: OrthographicNoteConfidence
     references: tuple[str, ...]

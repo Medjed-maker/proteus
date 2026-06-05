@@ -121,6 +121,7 @@ class _LazySearchDependencies:
         prebuilt_lexicon_map: LexiconMap | None,
         prebuilt_ipa_index: IpaIndex | None,
         phone_inventory: PhoneInventory,
+        vowel_phones: tuple[str, ...] = (),
         dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]]
         | None = None,
     ) -> None:
@@ -128,6 +129,7 @@ class _LazySearchDependencies:
         self._lexicon_map = prebuilt_lexicon_map
         self._prebuilt_ipa_index = prebuilt_ipa_index
         self._phone_inventory = phone_inventory
+        self._vowel_phones = vowel_phones
         self._dialect_skeleton_builders = dialect_skeleton_builders
         self._entry_lookup: dict[str, LexiconEntry] | None = None
         self._ipa_index: IpaIndex | None = None
@@ -171,6 +173,11 @@ class _LazySearchDependencies:
     def phone_inventory(self) -> PhoneInventory:
         """Return the resolved phone inventory shared by this search."""
         return self._phone_inventory
+
+    @property
+    def vowel_phones(self) -> tuple[str, ...]:
+        """Return the resolved vowel phone set shared by this search."""
+        return self._vowel_phones
 
     @property
     def dialect_skeleton_builders(

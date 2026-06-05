@@ -1,4 +1,4 @@
-"""Tests for phonology.matrix_generator."""
+"""Tests for phonology.languages.ancient_greek.matrix_generator."""
 
 from collections.abc import Generator
 from datetime import datetime, timedelta
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from phonology import matrix_generator
+from phonology.languages.ancient_greek import matrix_generator
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ class TestOverlaySeedRows:
     def test_logs_unknown_seed_rows_and_columns(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        caplog.set_level("WARNING", logger="phonology.matrix_generator")
+        caplog.set_level("WARNING", logger="phonology.languages.ancient_greek.matrix_generator")
         base_rows = {
             "a": {"a": 0.0, "b": 0.1},
             "b": {"a": 0.1, "b": 0.0},
@@ -57,7 +57,7 @@ class TestOverlaySeedRows:
     def test_logs_non_mapping_rows_and_non_numeric_distances(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        caplog.set_level("WARNING", logger="phonology.matrix_generator")
+        caplog.set_level("WARNING", logger="phonology.languages.ancient_greek.matrix_generator")
         base_rows = {
             "a": {"a": 0.0, "b": 0.1},
             "b": {"a": 0.1, "b": 0.0},

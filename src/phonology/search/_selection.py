@@ -152,6 +152,7 @@ def _select_seeded_candidates(
                     lexicon,
                     k=1,
                     phone_inventory=dependencies.phone_inventory,
+                    vowel_phones=dependencies.vowel_phones,
                     dialect_skeleton_builders=dependencies.dialect_skeleton_builders,
                 )
             )
@@ -160,6 +161,7 @@ def _select_seeded_candidates(
                 fallback_unigram_index,
                 k=1,
                 phone_inventory=dependencies.phone_inventory,
+                vowel_phones=dependencies.vowel_phones,
             )
         partial_candidates = _merge_bounded_candidate_ids(
             seed_candidates,

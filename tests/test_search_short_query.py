@@ -26,6 +26,8 @@ from phonology.search._constants import (
 )
 from tests._helpers.score_stage_mock import assert_only_expected_score_stage_kwargs
 
+pytestmark = pytest.mark.usefixtures("default_profile_follows_search_to_ipa")
+
 
 class TestSearchShortQuery:
     """Tests for short-query mode filtering and dedup."""

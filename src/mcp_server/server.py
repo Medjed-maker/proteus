@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from mcp.server.fastmcp import FastMCP
-from phonology.profiles import register_default_profiles
+from phonology.core.ports.profiles import register_default_profiles
 
 from .tools import register_search_tool
 

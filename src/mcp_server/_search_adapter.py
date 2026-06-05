@@ -26,7 +26,7 @@ from api._search_runner import (
     _summarize_query_for_logs,
     run_search,
 )
-from phonology.profiles import get_default_language_profile
+from phonology.core.ports.profiles import get_default_language_profile
 
 from .tools.search import McpSearchInput, McpSearchOutput
 

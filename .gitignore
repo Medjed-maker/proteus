@@ -102,3 +102,4 @@ screenshots/
 scratch/
 codex-reviews/
 .reports/
+search-latency-benchmark.json

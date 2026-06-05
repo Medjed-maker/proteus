@@ -47,12 +47,21 @@ _MATCH_SCORE: float = 2.0
 
 
 def _substitution_score(
-    lemma_phone: str, query_phone: str, matrix: DistanceMatrix
+    lemma_phone: str,
+    query_phone: str,
+    matrix: DistanceMatrix,
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> float:
     """Return a Smith-Waterman substitution score for two phones."""
     if lemma_phone == query_phone:
         return _MATCH_SCORE
-    return 1.0 - phone_distance(lemma_phone, query_phone, matrix)
+    return 1.0 - phone_distance(
+        lemma_phone,
+        query_phone,
+        matrix,
+        phone_inventory=phone_inventory,
+    )
 
 
 def _align_edge_tokens(
@@ -121,6 +130,8 @@ def _smith_waterman_alignment(
     query_tokens: list[str],
     lemma_tokens: list[str],
     matrix: DistanceMatrix,
+    *,
+    phone_inventory: Iterable[str] | None = None,
 ) -> tuple[float, list[str | None], list[str | None]]:
     """Compute the best local alignment between lemma and query phone sequences."""
     if not query_tokens or not lemma_tokens:
@@ -136,7 +147,10 @@ def _smith_waterman_alignment(
     for row in range(1, rows):
         for col in range(1, cols):
             diag = scores[row - 1][col - 1] + _substitution_score(
-                lemma_tokens[row - 1], query_tokens[col - 1], matrix
+                lemma_tokens[row - 1],
+                query_tokens[col - 1],
+                matrix,
+                phone_inventory=phone_inventory,
             )
             up = scores[row - 1][col] + _GAP_PENALTY
             left = scores[row][col - 1] + _GAP_PENALTY
@@ -281,7 +295,10 @@ def _score_stage(
             resolve_entry_tokens(record_or_entry, phone_inventory=phone_inventory)
         )
         best_score, aligned_query, aligned_lemma = _smith_waterman_alignment(
-            query_tokens, lemma_tokens, matrix
+            query_tokens,
+            lemma_tokens,
+            matrix,
+            phone_inventory=phone_inventory,
         )
         confidence = _normalized_confidence(best_score, query_tokens, lemma_tokens)
         result = SearchResult(

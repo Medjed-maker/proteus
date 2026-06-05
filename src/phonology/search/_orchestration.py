@@ -23,6 +23,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import replace
 import heapq
 import logging
+from pathlib import Path
 import time
 
 from ._constants import (
@@ -115,8 +116,11 @@ def _finalize_full_form_results(
     selection: _CandidateSelectionResult,
     matrix: DistanceMatrix,
     max_results: int,
-    language: str,
+    language: str | Path | None,
     phone_inventory: PhoneInventory,
+    vowel_phones: tuple[str, ...],
+    phone_matcher: Callable[[str, str], bool] | None,
+    always_match_contexts: tuple[str, ...] = (),
 ) -> _FinalizationResult:
     """Finalize Full-form results by annotating only visible deduplicated hits."""
     from . import _annotate_search_results_for_inventory
@@ -129,6 +133,9 @@ def _finalize_full_form_results(
         matrix=matrix,
         language=language,
         phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
+        phone_matcher=phone_matcher,
+        always_match_contexts=always_match_contexts,
     )
     return _FinalizationResult(
         results=final_results,
@@ -147,8 +154,11 @@ def _finalize_short_query_results(
     partial_query_tokens: PartialQueryTokens | None,
     matrix: DistanceMatrix,
     max_results: int,
-    language: str,
+    language: str | Path | None,
     phone_inventory: PhoneInventory,
+    vowel_phones: tuple[str, ...],
+    phone_matcher: Callable[[str, str], bool] | None,
+    always_match_contexts: tuple[str, ...] = (),
 ) -> _FinalizationResult:
     """Finalize Short-query results with batched annotation and quality filtering."""
     from . import _annotate_search_results_for_inventory
@@ -181,6 +191,9 @@ def _finalize_short_query_results(
             matrix=matrix,
             language=language,
             phone_inventory=phone_inventory,
+            vowel_phones=vowel_phones,
+            phone_matcher=phone_matcher,
+            always_match_contexts=always_match_contexts,
         )
         total_annotated_count += len(batch)
         batch_filtered = _apply_mode_quality_filter(
@@ -255,8 +268,11 @@ def _finalize_partial_form_results(
     partial_query_tokens: PartialQueryTokens | None,
     matrix: DistanceMatrix,
     max_results: int,
-    language: str,
+    language: str | Path | None,
     phone_inventory: PhoneInventory,
+    vowel_phones: tuple[str, ...],
+    phone_matcher: Callable[[str, str], bool] | None,
+    always_match_contexts: tuple[str, ...] = (),
 ) -> _FinalizationResult:
     """Finalize Partial-form results after bounded annotation and filtering."""
     from . import _annotate_search_results_for_inventory
@@ -277,6 +293,9 @@ def _finalize_partial_form_results(
         matrix=matrix,
         language=language,
         phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
+        phone_matcher=phone_matcher,
+        always_match_contexts=always_match_contexts,
     )
     filtered_results = _apply_mode_quality_filter(
         selection.query_mode,
@@ -302,13 +321,16 @@ def _execute_search(
     matrix: DistanceMatrix,
     *,
     max_results: int = 5,
-    dialect: str = "attic",
+    dialect: str | None = None,
     index: KmerIndex | None = None,
     unigram_index: KmerIndex | None = None,
     prebuilt_lexicon_map: LexiconMap | None = None,
-    language: str = "ancient_greek",
+    language: str | Path | None = None,
     converter: IpaConverter | None = None,
     phone_inventory: PhoneInventory,
+    vowel_phones: tuple[str, ...] = (),
+    phone_matcher: Callable[[str, str], bool] | None = None,
+    always_match_contexts: tuple[str, ...] = (),
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
     query_ipa: str | None = None,
     prepared_query: PreparedQueryIpa | None = None,
@@ -389,7 +411,10 @@ def _execute_search(
         debug_enabled=_debug_enabled,
     )
     debug_query_log_label = query_log_label if _debug_enabled else ""
-    query_skeleton = _extract_consonant_skeleton(query_tokens)
+    query_skeleton = _extract_consonant_skeleton(
+        query_tokens,
+        vowel_phones=vowel_phones,
+    )
     partial_query_tokens = prepared_query.partial_query_tokens
     fallback_limits = _resolve_fallback_limits(
         query_log_label=query_log_label,
@@ -403,6 +428,7 @@ def _execute_search(
         prebuilt_lexicon_map=prebuilt_lexicon_map,
         prebuilt_ipa_index=prebuilt_ipa_index,
         phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
         dialect_skeleton_builders=dialect_skeleton_builders,
     )
 
@@ -413,6 +439,7 @@ def _execute_search(
             lexicon,
             k=_DEFAULT_KMER_SIZE,
             phone_inventory=phone_inventory,
+            vowel_phones=vowel_phones,
             dialect_skeleton_builders=dialect_skeleton_builders,
         )
     )
@@ -422,6 +449,7 @@ def _execute_search(
         search_index,
         k=_DEFAULT_KMER_SIZE,
         phone_inventory=phone_inventory,
+        vowel_phones=vowel_phones,
     )
     stage2_limit = max(_MIN_STAGE2_CANDIDATES, max_results * _SEED_MULTIPLIER)
 
@@ -450,6 +478,7 @@ def _execute_search(
                     lexicon,
                     k=1,
                     phone_inventory=phone_inventory,
+                    vowel_phones=vowel_phones,
                     dialect_skeleton_builders=dialect_skeleton_builders,
                 )
             )
@@ -458,6 +487,7 @@ def _execute_search(
                 fallback_unigram_index,
                 k=1,
                 phone_inventory=phone_inventory,
+                vowel_phones=vowel_phones,
             )
         if unigram_candidates:
             selection = _select_unigram_fallback_candidates(
@@ -529,6 +559,9 @@ def _execute_search(
             max_results=max_results,
             language=language,
             phone_inventory=phone_inventory,
+            vowel_phones=vowel_phones,
+            phone_matcher=phone_matcher,
+            always_match_contexts=always_match_contexts,
         )
     elif selection.query_mode == "Short-query":
         finalization = _finalize_short_query_results(
@@ -541,6 +574,9 @@ def _execute_search(
             max_results=max_results,
             language=language,
             phone_inventory=phone_inventory,
+            vowel_phones=vowel_phones,
+            phone_matcher=phone_matcher,
+            always_match_contexts=always_match_contexts,
         )
     else:
         finalization = _finalize_partial_form_results(
@@ -552,6 +588,9 @@ def _execute_search(
             max_results=max_results,
             language=language,
             phone_inventory=phone_inventory,
+            vowel_phones=vowel_phones,
+            phone_matcher=phone_matcher,
+            always_match_contexts=always_match_contexts,
         )
     if _debug_enabled:
         _log_finalization(

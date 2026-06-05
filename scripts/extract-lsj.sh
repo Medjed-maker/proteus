@@ -14,4 +14,4 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 command -v uv >/dev/null 2>&1 || { echo "Error: uv is required but not installed." >&2; exit 1; }
 
 cd "$PROJECT_ROOT"
-uv run --extra extract python -m phonology.build_lexicon "$@"
+uv run --extra extract python -m phonology.languages.ancient_greek.build_lexicon "$@"

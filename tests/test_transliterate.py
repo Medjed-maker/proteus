@@ -6,7 +6,7 @@ import logging
 
 import pytest
 
-from phonology.transliterate import transliterate
+from phonology.languages.ancient_greek.transliterate import transliterate
 
 
 class TestTransliterate:
@@ -39,6 +39,7 @@ class TestTransliterate:
         assert transliterate("αἴτιος") == "aitios"
         assert transliterate("οὐρανός") == "ouranos"
         assert transliterate("εὐχή") == "eukhē"
+        assert transliterate("ηυ") == "ēu"
 
     def test_rough_breathed_diphthong_preserves_initial_h(self) -> None:
         assert transliterate("αὑτός") == "hautos"
@@ -81,14 +82,20 @@ class TestTransliterate:
         assert transliterate("") == ""
 
     def test_non_greek_characters(self, caplog: pytest.LogCaptureFixture) -> None:
-        with caplog.at_level(logging.WARNING, logger="phonology.transliterate"):
+        with caplog.at_level(logging.WARNING, logger="phonology.languages.ancient_greek.transliterate"):
             assert transliterate("hello") == "hello"
             assert transliterate("123") == "123"
 
         assert len(caplog.records) == 0
         caplog.clear()
 
-        with caplog.at_level(logging.WARNING, logger="phonology.transliterate"):
+        with caplog.at_level(logging.WARNING, logger="phonology.languages.ancient_greek.transliterate"):
+            assert transliterate("λόγ🙂ος") == "log🙂os"
+
+        assert len(caplog.records) == 0
+        caplog.clear()
+
+        with caplog.at_level(logging.DEBUG, logger="phonology.languages.ancient_greek.transliterate"):
             assert transliterate("λόγ🙂ος") == "log🙂os"
 
         assert len(caplog.records) == 1

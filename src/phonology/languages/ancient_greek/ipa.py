@@ -10,12 +10,12 @@ import logging
 import unicodedata
 from typing import NamedTuple
 
-from ..._phones import VOWEL_PHONES
 from ...core.ipa import (
     ACCENT_MARKS,
     strip_ignored_ipa_combining_marks as _strip_ignored_ipa_combining_marks,
 )
 from ...core.ipa import tokenize_ipa as _tokenize_ipa_with_inventory
+from .phones import VOWEL_PHONES
 
 # Mapping: Greek letter (NFC) -> IPA phone(s)
 # Covers basic alphabet; diacritics handled separately.
@@ -89,7 +89,7 @@ _IPA_PHONE_INVENTORY = tuple(
         reverse=True,
     )
 )
-logger = logging.getLogger("phonology.ipa_converter")
+logger = logging.getLogger("phonology.languages.ancient_greek.ipa")
 _KOINE_INTERVOCALIC_MAP: dict[str, str] = {"ɡ": "ɣ", "d": "ð"}
 _KOINE_DIRECT_MAP: dict[str, str] = {"pʰ": "f", "tʰ": "θ", "kʰ": "x"}
 

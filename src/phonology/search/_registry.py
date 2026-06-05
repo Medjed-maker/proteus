@@ -31,7 +31,6 @@ from typing import Any
 
 import yaml
 
-from .._paths import DEFAULT_LANGUAGE_ID
 from ..explainer import TokenizedRule
 from ._types import PhoneInventory
 
@@ -52,7 +51,7 @@ def _load_rules_cached(rules_source: str | Path) -> dict[str, dict[str, Any]]:
 
 
 def get_rules_registry(
-    language: str | Path = "ancient_greek",
+    language: str | Path | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Load the packaged rule registry for the specified language.
 
@@ -62,9 +61,7 @@ def get_rules_registry(
 
     Args:
         language: The language identifier for which to load rules.
-            Defaults to "ancient_greek". If the normalized string matches
-            ``DEFAULT_LANGUAGE_ID``, the default language profile's rules
-            directory is used as a fallback rules source.
+            ``None`` uses the default language profile's rules directory.
 
     Returns:
         A dictionary mapping rule IDs to rule definitions. Each rule definition
@@ -84,14 +81,17 @@ def get_rules_registry(
     )
 
     rules_source = language
-    if isinstance(language, str):
+    if language is None:
+        rules_source = get_default_language_profile().rules_dir
+    elif isinstance(language, str):
         try:
             # Strict: an unregistered language id is a programmer error, not a
             # directory name. Pass Path(...) when a rules directory is intended.
             rules_source = get_language_profile(language).rules_dir
         except ValueError as err:
-            if language.strip().lower() == DEFAULT_LANGUAGE_ID:
-                rules_source = get_default_language_profile().rules_dir
+            default_profile = get_default_language_profile()
+            if language.strip().lower() == default_profile.language_id:
+                rules_source = default_profile.rules_dir
             else:
                 raise ValueError(
                     f"get_rules_registry failed to load rules for language {language!r}: {err}"
@@ -107,8 +107,9 @@ def get_rules_registry(
 
 @lru_cache(maxsize=_TOKENIZED_RULES_CACHE_MAXSIZE)
 def _get_tokenized_rules(
-    language: str | Path = "ancient_greek",
+    language: str | Path | None = None,
     phone_inventory: PhoneInventory | None = None,
+    always_match_contexts: tuple[str, ...] | None = None,
 ) -> tuple[TokenizedRule, ...]:
     """Get tokenized rules from the registry for matching.
 
@@ -129,6 +130,9 @@ def _get_tokenized_rules(
     _tokenize_rules = getattr(package, "tokenize_rules_for_matching", _default_tokenize)
     rules_registry = _get_rules_registry(language)
     rules = list(rules_registry.values())
-    if phone_inventory is None:
-        return tuple(_tokenize_rules(rules))
-    return tuple(_tokenize_rules(rules, phone_inventory=phone_inventory))
+    tokenize_kwargs: dict[str, Any] = {}
+    if always_match_contexts is not None:
+        tokenize_kwargs["always_match_contexts"] = always_match_contexts
+    if phone_inventory is not None:
+        tokenize_kwargs["phone_inventory"] = phone_inventory
+    return tuple(_tokenize_rules(rules, **tokenize_kwargs))

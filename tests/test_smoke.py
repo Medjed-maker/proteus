@@ -6,7 +6,7 @@ def test_project_imports() -> None:
     import importlib
 
     for module in [
-        "phonology.ipa_converter",
+        "phonology.languages.ancient_greek.ipa",
         "phonology.distance",
         "phonology.search",
         "phonology.explainer",

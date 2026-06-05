@@ -27,6 +27,8 @@ from tests._helpers.fakes import (
     install_seed_stage,
 )
 
+pytestmark = pytest.mark.usefixtures("default_profile_follows_search_to_ipa")
+
 
 class TestSearchAnnotation:
     """Tests for annotation windows, caching, and extend_stage behavior."""
@@ -1115,6 +1117,7 @@ class TestSearchAnnotation:
             query_tokens: list[str],
             lemma_tokens: list[str],
             matrix: object,
+            **_kwargs: object,
         ) -> tuple[float, list[str | None], list[str | None]]:
             counts["alignment"] += 1
             return 2.0, list(query_tokens), list(lemma_tokens)
@@ -1126,6 +1129,7 @@ class TestSearchAnnotation:
             alignment: object,
             tokenized_rules: tuple[object, ...],
             lemma_metadata: dict[str, object],
+            **_kwargs: object,
         ) -> list[object]:
             counts["explain"] += 1
             return []
@@ -1277,6 +1281,7 @@ class TestSearchAnnotation:
             query_tokens: list[str],
             lemma_tokens: list[str],
             matrix: object,
+            **_kwargs: object,
         ) -> tuple[float, list[str | None], list[str | None]]:
             alignment_calls.append((tuple(query_tokens), tuple(lemma_tokens)))
             return 2.0, list(query_tokens), list(lemma_tokens)
