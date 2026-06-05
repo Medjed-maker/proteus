@@ -3,12 +3,13 @@
 import json
 import shutil
 from pathlib import Path
-from typing import Iterable, Iterator
+from typing import Callable, Iterable, Iterator
 
 import pytest
 
 from phonology import distance as distance_module
 from phonology._trusted_paths import TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR
+from phonology.core.ports import trusted_matrices as trusted_matrices_module
 from phonology.distance import (
     DEFAULT_COST,
     MatrixMeta,
@@ -25,7 +26,11 @@ from phonology.distance import (
 )
 from phonology.languages.ancient_greek import ipa as ipa_converter_module
 from phonology.languages.ancient_greek.ipa import greek_to_ipa, to_ipa
-from phonology.core.ports.profiles import get_default_language_profile
+from phonology.core.ports.profiles import (
+    LanguageProfile,
+    get_default_language_profile,
+    register_language_profile,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -261,7 +266,7 @@ class TestLoadMatrix:
         with pytest.raises(ValueError, match="must not contain a symlink"):
             distance_module._get_trusted_matrices_dir()
 
-    def test_falls_back_to_repo_data_directory_when_env_is_unset(
+    def test_uses_default_profile_matrix_directory_when_env_is_unset(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.delenv("PROTEUS_TRUSTED_MATRICES_DIR", raising=False)
@@ -281,6 +286,23 @@ class TestLoadMatrix:
         profile = get_default_language_profile()
 
         assert distance_module._get_trusted_matrices_dir() == profile.matrix_path.parent
+
+    def test_raises_when_default_profile_cannot_be_resolved(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        isolated_language_registry: None,
+        build_toy_profile: Callable[[Path, str], LanguageProfile],
+    ) -> None:
+        monkeypatch.delenv("PROTEUS_TRUSTED_MATRICES_DIR", raising=False)
+        register_language_profile(build_toy_profile(tmp_path, "toy_alpha"))
+        register_language_profile(build_toy_profile(tmp_path, "toy_beta"))
+
+        with pytest.raises(
+            ValueError,
+            match="Could not resolve trusted matrices directory",
+        ):
+            distance_module._get_trusted_matrices_dir()
 
 
 class TestPublicApi:
@@ -875,14 +897,16 @@ class TestLoadMatrixDocument:
 class TestRegisterTrustedMatricesDir:
     @pytest.fixture(autouse=True)
     def restore_trusted_external_matrix_dirs(self) -> Iterator[None]:
-        with distance_module._TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
-            original_dirs = set(distance_module._TRUSTED_EXTERNAL_MATRIX_DIRS)
+        with trusted_matrices_module._TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
+            original_dirs = set(trusted_matrices_module._TRUSTED_EXTERNAL_MATRIX_DIRS)
         try:
             yield
         finally:
-            with distance_module._TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
-                distance_module._TRUSTED_EXTERNAL_MATRIX_DIRS.clear()
-                distance_module._TRUSTED_EXTERNAL_MATRIX_DIRS.update(original_dirs)
+            with trusted_matrices_module._TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
+                trusted_matrices_module._TRUSTED_EXTERNAL_MATRIX_DIRS.clear()
+                trusted_matrices_module._TRUSTED_EXTERNAL_MATRIX_DIRS.update(
+                    original_dirs
+                )
 
     def test_registers_valid_directory(self, tmp_path: Path) -> None:
         from phonology.distance import register_trusted_matrices_dir

@@ -69,6 +69,11 @@ def build_profile(
             apply_attic_sigma_sigma_to_tau_tau_shift,
         ),
         orthographic_note_builder=build_orthographic_notes,
+        deprecated_orthography_hints=(
+            "standard",
+            "inscriptional",
+            "pre_403_2_attic",
+        ),
         orthographic_data_preparer=prepare_orthographic_data,
         corpus_adapter_factory=lambda: load_static_corpus_adapter(corpus_sources_path),
         always_match_contexts=(

@@ -286,8 +286,28 @@ class SearchRequest(BaseModel):
         else:
             raise ValueError("dialect_hint must be a string")
 
+        raw_orthography_hint = payload.get("orthography_hint")
+        if raw_orthography_hint is None:
+            orthography_hint = None
+        elif isinstance(raw_orthography_hint, str):
+            orthography_hint = raw_orthography_hint.strip().lower() or None
+        else:
+            raise ValueError("orthography_hint must be a string")
+
+        if orthography_hint is not None:
+            allowed_hints = tuple(profile.deprecated_orthography_hints)
+            if orthography_hint not in allowed_hints:
+                allowed = ", ".join(repr(item) for item in allowed_hints)
+                if not allowed:
+                    allowed = "no deprecated orthography hints"
+                raise ValueError(
+                    f"orthography_hint must be one of ({allowed}) "
+                    f"for language {language!r}"
+                )
+
         payload["language"] = language
         payload["dialect_hint"] = dialect
+        payload["orthography_hint"] = orthography_hint
         return payload
 
     query_form: QueryForm = Field(
@@ -321,21 +341,16 @@ class SearchRequest(BaseModel):
         validation_alias=AliasChoices("response_language", "lang"),
         description="Response language for generated prose text ('en' or 'ja').",
     )
-    orthography_hint: (
-        Literal[
-            "standard",
-            "inscriptional",
-            "pre_403_2_attic",
-        ]
-        | None
-    ) = Field(
+    orthography_hint: str | None = Field(
         default=None,
         deprecated=True,
         description=(
             "Deprecated: hints are accepted for backward compatibility but no "
             "longer affect orthographic note generation. Notes are produced "
-            "exclusively from curated runtime orthography data. This field will "
-            "be removed in a future release; remove it from your requests."
+            "exclusively from curated runtime orthography data. Accepted values "
+            "depend on the target language profile's deprecated orthography "
+            "hints; any other value is rejected with a 422. This field will be "
+            "removed in a future release; remove it from your requests."
         ),
     )
 
@@ -385,16 +400,6 @@ class SearchRequest(BaseModel):
                     f"invalid lang: {value}; expected one of {{'en', 'ja'}}"
                 )
             return normalized
-        return value
-
-    @field_validator("orthography_hint", mode="before")
-    @classmethod
-    def _normalize_orthography_hint(cls, value: Any) -> Any:
-        if value is None:
-            return None
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            return normalized or None
         return value
 
     @field_validator("language", mode="before")

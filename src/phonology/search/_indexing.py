@@ -34,7 +34,7 @@ def _build_entry_kmers(
     k: int,
     *,
     phone_inventory: Iterable[str] | None = None,
-    vowel_phones: Iterable[str] | None = None,
+    vowel_phones: Iterable[str],
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
 ) -> list[str]:
     """Return stable, de-duplicated seed k-mers for one lexicon IPA form.
@@ -52,6 +52,8 @@ def _build_entry_kmers(
         phone_inventory: Optional phone inventory used to tokenize ``ipa_text``
             before skeleton and k-mer generation. If ``None``, default
             inventory behavior is used.
+        vowel_phones: Resolved vowel phone symbols to exclude when extracting
+            consonant-skeleton k-mers.
         dialect_skeleton_builders: Callables that each transform an IPA token
             list into a dialect variant for additional skeleton coverage.
             ``None`` means no additional dialect skeletons.
@@ -131,6 +133,7 @@ def build_kmer_index(
         raise ValueError(f"build_kmer_index requires k > 0 for k-mer size, got {k}")
 
     index: KmerIndex = {}
+    resolved_vowels = tuple(vowel_phones or ())
     for entry in lexicon:
         try:
             entry_id = _entry_id(entry)
@@ -139,7 +142,7 @@ def build_kmer_index(
                 ipa,
                 k,
                 phone_inventory=phone_inventory,
-                vowel_phones=vowel_phones,
+                vowel_phones=resolved_vowels,
                 dialect_skeleton_builders=dialect_skeleton_builders,
             ):
                 index.setdefault(kmer, []).append(entry_id)

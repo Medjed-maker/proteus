@@ -290,11 +290,11 @@ Phase 0〜5 完了後のコードレビューで挙がった、**マージブロ
 
 | # | 優先度 | 課題 | 該当箇所 | 状態 |
 |---|---|---|---|---|
-| F1 | MEDIUM | `_extract_consonant_skeleton` の `vowel_phones=()` 既定がサイレント劣化を招く | `search/_query.py` | ☐ 未着手 |
-| F2 | MEDIUM | API Literal とプラグイン kind の二重管理（`pre_403_2_attic`） | `api/_hit_formatting.py`, `api/_models.py` | ☐ 未着手（gate スコープ外・意識的保留） |
-| F3 | LOW | `_get_trusted_matrices_dir` の profile 解決失敗が warning ログ止まり | `distance.py` | ☐ 未着手（記録のみ） |
-| F4 | LOW | `core.ports.profiles` ⇄ `distance` の循環回避ローカル import | `distance.py` | ☐ 未着手（記録のみ） |
-| F5 | LOW | `explainer.py` の `import X as X` redundant alias 多用 | `explainer.py` | ☐ 未着手 |
+| F1 | MEDIUM | `_extract_consonant_skeleton` の `vowel_phones=()` 既定がサイレント劣化を招く | `search/_query.py` | ☑ 完了 |
+| F2 | MEDIUM | API Literal とプラグイン kind の二重管理（`pre_403_2_attic`） | `api/_hit_formatting.py`, `api/_models.py` | ☑ 完了 |
+| F3 | LOW | `_get_trusted_matrices_dir` の profile 解決失敗が warning ログ止まり | `distance.py` | ☑ 完了 |
+| F4 | LOW | `core.ports.profiles` ⇄ `distance` の循環回避ローカル import | `distance.py` | ☑ 完了 |
+| F5 | LOW | `explainer.py` の `import X as X` redundant alias 多用 | `explainer.py` | ☑ 完了 |
 
 ### F1 — `_extract_consonant_skeleton` の母音既定値（MEDIUM）
 
@@ -306,6 +306,8 @@ Phase 0〜5 完了後のコードレビューで挙がった、**マージブロ
   新しい呼び出し経路を追加する開発者が見落としやすい。
 - **推奨対応**: `vowel_phones` を必須引数化する、もしくは未指定時に明示エラー／profile 解決を
   強制するガードを入れて design by contract を明文化する。
+- **対応済み**: `_extract_consonant_skeleton` と内部 search 実行境界で `vowel_phones` を必須化し、
+  public compat 層が profile 由来の vowel inventory を解決して渡す契約にした。
 
 ### F2 — note kind の二重管理（MEDIUM）
 
@@ -314,6 +316,9 @@ Phase 0〜5 完了後のコードレビューで挙がった、**マージブロ
 - **現状**: 「決定ログ 2026-06-03」で gate スコープ外（OpenAPI 破壊変更を伴う別タスク）として
   意識的に保留済み。両箇所にコメントで「新言語プラグイン追加時は両方更新せよ」と明記済み。
 - **推奨対応**: kind をプラグインから動的に集約する仕組みを検討し、独立タスク化。
+- **対応済み**: `OrthographicNote.kind` は既に `str` 化済み。残っていた deprecated
+  `orthography_hint` の固定 Literal を外し、許容値を `LanguageProfile.deprecated_orthography_hints`
+  から profile ごとに検証する形へ移した。
 
 ### F3 — matrices フォールバックの可視性（LOW）
 
@@ -322,6 +327,15 @@ Phase 0〜5 完了後のコードレビューで挙がった、**マージブロ
   より不明瞭なエラーになる可能性。
 - **現状**: repo レイアウト開発時の利便性とのトレードオフとして許容範囲。
 - **推奨対応**: 将来 fail-fast 方針へ寄せるか要検討（現時点では記録のみ）。
+- **対応済み**: env override がない場合は default language profile の matrix dir を使い、
+  profile 解決に失敗した場合は repo fallback せず `ValueError` で fail-fast するようにした。
+- **退行検証**: fail-fast 化に伴う本番起動退行リスクを確認済み。本番 API は `api/main.py` の
+  import 時に `register_default_profiles()` を実行して default profile を先に登録し、行列ロードは
+  名前ベースの `load_matrix()`（→`_get_trusted_matrices_dir()`）ではなく明示パス
+  `load_matrix_document(profile.matrix_path)` 経由のため、profile 0 件／曖昧時の fail-fast 経路は
+  本番では発火しない。単一 default profile・env 未設定の本番等価ケースは
+  `tests/test_distance.py::TestLoadMatrix::test_uses_default_profile_matrix_directory_when_env_is_unset`
+  で固定済み（起動退行なし）。
 
 ### F4 — 循環回避のローカル import（LOW）
 
@@ -329,6 +343,9 @@ Phase 0〜5 完了後のコードレビューで挙がった、**マージブロ
   （`profiles` → `distance` の `register_trusted_matrices_dir`）を回避。理由コメントあり。
 - **現状**: 妥当な対処だが、循環の根本構造（registry 登録が `register_trusted_matrices_dir` を呼ぶ）は残存。
 - **推奨対応**: ports 層が肥大化した際の構造再整理候補として記録。
+- **対応済み**: matrix trusted-dir registry を `core.ports.trusted_matrices` へ分離し、
+  `profiles` が `distance` を import しない構造にした。`phonology.distance` の公開関数は
+  互換 re-export として維持。
 
 ### F5 — explainer facade の redundant alias（LOW）
 
@@ -336,3 +353,5 @@ Phase 0〜5 完了後のコードレビューで挙がった、**マージブロ
   `import X as X` を 50 行超機械的に並べている。
 - **現状**: 公開 import パス `phonology.explainer` 維持のための既存 facade パターン踏襲。
 - **推奨対応**: `__all__` で公開を明示する方式への置換を検討（現状維持でも可）。
+- **対応済み**: `explainer.py` は実装モジュールを module import し、公開・互換 symbol を明示代入する
+  facade に変更。`phonology.explainer` の既存 import path は維持。

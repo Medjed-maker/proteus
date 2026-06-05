@@ -89,6 +89,23 @@ class TestPublicCompatibilityBoundary:
         assert parameter.default is inspect.Parameter.empty
         assert get_type_hints(target)["phone_inventory"] == PhoneInventory
 
+    @pytest.mark.parametrize(
+        "target",
+        [
+            search_module._build_kmer_index_for_inventory,
+            search_module._seed_stage_core,
+            search_module._seed_stage_for_inventory,
+            search_module._execute_search,
+            search_module._LazySearchDependencies.__init__,
+        ],
+    )
+    def test_core_vowel_inventory_is_required(
+        self, target: Callable[..., Any]
+    ) -> None:
+        params = inspect.signature(target).parameters
+        assert "vowel_phones" in params, "vowel_phones parameter must exist"
+        assert params["vowel_phones"].default is inspect.Parameter.empty
+
     def test_public_default_resolvers_return_phone_inventory_type(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -446,6 +463,11 @@ class TestPublicCompatibilityBoundary:
         assert captured["phone_inventory"] == search_compat._normalize_phone_inventory(
             known_phones
         )
+
+    def test_consonant_skeleton_requires_explicit_vowel_inventory(self) -> None:
+        """The low-level skeleton helper must not silently keep vowels by default."""
+        with pytest.raises(TypeError, match="vowel_phones"):
+            search_module._extract_consonant_skeleton(["p", "a"])  # type: ignore[call-arg]
 
     def test_extend_stage_forwards_profile_annotation_settings(
         self, monkeypatch: pytest.MonkeyPatch

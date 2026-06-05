@@ -31,78 +31,85 @@ from __future__ import annotations
 import logging
 from typing import Any, TypeAlias
 
-from .explain._context import (
-    _AFTER_E_I_R_PHONES as _AFTER_E_I_R_PHONES,
-    _NASAL_PHONES as _NASAL_PHONES,
-    _is_consonant as _is_consonant,
-    _is_vowel as _is_vowel,
-    _lookup_next_token as _lookup_next_token,
-    _lookup_prev_token as _lookup_prev_token,
-    _matches_context as _matches_context,
-    _matches_following_set as _matches_following_set,
-    _matches_same_word_lookahead as _matches_same_word_lookahead,
+from .explain import (
+    _context,
+    _prose,
+    _rule_loader,
+    _rule_match,
+    _rule_paths,
+    _rule_tokenize,
+    _types,
 )
-from .explain._rule_match import (
-    _advance_block_cursors as _advance_block_cursors,
-    _allows_empty_input as _allows_empty_input,
-    _block_column_index as _block_column_index,
-    _build_description,
-    _build_observed_application_for_column as _build_observed_application_for_column,
-    _collect_block_applications as _collect_block_applications,
-    _current_block_column as _current_block_column,
-    _display_phoneme as _display_phoneme,
-    _extract_dialects,
-    _find_matching_rule_candidate as _find_matching_rule_candidate,
-    _find_normal_block_match as _find_normal_block_match,
-    _find_word_final_suffix_match as _find_word_final_suffix_match,
-    _has_crossing_gaps as _has_crossing_gaps,
-    _is_exact_match as _is_exact_match,
-    _iter_mismatch_blocks as _iter_mismatch_blocks,
-    _matches_block_columns as _matches_block_columns,
-    _matches_lemma_constraints as _matches_lemma_constraints,
-    _matches_word_final_suffix as _matches_word_final_suffix,
-    _rule_name_en_for_description,
-    _rule_name_for_description,
-    explain,
-    explain_with_tokenized_rules,
+
+_AFTER_E_I_R_PHONES = _context._AFTER_E_I_R_PHONES
+_NASAL_PHONES = _context._NASAL_PHONES
+_is_consonant = _context._is_consonant
+_is_vowel = _context._is_vowel
+_lookup_next_token = _context._lookup_next_token
+_lookup_prev_token = _context._lookup_prev_token
+_matches_context = _context._matches_context
+_matches_following_set = _context._matches_following_set
+_matches_same_word_lookahead = _context._matches_same_word_lookahead
+
+_advance_block_cursors = _rule_match._advance_block_cursors
+_allows_empty_input = _rule_match._allows_empty_input
+_block_column_index = _rule_match._block_column_index
+_build_description = _rule_match._build_description
+_build_observed_application_for_column = (
+    _rule_match._build_observed_application_for_column
 )
-from .explain._types import (
-    Alignment,
-    POSITION_UNKNOWN,
-    RuleApplication,
-    RuleMetadata,
-    _MismatchBlock as _MismatchBlock,
-    _RuleMatchResult as _RuleMatchResult,
-    _WordFinalSuffixMatch as _WordFinalSuffixMatch,
-)
-from .explain._rule_loader import (
-    _extract_rule_file_version as _extract_rule_file_version,
-    _extract_scalar_node_value as _extract_scalar_node_value,
-    _is_valid_rule_version_value as _is_valid_rule_version_value,
-    get_rules_version,
-    load_rules,
-)
-from .explain._rule_paths import (
-    _RULES_BASE_DIR_OVERRIDE as _RULES_BASE_DIR_OVERRIDE,
-    _TRUSTED_EXTERNAL_RULES_DIRS as _TRUSTED_EXTERNAL_RULES_DIRS,
-    _TRUSTED_EXTERNAL_RULES_DIRS_LOCK as _TRUSTED_EXTERNAL_RULES_DIRS_LOCK,
-    _get_rules_base_dir,
-    _resolve_and_validate_rules_dir as _resolve_and_validate_rules_dir,
-    _resolve_rules_dir as _resolve_rules_dir,
-    clear_trusted_external_rules_dirs,
-    register_trusted_rules_dir,
-)
-from .explain._rule_tokenize import (
-    Rule,
-    TokenizedRule,
-    _ALWAYS_MATCH_CONTEXTS as _ALWAYS_MATCH_CONTEXTS,
-    _rule_specificity as _rule_specificity,
-    _tokenize_context_tail as _tokenize_context_tail,
-    _tokenize_rule_side as _tokenize_rule_side,
-    _tokenize_rules as _tokenize_rules,
-    tokenize_rules_for_matching,
-)
-from .explain._prose import Explanation, to_prose
+_collect_block_applications = _rule_match._collect_block_applications
+_current_block_column = _rule_match._current_block_column
+_display_phoneme = _rule_match._display_phoneme
+_extract_dialects = _rule_match._extract_dialects
+_find_matching_rule_candidate = _rule_match._find_matching_rule_candidate
+_find_normal_block_match = _rule_match._find_normal_block_match
+_find_word_final_suffix_match = _rule_match._find_word_final_suffix_match
+_has_crossing_gaps = _rule_match._has_crossing_gaps
+_is_exact_match = _rule_match._is_exact_match
+_iter_mismatch_blocks = _rule_match._iter_mismatch_blocks
+_matches_block_columns = _rule_match._matches_block_columns
+_matches_lemma_constraints = _rule_match._matches_lemma_constraints
+_matches_word_final_suffix = _rule_match._matches_word_final_suffix
+_rule_name_en_for_description = _rule_match._rule_name_en_for_description
+_rule_name_for_description = _rule_match._rule_name_for_description
+explain = _rule_match.explain
+explain_with_tokenized_rules = _rule_match.explain_with_tokenized_rules
+
+Alignment = _types.Alignment
+POSITION_UNKNOWN = _types.POSITION_UNKNOWN
+RuleApplication = _types.RuleApplication
+RuleMetadata = _types.RuleMetadata
+_MismatchBlock = _types._MismatchBlock
+_RuleMatchResult = _types._RuleMatchResult
+_WordFinalSuffixMatch = _types._WordFinalSuffixMatch
+
+_extract_rule_file_version = _rule_loader._extract_rule_file_version
+_extract_scalar_node_value = _rule_loader._extract_scalar_node_value
+_is_valid_rule_version_value = _rule_loader._is_valid_rule_version_value
+get_rules_version = _rule_loader.get_rules_version
+load_rules = _rule_loader.load_rules
+
+_RULES_BASE_DIR_OVERRIDE = _rule_paths._RULES_BASE_DIR_OVERRIDE
+_TRUSTED_EXTERNAL_RULES_DIRS = _rule_paths._TRUSTED_EXTERNAL_RULES_DIRS
+_TRUSTED_EXTERNAL_RULES_DIRS_LOCK = _rule_paths._TRUSTED_EXTERNAL_RULES_DIRS_LOCK
+_get_rules_base_dir = _rule_paths._get_rules_base_dir
+_resolve_and_validate_rules_dir = _rule_paths._resolve_and_validate_rules_dir
+_resolve_rules_dir = _rule_paths._resolve_rules_dir
+clear_trusted_external_rules_dirs = _rule_paths.clear_trusted_external_rules_dirs
+register_trusted_rules_dir = _rule_paths.register_trusted_rules_dir
+
+Rule = _rule_tokenize.Rule
+TokenizedRule = _rule_tokenize.TokenizedRule
+_ALWAYS_MATCH_CONTEXTS = _rule_tokenize._ALWAYS_MATCH_CONTEXTS
+_rule_specificity = _rule_tokenize._rule_specificity
+_tokenize_context_tail = _rule_tokenize._tokenize_context_tail
+_tokenize_rule_side = _rule_tokenize._tokenize_rule_side
+_tokenize_rules = _rule_tokenize._tokenize_rules
+tokenize_rules_for_matching = _rule_tokenize.tokenize_rules_for_matching
+
+Explanation = _prose.Explanation
+to_prose = _prose.to_prose
 
 logger = logging.getLogger("phonology.explainer")
 

@@ -10,23 +10,22 @@ from __future__ import annotations
 
 import errno
 import json
-import logging
 import os
 import stat
-import threading
 from collections.abc import Iterable
 from functools import lru_cache
 from numbers import Real
 from pathlib import Path
 from typing import Any, Callable, Sequence, TypeGuard
 
-from ._paths import resolve_repo_data_dir
-from ._trusted_paths import resolve_trusted_dir_override, validate_no_symlinks_in_path
+from ._trusted_paths import resolve_trusted_dir_override
 from .core.ipa import (
     sorted_phone_inventory,
     strip_ignored_ipa_combining_marks,
     tokenize_ipa,
 )
+from .core.ports.profiles import get_default_language_profile
+from .core.ports import trusted_matrices as _trusted_matrices
 
 __all__ = [
     "MatrixData",
@@ -46,64 +45,25 @@ __all__ = [
     "UNKNOWN_SUBSTITUTION_COST",
 ]
 
-logger = logging.getLogger(__name__)
+# Public trusted-matrix registry functions are re-exported for backward
+# compatibility. The underlying mutable state (the directory set and its lock)
+# lives in ``core.ports.trusted_matrices`` and is reached only through these
+# functions and ``list_trusted_external_matrix_dirs`` -- it is intentionally not
+# re-exported here, keeping the module boundary intact.
+register_trusted_matrices_dir = _trusted_matrices.register_trusted_matrices_dir
+clear_trusted_external_matrix_dirs = (
+    _trusted_matrices.clear_trusted_external_matrix_dirs
+)
 
 MatrixData = dict[str, dict[str, float]]
 MatrixMeta = dict[str, Any]
 DEFAULT_COST = 5.0
 UNKNOWN_SUBSTITUTION_COST = 1.0
 _TRUSTED_MATRICES_DIR_ENV_VAR = "PROTEUS_TRUSTED_MATRICES_DIR"
-_TRUSTED_EXTERNAL_MATRIX_DIRS: set[Path] = set()
-_TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK = threading.Lock()
 
 # Path structure for language-scoped matrix assets: ``data/languages/<id>/matrices``.
 _LANGUAGE_MATRIX_PATH_PREFIX = ("data", "languages")
 _MATRIX_DIR_SEGMENT = "matrices"
-
-
-def register_trusted_matrices_dir(
-    matrices_dir: Path | str,
-    *,
-    allow_symlinks: bool = False,
-) -> None:
-    """Register an additional directory from which matrix JSON files may be loaded.
-
-    Mirror of explainer.register_trusted_rules_dir. The directory is resolved
-    with strict=True (must exist). Symlinked directories are stored by their
-    absolute lexical path only when explicitly allowed, so callers may load
-    through that registered symlink path.
-
-    Args:
-        matrices_dir: The matrices directory to trust.
-        allow_symlinks: If False (default), rejects paths containing symlinks.
-                       Set to True to allow symlinked paths.
-
-    Raises:
-        ValueError: If symlinks are detected and allow_symlinks is False,
-            or if the resolved path is not a directory.
-    """
-    matrices_path = Path(matrices_dir).expanduser()
-    if not matrices_path.is_absolute():
-        matrices_path = Path.cwd() / matrices_path
-
-    if not allow_symlinks:
-        validate_no_symlinks_in_path(
-            matrices_path,
-            description="trusted matrices directory",
-        )
-
-    resolved = matrices_path.resolve(strict=True)
-    if not resolved.is_dir():
-        raise ValueError(f"matrices_dir must be a directory: {resolved}")
-    trusted_path = Path(os.path.abspath(matrices_path)) if allow_symlinks else resolved
-    with _TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
-        _TRUSTED_EXTERNAL_MATRIX_DIRS.add(trusted_path)
-
-
-def clear_trusted_external_matrix_dirs() -> None:
-    """Test helper: clear externally-registered trusted matrix directories."""
-    with _TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
-        _TRUSTED_EXTERNAL_MATRIX_DIRS.clear()
 
 
 def _normalize_ipa_phone(phone: str) -> str:
@@ -141,10 +101,6 @@ def _resolve_phone_inventory(
 ) -> tuple[str, ...]:
     """Return explicit or default phones in longest-match tokenization order."""
     if phone_inventory is None:
-        # Local import breaks a circular dependency: core.ports.profiles imports
-        # this module (register_language_profile -> register_trusted_matrices_dir).
-        from .core.ports.profiles import get_default_language_profile
-
         phone_inventory = get_default_language_profile().phone_inventory
 
     # The search hot path passes a tuple (PhoneInventory); cache its sort.
@@ -164,19 +120,13 @@ def _get_trusted_matrices_dir() -> Path:
         return override_path
 
     try:
-        # Local import breaks a circular dependency (see _resolve_phone_inventory).
-        from .core.ports.profiles import get_default_language_profile
-
         return get_default_language_profile().matrix_path.parent
     except (FileNotFoundError, ValueError) as exc:
-        # No / ambiguous profile is a configuration issue; surface it rather than
-        # falling back silently to the repo-level matrices directory.
-        logger.warning(
-            "Falling back to repo matrices directory; "
-            "could not resolve a default language profile: %s",
-            exc,
-        )
-        return resolve_repo_data_dir("matrices")
+        raise ValueError(
+            "Could not resolve trusted matrices directory from a default "
+            "language profile. Set PROTEUS_TRUSTED_MATRICES_DIR or configure "
+            "a default language profile before loading matrices."
+        ) from exc
 
 
 def _is_numeric_row(candidate: Any) -> TypeGuard[dict[str, Real]]:
@@ -247,9 +197,7 @@ def _candidate_trusted_matrix_dirs() -> list[Path]:
     being accessed; callers must use ``is_dir()`` to skip missing paths.
     """
     primary = Path(os.path.abspath(_get_trusted_matrices_dir()))
-    with _TRUSTED_EXTERNAL_MATRIX_DIRS_LOCK:
-        external = sorted(_TRUSTED_EXTERNAL_MATRIX_DIRS)
-    return [primary, *external]
+    return [primary, *_trusted_matrices.list_trusted_external_matrix_dirs()]
 
 
 def _load_trusted_matrix_document(path: Path | str) -> dict[str, Any]:

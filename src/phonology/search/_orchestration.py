@@ -328,7 +328,7 @@ def _execute_search(
     language: str | Path | None = None,
     converter: IpaConverter | None = None,
     phone_inventory: PhoneInventory,
-    vowel_phones: tuple[str, ...] = (),
+    vowel_phones: tuple[str, ...],
     phone_matcher: Callable[[str, str], bool] | None = None,
     always_match_contexts: tuple[str, ...] = (),
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
