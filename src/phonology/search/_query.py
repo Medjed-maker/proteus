@@ -134,15 +134,16 @@ def _parse_partial_query(query: str) -> PartialQueryPattern | None:
 def _extract_consonant_skeleton(
     tokens: list[str],
     *,
-    vowel_phones: Iterable[str] = (),
+    vowel_phones: Iterable[str],
 ) -> list[str]:
     """Drop vowels from a tokenized IPA sequence to form a consonant skeleton.
 
     Args:
         tokens: Tokenized IPA sequence.
         vowel_phones: Vowel phone symbols to exclude from the skeleton.
-            Defaults to an empty tuple; callers should pass the language-specific
-            vowel inventory explicitly.
+            Callers must pass the resolved language-specific vowel inventory
+            explicitly. Use an empty iterable only for language profiles that
+            intentionally define no vowel phones.
 
     Returns:
         List of consonant tokens (tokens not in vowel_phones).

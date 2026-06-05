@@ -58,6 +58,16 @@ def test_explicit_default_profile_lookup_rediscovers_after_registry_reset(
     assert get_default_language_profile() == default_profile
 
 
+def test_ancient_greek_profile_owns_deprecated_orthography_hints() -> None:
+    profile = get_language_profile("ancient_greek")
+
+    assert profile.deprecated_orthography_hints == (
+        "standard",
+        "inscriptional",
+        "pre_403_2_attic",
+    )
+
+
 def test_register_default_profiles_discovers_entry_points_and_trusts_assets(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -391,6 +401,23 @@ def test_language_profile_preserves_custom_orthographic_note_builder(
             confidence="low",
         )
     ]
+
+
+def test_register_language_profile_rejects_invalid_deprecated_orthography_hints(
+    tmp_path: Path,
+    isolated_language_registry: None,
+    build_toy_profile: Callable[[Path, str], LanguageProfile],
+) -> None:
+    profile = replace(
+        build_toy_profile(tmp_path, "toy_bad_hint"),
+        deprecated_orthography_hints=(" PRE_403_2_ATTIC ",),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="deprecated_orthography_hints must contain lowercase",
+    ):
+        register_language_profile(profile)
 
 
 def test_default_ancient_greek_profile_sets_orthographic_note_builder() -> None:

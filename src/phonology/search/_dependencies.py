@@ -121,7 +121,7 @@ class _LazySearchDependencies:
         prebuilt_lexicon_map: LexiconMap | None,
         prebuilt_ipa_index: IpaIndex | None,
         phone_inventory: PhoneInventory,
-        vowel_phones: tuple[str, ...] = (),
+        vowel_phones: tuple[str, ...],
         dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]]
         | None = None,
     ) -> None:

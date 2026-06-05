@@ -109,6 +109,7 @@ class TestSearchTokenFallback:
             prebuilt_lexicon_map=tokenized_map,
             prebuilt_ipa_index=None,
             phone_inventory=(),
+            vowel_phones=(),
         )
 
         def fake_rank_by_token_count_proximity(
@@ -175,6 +176,7 @@ class TestSearchTokenFallback:
             prebuilt_lexicon_map=tokenized_map,
             prebuilt_ipa_index=None,
             phone_inventory=(),
+            vowel_phones=(),
         )
         partial_query = search_module.PartialQueryTokens(
             shape="suffix",

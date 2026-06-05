@@ -597,6 +597,7 @@ class TestSearchShortQuery:
             max_results=2,
             index={},
             phone_inventory=(),
+            vowel_phones=(),
         )
 
         assert execution.results == []

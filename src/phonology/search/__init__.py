@@ -264,7 +264,7 @@ def _build_kmer_index_for_inventory(
     *,
     k: int,
     phone_inventory: PhoneInventory,
-    vowel_phones: Iterable[str] | None = None,
+    vowel_phones: Iterable[str],
     dialect_skeleton_builders: Iterable[Callable[[list[str]], list[str]]] | None = None,
 ) -> KmerIndex:
     """Call k-mer builder, forwarding phone inventory and dialect skeleton builders."""
@@ -292,7 +292,7 @@ def _seed_stage_for_inventory(
     *,
     k: int,
     phone_inventory: PhoneInventory,
-    vowel_phones: Iterable[str] | None = None,
+    vowel_phones: Iterable[str],
 ) -> list[str]:
     """Call seed-stage core with already-resolved inventory settings."""
     return _seed_stage_core(
@@ -631,7 +631,7 @@ def _seed_stage_core(
     *,
     k: int,
     phone_inventory: PhoneInventory,
-    vowel_phones: Iterable[str] | None = None,
+    vowel_phones: Iterable[str],
 ) -> list[str]:
     """Rank candidate ids using caller-resolved tokenization settings.
 

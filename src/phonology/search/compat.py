@@ -68,7 +68,7 @@ class _CoreSearchModule(Protocol):
         *,
         k: int,
         phone_inventory: PhoneInventory,
-        vowel_phones: Iterable[str] | None = None,
+        vowel_phones: Iterable[str],
         dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,
     ) -> KmerIndex: ...
 
@@ -96,7 +96,7 @@ class _CoreSearchModule(Protocol):
         *,
         k: int,
         phone_inventory: PhoneInventory,
-        vowel_phones: Iterable[str] | None = None,
+        vowel_phones: Iterable[str],
     ) -> list[str]: ...
 
     def _extend_stage_core(
@@ -127,7 +127,7 @@ class _CoreSearchModule(Protocol):
         language: str | Path | None = None,
         converter: IpaConverter | None = None,
         phone_inventory: PhoneInventory,
-        vowel_phones: tuple[str, ...] = (),
+        vowel_phones: tuple[str, ...],
         phone_matcher: Callable[[str, str], bool] | None = None,
         always_match_contexts: tuple[str, ...] = (),
         dialect_skeleton_builders: Iterable[_DialectSkeletonBuilder] | None = None,

@@ -12,6 +12,10 @@ from typing import Literal, Protocol
 
 from .corpus import CorpusAdapter
 from .orthography_notes import OrthographicNoteBuilder
+from .trusted_matrices import (
+    clear_trusted_external_matrix_dirs,
+    register_trusted_matrices_dir,
+)
 
 
 class IpaConverter(Protocol):
@@ -41,6 +45,7 @@ class LanguageProfile:
     phone_matcher: Callable[[str, str], bool] | None = None
     dialect_skeleton_builders: tuple[Callable[[list[str]], list[str]], ...] = ()
     orthographic_note_builder: OrthographicNoteBuilder | None = None
+    deprecated_orthography_hints: tuple[str, ...] = ()
     orthographic_data_preparer: Callable[[], None] | None = None
     corpus_adapter_factory: Callable[[], CorpusAdapter] | None = None
     always_match_contexts: tuple[str, ...] = ()
@@ -67,7 +72,8 @@ def register_language_profile(profile: LanguageProfile) -> None:
     Side effects:
         Registers ``profile.rules_dir`` and ``profile.matrix_path.parent`` as
         trusted directories via ``explainer.register_trusted_rules_dir`` and
-        ``distance.register_trusted_matrices_dir``. Subsequent matrix and rule
+        ``core.ports.trusted_matrices.register_trusted_matrices_dir``.
+        Subsequent matrix and rule
         loads from those directories are permitted without additional validation.
         To undo this, call ``_reset_language_registry_for_tests()`` (tests only).
 
@@ -93,10 +99,15 @@ def register_language_profile(profile: LanguageProfile) -> None:
         raise ValueError(
             f"phone_inventory must be non-empty for {profile.language_id!r}"
         )
+    for hint in profile.deprecated_orthography_hints:
+        normalized_hint = hint.strip().lower()
+        if hint != normalized_hint or not normalized_hint:
+            raise ValueError(
+                "deprecated_orthography_hints must contain lowercase, "
+                f"non-empty strings for {profile.language_id!r}"
+            )
 
     from ...explainer import register_trusted_rules_dir
-    from ...distance import register_trusted_matrices_dir
-
     register_trusted_rules_dir(profile.rules_dir)
     register_trusted_matrices_dir(profile.matrix_path.parent)
 
@@ -261,7 +272,6 @@ def _reset_language_registry_for_tests() -> None:
     Do not use in production code.
     """
     from ...explainer import clear_trusted_external_rules_dirs
-    from ...distance import clear_trusted_external_matrix_dirs
 
     with _REGISTRY_LOCK:
         _REGISTRY.clear()
