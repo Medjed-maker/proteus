@@ -286,13 +286,9 @@ class SearchRequest(BaseModel):
         else:
             raise ValueError("dialect_hint must be a string")
 
-        raw_orthography_hint = payload.get("orthography_hint")
-        if raw_orthography_hint is None:
-            orthography_hint = None
-        elif isinstance(raw_orthography_hint, str):
-            orthography_hint = raw_orthography_hint.strip().lower() or None
-        else:
-            raise ValueError("orthography_hint must be a string")
+        orthography_hint = cls._normalize_orthography_hint(
+            payload.get("orthography_hint")
+        )
 
         if orthography_hint is not None:
             allowed_hints = tuple(profile.deprecated_orthography_hints)
@@ -412,6 +408,22 @@ class SearchRequest(BaseModel):
             raise ValueError("language must be a string")
         normalized = value.strip().lower()
         return normalized or _default_language_id()
+
+    @classmethod
+    def _normalize_orthography_hint(cls, value: Any) -> Any:
+        """Normalize the (deprecated) orthography hint string.
+
+        Profile-independent string normalization only: ``None`` and blank
+        strings collapse to ``None``; other strings are stripped and
+        lowercased. Non-string values pass through unchanged so that the
+        profile-aware allow-list check in ``_normalize_language_and_dialect``
+        rejects them.
+        """
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value.strip().lower() or None
+        return value
 
 
 class RuleStep(BaseModel):

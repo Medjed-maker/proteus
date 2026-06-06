@@ -9,9 +9,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
-from ._lookup import _entry_ipa
-from ._types import LexiconRecord
-
 
 def _leading_overlap_length(
     fragment_tokens: Sequence[str],
@@ -89,35 +86,6 @@ def _is_exact_token_match(
 ) -> bool:
     """Return whether the two token sequences match exactly."""
     return tuple(query_tokens) == tuple(lemma_tokens)
-
-
-def _token_count_proximity_key(
-    query_ipa: str,
-    query_token_count: int,
-    entry_id: str,
-    record: LexiconRecord,
-) -> tuple[int, bool, str]:
-    """Return the fallback ranking key for one tokenized lexicon record.
-
-    Args:
-        query_ipa: IPA string of the search query.
-        query_token_count: Number of tokens in the query IPA.
-        entry_id: Unique identifier for the lexicon entry (used as tiebreaker).
-        record: LexiconRecord containing entry metadata and token count.
-
-    Returns:
-        A tuple of (int, bool, str) used for sorting:
-        - int: Absolute difference between record.token_count and query_token_count
-               (lower values rank higher, preferring similar token lengths).
-        - bool: Whether the record's IPA differs from query_ipa; True ranks lower,
-                so exact IPA matches are preferred.
-        - str: entry_id used as final tiebreaker for stable ordering.
-    """
-    return (
-        abs(record.token_count - query_token_count),
-        _entry_ipa(record.entry) != query_ipa,
-        entry_id,
-    )
 
 
 def _merge_bounded_candidate_ids(
