@@ -115,7 +115,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: data/external/lsj
-          key: ${{ runner.os }}-perseus-lsj-${{ hashFiles('scripts/extract-lsj.sh', 'src/phonology/build_lexicon.py') }}
+          key: ${{ runner.os }}-perseus-lsj-${{ hashFiles('scripts/extract-lsj.sh', 'src/phonology/languages/ancient_greek/build_lexicon.py') }}
           # restore-keys intentionally omitted: a partial cache hit for the LSJ
           # checkout is not useful — the step requires the exact matching tree.
 
@@ -125,7 +125,7 @@ jobs:
           path: |
             data/languages/ancient_greek/lexicon/greek_lemmas.json
             data/languages/ancient_greek/lexicon/greek_lemmas.meta.json
-          key: ${{ runner.os }}-lexicon-${{ hashFiles('scripts/extract-lsj.sh', 'src/phonology/lsj_extractor.py', 'src/phonology/build_lexicon.py', 'src/phonology/ipa_converter.py', 'src/phonology/languages/ancient_greek/ipa.py', 'src/phonology/transliterate.py', 'src/phonology/betacode.py', 'data/languages/ancient_greek/lexicon/pos_overrides.yaml', 'data/languages/ancient_greek/lexicon/greek_lemmas.schema.json', 'data/languages/ancient_greek/lexicon/supplemental_lemmas.yaml') }}
+          key: ${{ runner.os }}-lexicon-${{ hashFiles('scripts/extract-lsj.sh', 'src/phonology/languages/ancient_greek/lsj_extractor.py', 'src/phonology/languages/ancient_greek/build_lexicon.py', 'src/phonology/languages/ancient_greek/ipa.py', 'src/phonology/languages/ancient_greek/transliterate.py', 'src/phonology/languages/ancient_greek/betacode.py', 'data/languages/ancient_greek/lexicon/pos_overrides.yaml', 'data/languages/ancient_greek/lexicon/greek_lemmas.schema.json', 'data/languages/ancient_greek/lexicon/supplemental_lemmas.yaml') }}
           # restore-keys intentionally omitted: the generated lexicon is either
           # fully current or must be regenerated; a stale partial file is useless.
 

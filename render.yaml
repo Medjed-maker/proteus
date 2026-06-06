@@ -1,0 +1,22 @@
+# Render Blueprint for the Proteus FastAPI service.
+#
+# Keeping the build/start commands under version control means module moves
+# (e.g. the relocation of build_lexicon into phonology.languages.ancient_greek)
+# can be updated alongside the code instead of drifting from a dashboard setting.
+#
+# NOTE: A service originally created by hand is not retroactively governed by
+# this file. To bring the existing `proteus` service under Blueprint control,
+# connect this repo as a Blueprint in the Render dashboard (or recreate the
+# service from it). Until then, the dashboard build command must be updated
+# manually to match the buildCommand below.
+services:
+  - type: web
+    name: proteus
+    runtime: python
+    plan: free
+    region: singapore
+    branch: main
+    autoDeploy: true
+    healthCheckPath: /health
+    buildCommand: "uv sync --frozen --extra extract && uv run python -m phonology.languages.ancient_greek.build_lexicon --if-missing && uv cache prune --ci"
+    startCommand: "uv run uvicorn api.main:app --host 0.0.0.0 --port $PORT"
