@@ -63,7 +63,7 @@ def test_translations_values_not_empty(translations_data: dict[str, Any]) -> Non
             )
 
 
-def test_orthographic_note_translation_key_present_in_fallback_html(
+def test_orthographic_note_translation_keys_present_in_static_json(
     translations_data: dict[str, Any],
 ) -> None:
     html = FRONTEND_HTML_PATH.read_text(encoding="utf-8")
@@ -96,20 +96,14 @@ def test_orthographic_note_translation_key_present_in_fallback_html(
         translations_data["ja"]["orthographicPreReformSpelling"]
         == "前403/2年以前のアッティカ碑文表記として:"
     )
-    assert 'sectionOrthographicNote: "Orthographic note"' in html
-    assert (
-        'orthographicGroupTitle: "Orthographically annotated candidates"' in html
-    )
-    assert 'orthographicCurrentCandidate: "Current candidate:"' in html
-    assert (
-        'orthographicAlternativeReading: '
-        '"Writing-system alternative reading:"'
-        in html
-    )
-    assert (
-        'orthographicPreReformSpelling: '
-        '"Pre-403/2 BCE Attic inscriptional spelling:"' in html
-    )
+    # The values now live in translations.json; assert each key is actually
+    # referenced in the frontend (via t() or group config), not merely present.
+    assert 't("sectionOrthographicNote")' in html
+    assert 'titleKey: "orthographicGroupTitle"' in html
+    assert 't("orthographicCurrentCandidate")' in html
+    assert 't("orthographicAlternativeReading")' in html
+    assert 't("orthographicPreReformSpelling")' in html
+    assert "Pre-403/2 BCE Attic inscriptional spelling" not in html
     assert "orthographicNoteEmpty" not in html
 
 
@@ -134,7 +128,7 @@ def test_frontend_renders_orthographic_notes_before_alignment() -> None:
     assert "references" not in orthographic_renderer
     assert "confidence" not in orthographic_renderer
     assert "function appendOrthographicRelation" in html
-    assert 'arrow.textContent = " → "' in html
+    assert 'text: " \\u2192 "' in html
     assert 'const query = typeof queryForm === "string" ? queryForm.trim() : "";' in orthographic_renderer
     assert "appendOrthographicRelation(currentText, query, currentCandidate.trim())" in orthographic_renderer
     assert "note.kind === ORTHO_KIND_CORRESPONDENCE" in orthographic_renderer
@@ -150,25 +144,19 @@ def test_frontend_renders_orthographic_notes_before_alignment() -> None:
         '(!candidateForm || normalizedForm !== candidateForm)'
         in orthographic_renderer
     )
-    assert (
-        'lead.textContent = t("orthographicAlternativeReading")'
-        in orthographic_renderer
-    )
     assert orthographic_renderer.index(
         'const isAlternativeReading ='
-    ) < orthographic_renderer.index('lead.textContent = t("orthographicAlternativeReading")')
+    ) < orthographic_renderer.index('text: t("orthographicAlternativeReading")')
     assert "note.pre_reform_spelling" in orthographic_renderer
     assert "note.pre_reform_romanization" in orthographic_renderer
     assert (
-        'preReformLabel.textContent = t("orthographicPreReformSpelling")'
+        'text: t("orthographicPreReformSpelling")'
         in orthographic_renderer
     )
     assert "isAlternativeReading ? query : \"\"" in orthographic_renderer
 
     append_body = html[
-        html.index("function appendCardBody") : html.index(
-            "function renderDetailedCard"
-        )
+        html.index("function appendCardBody") : html.index("function renderDetailedCard")
     ]
     assert append_body.index('t("sectionMatchedRules")') < append_body.index(
         "renderOrthographicNotes("
@@ -191,7 +179,8 @@ def test_frontend_highlights_orthographic_candidates_above_supported_group() -> 
         "hit.orthographic_notes.length > 0;"
         in html
     )
-    assert "const orthographic = indexedHits.filter(({ hit }) => hasOrthographicNotes(hit));" in html
+    assert "function partitionHits(indexedHits)" in html
+    assert "orthographic: indexedHits.filter(({ hit }) => hasOrthographicNotes(hit))" in html
     assert (
         "({ hit }) => !hasOrthographicNotes(hit) && isSupportedCandidate(hit)"
         in html
@@ -207,13 +196,15 @@ def test_frontend_highlights_orthographic_candidates_above_supported_group() -> 
         html.index("function renderResults") : html.index("/* ------------------------------------------------------------------ */", html.index("function renderResults"))
     ]
     assert 'const queryForm = data.query || "";' in results_renderer
-    assert "renderCandidateCards(orthographic, queryForm)" in results_renderer
-    assert "renderCandidateCards(supported, queryForm)" in results_renderer
-    assert "renderExploratorySection(queryMode, exploratory, queryForm)" in results_renderer
-    assert results_renderer.index('t("orthographicGroupTitle")') < results_renderer.index(
-        't("supportedGroupTitle")'
+    assert "const groups = partitionHits(indexedHits);" in results_renderer
+    assert "items: groups.orthographic" in results_renderer
+    assert "items: groups.supported" in results_renderer
+    assert "items: groups.exploratory" in results_renderer
+    assert "renderCandidateGroup(container, group, queryForm)" in results_renderer
+    assert results_renderer.index('titleKey: "orthographicGroupTitle"') < results_renderer.index(
+        'titleKey: "supportedGroupTitle"'
     )
-    assert 't("orthographicGroupDesc")' in results_renderer
+    assert 'descriptionKey: "orthographicGroupDesc"' in results_renderer
 
 
 def test_frontend_greek_keyboard_markup_and_i18n(
@@ -236,9 +227,7 @@ def test_frontend_greek_keyboard_markup_and_i18n(
     assert 'id="greekKeyboardCaseGroup"' in html
     assert 'aria-label="Greek keyboard letter case"' in html
     assert 'id="greekKeyboardLower"' in html
-    assert 'data-keyboard-case="lower"' in html
     assert 'id="greekKeyboardUpper"' in html
-    assert 'data-keyboard-case="upper"' in html
     assert 'id="greekKeyboardKeys"' in html
     assert 'aria-label="Greek keyboard keys"' in html
 
@@ -264,7 +253,43 @@ def test_frontend_greek_keyboard_markup_and_i18n(
     ]:
         assert key in translations_data["en"]
         assert key in translations_data["ja"]
-        assert f"{key}: " in html
+    for key in [
+        "keyboardAcute",
+        "keyboardGrave",
+        "keyboardCircumflex",
+        "keyboardSmoothBreathing",
+        "keyboardRoughBreathing",
+        "keyboardDiaeresis",
+        "keyboardIotaSubscript",
+        "keyboardBackspace",
+        "keyboardWildcardHyphen",
+        "keyboardWildcardAsterisk",
+        "keyboardWildcardTilde",
+    ]:
+        assert f'ariaKey: "{key}"' in html
+
+    # The on-screen keyboard is operable offline (no /search round-trip), so its
+    # per-key aria-labels must survive a translations.json load failure by living
+    # in the inline English fallback object.
+    fallback = html[
+        html.index("let TRANSLATIONS = {") : html.index(
+            "async function loadTranslations"
+        )
+    ]
+    for key in [
+        "keyboardAcute",
+        "keyboardGrave",
+        "keyboardCircumflex",
+        "keyboardSmoothBreathing",
+        "keyboardRoughBreathing",
+        "keyboardDiaeresis",
+        "keyboardIotaSubscript",
+        "keyboardBackspace",
+        "keyboardWildcardHyphen",
+        "keyboardWildcardAsterisk",
+        "keyboardWildcardTilde",
+    ]:
+        assert f"{key}:" in fallback
 
 
 def test_frontend_greek_keyboard_key_sets_and_insertion_contract() -> None:
@@ -338,12 +363,10 @@ def test_frontend_greek_keyboard_uses_event_listeners_and_closes_on_search() -> 
     assert 'const keyboardToggle = document.getElementById("greekKeyboardToggle");' in register_listeners
     assert "if (keyboardToggle)" in register_listeners
     assert "keyboardToggle.addEventListener(\"click\", toggleGreekKeyboard);" in register_listeners
-    assert 'const lowerButton = document.getElementById("greekKeyboardLower");' in register_listeners
-    assert "if (lowerButton)" in register_listeners
-    assert 'lowerButton.addEventListener("click", function()' in register_listeners
-    assert 'const upperButton = document.getElementById("greekKeyboardUpper");' in register_listeners
-    assert "if (upperButton)" in register_listeners
-    assert 'upperButton.addEventListener("click", function()' in register_listeners
+    assert '["greekKeyboardLower", "lower"]' in register_listeners
+    assert '["greekKeyboardUpper", "upper"]' in register_listeners
+    assert "document.getElementById(id)" in register_listeners
+    assert "setGreekKeyboardCase(nextCase);" in register_listeners
     assert 'const keyboardKeys = document.getElementById("greekKeyboardKeys");' in register_listeners
     assert "if (keyboardKeys)" in register_listeners
     assert 'keyboardKeys.addEventListener("click", handleGreekKeyboardKeyClick);' in register_listeners
