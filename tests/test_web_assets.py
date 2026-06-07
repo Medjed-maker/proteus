@@ -214,3 +214,165 @@ def test_frontend_highlights_orthographic_candidates_above_supported_group() -> 
         't("supportedGroupTitle")'
     )
     assert 't("orthographicGroupDesc")' in results_renderer
+
+
+def test_frontend_greek_keyboard_markup_and_i18n(
+    translations_data: dict[str, Any],
+) -> None:
+    """Verify that the search form exposes the Greek keyboard controls."""
+    html = FRONTEND_HTML_PATH.read_text(encoding="utf-8")
+
+    assert 'id="greekKeyboardToggle"' in html
+    assert 'aria-controls="greekKeyboard"' in html
+    assert 'aria-expanded="false"' in html
+    assert 'aria-pressed="false"' in html
+    assert 'aria-label="Show Greek keyboard"' in html
+    assert '<span aria-hidden="true">⌨</span>' in html
+
+    assert 'id="greekKeyboard"' in html
+    assert 'role="group"' in html
+    assert 'aria-label="Greek keyboard"' in html
+    assert "hidden>" in html
+    assert 'id="greekKeyboardCaseGroup"' in html
+    assert 'aria-label="Greek keyboard letter case"' in html
+    assert 'id="greekKeyboardLower"' in html
+    assert 'data-keyboard-case="lower"' in html
+    assert 'id="greekKeyboardUpper"' in html
+    assert 'data-keyboard-case="upper"' in html
+    assert 'id="greekKeyboardKeys"' in html
+    assert 'aria-label="Greek keyboard keys"' in html
+
+    for key in [
+        "keyboardToggleShow",
+        "keyboardToggleHide",
+        "keyboardLower",
+        "keyboardUpper",
+        "keyboardCaseLabel",
+        "keyboardPanelLabel",
+        "keyboardKeysLabel",
+        "keyboardAcute",
+        "keyboardGrave",
+        "keyboardCircumflex",
+        "keyboardSmoothBreathing",
+        "keyboardRoughBreathing",
+        "keyboardDiaeresis",
+        "keyboardIotaSubscript",
+        "keyboardBackspace",
+        "keyboardWildcardHyphen",
+        "keyboardWildcardAsterisk",
+        "keyboardWildcardTilde",
+    ]:
+        assert key in translations_data["en"]
+        assert key in translations_data["ja"]
+        assert f"{key}: " in html
+
+
+def test_frontend_greek_keyboard_key_sets_and_insertion_contract() -> None:
+    """Verify the Greek keyboard key sets and input-editing contract."""
+    html = FRONTEND_HTML_PATH.read_text(encoding="utf-8")
+
+    lower_start = html.index("lower: [")
+    upper_start = html.index("upper: [")
+    rows_end = html.index("};", upper_start)
+    lower_rows = html[lower_start:upper_start]
+    upper_rows = html[upper_start:rows_end]
+
+    assert '["α", "β", "γ", "δ", "ε", "ζ", "η", "θ"]' in lower_rows
+    assert '["ι", "κ", "λ", "μ", "ν", "ξ", "ο", "π"]' in lower_rows
+    assert '["ρ", "σ", "ς", "τ", "υ", "φ", "χ", "ψ", "ω"]' in lower_rows
+    assert '"ς"' in lower_rows
+
+    assert '["Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ"]' in upper_rows
+    assert '["Ι", "Κ", "Λ", "Μ", "Ν", "Ξ", "Ο", "Π"]' in upper_rows
+    assert '["Ρ", "Σ", "Τ", "Υ", "Φ", "Χ", "Ψ", "Ω"]' in upper_rows
+    assert '"ς"' not in upper_rows
+
+    assert 'const GREEK_DIACRITIC_KEYS = [' in html
+    assert 'value: "\\u0301", ariaKey: "keyboardAcute"' in html
+    assert 'value: "\\u0300", ariaKey: "keyboardGrave"' in html
+    assert 'value: "\\u0342", ariaKey: "keyboardCircumflex"' in html
+    assert 'value: "\\u0313", ariaKey: "keyboardSmoothBreathing"' in html
+    assert 'value: "\\u0314", ariaKey: "keyboardRoughBreathing"' in html
+    assert 'value: "\\u0308", ariaKey: "keyboardDiaeresis"' in html
+    assert 'value: "\\u0345", ariaKey: "keyboardIotaSubscript"' in html
+
+    # Regression guard: diacritic labels must NOT use the dotted circle
+    # (U+25CC) + combining mark, which tofus in fonts lacking Greek combining
+    # glyphs (e.g. Palatino in Chrome). Labels use spacing diacritic glyphs
+    # while the inserted values stay combining marks.
+    assert "◌" not in html
+    assert '{ label: "´", value: "\\u0301", ariaKey: "keyboardAcute" }' in html
+    assert '{ label: "ˋ", value: "\\u0300", ariaKey: "keyboardGrave" }' in html
+    assert '{ label: "῀", value: "\\u0342", ariaKey: "keyboardCircumflex" }' in html
+    assert '{ label: "᾿", value: "\\u0313", ariaKey: "keyboardSmoothBreathing" }' in html
+    assert '{ label: "῾", value: "\\u0314", ariaKey: "keyboardRoughBreathing" }' in html
+    assert '{ label: "¨", value: "\\u0308", ariaKey: "keyboardDiaeresis" }' in html
+    assert '{ label: "ͺ", value: "\\u0345", ariaKey: "keyboardIotaSubscript" }' in html
+
+    assert 'const GREEK_UTILITY_KEYS = [' in html
+    assert '{ label: "-", value: "-", ariaKey: "keyboardWildcardHyphen" }' in html
+    assert '{ label: "*", value: "*", ariaKey: "keyboardWildcardAsterisk" }' in html
+    assert '{ label: "~", value: "~", ariaKey: "keyboardWildcardTilde" }' in html
+    assert '{ label: "⌫", action: "backspace", ariaKey: "keyboardBackspace" }' in html
+
+    assert 'input.setRangeText(value, start, end, "end");' in html
+    assert 'input.setRangeText("", start, end, "end");' in html
+    assert 'input.setRangeText("", start - 1, end, "end");' in html
+    assert 'input.dispatchEvent(new Event("input", { bubbles: true }));' in html
+    assert 'function handleGreekKeyboardKeyClick(event)' in html
+    assert 'button.dataset.keyboardAction === "backspace"' in html
+
+
+def test_frontend_greek_keyboard_uses_event_listeners_and_closes_on_search() -> None:
+    """Verify keyboard events are registered progressively and closed on submit."""
+    html = FRONTEND_HTML_PATH.read_text(encoding="utf-8")
+    register_listeners = html[
+        html.index("function registerGreekKeyboardListeners")
+        : html.index(
+            "/* ------------------------------------------------------------------ */",
+            html.index("function registerGreekKeyboardListeners"),
+        )
+    ]
+
+    assert "onclick=" not in html
+    assert 'const keyboardToggle = document.getElementById("greekKeyboardToggle");' in register_listeners
+    assert "if (keyboardToggle)" in register_listeners
+    assert "keyboardToggle.addEventListener(\"click\", toggleGreekKeyboard);" in register_listeners
+    assert 'const lowerButton = document.getElementById("greekKeyboardLower");' in register_listeners
+    assert "if (lowerButton)" in register_listeners
+    assert 'lowerButton.addEventListener("click", function()' in register_listeners
+    assert 'const upperButton = document.getElementById("greekKeyboardUpper");' in register_listeners
+    assert "if (upperButton)" in register_listeners
+    assert 'upperButton.addEventListener("click", function()' in register_listeners
+    assert 'const keyboardKeys = document.getElementById("greekKeyboardKeys");' in register_listeners
+    assert "if (keyboardKeys)" in register_listeners
+    assert 'keyboardKeys.addEventListener("click", handleGreekKeyboardKeyClick);' in register_listeners
+    assert "greekKeyboardListenersRegistered = true;" in register_listeners
+    assert "registerGreekKeyboardListeners();" in html
+
+    run_search = html[html.index("async function runSearch") : html.index(
+        "/* ------------------------------------------------------------------ */",
+        html.index("async function runSearch"),
+    )]
+    assert "if (event) event.preventDefault();" in run_search
+    assert "hideGreekKeyboard();" in run_search
+    assert run_search.index("hideGreekKeyboard();") < run_search.index(
+        'const query = document.getElementById("query").value.trim();'
+    )
+
+
+def test_frontend_search_payload_normalizes_query_to_nfc() -> None:
+    """Verify the search payload normalizes the query to NFC.
+
+    The Greek keyboard inserts combining diacritics (base letter + mark),
+    yielding NFD text. Normalizing at the payload boundary guards against
+    NFC-keyed lexicon lookups missing such input.
+    """
+    html = FRONTEND_HTML_PATH.read_text(encoding="utf-8")
+
+    payload_builder = html[
+        html.index("function buildSearchPayload(query)") : html.index(
+            "}", html.index("function buildSearchPayload(query)")
+        )
+    ]
+    assert 'query: query.normalize("NFC")' in payload_builder

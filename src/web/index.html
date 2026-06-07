@@ -24,19 +24,59 @@
   </div>
 
   <main class="w-full max-w-3xl">
-    <form id="searchForm" class="flex gap-3 max-w-xl mx-auto">
+    <form id="searchForm" class="max-w-xl mx-auto">
       <label for="query" class="sr-only">Search query</label>
-      <input id="query" type="text"
-        placeholder="ἄνθρωπος"
-        autocomplete="off"
-        class="flex-1 text-2xl font-serif py-3 px-4 border border-parchment-200 rounded-lg bg-white
-               focus:outline-none focus:ring-2 focus:ring-accent/30" />
-      <button id="searchBtn" type="submit"
-        class="py-3 px-6 text-base font-medium bg-accent text-white border-none rounded-lg cursor-pointer
-               transition-colors duration-150 hover:bg-accent-hover
-               disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none">
-        Search
-      </button>
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <div class="flex w-full flex-1">
+          <button id="greekKeyboardToggle" type="button"
+            class="shrink-0 px-3 text-xl border border-parchment-200 rounded-l-lg bg-white text-ink-light
+                   transition-colors duration-150 hover:text-ink hover:border-ink-light
+                   focus:outline-none focus:ring-2 focus:ring-accent/30"
+            aria-controls="greekKeyboard"
+            aria-expanded="false"
+            aria-pressed="false"
+            aria-label="Show Greek keyboard">
+            <span aria-hidden="true">⌨</span>
+          </button>
+          <input id="query" type="text"
+            placeholder="ἄνθρωπος"
+            autocomplete="off"
+            class="min-w-0 flex-1 text-2xl font-serif py-3 px-4 border border-l-0 border-parchment-200 rounded-r-lg bg-white
+                   focus:outline-none focus:ring-2 focus:ring-accent/30" />
+        </div>
+        <button id="searchBtn" type="submit"
+          class="w-full sm:w-auto py-3 px-6 text-base font-medium bg-accent text-white border-none rounded-lg cursor-pointer
+                 transition-colors duration-150 hover:bg-accent-hover
+                 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none">
+          Search
+        </button>
+      </div>
+      <div id="greekKeyboard"
+        class="mt-3 p-3 rounded-lg border border-parchment-200 bg-white shadow-sm"
+        role="group"
+        aria-label="Greek keyboard"
+        hidden>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div id="greekKeyboardCaseGroup"
+            class="flex overflow-hidden rounded-lg border border-parchment-200"
+            role="group"
+            aria-label="Greek keyboard letter case">
+            <button id="greekKeyboardLower" type="button"
+              class="px-3 py-1 text-sm font-medium transition-colors bg-accent text-white"
+              data-keyboard-case="lower"
+              aria-pressed="true">
+              Lower
+            </button>
+            <button id="greekKeyboardUpper" type="button"
+              class="px-3 py-1 text-sm font-medium transition-colors bg-white text-ink-light hover:text-ink"
+              data-keyboard-case="upper"
+              aria-pressed="false">
+              Upper
+            </button>
+          </div>
+        </div>
+        <div id="greekKeyboardKeys" class="space-y-2" role="group" aria-label="Greek keyboard keys"></div>
+      </div>
     </form>
 
     <div id="results" class="mt-8" aria-live="polite" role="region" aria-label="Search results"></div>
@@ -129,6 +169,24 @@
         fallbackEditsLabel: "fallback edits",
         rankLabel: "Rank ",
         positionLabel: "position ",
+        keyboardToggleShow: "Show Greek keyboard",
+        keyboardToggleHide: "Hide Greek keyboard",
+        keyboardLower: "Lower",
+        keyboardUpper: "Upper",
+        keyboardCaseLabel: "Greek keyboard letter case",
+        keyboardPanelLabel: "Greek keyboard",
+        keyboardKeysLabel: "Greek keyboard keys",
+        keyboardAcute: "Acute accent",
+        keyboardGrave: "Grave accent",
+        keyboardCircumflex: "Circumflex",
+        keyboardSmoothBreathing: "Smooth breathing",
+        keyboardRoughBreathing: "Rough breathing",
+        keyboardDiaeresis: "Diaeresis",
+        keyboardIotaSubscript: "Iota subscript",
+        keyboardBackspace: "Backspace",
+        keyboardWildcardHyphen: "Wildcard hyphen",
+        keyboardWildcardAsterisk: "Wildcard asterisk",
+        keyboardWildcardTilde: "Wildcard tilde",
         footerLexiconLabel: "Lexicon data from:",
         footerLicensedLabel: "licensed",
         versionLabel: "Version",
@@ -193,6 +251,28 @@
         "Πρωτεύς · Proteus \u2014 " + t("subtitle");
       document.getElementById("searchBtn").textContent = t("searchBtn");
       document.querySelector("label[for='query']").textContent = t("searchLabel");
+      const greekKeyboard = document.getElementById("greekKeyboard");
+      if (greekKeyboard) {
+        greekKeyboard.setAttribute("aria-label", t("keyboardPanelLabel"));
+      }
+      const greekKeyboardCaseGroup = document.getElementById("greekKeyboardCaseGroup");
+      if (greekKeyboardCaseGroup) {
+        greekKeyboardCaseGroup.setAttribute("aria-label", t("keyboardCaseLabel"));
+      }
+      const greekKeyboardKeys = document.getElementById("greekKeyboardKeys");
+      if (greekKeyboardKeys) {
+        greekKeyboardKeys.setAttribute("aria-label", t("keyboardKeysLabel"));
+      }
+      const greekKeyboardLower = document.getElementById("greekKeyboardLower");
+      if (greekKeyboardLower) {
+        greekKeyboardLower.textContent = t("keyboardLower");
+      }
+      const greekKeyboardUpper = document.getElementById("greekKeyboardUpper");
+      if (greekKeyboardUpper) {
+        greekKeyboardUpper.textContent = t("keyboardUpper");
+      }
+      updateGreekKeyboardToggleState();
+      renderGreekKeyboardKeys();
       // Update toggle button aria-label to reflect the action (switch to the other language).
       document.getElementById("langToggle").setAttribute(
         "aria-label",
@@ -266,6 +346,224 @@
     }
 
     /* ------------------------------------------------------------------ */
+    /* Greek keyboard                                                      */
+    /* ------------------------------------------------------------------ */
+
+    const GREEK_KEYBOARD_ROWS = {
+      lower: [
+        ["α", "β", "γ", "δ", "ε", "ζ", "η", "θ"],
+        ["ι", "κ", "λ", "μ", "ν", "ξ", "ο", "π"],
+        ["ρ", "σ", "ς", "τ", "υ", "φ", "χ", "ψ", "ω"],
+      ],
+      upper: [
+        ["Α", "Β", "Γ", "Δ", "Ε", "Ζ", "Η", "Θ"],
+        ["Ι", "Κ", "Λ", "Μ", "Ν", "Ξ", "Ο", "Π"],
+        ["Ρ", "Σ", "Τ", "Υ", "Φ", "Χ", "Ψ", "Ω"],
+      ],
+    };
+
+    // Labels use spacing (standalone) diacritic glyphs so they render in any
+    // Greek-capable font; inserted `value`s stay the combining marks. A
+    // dotted-circle (U+25CC) + combining mark tofus in fonts (e.g. Palatino)
+    // that lack the Greek combining glyphs.
+    const GREEK_DIACRITIC_KEYS = [
+      { label: "´", value: "\u0301", ariaKey: "keyboardAcute" },
+      { label: "ˋ", value: "\u0300", ariaKey: "keyboardGrave" },
+      { label: "῀", value: "\u0342", ariaKey: "keyboardCircumflex" },
+      { label: "᾿", value: "\u0313", ariaKey: "keyboardSmoothBreathing" },
+      { label: "῾", value: "\u0314", ariaKey: "keyboardRoughBreathing" },
+      { label: "¨", value: "\u0308", ariaKey: "keyboardDiaeresis" },
+      { label: "ͺ", value: "\u0345", ariaKey: "keyboardIotaSubscript" },
+    ];
+
+    const GREEK_UTILITY_KEYS = [
+      { label: "-", value: "-", ariaKey: "keyboardWildcardHyphen" },
+      { label: "*", value: "*", ariaKey: "keyboardWildcardAsterisk" },
+      { label: "~", value: "~", ariaKey: "keyboardWildcardTilde" },
+      { label: "⌫", action: "backspace", ariaKey: "keyboardBackspace" },
+    ];
+
+    let greekKeyboardCase = "lower";
+    let greekKeyboardListenersRegistered = false;
+
+    function isGreekKeyboardVisible() {
+      const panel = document.getElementById("greekKeyboard");
+      return panel ? !panel.hidden : false;
+    }
+
+    function keyboardCaseButtonClass(isActive) {
+      return "px-3 py-1 text-sm font-medium transition-colors " +
+        (isActive ? "bg-accent text-white" : "bg-white text-ink-light hover:text-ink");
+    }
+
+    function updateGreekKeyboardCaseButtons() {
+      const lowerButton = document.getElementById("greekKeyboardLower");
+      const upperButton = document.getElementById("greekKeyboardUpper");
+      if (!lowerButton || !upperButton) return;
+
+      const lowerActive = greekKeyboardCase === "lower";
+      lowerButton.className = keyboardCaseButtonClass(lowerActive);
+      upperButton.className = keyboardCaseButtonClass(!lowerActive);
+      lowerButton.setAttribute("aria-pressed", String(lowerActive));
+      upperButton.setAttribute("aria-pressed", String(!lowerActive));
+    }
+
+    function updateGreekKeyboardToggleState() {
+      const toggle = document.getElementById("greekKeyboardToggle");
+      if (!toggle) return;
+
+      const isVisible = isGreekKeyboardVisible();
+      toggle.setAttribute("aria-expanded", String(isVisible));
+      toggle.setAttribute("aria-pressed", String(isVisible));
+      toggle.setAttribute("aria-label", isVisible ? t("keyboardToggleHide") : t("keyboardToggleShow"));
+    }
+
+    function createGreekKeyboardButton(key) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "w-10 rounded-lg border border-parchment-200 bg-parchment-50 px-3 py-2 text-xl font-serif text-ink transition-colors hover:border-ink-light hover:bg-parchment-100 focus:outline-none focus:ring-2 focus:ring-accent/30";
+      button.textContent = key.label;
+      if (key.value !== undefined) {
+        button.dataset.keyboardValue = key.value;
+      }
+      if (key.action) {
+        button.dataset.keyboardAction = key.action;
+      }
+      if (key.ariaKey) {
+        button.setAttribute("aria-label", t(key.ariaKey));
+      }
+      return button;
+    }
+
+    function renderGreekKeyboardKeys() {
+      const container = document.getElementById("greekKeyboardKeys");
+      if (!container) return;
+
+      container.replaceChildren();
+
+      GREEK_KEYBOARD_ROWS[greekKeyboardCase].forEach((row) => {
+        const rowEl = document.createElement("div");
+        rowEl.className = "flex flex-wrap gap-1.5";
+        row.forEach((letter) => {
+          rowEl.appendChild(createGreekKeyboardButton({ label: letter, value: letter }));
+        });
+        container.appendChild(rowEl);
+      });
+
+      [GREEK_DIACRITIC_KEYS, GREEK_UTILITY_KEYS].forEach((row) => {
+        const rowEl = document.createElement("div");
+        rowEl.className = "flex flex-wrap gap-1.5";
+        row.forEach((key) => {
+          rowEl.appendChild(createGreekKeyboardButton(key));
+        });
+        container.appendChild(rowEl);
+      });
+
+      updateGreekKeyboardCaseButtons();
+    }
+
+    function setGreekKeyboardCase(nextCase) {
+      greekKeyboardCase = nextCase === "upper" ? "upper" : "lower";
+      renderGreekKeyboardKeys();
+    }
+
+    function showGreekKeyboard() {
+      const panel = document.getElementById("greekKeyboard");
+      if (!panel) return;
+      greekKeyboardCase = "lower";
+      renderGreekKeyboardKeys();
+      panel.hidden = false;
+      updateGreekKeyboardToggleState();
+    }
+
+    function hideGreekKeyboard() {
+      const panel = document.getElementById("greekKeyboard");
+      if (!panel) return;
+      panel.hidden = true;
+      updateGreekKeyboardToggleState();
+    }
+
+    function toggleGreekKeyboard() {
+      if (isGreekKeyboardVisible()) {
+        hideGreekKeyboard();
+      } else {
+        showGreekKeyboard();
+      }
+    }
+
+    function insertIntoQuery(value) {
+      const input = document.getElementById("query");
+      if (!input || input.disabled) return;
+
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      input.setRangeText(value, start, end, "end");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+    }
+
+    function backspaceQueryInput() {
+      const input = document.getElementById("query");
+      if (!input || input.disabled) return;
+
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? input.value.length;
+      if (start !== end) {
+        input.setRangeText("", start, end, "end");
+      } else if (start > 0) {
+        input.setRangeText("", start - 1, end, "end");
+      }
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+    }
+
+    function handleGreekKeyboardKeyClick(event) {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      const button = target.closest("button[data-keyboard-value], button[data-keyboard-action]");
+      if (!button) return;
+
+      if (button.dataset.keyboardAction === "backspace") {
+        backspaceQueryInput();
+        return;
+      }
+      insertIntoQuery(button.dataset.keyboardValue || "");
+    }
+
+    function registerGreekKeyboardListeners() {
+      if (greekKeyboardListenersRegistered) {
+        renderGreekKeyboardKeys();
+        updateGreekKeyboardToggleState();
+        return;
+      }
+
+      const keyboardToggle = document.getElementById("greekKeyboardToggle");
+      if (keyboardToggle) {
+        keyboardToggle.addEventListener("click", toggleGreekKeyboard);
+      }
+      const lowerButton = document.getElementById("greekKeyboardLower");
+      if (lowerButton) {
+        lowerButton.addEventListener("click", function() {
+          setGreekKeyboardCase("lower");
+        });
+      }
+      const upperButton = document.getElementById("greekKeyboardUpper");
+      if (upperButton) {
+        upperButton.addEventListener("click", function() {
+          setGreekKeyboardCase("upper");
+        });
+      }
+      const keyboardKeys = document.getElementById("greekKeyboardKeys");
+      if (keyboardKeys) {
+        keyboardKeys.addEventListener("click", handleGreekKeyboardKeyClick);
+      }
+      greekKeyboardListenersRegistered = true;
+      renderGreekKeyboardKeys();
+      updateGreekKeyboardToggleState();
+    }
+
+    /* ------------------------------------------------------------------ */
     /* Search                                                              */
     /* ------------------------------------------------------------------ */
 
@@ -273,7 +571,7 @@
     let searchRequestSeq = 0;
 
     function buildSearchPayload(query) {
-      return { query, dialect: "attic", max_results: 20 };
+      return { query: query.normalize("NFC"), dialect: "attic", max_results: 20 };
     }
 
     async function executeSearch(payload, { remember = false } = {}) {
@@ -338,6 +636,7 @@
 
     async function runSearch(event) {
       if (event) event.preventDefault();
+      hideGreekKeyboard();
 
       const query = document.getElementById("query").value.trim();
       if (!query) {
@@ -1118,6 +1417,7 @@
       document.documentElement.lang = _currentLang;
       applyStaticTranslations();
       document.getElementById("searchForm").addEventListener("submit", runSearch);
+      registerGreekKeyboardListeners();
       document.getElementById("langToggle").addEventListener("click", function() {
         setLang(_currentLang === "en" ? "ja" : "en");
       });
@@ -1136,6 +1436,10 @@
       const searchForm = document.getElementById("searchForm");
       if (searchForm) {
         searchForm.addEventListener("submit", runSearch);
+      }
+      const keyboardToggle = document.getElementById("greekKeyboardToggle");
+      if (keyboardToggle) {
+        registerGreekKeyboardListeners();
       }
       const langToggle = document.getElementById("langToggle");
       if (langToggle) {
