@@ -63,13 +63,11 @@
             aria-label="Greek keyboard letter case">
             <button id="greekKeyboardLower" type="button"
               class="px-3 py-1 text-sm font-medium transition-colors bg-accent text-white"
-              data-keyboard-case="lower"
               aria-pressed="true">
               Lower
             </button>
             <button id="greekKeyboardUpper" type="button"
               class="px-3 py-1 text-sm font-medium transition-colors bg-white text-ink-light hover:text-ink"
-              data-keyboard-case="upper"
               aria-pressed="false">
               Upper
             </button>
@@ -117,64 +115,12 @@
         errTimeout: "Request timed out.",
         noResults: "No results found.",
         errPrefix: "Error: ",
-        queryLabel: "Query: ",
-        queryModeLabel: "Query mode",
-        queryModePartialLabel: "Partial form mode",
-        queryModePartialDetail: "Input includes a single wildcard; full wildcard and fragment matches are ranked before raw confidence.",
-        queryModeShortLabel: "Short query mode",
-        queryModeShortDetail: "Very short inputs broaden the search space; exact and rule-supported matches can remain despite low confidence.",
-        queryModeFullLabel: "Full form mode",
-        queryModeFullDetail: "Results are ranked as full-form phonological candidates.",
-        supportedGroupTitle: "Supported candidates",
-        supportedGroupDesc: "Exact and rule-supported candidates are shown after any orthographically annotated candidates.",
-        orthographicGroupTitle: "Orthographically annotated candidates",
-        orthographicGroupDesc: "Candidates with writing-system notes are highlighted here; rank numbers still reflect the original search order.",
-        exploratoryGroupTitle: "Exploratory candidates",
-        exploratoryShortDesc: "Very short inputs broaden the search space; exploratory candidates are shown for quick inspection.",
-        exploratoryPartialDesc: "Single-wildcard queries increase exploratory matches; these candidates are shown for review.",
-        exploratoryDefaultDesc: "Exploratory candidates are shown for inspection.",
-        sectionDiffSummary: "Difference summary",
-        sectionMatchedRules: "Matched rules",
-        sectionUncatalogued: "Uncatalogued differences",
-        sectionOrthographicNote: "Orthographic note",
-        orthographicCurrentCandidate: "Current candidate:",
-        orthographicAlternativeReading: "Writing-system alternative reading:",
-        orthographicPreReformSpelling: "Pre-403/2 BCE Attic inscriptional spelling:",
-        sectionAlignment: "Alignment",
-        sectionWhyCandidate: "Why this candidate?",
-        diffVisible: "Differences visible in full alignment.",
-        noCatalogued: "No catalogued rule support matched.",
-        inspectAlignment: "Inspect the full alignment for segment-by-segment detail.",
-        alignmentUnavailable: "Full alignment unavailable.",
-        showAlignment: "Show full alignment",
-        notes: "Notes",
-        noNotes: "No additional notes.",
-        badgeMatchType: "Match type",
-        badgeUncertainty: "Uncertainty",
-        badgeRuleSupport: "Rule support",
-        badgeMatchedRules: "Matched rules",
-        badgeFallbackEdits: "Fallback edits",
-        matchExact: "Exact",
-        matchRuleBased: "Rule-based",
-        matchDistanceOnly: "Distance-only",
-        matchLowConfidence: "Low-confidence",
-        uncertaintyLow: "Low",
-        uncertaintyMedium: "Medium",
-        uncertaintyHigh: "High",
-        ruleSupportYes: "Yes",
-        ruleSupportNo: "No",
-        phonologicalSimilarityLabel: "phonological similarity",
-        phonologicalSimilarityUnknown: "phonological similarity: unknown",
-        matchedRulesLabel: "matched rules",
-        fallbackEditsLabel: "fallback edits",
-        rankLabel: "Rank ",
-        positionLabel: "position ",
         keyboardToggleShow: "Show Greek keyboard",
         keyboardToggleHide: "Hide Greek keyboard",
         keyboardLower: "Lower",
         keyboardUpper: "Upper",
-        keyboardCaseLabel: "Greek keyboard letter case",
         keyboardPanelLabel: "Greek keyboard",
+        keyboardCaseLabel: "Greek keyboard letter case",
         keyboardKeysLabel: "Greek keyboard keys",
         keyboardAcute: "Acute accent",
         keyboardGrave: "Grave accent",
@@ -542,18 +488,17 @@
       if (keyboardToggle) {
         keyboardToggle.addEventListener("click", toggleGreekKeyboard);
       }
-      const lowerButton = document.getElementById("greekKeyboardLower");
-      if (lowerButton) {
-        lowerButton.addEventListener("click", function() {
-          setGreekKeyboardCase("lower");
-        });
-      }
-      const upperButton = document.getElementById("greekKeyboardUpper");
-      if (upperButton) {
-        upperButton.addEventListener("click", function() {
-          setGreekKeyboardCase("upper");
-        });
-      }
+      [
+        ["greekKeyboardLower", "lower"],
+        ["greekKeyboardUpper", "upper"],
+      ].forEach(([id, nextCase]) => {
+        const button = document.getElementById(id);
+        if (button) {
+          button.addEventListener("click", function() {
+            setGreekKeyboardCase(nextCase);
+          });
+        }
+      });
       const keyboardKeys = document.getElementById("greekKeyboardKeys");
       if (keyboardKeys) {
         keyboardKeys.addEventListener("click", handleGreekKeyboardKeyClick);
@@ -663,6 +608,31 @@
 
     const DETAILED_CARD_THRESHOLD = 3;
     const ORTHO_KIND_CORRESPONDENCE = "orthographic_correspondence";
+    const CARD_CLASS = "bg-white border border-parchment-200 rounded-xl p-5 mb-4 shadow-sm";
+    const SUMMARY_CLASS = "cursor-pointer text-sm font-medium text-accent select-none list-item hover:text-accent-hover";
+    const META_LABEL_CLASS = "text-xs uppercase tracking-wide text-ink-muted";
+
+    function dom(tag, options = {}, children = []) {
+      const node = document.createElement(tag);
+      if (options.className) node.className = options.className;
+      if (options.text !== undefined) node.textContent = options.text;
+      Object.entries(options.attrs || {}).forEach(([name, value]) => {
+        node.setAttribute(name, value);
+      });
+      Object.entries(options.style || {}).forEach(([name, value]) => {
+        node.style[name] = value;
+      });
+      appendChildren(node, children);
+      return node;
+    }
+
+    function appendChildren(parent, children) {
+      (Array.isArray(children) ? children : [children]).forEach((child) => {
+        if (child === null || child === undefined || child === false) return;
+        parent.appendChild(child instanceof Node ? child : document.createTextNode(String(child)));
+      });
+      return parent;
+    }
 
     // Client-side fallback for query-mode classification.  The server
     // returns query_mode in the response, so this is only reached when
@@ -726,28 +696,13 @@
       const pct = similarityPctText(confidence);
       const [, barCls] = confidenceColor(confidence);
 
-      const wrapper = document.createElement("div");
-      wrapper.className = "flex flex-col items-end gap-0.5 shrink-0";
-
-      const label = document.createElement("span");
-      label.className = "text-xs uppercase tracking-wide text-ink-muted";
-      label.textContent = t("phonologicalSimilarityLabel");
-
-      const value = document.createElement("span");
-      value.className = "text-lg font-bold tabular-nums text-ink leading-none";
-      value.textContent = pct;
-
-      const barOuter = document.createElement("div");
-      barOuter.className = "w-24 h-1.5 rounded-full bg-parchment-200 overflow-hidden mt-0.5";
-      const barInner = document.createElement("div");
-      barInner.className = "h-full rounded-full " + barCls;
-      barInner.style.width = pct;
-      barOuter.appendChild(barInner);
-
-      wrapper.appendChild(label);
-      wrapper.appendChild(value);
-      wrapper.appendChild(barOuter);
-      return wrapper;
+      return dom("div", { className: "flex flex-col items-end gap-0.5 shrink-0" }, [
+        dom("span", { className: META_LABEL_CLASS, text: t("phonologicalSimilarityLabel") }),
+        dom("span", { className: "text-lg font-bold tabular-nums text-ink leading-none", text: pct }),
+        dom("div", { className: "w-24 h-1.5 rounded-full bg-parchment-200 overflow-hidden mt-0.5" }, [
+          dom("div", { className: "h-full rounded-full " + barCls, style: { width: pct } }),
+        ]),
+      ]);
     }
 
     function matchTypeColor(matchType) {
@@ -767,22 +722,14 @@
     }
 
     function renderMetaBadge(label, value, tone = "neutral") {
-      const wrapper = document.createElement("div");
-      wrapper.className = "flex items-center gap-2 flex-wrap";
-
-      const labelEl = document.createElement("span");
-      labelEl.className = "text-xs uppercase tracking-wide text-ink-muted";
-      labelEl.textContent = label;
-
-      const valueEl = document.createElement("span");
-      valueEl.className = "text-xs font-medium px-2 py-0.5 rounded-full " +
-        (tone === "match" ? matchTypeColor(value) : "bg-parchment-100 text-ink");
-      // For match type, use raw value for color class but display translated text.
-      valueEl.textContent = tone === "match" ? translateMatchType(value) : value;
-
-      wrapper.appendChild(labelEl);
-      wrapper.appendChild(valueEl);
-      return wrapper;
+      const valueClass = tone === "match" ? matchTypeColor(value) : "bg-parchment-100 text-ink";
+      return dom("div", { className: "flex items-center gap-2 flex-wrap" }, [
+        dom("span", { className: META_LABEL_CLASS, text: label }),
+        dom("span", {
+          className: "text-xs font-medium px-2 py-0.5 rounded-full " + valueClass,
+          text: tone === "match" ? translateMatchType(value) : value,
+        }),
+      ]);
     }
 
     function hasRuleSupport(hit) {
@@ -803,44 +750,30 @@
     }
 
     function renderDialectBadges(attribution) {
-      const container = document.createElement("div");
-      container.className = "flex flex-wrap gap-1.5 mt-2";
+      const container = dom("div", { className: "flex flex-wrap gap-1.5 mt-2" });
 
       if (!attribution) return container;
 
       attribution.split(";").forEach((segment) => {
         segment = segment.trim();
         if (!segment) return;
-        const pill = document.createElement("span");
-        pill.className = "text-xs px-2 py-0.5 rounded-full bg-parchment-200 text-ink-light";
-        pill.textContent = segment;
-        container.appendChild(pill);
+        container.appendChild(dom("span", {
+          className: "text-xs px-2 py-0.5 rounded-full bg-parchment-200 text-ink-light",
+          text: segment,
+        }));
       });
       return container;
     }
 
     function renderSectionTitle(text) {
-      const title = document.createElement("h4");
-      title.className = "text-sm font-medium text-ink mt-3";
-      title.textContent = text;
-      return title;
+      return dom("h4", { className: "text-sm font-medium text-ink mt-3", text });
     }
 
     function renderGroupHeader(title, description) {
-      const wrapper = document.createElement("section");
-      wrapper.className = "mb-4";
-
-      const heading = document.createElement("h3");
-      heading.className = "text-sm uppercase tracking-wide text-ink-muted";
-      heading.textContent = title;
-
-      const body = document.createElement("p");
-      body.className = "mt-1 text-sm text-ink-light leading-relaxed";
-      body.textContent = description;
-
-      wrapper.appendChild(heading);
-      wrapper.appendChild(body);
-      return wrapper;
+      return dom("section", { className: "mb-4" }, [
+        dom("h3", { className: META_LABEL_CLASS, text: title }),
+        dom("p", { className: "mt-1 text-sm text-ink-light leading-relaxed", text: description }),
+      ]);
     }
 
     function describeExploratoryGroup(queryMode) {
@@ -867,62 +800,44 @@
     }
 
     function renderExploratorySection(queryMode, items, queryForm) {
-      const details = document.createElement("details");
-      details.className = "mb-4";
+      const details = dom("details", { className: "mb-4" });
       details.open = true;
 
-      const summary = document.createElement("summary");
-      summary.className = "cursor-pointer select-none list-item text-sm uppercase tracking-wide text-ink-muted";
-      summary.textContent = t("exploratoryGroupTitle") + " (" + items.length + ")";
-      details.appendChild(summary);
-
-      const body = document.createElement("div");
-      body.className = "mt-3";
-
-      const hint = document.createElement("p");
-      hint.className = "mb-3 text-sm text-ink-light leading-relaxed";
-      hint.textContent = describeExploratoryGroup(queryMode);
-      body.appendChild(hint);
-
-      body.appendChild(renderCandidateCards(items, queryForm));
-
-      details.appendChild(body);
-      return details;
+      return appendChildren(details, [
+        dom("summary", {
+          className: "cursor-pointer select-none list-item " + META_LABEL_CLASS,
+          text: t("exploratoryGroupTitle") + " (" + items.length + ")",
+        }),
+        dom("div", { className: "mt-3" }, [
+          dom("p", {
+            className: "mb-3 text-sm text-ink-light leading-relaxed",
+            text: describeExploratoryGroup(queryMode),
+          }),
+          renderCandidateCards(items, queryForm),
+        ]),
+      ]);
     }
 
     function renderQueryModeBanner(query, queryMode) {
       const mode = describeQueryMode(queryMode, query);
-      const banner = document.createElement("div");
-      banner.className = "mb-4 rounded-xl border border-parchment-200 bg-white p-3 shadow-sm";
-
-      const row = document.createElement("div");
-      row.className = "flex flex-wrap items-center gap-2";
-
-      const label = document.createElement("span");
-      label.className = "text-xs uppercase tracking-wide text-ink-muted";
-      label.textContent = t("queryModeLabel");
-
-      const badge = document.createElement("span");
-      badge.className = "text-xs font-medium px-2 py-0.5 rounded-full " + mode.badgeClass;
-      badge.textContent = mode.label;
-
-      const detail = document.createElement("p");
-      detail.className = "mt-2 text-sm text-ink-light leading-relaxed";
-      detail.textContent = mode.detail;
-
-      row.appendChild(label);
-      row.appendChild(badge);
-      banner.appendChild(row);
-      banner.appendChild(detail);
-      return banner;
+      return dom("div", { className: "mb-4 rounded-xl border border-parchment-200 bg-white p-3 shadow-sm" }, [
+        dom("div", { className: "flex flex-wrap items-center gap-2" }, [
+          dom("span", { className: META_LABEL_CLASS, text: t("queryModeLabel") }),
+          dom("span", {
+            className: "text-xs font-medium px-2 py-0.5 rounded-full " + mode.badgeClass,
+            text: mode.label,
+          }),
+        ]),
+        dom("p", { className: "mt-2 text-sm text-ink-light leading-relaxed", text: mode.detail }),
+      ]);
     }
 
     function renderAlignmentBlock(text) {
       if (!text) return null;
-      const pre = document.createElement("pre");
-      pre.className = "mt-3 p-3 rounded-lg bg-parchment-100 text-sm font-mono overflow-x-auto leading-relaxed";
-      pre.textContent = text;
-      return pre;
+      return dom("pre", {
+        className: "mt-3 p-3 rounded-lg bg-parchment-100 text-sm font-mono overflow-x-auto leading-relaxed",
+        text,
+      });
     }
 
     function normalizeRuleId(rule) {
@@ -938,80 +853,47 @@
     }
 
     function renderRuleRows(rules) {
-      const list = document.createElement("div");
-      list.className = "mt-2 space-y-1.5";
+      const list = dom("div", { className: "mt-2 space-y-1.5" });
 
       rules.forEach((rule) => {
-        const row = document.createElement("div");
-        row.className = "text-sm text-ink";
-
-        const line = document.createElement("div");
-        line.className = "flex flex-wrap items-center gap-x-2";
-
-        const label = document.createElement("span");
-        label.className = "font-medium";
-        label.textContent = preferredRuleLabel(rule);
-
-        const phones = document.createElement("span");
-        phones.className = "font-mono text-ink-light";
-        phones.textContent = "/" + (rule.from_phone || "\u2205") + "/ \u2192 /" + (rule.to_phone || "\u2205") + "/";
-
-        const pos = document.createElement("span");
-        pos.className = "text-xs text-ink-muted";
-        pos.textContent = t("positionLabel") + (rule.position ?? "-");
-
-        line.appendChild(label);
-        line.appendChild(phones);
-        line.appendChild(pos);
-        row.appendChild(line);
-        list.appendChild(row);
+        list.appendChild(dom("div", { className: "text-sm text-ink" }, [
+          dom("div", { className: "flex flex-wrap items-center gap-x-2" }, [
+            dom("span", { className: "font-medium", text: preferredRuleLabel(rule) }),
+            dom("span", {
+              className: "font-mono text-ink-light",
+              text: "/" + (rule.from_phone || "\u2205") + "/ \u2192 /" + (rule.to_phone || "\u2205") + "/",
+            }),
+            dom("span", { className: "text-xs text-ink-muted", text: t("positionLabel") + (rule.position ?? "-") }),
+          ]),
+        ]));
       });
 
       return list;
     }
 
     function renderWhyCandidate(items) {
-      const list = document.createElement("ul");
-      list.className = "mt-2 pl-4 text-sm text-ink-light leading-relaxed list-disc";
+      const list = dom("ul", { className: "mt-2 pl-4 text-sm text-ink-light leading-relaxed list-disc" });
       (items || []).forEach((item) => {
-        const li = document.createElement("li");
-        li.className = "mb-1";
-        li.textContent = item;
-        list.appendChild(li);
+        list.appendChild(dom("li", { className: "mb-1", text: item }));
       });
       return list;
     }
 
     function renderAlignmentDetails(hit) {
-      const details = document.createElement("details");
-      details.className = "mt-2";
-
-      const summary = document.createElement("summary");
-      summary.className = "cursor-pointer text-sm font-medium text-accent select-none list-item hover:text-accent-hover";
-      summary.textContent = t("showAlignment");
-      details.appendChild(summary);
-
-      const pre = renderAlignmentBlock(hit.alignment_visualization);
-      if (pre) details.appendChild(pre);
-
-      return details;
+      return dom("details", { className: "mt-2" }, [
+        dom("summary", { className: SUMMARY_CLASS, text: t("showAlignment") }),
+        renderAlignmentBlock(hit.alignment_visualization),
+      ]);
     }
 
     function renderNotesDetails(hit) {
-      const details = document.createElement("details");
-      details.className = "mt-3";
-
-      const summary = document.createElement("summary");
-      summary.className = "cursor-pointer text-sm font-medium text-accent select-none list-item hover:text-accent-hover";
-      summary.textContent = t("notes");
-      details.appendChild(summary);
-
-      const text = document.createElement("p");
-      text.className = "mt-2 text-sm text-ink-light leading-relaxed";
-      text.textContent = hit.explanation || t("noNotes");
-      details.appendChild(text);
-
-      return details;
+      return dom("details", { className: "mt-3" }, [
+        dom("summary", { className: SUMMARY_CLASS, text: t("notes") }),
+        dom("p", {
+          className: "mt-2 text-sm text-ink-light leading-relaxed",
+          text: hit.explanation || t("noNotes"),
+        }),
+      ]);
     }
 
     let _orthographicNoteIdCounter = 0;
@@ -1024,82 +906,66 @@
       const source = typeof sourceForm === "string" ? sourceForm.trim() : "";
       const target = typeof targetForm === "string" ? targetForm.trim() : "";
       if (source) {
-        const sourceText = document.createElement("strong");
-        sourceText.className = "font-semibold";
-        sourceText.textContent = source;
-        parent.appendChild(sourceText);
+        parent.appendChild(dom("strong", { className: "font-semibold", text: source }));
       }
       if (source && target) {
-        const arrow = document.createElement("span");
-        arrow.className = "text-ink-muted";
-        arrow.textContent = " → ";
-        parent.appendChild(arrow);
+        parent.appendChild(dom("span", { className: "text-ink-muted", text: " \u2192 " }));
       }
       if (target) {
-        const targetText = document.createElement("strong");
-        targetText.className = "font-semibold";
-        targetText.textContent = target;
-        parent.appendChild(targetText);
+        parent.appendChild(dom("strong", { className: "font-semibold", text: target }));
       }
       if (typeof romanization === "string" && romanization.trim()) {
-        const roman = document.createElement("span");
-        roman.className = "ml-1 text-ink-muted";
-        roman.textContent = "(" + romanization.trim() + ")";
-        parent.appendChild(roman);
+        parent.appendChild(dom("span", {
+          className: "ml-1 text-ink-muted",
+          text: "(" + romanization.trim() + ")",
+        }));
       }
     }
 
     function renderOrthographicNotes(notes, currentCandidate, queryForm) {
       if (!Array.isArray(notes) || notes.length === 0) return null;
 
-      const list = document.createElement("div");
-      list.className = "mt-2 space-y-2";
+      const list = dom("div", { className: "mt-2 space-y-2" });
       const query = typeof queryForm === "string" ? queryForm.trim() : "";
 
       if (typeof currentCandidate === "string" && currentCandidate.trim()) {
-        const current = document.createElement("div");
-        current.className = "border-l-2 border-parchment-300 pl-3";
-        current.setAttribute("role", "group");
-
         const currentLabelId = _allocateOrthographicNoteId("ortho-current");
-        const currentLabel = document.createElement("div");
-        currentLabel.className = "text-xs font-medium uppercase tracking-wide text-ink-muted";
-        currentLabel.id = currentLabelId;
-        currentLabel.textContent = t("orthographicCurrentCandidate");
-        current.appendChild(currentLabel);
-        current.setAttribute("aria-labelledby", currentLabelId);
-
-        const currentText = document.createElement("p");
-        currentText.className = "mt-1 text-sm text-ink break-words";
+        const currentText = dom("p", { className: "mt-1 text-sm text-ink break-words" });
         appendOrthographicRelation(currentText, query, currentCandidate.trim());
-        current.appendChild(currentText);
-
-        list.appendChild(current);
+        list.appendChild(dom("div", {
+          className: "border-l-2 border-parchment-300 pl-3",
+          attrs: { role: "group", "aria-labelledby": currentLabelId },
+        }, [
+          dom("div", {
+            className: "text-xs font-medium uppercase tracking-wide text-ink-muted",
+            text: t("orthographicCurrentCandidate"),
+            attrs: { id: currentLabelId },
+          }),
+          currentText,
+        ]));
       }
 
       notes.forEach((note) => {
-        const item = document.createElement("div");
-        item.className = "border-l-2 border-parchment-300 pl-3";
+        const item = dom("div", { className: "border-l-2 border-parchment-300 pl-3" });
 
         if (note && typeof note.label === "string" && note.label.trim()) {
-          const label = document.createElement("div");
-          label.className = "text-xs font-medium uppercase tracking-wide text-ink-muted";
-          label.textContent = note.label.trim();
-          item.appendChild(label);
+          item.appendChild(dom("div", {
+            className: "text-xs font-medium uppercase tracking-wide text-ink-muted",
+            text: note.label.trim(),
+          }));
         }
 
         const messages = Array.isArray(note?.messages) ? note.messages : [];
         messages.forEach((message) => {
           if (typeof message !== "string" || !message.trim()) return;
-          const text = document.createElement("p");
-          text.className = "mt-1 text-sm text-ink-light leading-relaxed break-words";
-          text.textContent = message.trim();
-          item.appendChild(text);
+          item.appendChild(dom("p", {
+            className: "mt-1 text-sm text-ink-light leading-relaxed break-words",
+            text: message.trim(),
+          }));
         });
 
         if (typeof note?.normalized_form === "string" && note.normalized_form.trim()) {
-          const forms = document.createElement("p");
-          forms.className = "mt-2 text-sm text-ink break-words";
+          const forms = dom("p", { className: "mt-2 text-sm text-ink break-words" });
           const normalizedForm = note.normalized_form.trim();
           const candidateForm =
             typeof currentCandidate === "string" ? currentCandidate.trim() : "";
@@ -1107,15 +973,14 @@
             note.kind === ORTHO_KIND_CORRESPONDENCE &&
             (!candidateForm || normalizedForm !== candidateForm);
           if (isAlternativeReading) {
-            forms.setAttribute("role", "group");
-
             const leadId = _allocateOrthographicNoteId("ortho-alternative");
-            const lead = document.createElement("span");
-            lead.className = "mr-1 text-ink-muted";
-            lead.id = leadId;
-            lead.textContent = t("orthographicAlternativeReading");
-            forms.appendChild(lead);
+            forms.setAttribute("role", "group");
             forms.setAttribute("aria-labelledby", leadId);
+            forms.appendChild(dom("span", {
+              className: "mr-1 text-ink-muted",
+              text: t("orthographicAlternativeReading"),
+              attrs: { id: leadId },
+            }));
           }
 
           appendOrthographicRelation(
@@ -1132,17 +997,16 @@
           typeof note?.pre_reform_spelling === "string" &&
           note.pre_reform_spelling.trim()
         ) {
-          const preReform = document.createElement("p");
-          preReform.className = "mt-2 text-sm text-ink break-words";
+          const preReform = dom("p", { className: "mt-2 text-sm text-ink break-words" });
           preReform.setAttribute("role", "group");
 
           const preReformLabelId = _allocateOrthographicNoteId("ortho-pre-reform");
-          const preReformLabel = document.createElement("span");
-          preReformLabel.className = "mr-1 text-ink-muted";
-          preReformLabel.id = preReformLabelId;
-          preReformLabel.textContent = t("orthographicPreReformSpelling");
-          preReform.appendChild(preReformLabel);
           preReform.setAttribute("aria-labelledby", preReformLabelId);
+          preReform.appendChild(dom("span", {
+            className: "mr-1 text-ink-muted",
+            text: t("orthographicPreReformSpelling"),
+            attrs: { id: preReformLabelId },
+          }));
 
           appendOrthographicRelation(
             preReform,
@@ -1170,26 +1034,66 @@
       };
     }
 
-    function appendCardBody(container, hit, { explicit, observed }, queryForm) {
-      container.appendChild(renderSectionTitle(t("sectionDiffSummary")));
-      const differenceSummary = document.createElement("p");
-      differenceSummary.className = "mt-2 text-sm text-ink-light";
-      differenceSummary.textContent = hit.alignment_summary || t("diffVisible");
-      container.appendChild(differenceSummary);
+    function ruleCount(hit, rules, fieldName) {
+      return hit[fieldName] ?? rules.length;
+    }
 
-      container.appendChild(renderSectionTitle(t("sectionMatchedRules") + " (" + (hit.applied_rule_count ?? explicit.length) + ")"));
-      if (explicit.length) {
-        container.appendChild(renderRuleRows(explicit));
-      } else {
-        const empty = document.createElement("p");
-        empty.className = "mt-2 text-sm text-ink-light";
-        empty.textContent = t("noCatalogued");
-        container.appendChild(empty);
+    function renderBodyParagraph(text) {
+      return dom("p", { className: "mt-2 text-sm text-ink-light", text });
+    }
+
+    function appendSection(container, title, children) {
+      container.appendChild(renderSectionTitle(title));
+      appendChildren(container, children);
+    }
+
+    function renderHitTitle(hit, className, prefix = "") {
+      return dom("div", {
+        className,
+        text: prefix + (hit.headword || "N/A"),
+      });
+    }
+
+    function hitSimilarityValue(hit) {
+      if (typeof hit.confidence === "number" && Number.isFinite(hit.confidence)) {
+        return hit.confidence;
       }
+      if (typeof hit.distance === "number" && Number.isFinite(hit.distance)) {
+        return 1 - hit.distance;
+      }
+      return null;
+    }
 
-      if ((hit.observed_change_count ?? observed.length) > 0 && observed.length) {
-        container.appendChild(renderSectionTitle(t("sectionUncatalogued") + " (" + (hit.observed_change_count ?? observed.length) + ")"));
-        container.appendChild(renderRuleRows(observed));
+    function renderHitMetaBadges(hit, { explicit, observed }, includeUncertainty = true) {
+      const badges = [
+        renderMetaBadge(t("badgeMatchType"), hit.match_type || "Distance-only", "match"),
+        includeUncertainty && renderMetaBadge(t("badgeUncertainty"), translateUncertainty(hit.uncertainty || "High")),
+        renderMetaBadge(t("badgeRuleSupport"), hasRuleSupport(hit) ? t("ruleSupportYes") : t("ruleSupportNo")),
+        renderMetaBadge(t("badgeMatchedRules"), String(ruleCount(hit, explicit, "applied_rule_count"))),
+        renderMetaBadge(t("badgeFallbackEdits"), String(ruleCount(hit, observed, "observed_change_count"))),
+      ];
+      return dom("div", { className: "flex flex-wrap gap-3 mt-3" }, badges);
+    }
+
+    function appendCardBody(container, hit, { explicit, observed }, queryForm) {
+      appendSection(
+        container,
+        t("sectionDiffSummary"),
+        renderBodyParagraph(hit.alignment_summary || t("diffVisible"))
+      );
+
+      appendSection(
+        container,
+        t("sectionMatchedRules") + " (" + ruleCount(hit, explicit, "applied_rule_count") + ")",
+        explicit.length ? renderRuleRows(explicit) : renderBodyParagraph(t("noCatalogued"))
+      );
+
+      if (ruleCount(hit, observed, "observed_change_count") > 0 && observed.length) {
+        appendSection(
+          container,
+          t("sectionUncatalogued") + " (" + ruleCount(hit, observed, "observed_change_count") + ")",
+          renderRuleRows(observed)
+        );
       }
 
       const orthographicNotes = renderOrthographicNotes(
@@ -1198,75 +1102,37 @@
         queryForm
       );
       if (orthographicNotes) {
-        container.appendChild(renderSectionTitle(t("sectionOrthographicNote")));
-        container.appendChild(orthographicNotes);
+        appendSection(container, t("sectionOrthographicNote"), orthographicNotes);
       }
 
-      container.appendChild(renderSectionTitle(t("sectionAlignment")));
-      const summary = document.createElement("p");
-      summary.className = "mt-2 text-sm text-ink-light";
-      summary.textContent = hit.alignment_visualization
-        ? t("inspectAlignment")
-        : t("alignmentUnavailable");
-      container.appendChild(summary);
-      if (hit.alignment_visualization) {
-        container.appendChild(renderAlignmentDetails(hit));
-      }
+      appendSection(container, t("sectionAlignment"), [
+        renderBodyParagraph(hit.alignment_visualization ? t("inspectAlignment") : t("alignmentUnavailable")),
+        hit.alignment_visualization && renderAlignmentDetails(hit),
+      ]);
 
-      container.appendChild(renderSectionTitle(t("sectionWhyCandidate")));
-      container.appendChild(renderWhyCandidate(hit.why_candidate));
+      appendSection(container, t("sectionWhyCandidate"), renderWhyCandidate(hit.why_candidate));
       container.appendChild(renderNotesDetails(hit));
     }
 
     function renderDetailedCard(hit, index, queryForm) {
       const { explicit, observed } = splitRules(hit);
 
-      const card = document.createElement("article");
-      card.className = "bg-white border border-parchment-200 rounded-xl p-5 mb-4 shadow-sm";
-
-      const topRow = document.createElement("div");
-      topRow.className = "flex items-start justify-between gap-4";
-
-      const leftCol = document.createElement("div");
-      leftCol.className = "flex-1";
-
-      const rank = document.createElement("div");
-      rank.className = "text-xs uppercase tracking-wide text-ink-muted mb-2";
-      rank.textContent = t("rankLabel") + (index + 1);
-
-      const headword = document.createElement("div");
-      headword.className = "text-2xl font-serif font-bold";
-      headword.textContent = hit.headword || "N/A";
-
-      const ipa = document.createElement("div");
-      ipa.className = "text-ink-light text-sm italic mt-0.5";
-      ipa.textContent = hit.ipa ? "/" + hit.ipa + "/" : "";
-
-      leftCol.appendChild(rank);
-      leftCol.appendChild(headword);
-      leftCol.appendChild(ipa);
-      topRow.appendChild(leftCol);
-
-      if (typeof hit.confidence === "number") {
-        topRow.appendChild(renderConfidenceBadge(hit.confidence));
-      } else if (typeof hit.distance === "number") {
-        topRow.appendChild(renderConfidenceBadge(1 - hit.distance));
-      }
-
-      card.appendChild(topRow);
+      const card = dom("article", { className: CARD_CLASS });
+      const similarity = hitSimilarityValue(hit);
+      card.appendChild(dom("div", { className: "flex items-start justify-between gap-4" }, [
+        dom("div", { className: "flex-1" }, [
+          dom("div", { className: META_LABEL_CLASS + " mb-2", text: t("rankLabel") + (index + 1) }),
+          renderHitTitle(hit, "text-2xl font-serif font-bold"),
+          dom("div", { className: "text-ink-light text-sm italic mt-0.5", text: hit.ipa ? "/" + hit.ipa + "/" : "" }),
+        ]),
+        similarity !== null && renderConfidenceBadge(similarity),
+      ]));
 
       if (hit.dialect_attribution) {
         card.appendChild(renderDialectBadges(hit.dialect_attribution));
       }
 
-      const meta = document.createElement("div");
-      meta.className = "flex flex-wrap gap-3 mt-3";
-      meta.appendChild(renderMetaBadge(t("badgeMatchType"), hit.match_type || "Distance-only", "match"));
-      meta.appendChild(renderMetaBadge(t("badgeUncertainty"), translateUncertainty(hit.uncertainty || "High")));
-      meta.appendChild(renderMetaBadge(t("badgeRuleSupport"), hasRuleSupport(hit) ? t("ruleSupportYes") : t("ruleSupportNo")));
-      meta.appendChild(renderMetaBadge(t("badgeMatchedRules"), String(hit.applied_rule_count ?? explicit.length)));
-      meta.appendChild(renderMetaBadge(t("badgeFallbackEdits"), String(hit.observed_change_count ?? observed.length)));
-      card.appendChild(meta);
+      card.appendChild(renderHitMetaBadges(hit, { explicit, observed }));
 
       appendCardBody(card, hit, { explicit, observed }, queryForm);
       return card;
@@ -1274,69 +1140,63 @@
 
     function renderCompactCard(hit, index, queryForm) {
       const { explicit, observed } = splitRules(hit);
-      const card = document.createElement("details");
-      card.className = "bg-white border border-parchment-200 rounded-xl p-5 mb-4 shadow-sm";
+      const card = dom("details", { className: CARD_CLASS });
 
-      const summaryEl = document.createElement("summary");
-      summaryEl.className = "cursor-pointer select-none list-item";
-
-      const row = document.createElement("div");
-      row.className = "flex items-start justify-between gap-4";
-
-      const left = document.createElement("div");
-      left.className = "flex-1";
-
-      const title = document.createElement("div");
-      title.className = "text-xl font-serif font-bold";
-      title.textContent = (index + 1) + ". " + (hit.headword || "N/A");
-
-      const metaParts = [];
-      if (typeof hit.confidence === "number" && Number.isFinite(hit.confidence)) {
-        metaParts.push(t("phonologicalSimilarityLabel") + " " + similarityPctText(hit.confidence));
-      } else if (typeof hit.distance === "number" && Number.isFinite(hit.distance)) {
-        metaParts.push(t("phonologicalSimilarityLabel") + " " + similarityPctText(1 - hit.distance));
-      } else {
-        metaParts.push(t("phonologicalSimilarityUnknown"));
-      }
+      const similarity = hitSimilarityValue(hit);
+      const metaParts = [
+        similarity === null
+          ? t("phonologicalSimilarityUnknown")
+          : t("phonologicalSimilarityLabel") + " " + similarityPctText(similarity),
+      ];
       metaParts.push(translateMatchType(hit.match_type || "Distance-only"));
       metaParts.push((hit.applied_rule_count ?? 0) + " " + t("matchedRulesLabel"));
       metaParts.push((hit.observed_change_count ?? 0) + " " + t("fallbackEditsLabel"));
 
-      const meta = document.createElement("p");
-      meta.className = "mt-1 text-sm text-ink-light";
-      meta.textContent = metaParts.join(" · ");
+      card.appendChild(dom("summary", { className: "cursor-pointer select-none list-item" }, [
+        dom("div", { className: "flex items-start justify-between gap-4" }, [
+          dom("div", { className: "flex-1" }, [
+            renderHitTitle(hit, "text-xl font-serif font-bold", (index + 1) + ". "),
+            dom("p", { className: "mt-1 text-sm text-ink-light", text: metaParts.join(" · ") }),
+          ]),
+          renderMetaBadge(t("badgeUncertainty"), translateUncertainty(hit.uncertainty || "High")),
+        ]),
+      ]));
 
-      left.appendChild(title);
-      left.appendChild(meta);
-      row.appendChild(left);
-
-      row.appendChild(renderMetaBadge(t("badgeUncertainty"), translateUncertainty(hit.uncertainty || "High")));
-      summaryEl.appendChild(row);
-      card.appendChild(summaryEl);
-
-      const body = document.createElement("div");
-      body.className = "pt-4";
-
-      const ipa = document.createElement("div");
-      ipa.className = "text-ink-light text-sm italic";
-      ipa.textContent = hit.ipa ? "/" + hit.ipa + "/" : "";
-      body.appendChild(ipa);
+      const body = dom("div", { className: "pt-4" }, [
+        dom("div", { className: "text-ink-light text-sm italic", text: hit.ipa ? "/" + hit.ipa + "/" : "" }),
+      ]);
 
       if (hit.dialect_attribution) {
         body.appendChild(renderDialectBadges(hit.dialect_attribution));
       }
 
-      const metaDetails = document.createElement("div");
-      metaDetails.className = "flex flex-wrap gap-3 mt-3";
-      metaDetails.appendChild(renderMetaBadge(t("badgeMatchType"), hit.match_type || "Distance-only", "match"));
-      metaDetails.appendChild(renderMetaBadge(t("badgeRuleSupport"), hasRuleSupport(hit) ? t("ruleSupportYes") : t("ruleSupportNo")));
-      metaDetails.appendChild(renderMetaBadge(t("badgeMatchedRules"), String(hit.applied_rule_count ?? explicit.length)));
-      metaDetails.appendChild(renderMetaBadge(t("badgeFallbackEdits"), String(hit.observed_change_count ?? observed.length)));
-      body.appendChild(metaDetails);
+      body.appendChild(renderHitMetaBadges(hit, { explicit, observed }, false));
 
       appendCardBody(body, hit, { explicit, observed }, queryForm);
       card.appendChild(body);
       return card;
+    }
+
+    function partitionHits(indexedHits) {
+      return {
+        orthographic: indexedHits.filter(({ hit }) => hasOrthographicNotes(hit)),
+        supported: indexedHits.filter(
+          ({ hit }) => !hasOrthographicNotes(hit) && isSupportedCandidate(hit)
+        ),
+        exploratory: indexedHits.filter(
+          ({ hit }) => !hasOrthographicNotes(hit) && !isSupportedCandidate(hit)
+        ),
+      };
+    }
+
+    function renderCandidateGroup(container, group, queryForm) {
+      if (!group.items.length) return;
+      if (group.kind === "exploratory") {
+        container.appendChild(renderExploratorySection(group.queryMode, group.items, queryForm));
+        return;
+      }
+      container.appendChild(renderGroupHeader(t(group.titleKey), t(group.descriptionKey)));
+      container.appendChild(renderCandidateCards(group.items, queryForm));
     }
 
     function renderResults(data) {
@@ -1355,13 +1215,13 @@
 
       /* Query info bar */
       if (data.query || data.query_ipa) {
-        const info = document.createElement("div");
-        info.className = "text-sm text-ink-muted mb-4 text-center";
         const infoParts = [];
         if (data.query) infoParts.push(t("queryLabel") + data.query);
         if (data.query_ipa) infoParts.push("/" + data.query_ipa + "/");
-        info.textContent = infoParts.join(" ");
-        container.appendChild(info);
+        container.appendChild(dom("div", {
+          className: "text-sm text-ink-muted mb-4 text-center",
+          text: infoParts.join(" "),
+        }));
       }
 
       // Prefer server-supplied mode; fall back to client classification.
@@ -1373,39 +1233,24 @@
         .filter(({ hit }) => hit && typeof hit === "object");
 
       const queryForm = data.query || "";
-      const orthographic = indexedHits.filter(({ hit }) => hasOrthographicNotes(hit));
-      const supported = indexedHits.filter(
-        ({ hit }) => !hasOrthographicNotes(hit) && isSupportedCandidate(hit)
-      );
-      const exploratory = indexedHits.filter(
-        ({ hit }) => !hasOrthographicNotes(hit) && !isSupportedCandidate(hit)
-      );
-
-      if (orthographic.length) {
-        container.appendChild(
-          renderGroupHeader(
-            t("orthographicGroupTitle"),
-            t("orthographicGroupDesc")
-          )
-        );
-        container.appendChild(renderCandidateCards(orthographic, queryForm));
-      }
-
-      if (supported.length) {
-        container.appendChild(
-          renderGroupHeader(
-            t("supportedGroupTitle"),
-            t("supportedGroupDesc")
-          )
-        );
-        container.appendChild(renderCandidateCards(supported, queryForm));
-      }
-
-      if (exploratory.length) {
-        container.appendChild(
-          renderExploratorySection(queryMode, exploratory, queryForm)
-        );
-      }
+      const groups = partitionHits(indexedHits);
+      [
+        {
+          items: groups.orthographic,
+          titleKey: "orthographicGroupTitle",
+          descriptionKey: "orthographicGroupDesc",
+        },
+        {
+          items: groups.supported,
+          titleKey: "supportedGroupTitle",
+          descriptionKey: "supportedGroupDesc",
+        },
+        {
+          kind: "exploratory",
+          items: groups.exploratory,
+          queryMode,
+        },
+      ].forEach((group) => renderCandidateGroup(container, group, queryForm));
     }
 
     /* ------------------------------------------------------------------ */
