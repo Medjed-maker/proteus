@@ -27,7 +27,6 @@ from ..core.ports.profiles import (  # noqa: F401 (test access via search_module
 from ._constants import (
     _annotation_candidate_limit,  # noqa: F401 (test access via search_module)
     _DEFAULT_FALLBACK_CANDIDATE_LIMIT,  # noqa: F401 (test/typing access via search_module)
-    _LENGTH_PROXIMATE_LIMIT_MULTIPLIER,  # noqa: F401 (test access via search_module)
     _MIN_PARTIAL_STAGE2_CANDIDATES,  # noqa: F401 (test access via search_module)
     _MIN_STAGE2_CANDIDATES,  # noqa: F401 (test access via search_module)
     _partial_candidate_limit,  # noqa: F401 (test access via search_module)
@@ -40,7 +39,6 @@ from ._lookup import (
     _entry_ipa,
     _inject_exact_ipa_matches,  # noqa: F401 (test access via search_module)
     _lookup_entry,
-    _normalize_ipa_lookup_key,  # noqa: F401 (test access via search_module)
     build_ipa_index,
     IpaIndex,
 )
@@ -58,12 +56,8 @@ from ._scoring import (
     _score_stage,
     _smith_waterman_alignment,
 )
-from ._overlap import (
-    _merge_bounded_candidate_ids,  # noqa: F401 (test access via search_module)
-)
 from ._partial import (
     _match_partial_query,  # noqa: F401 (test access via search_module)
-    _select_partial_fallback_candidates,  # noqa: F401 (test access via search_module)
     _select_partial_seed_candidates,  # noqa: F401 (test access via search_module)
 )
 from ._filtering import (
@@ -80,10 +74,6 @@ from ._debug_logging import (
 )
 from ._dedup import (
     _deduplicate_by_headword,  # noqa: F401 (test access via search_module)
-    _deduplicate_by_headword_common,  # noqa: F401 (test access via search_module)
-)
-from ._quality import (
-    _rank_short_query_results,  # noqa: F401 (test access via search_module)
 )
 from ._query import (
     _classify_non_partial_query,
@@ -111,25 +101,20 @@ from ._types import (
     PhoneInventory,
     QueryMode,
     SearchResult,
-    _CandidateSelectionPath,  # noqa: F401 (test/typing access via search_module)
-    _CandidateSelectionResult,  # noqa: F401 (test/typing access via search_module)
 )
 from ._dependencies import (
     IpaConverter,
     PreparedQueryIpa,
     SearchExecutionResult,
     _FallbackLimits,
-    _FinalizationResult,  # noqa: F401 (test/typing access via search_module)
     _LazySearchDependencies,  # noqa: F401 (test/typing access via search_module)
 )
 from ._registry import (
-    _TOKENIZED_RULES_CACHE_MAXSIZE,  # noqa: F401 (test access via search_module)
     _get_tokenized_rules,
     _load_rules_cached,  # noqa: F401 (test access via search_module)
     get_rules_registry,
 )
 from ._selection import (
-    _inject_length_proximate_candidates,  # noqa: F401 (test access via search_module)
     _select_partial_token_fallback_candidates,  # noqa: F401
     _select_seeded_candidates,  # noqa: F401 (test access via search_module)
     _select_token_proximity_fallback_candidates,  # noqa: F401
@@ -886,7 +871,5 @@ def filter_stage(results: list[SearchResult], max_results: int) -> list[SearchRe
 
 from ._orchestration import (  # noqa: E402
     _execute_search,  # noqa: F401 (test access via search_module)
-    _finalize_full_form_results,  # noqa: F401 (test access via search_module)
-    _finalize_partial_form_results,  # noqa: F401 (test access via search_module)
     _finalize_short_query_results,  # noqa: F401 (test access via search_module)
 )
