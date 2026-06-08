@@ -371,33 +371,9 @@ def _build_alignment_summary(
 
     position_summary = _format_position_summary(steps, lang=lang)
 
-    if lang == "ja":
-        if explicit_steps and observed_steps:
-            rules_phrase = f"{len(explicit_steps)}{_p(lang, 'rule_s')}"
-            edits_phrase = f"{len(observed_steps)}{_p(lang, 'edit_s')}"
-            return _p(lang, "summary_mixed").format(
-                rules=rules_phrase, edits=edits_phrase, pos=position_summary
-            )
-        if explicit_steps:
-            rules_phrase = f"{len(explicit_steps)}{_p(lang, 'rule_s')}"
-            return _p(lang, "summary_rules_only").format(
-                rules=rules_phrase, pos=position_summary
-            )
-        if len(observed_steps) == 1:
-            return _p(lang, "summary_one_edit").format(pos=position_summary)
-        operation_counts_ja: dict[FallbackEditLabel, int] = dict.fromkeys(
-            _FALLBACK_EDIT_LABELS, 0
-        )
-        for step in observed_steps:
-            operation_counts_ja[_fallback_edit_label(step)] += 1
-        ops = "・".join(
-            f"{operation_counts_ja[label]}{_p(lang, label + '_s')}"
-            for label in _FALLBACK_EDIT_LABELS
-            if operation_counts_ja[label] > 0
-        )
-        return _p(lang, "summary_multi_edit").format(ops=ops, pos=position_summary)
-
-    # English
+    # ``_format_counted_noun`` handles both languages (Japanese ignores the
+    # plural form), so a single language-agnostic flow covers en and ja; only
+    # the multi-edit joiner differs ("・" vs ", ").
     if explicit_steps and observed_steps:
         rules_phrase = _format_counted_noun(
             len(explicit_steps), _p(lang, "rule_s"), _p(lang, "rule_p"), lang=lang
@@ -426,7 +402,8 @@ def _build_alignment_summary(
     for step in observed_steps:
         operation_counts[_fallback_edit_label(step)] += 1
 
-    operation_summary = ", ".join(
+    edit_joiner = "・" if lang == "ja" else ", "
+    operation_summary = edit_joiner.join(
         _format_counted_noun(
             operation_counts[label],
             _p(lang, label + "_s"),
@@ -498,6 +475,56 @@ def _build_why_candidate(
     ]
 
 
+def _collect_orthographic_notes(
+    *,
+    orthographic_note_builder: OrthographicNoteBuilder | None,
+    query_form: str | None,
+    candidate_headword: str,
+    candidate_ipa: str,
+    query_ipa: str,
+    lang: Literal["en", "ja"],
+) -> list[OrthographicNote]:
+    """Build API orthographic notes for a candidate, or ``[]`` when unavailable.
+
+    Returns an empty list when no builder/query form is supplied, or when the
+    builder raises ``OrthographicNoteDataError`` (which should have surfaced at
+    startup). The builder call is kept inside the ``try`` so failures raised
+    while producing notes are handled the same way.
+    """
+    if orthographic_note_builder is None or query_form is None:
+        return []
+    try:
+        return [
+            OrthographicNote(
+                kind=note.kind,
+                label=note.label,
+                messages=list(note.messages),
+                normalized_form=note.normalized_form,
+                romanization=note.romanization,
+                period_label=note.period_label,
+                references=list(note.references),
+                confidence=note.confidence,
+                pre_reform_spelling=note.pre_reform_spelling,
+                pre_reform_romanization=note.pre_reform_romanization,
+            )
+            for note in orthographic_note_builder(
+                query_form=query_form,
+                candidate_headword=candidate_headword,
+                candidate_ipa=candidate_ipa,
+                query_ipa=query_ipa,
+                response_language=lang,
+            )
+        ]
+    except OrthographicNoteDataError:
+        logger.error(
+            "orthographic note builder failed for headword %r (this should have "
+            "failed at startup); returning empty notes",
+            candidate_headword,
+            exc_info=True,
+        )
+        return []
+
+
 def _build_search_hit(
     result: phonology_search.SearchResult,
     query_ipa: str,
@@ -550,37 +577,14 @@ def _build_search_hit(
         applied_rule_count=applied_rule_count,
         confidence=result.confidence,
     )
-    orthographic_notes: list[OrthographicNote] = []
-    if orthographic_note_builder is not None and query_form is not None:
-        try:
-            orthographic_notes = [
-                OrthographicNote(
-                    kind=note.kind,
-                    label=note.label,
-                    messages=list(note.messages),
-                    normalized_form=note.normalized_form,
-                    romanization=note.romanization,
-                    period_label=note.period_label,
-                    references=list(note.references),
-                    confidence=note.confidence,
-                    pre_reform_spelling=note.pre_reform_spelling,
-                    pre_reform_romanization=note.pre_reform_romanization,
-                )
-                for note in orthographic_note_builder(
-                    query_form=query_form,
-                    candidate_headword=result.lemma,
-                    candidate_ipa=source_ipa,
-                    query_ipa=query_ipa,
-                    response_language=lang,
-                )
-            ]
-        except OrthographicNoteDataError:
-            logger.error(
-                "orthographic note builder failed for headword %r (this should have "
-                "failed at startup); returning empty notes",
-                result.lemma,
-                exc_info=True,
-            )
+    orthographic_notes = _collect_orthographic_notes(
+        orthographic_note_builder=orthographic_note_builder,
+        query_form=query_form,
+        candidate_headword=result.lemma,
+        candidate_ipa=source_ipa,
+        query_ipa=query_ipa,
+        lang=lang,
+    )
     candidate_bucket = _promote_bucket_for_orthographic_notes(
         _build_candidate_bucket(match_type, query_mode=query_mode, uncertainty=uncertainty),
         orthographic_notes,

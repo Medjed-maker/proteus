@@ -216,6 +216,51 @@ class TestBuildAlignmentSummaryI18n:
         assert "マッチしたルール" in result
         assert "1" in result
 
+    def test_mixed_rules_and_edits_japanese(self) -> None:
+        steps = [
+            RuleApplication(
+                rule_id="VSH-010", rule_name="", from_phone="a", to_phone="b", position=0
+            ),
+            RuleApplication(
+                rule_id="OBS-SUB", rule_name="", from_phone="c", to_phone="d", position=1
+            ),
+        ]
+        result = hit_fmt._build_alignment_summary(
+            source_ipa="a", query_ipa="b", steps=steps, lang="ja"
+        )
+
+        assert result == "1マッチしたルールと1フォールバック編集（2箇所）"
+
+    def test_repeated_observed_edits_japanese(self) -> None:
+        steps = [
+            RuleApplication(
+                rule_id="OBS-DEL", rule_name="", from_phone="a", to_phone="", position=0
+            ),
+            RuleApplication(
+                rule_id="OBS-DEL", rule_name="", from_phone="b", to_phone="", position=0
+            ),
+        ]
+        result = hit_fmt._build_alignment_summary(
+            source_ipa="a", query_ipa="b", steps=steps, lang="ja"
+        )
+
+        assert result == "2削除（1箇所）"
+
+    def test_distinct_observed_edits_japanese_uses_middle_dot_joiner(self) -> None:
+        steps = [
+            RuleApplication(
+                rule_id="OBS-DEL", rule_name="", from_phone="a", to_phone="", position=0
+            ),
+            RuleApplication(
+                rule_id="OBS-SUB", rule_name="", from_phone="b", to_phone="c", position=1
+            ),
+        ]
+        result = hit_fmt._build_alignment_summary(
+            source_ipa="a", query_ipa="b", steps=steps, lang="ja"
+        )
+
+        assert result == "1削除・1置換（2箇所）"
+
     def test_explicit_rules_only_english(self) -> None:
         steps = [
             RuleApplication(

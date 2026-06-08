@@ -29,7 +29,7 @@ All private and public symbols that callers historically reached via
 from __future__ import annotations
 
 import logging
-from typing import Any, TypeAlias
+from typing import Any
 
 from .explain import (
     _context,
@@ -130,11 +130,6 @@ __all__ = [
     "explain_alignment",
     "to_prose",
 ]
-
-# Underscored alias kept for backward compatibility and re-exported for
-# downstream callers that historically imported it from this facade.
-_RuleMetadata: TypeAlias = RuleMetadata
-
 
 def __getattr__(name: str) -> Any:
     """Expose lazily-resolved ``RULES_BASE_DIR`` to direct attribute access."""
