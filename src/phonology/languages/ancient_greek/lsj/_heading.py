@@ -596,9 +596,12 @@ def _has_multiple_intro_greek_forms(entry: Any) -> bool:
         local = _local_name(child)
         if local == "sense":
             break
-        if child.get("lang") == "greek" and local in _HEADING_GREEK_FORM_TAGS:
-            if _elem_text(child):
-                count += 1
+        if (
+            child.get("lang") == "greek"
+            and local in _HEADING_GREEK_FORM_TAGS
+            and _elem_text(child)
+        ):
+            count += 1
         if count > 1:
             return True
     return False
