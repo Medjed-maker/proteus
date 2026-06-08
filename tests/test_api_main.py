@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from api import main as api_main
+from api import _dependencies as api_deps
 from api import _hit_formatting as api_hit_formatting
 from api._models import OrthographicNote, RuleStep, SearchHit, SearchRequest
 from api._request_context import is_valid_request_id
@@ -1199,7 +1200,7 @@ class TestReadyEndpoint:
         def failing_loader(*_args: object) -> None:
             raise ValueError("lexicon unavailable")
 
-        monkeypatch.setattr(api_main, "_load_lexicon_entries", failing_loader)
+        monkeypatch.setattr(api_deps, "_load_lexicon_entries", failing_loader)
 
         response = client.get("/ready")
 
@@ -1220,7 +1221,7 @@ class TestReadyEndpoint:
         def failing_loader(*_args: object) -> None:
             raise ValueError("lexicon unavailable")
 
-        monkeypatch.setattr(api_main, "_load_lexicon_entries", failing_loader)
+        monkeypatch.setattr(api_deps, "_load_lexicon_entries", failing_loader)
         caplog.set_level(logging.WARNING, logger="api.main")
 
         response = client.get("/ready")
@@ -1252,7 +1253,7 @@ class TestReadyEndpoint:
         def failing_loader(*_args: object) -> None:
             raise error
 
-        monkeypatch.setattr(api_main, loader_name, failing_loader)
+        monkeypatch.setattr(api_deps, loader_name, failing_loader)
 
         response = client.get("/ready")
 
@@ -1278,7 +1279,7 @@ class TestReadyEndpoint:
             api_main.get_default_language_profile(),
             orthographic_data_preparer=failing_preparer,
         )
-        monkeypatch.setattr(api_main, "get_language_profile", lambda _lang: bad_profile)
+        monkeypatch.setattr(api_deps, "get_language_profile", lambda _lang: bad_profile)
 
         response = client.get("/ready")
 
@@ -1304,9 +1305,9 @@ class TestSearchDependenciesLoader:
                 "lemmas": [],
             }
 
-        monkeypatch.setattr(api_main, "_load_lexicon_document", fake_lexicon_document)
+        monkeypatch.setattr(api_deps, "_load_lexicon_document", fake_lexicon_document)
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_distance_matrix_with_meta",
             lambda *_args: (
                 {},
@@ -1317,12 +1318,12 @@ class TestSearchDependenciesLoader:
             ),
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "get_rules_version",
             lambda _: {"older": "9.9.9", "newer": "10.0.0"},
         )
 
-        versions = api_main._build_data_versions()
+        versions = api_deps._build_data_versions()
 
         assert lexicon_calls == 1
         assert versions.lexicon == "2.0.0"
@@ -1337,23 +1338,23 @@ class TestSearchDependenciesLoader:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_lexicon_document",
             lambda *_args: (_ for _ in ()).throw(ValueError("bad lexicon")),
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_distance_matrix_with_meta",
             lambda *_args: (_ for _ in ()).throw(ValueError("bad matrix")),
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "get_rules_version",
             lambda _: {"bad": "not-semver"},
         )
-        caplog.set_level(logging.ERROR, logger="api.main")
+        caplog.set_level(logging.ERROR, logger="api._dependencies")
 
-        versions = api_main._build_data_versions()
+        versions = api_deps._build_data_versions()
 
         assert versions == api_main.DataVersions()
         assert "Failed to load lexicon data version metadata" in caplog.text
@@ -1366,33 +1367,33 @@ class TestSearchDependenciesLoader:
         td = _make_test_dependencies()
 
         monkeypatch.setattr(
-            api_main, "load_lexicon_entries", lambda _language: td["lexicon"]
+            api_deps, "load_lexicon_entries", lambda _language: td["lexicon"]
         )
         monkeypatch.setattr(
-            api_main, "_load_distance_matrix", lambda _language: td["matrix"]
+            api_deps, "_load_distance_matrix", lambda _language: td["matrix"]
         )
         monkeypatch.setattr(
-            api_main, "_load_rules_registry", lambda _language: td["rules_registry"]
+            api_deps, "_load_rules_registry", lambda _language: td["rules_registry"]
         )
         monkeypatch.setattr(
-            api_main, "_load_search_index", lambda _language: td["search_index"]
+            api_deps, "_load_search_index", lambda _language: td["search_index"]
         )
         monkeypatch.setattr(
-            api_main, "_load_unigram_index", lambda _language: td["unigram_index"]
+            api_deps, "_load_unigram_index", lambda _language: td["unigram_index"]
         )
         monkeypatch.setattr(
-            api_main, "_load_lexicon_map", lambda _language: td["lexicon_map"]
+            api_deps, "_load_lexicon_map", lambda _language: td["lexicon_map"]
         )
         monkeypatch.setattr(
-            api_main, "_load_ipa_index", lambda _language: td["ipa_index"]
+            api_deps, "_load_ipa_index", lambda _language: td["ipa_index"]
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_build_data_versions",
             lambda _language: api_main.DataVersions(rules="10.0.0"),
         )
 
-        deps = api_main._load_search_dependencies(
+        deps = api_deps._load_search_dependencies(
             api_main.get_default_language_profile().language_id
         )
 
@@ -1421,38 +1422,38 @@ class TestSearchDependenciesLoader:
             api_main.get_default_language_profile(),
             orthographic_data_preparer=failing_preparer,
         )
-        monkeypatch.setattr(api_main, "get_language_profile", lambda _lang: bad_profile)
+        monkeypatch.setattr(api_deps, "get_language_profile", lambda _lang: bad_profile)
         monkeypatch.setattr(
-            api_main, "load_lexicon_entries", lambda _language: td["lexicon"]
+            api_deps, "load_lexicon_entries", lambda _language: td["lexicon"]
         )
         monkeypatch.setattr(
-            api_main, "_load_distance_matrix", lambda _language: td["matrix"]
+            api_deps, "_load_distance_matrix", lambda _language: td["matrix"]
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_rules_registry",
             lambda _language: td["rules_registry"],
         )
         monkeypatch.setattr(
-            api_main, "_load_search_index", lambda _language: td["search_index"]
+            api_deps, "_load_search_index", lambda _language: td["search_index"]
         )
         monkeypatch.setattr(
-            api_main, "_load_unigram_index", lambda _language: td["unigram_index"]
+            api_deps, "_load_unigram_index", lambda _language: td["unigram_index"]
         )
         monkeypatch.setattr(
-            api_main, "_load_lexicon_map", lambda _language: td["lexicon_map"]
+            api_deps, "_load_lexicon_map", lambda _language: td["lexicon_map"]
         )
         monkeypatch.setattr(
-            api_main, "_load_ipa_index", lambda _language: td["ipa_index"]
+            api_deps, "_load_ipa_index", lambda _language: td["ipa_index"]
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_build_data_versions",
             lambda _language: api_main.DataVersions(rules="1.0.0"),
         )
 
         with pytest.raises(api_main.SearchDependenciesNotReadyError):
-            api_main._load_search_dependencies("ancient_greek")
+            api_deps._load_search_dependencies("ancient_greek")
 
     def test_warm_search_dependencies_logs_info_without_traceback_when_not_ready(
         self,
@@ -2353,7 +2354,7 @@ class TestSearchEndpoint:
     ) -> None:
         captured = mock_search_dependencies(monkeypatch)
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_rules_registry",
             lambda _language: {
                 "CCH-009": {
@@ -2734,7 +2735,7 @@ class TestSearchEndpoint:
         def fail_lexicon_entries(*_args: object) -> tuple[dict[str, object], ...]:
             raise ValueError("lexicon unavailable")
 
-        monkeypatch.setattr(api_main, "_load_lexicon_entries", fail_lexicon_entries)
+        monkeypatch.setattr(api_deps, "_load_lexicon_entries", fail_lexicon_entries)
 
         response = client.post(
             "/search",
@@ -2756,7 +2757,7 @@ class TestSearchEndpoint:
         def fail_lexicon_entries(*_args: object) -> tuple[dict[str, object], ...]:
             raise ValueError("lexicon unavailable")
 
-        monkeypatch.setattr(api_main, "_load_lexicon_entries", fail_lexicon_entries)
+        monkeypatch.setattr(api_deps, "_load_lexicon_entries", fail_lexicon_entries)
         monkeypatch.delenv(api_main._LOG_RAW_QUERY_ENV_VAR, raising=False)
         caplog.set_level(logging.WARNING, logger="api.main")
 
@@ -2780,7 +2781,7 @@ class TestSearchEndpoint:
             raise ValueError("matrix unavailable")
 
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_distance_matrix",
             fail_distance_matrix,
         )
@@ -3705,12 +3706,12 @@ class TestBuildDataVersionsPartialFailure:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_lexicon_document",
             lambda *_args: (_ for _ in ()).throw(OSError("lexicon read error")),
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_distance_matrix_with_meta",
             lambda *_args: (
                 {},
@@ -3718,13 +3719,13 @@ class TestBuildDataVersionsPartialFailure:
             ),
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "get_rules_version",
             lambda _: {"vowels": "1.0.0"},
         )
-        caplog.set_level(logging.ERROR, logger="api.main")
+        caplog.set_level(logging.ERROR, logger="api._dependencies")
 
-        versions = api_main._build_data_versions()
+        versions = api_deps._build_data_versions()
 
         assert versions.lexicon == "unknown"
         assert versions.matrix == "1.0.0"
@@ -3737,23 +3738,23 @@ class TestBuildDataVersionsPartialFailure:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_lexicon_document",
             lambda *_args: {"schema_version": "2.0.0", "_meta": {}, "lemmas": []},
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_distance_matrix_with_meta",
             lambda *_args: (_ for _ in ()).throw(OSError("matrix read error")),
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "get_rules_version",
             lambda _: {"consonants": "1.0.0"},
         )
-        caplog.set_level(logging.ERROR, logger="api.main")
+        caplog.set_level(logging.ERROR, logger="api._dependencies")
 
-        versions = api_main._build_data_versions()
+        versions = api_deps._build_data_versions()
 
         assert versions.lexicon == "2.0.0"
         assert versions.matrix == "unknown"
@@ -3766,23 +3767,23 @@ class TestBuildDataVersionsPartialFailure:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_lexicon_document",
             lambda *_args: (_ for _ in ()).throw(ValueError("bad")),
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "_load_distance_matrix_with_meta",
             lambda *_args: (_ for _ in ()).throw(ValueError("bad")),
         )
         monkeypatch.setattr(
-            api_main,
+            api_deps,
             "get_rules_version",
             lambda _: (_ for _ in ()).throw(ValueError("bad")),
         )
-        caplog.set_level(logging.ERROR, logger="api.main")
+        caplog.set_level(logging.ERROR, logger="api._dependencies")
 
-        versions = api_main._build_data_versions()
+        versions = api_deps._build_data_versions()
 
         assert versions == api_main.DataVersions()
         assert "Failed to load lexicon data version metadata" in caplog.text
@@ -3831,16 +3832,16 @@ class TestExplicitLanguageLoaderCaching:
             call_count += 1
             return {"language_id": language_id}
 
-        monkeypatch.setattr(api_main, "_load_lexicon_map", fake_load_lexicon_map)
+        monkeypatch.setattr(api_deps, "_load_lexicon_map", fake_load_lexicon_map)
         monkeypatch.setattr(
-            api_main.phonology_search,
+            api_deps.phonology_search,
             "build_ipa_index",
             lambda lexicon_map: {"lexicon_map": lexicon_map},
         )
-        api_main._load_ipa_index.cache_clear()
+        api_deps._load_ipa_index.cache_clear()
 
         cached_map = fake_load_lexicon_map(default_language_id)
-        result = api_main._load_ipa_index(default_language_id)
+        result = api_deps._load_ipa_index(default_language_id)
 
         assert call_count == 1
         assert result == {"lexicon_map": cached_map}

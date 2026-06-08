@@ -65,23 +65,24 @@ def clear_rule_cache() -> Generator[None, None, None]:
     """Reset cached rule loading and tokenization state between tests.
 
     Autouse scoped at ``tests/`` because ``phonology.search._load_rules_cached``,
-    ``_get_tokenized_rules``, and ``api.main._get_rules_version_cached``
+    ``_get_tokenized_rules``, and ``api._dependencies._get_rules_version_cached``
     are shared module-level ``lru_cache`` wrappers.
     Clearing before every test guarantees test isolation for any suite that
     exercises rule loading, and is a no-op (double-clear is harmless) for
-    suites that do not.
+    suites that do not. The rules-version cache is cleared on the canonical
+    ``api._dependencies`` module so both REST and MCP surfaces are reset.
     """
-    from api import main as api_main
+    from api import _dependencies as api_deps
 
     search_module._load_rules_cached.cache_clear()
     search_module._get_tokenized_rules.cache_clear()
-    api_main._get_rules_version_cached.cache_clear()
+    api_deps._get_rules_version_cached.cache_clear()
 
     yield
 
     search_module._load_rules_cached.cache_clear()
     search_module._get_tokenized_rules.cache_clear()
-    api_main._get_rules_version_cached.cache_clear()
+    api_deps._get_rules_version_cached.cache_clear()
 
 
 @pytest.fixture

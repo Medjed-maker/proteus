@@ -9,6 +9,8 @@ import anyio
 import pytest
 
 from api import main as api_main
+from api import _dependencies as api_deps
+from mcp_server import _search_adapter
 from mcp_server._search_adapter import _run_search_for_mcp
 from mcp_server.server import app
 from mcp_server.tools.search import McpSearchInput
@@ -86,7 +88,7 @@ def test_mcp_search_tool_returns_applied_rules(
     """Koine searches should expose applied rule steps."""
     captured = mock_search_dependencies(monkeypatch)
     monkeypatch.setattr(
-        api_main,
+        api_deps,
         "_load_rules_registry",
         lambda _language: {
             "CCH-009": {
@@ -258,13 +260,13 @@ def test_mcp_search_tool_uses_profile_orthographic_builder(
         get_default_language_profile(),
         orthographic_note_builder=fake_builder,
     )
-    original_loader = api_main.load_search_dependencies
+    original_loader = _search_adapter.load_search_dependencies
 
     def load_with_builder(language: str) -> api_main.SearchDependencies:
         deps = original_loader(language)
         return deps._replace(profile=profile)
 
-    monkeypatch.setattr(api_main, "load_search_dependencies", load_with_builder)
+    monkeypatch.setattr(_search_adapter, "load_search_dependencies", load_with_builder)
 
     _run_search_for_mcp(McpSearchInput(query_form="λόγος"))
 
