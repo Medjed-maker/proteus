@@ -77,11 +77,10 @@ class _PosInferenceContext(NamedTuple):
     entry: Any
     key: str
     normalized_key: str
-    # TODO: itypes is not directly read by any _infer_* rule yet; it is
-    # retained so that future POS inference rules can inspect raw iType
-    # morphology without re-extracting it from the entry element.
-    # Currently used only as an input to _looks_like_adjective_itypes()
-    # when constructing adjective_itypes below.
+    # Raw iType morphology for the entry. Currently consumed only via
+    # _looks_like_adjective_itypes() to derive ``adjective_itypes`` below;
+    # retained on the context so future POS inference rules can inspect it
+    # directly without re-extracting it from the entry element.
     itypes: list[str]
     adjective_itypes: bool
     participial_candidate: bool
