@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from api import main as api_main
+from api import _dependencies as api_deps
 from api import _models as api_models
 from phonology.core.ports.profiles import LanguageProfile, register_language_profile
 
@@ -126,7 +126,7 @@ def test_languages_endpoint_returns_unknown_on_missing_assets(
     def _raise_rules_version(_rules_dir: Path) -> dict[str, str]:
         raise OSError("missing rules")
 
-    monkeypatch.setattr(api_main, "get_rules_version", _raise_rules_version)
+    monkeypatch.setattr(api_deps, "get_rules_version", _raise_rules_version)
 
     response = client.get("/languages")
 

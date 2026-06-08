@@ -7,46 +7,39 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-import html
-import importlib.resources as resources
-from functools import lru_cache
-import json
 import logging
 import os
-from pathlib import Path
-import sys
 import threading
-from typing import Any, AsyncIterator
-
-import yaml
+from typing import AsyncIterator, Protocol
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from packaging.version import InvalidVersion, Version
 
-from phonology import search as phonology_search
-from phonology.core.ports.corpus import CorpusSourceDataError, EMPTY_CORPUS_ADAPTER
-from phonology.distance import MatrixData, load_matrix_document
-from phonology.explainer import get_rules_version
-from phonology.core.ports.orthography_notes import OrthographicNoteDataError
+# Re-exported so test seams and non-REST callers can patch shared search
+# internals (e.g. ``search_execution``) via ``api.main.phonology_search``.
+from phonology import search as phonology_search  # noqa: F401
 from phonology.core.ports.profiles import (
-    LanguageProfile,
     get_default_language_profile,
-    get_language_profile,
     list_language_profiles,
     register_default_profiles,
 )
 
+from . import _assets, _dependencies, _runtime_metadata
 from ._app_version import (
     _APP_VERSION_ENV_VAR as _APP_VERSION_ENV_VAR,
-    _load_app_version,
+    _load_app_version as _load_app_version,
 )
-from ._constants import API_VERSION, SCHEMA_VERSION
+from ._constants import API_VERSION as API_VERSION, SCHEMA_VERSION as SCHEMA_VERSION
+from ._dependencies import (
+    _LSJ_REPO_DIR_ENV_VAR as _LSJ_REPO_DIR_ENV_VAR,
+    _SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL as _SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL,
+    _SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL as _SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL,
+    _SEARCH_DEPENDENCY_LOAD_ERRORS as _SEARCH_DEPENDENCY_LOAD_ERRORS,
+)
 from ._models import (
-    DataVersions,
-    LanguageInfo,
+    DataVersions as DataVersions,
     LanguagesResponse,
     SearchHit as SearchHit,
     SearchRequest as SearchRequest,
@@ -76,100 +69,33 @@ from ._search_runner import (
 logger = logging.getLogger(__name__)
 register_default_profiles()
 _ALLOWED_ORIGINS_ENV_VAR = "PROTEUS_ALLOWED_ORIGINS"
-_LSJ_REPO_DIR_ENV_VAR = "PROTEUS_LSJ_REPO_DIR"
 _DISABLE_STARTUP_WARMUP_ENV_VAR = "PROTEUS_DISABLE_STARTUP_WARMUP"
 _DISABLE_STARTUP_WARMUP_ATTR = "disable_startup_warmup"
 _ENABLE_API_DOCS_ENV_VAR = "PROTEUS_ENABLE_API_DOCS"
-_BUILD_TIMESTAMP_ENV_VAR = "PROTEUS_BUILD_TIMESTAMP"
-_GIT_SHA_ENV_VAR = "PROTEUS_GIT_SHA"
-# Limit publicly exposed git SHA to 12 hex chars. Long enough to be unique in
-# practical git repos, short enough to limit deployment fingerprinting from
-# the unauthenticated /version endpoint.
-_GIT_SHA_MAX_LENGTH = 12
-_SEARCH_DEPENDENCY_LOAD_ERRORS = (
-    ValueError,
-    FileNotFoundError,
-    OSError,
-    yaml.YAMLError,
-    OrthographicNoteDataError,
-    CorpusSourceDataError,
-)
-_SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL = (
-    "Search dependencies are not ready. Verify packaged matrices, rules, and lexicon assets "
-    "are available."
-)
-_SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL = (
-    "Search dependencies are not ready. Run uv run --extra extract python -m "
-    "phonology.languages.ancient_greek.build_lexicon --if-missing "
-    "to generate the lexicon. If you use a non-default LSJ checkout, set "
-    f"{_LSJ_REPO_DIR_ENV_VAR} before extraction."
-)
+_BUILD_TIMESTAMP_ENV_VAR = _runtime_metadata._BUILD_TIMESTAMP_ENV_VAR
+_GIT_SHA_ENV_VAR = _runtime_metadata._GIT_SHA_ENV_VAR
+_GIT_SHA_MAX_LENGTH = _runtime_metadata._GIT_SHA_MAX_LENGTH
 _LEGACY_LANGUAGE_ALIAS_DEPRECATION_MESSAGE = (
     "Use response_language='en'|'ja' for response prose; language now selects "
     "the phonology profile."
 )
 
 
-_APP_VERSION = _load_app_version()
+_APP_VERSION = _runtime_metadata._APP_VERSION
 
 
-@lru_cache
-def _load_rule_schema_version() -> str:
-    """Return the rule-file JSON schema identifier, or an empty string."""
-    schema_candidates: list[Any] = []
-    try:
-        schema_candidates.append(
-            resources.files("phonology").joinpath(
-                "data",
-                "schemas",
-                "phonology_rule_file.schema.json",
-            )
-        )
-    except (ModuleNotFoundError, FileNotFoundError):
-        pass
-
-    schema_candidates.append(
-        Path(__file__).resolve().parents[2]
-        / "data"
-        / "schemas"
-        / "phonology_rule_file.schema.json"
-    )
-
-    for schema_path in schema_candidates:
-        # Restrict to Path-like candidates; future Traversable variants without
-        # filesystem semantics (e.g., MultiplexedPath under zipped packages) are
-        # skipped explicitly so an AttributeError does not mask unrelated bugs.
-        if not isinstance(schema_path, (str, os.PathLike)):
-            logger.debug(
-                "Skipping non-path-like schema candidate of type %s",
-                type(schema_path).__name__,
-            )
-            continue
-        try:
-            with open(schema_path, "rb") as schema_file:
-                schema = json.load(schema_file)
-        except (OSError, json.JSONDecodeError):
-            continue
-        schema_id = schema.get("$id") if isinstance(schema, dict) else None
-        if isinstance(schema_id, str):
-            return schema_id
-
-    return ""
+class _SearchDependencyLoader(Protocol):
+    """Type protocol for search dependency loaders.
+    
+    Defines the signature for loading search dependencies, optionally
+    scoped to a specific language profile.
+    """
+    def __call__(self, language: str | None = None) -> SearchDependencies:
+        ...
 
 
-def _build_version_info() -> VersionInfo:
-    """Return API and runtime version metadata shared by versioned endpoints."""
-    python_version = ".".join(str(item) for item in sys.version_info[:3])
-    return VersionInfo(
-        engine_version=_APP_VERSION,
-        api_version=API_VERSION,
-        schema_version=SCHEMA_VERSION,
-        rule_schema_version=_load_rule_schema_version(),
-        build_timestamp=os.environ.get(_BUILD_TIMESTAMP_ENV_VAR, "").strip(),
-        git_sha=os.environ.get(_GIT_SHA_ENV_VAR, "").strip()[:_GIT_SHA_MAX_LENGTH],
-        python_version=python_version,
-        mcp_server_version=_APP_VERSION,
-    )
+_load_rule_schema_version = _runtime_metadata._load_rule_schema_version
+_build_version_info = _runtime_metadata._build_version_info
 
 
 def _validate_public_base_url_env() -> None:
@@ -322,410 +248,52 @@ async def _unhandled_exception_x_request_id(
     return response
 
 
-_FRONTEND_PATH = Path(__file__).resolve().parents[1] / "web" / "index.html"
-_CHANGELOG_PATH = Path(__file__).resolve().parents[1] / "web" / "changelog.html"
-_STATIC_DIR = Path(__file__).resolve().parents[1] / "web" / "static"
+_FRONTEND_PATH = _assets._FRONTEND_PATH
+_CHANGELOG_PATH = _assets._CHANGELOG_PATH
+_STATIC_DIR = _assets._STATIC_DIR
 
 
 def _load_frontend_html() -> str | None:
     """Load and cache the packaged frontend HTML document."""
-    if not _FRONTEND_PATH.exists():
-        return None
-    try:
-        return _FRONTEND_PATH.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
-        logger.exception("Failed to read frontend HTML from %s", _FRONTEND_PATH)
-        return None
+    return _assets._load_html_asset(_FRONTEND_PATH, label="frontend")
 
 
 def _build_deprecation_link_header(base_url: str, docs_path: str) -> str:
     """Return an absolute URI Link header value per RFC 8288."""
-    base = base_url.rstrip("/")
-    path = docs_path.lstrip("/")
-    return f'<{base}/{path}>; rel="deprecation"'
+    return _assets._build_deprecation_link_header(base_url, docs_path)
 
 
 def _load_changelog_html() -> str | None:
     """Load and cache the packaged changelog HTML document."""
-    if not _CHANGELOG_PATH.exists():
-        return None
-    try:
-        return _CHANGELOG_PATH.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
-        logger.exception("Failed to read changelog HTML from %s", _CHANGELOG_PATH)
-        return None
+    return _assets._load_html_asset(_CHANGELOG_PATH, label="changelog")
 
 
-def _resolve_language_id(language: str | None) -> str:
-    """Resolve an optional language id at call time."""
-    if language is None:
-        return get_default_language_profile().language_id
-    return language
+_resolve_language_id = _dependencies._resolve_language_id
+_load_lexicon_document = _dependencies._load_lexicon_document
+_load_lexicon_entries = _dependencies._load_lexicon_entries
+load_lexicon_entries = _dependencies.load_lexicon_entries
+_load_distance_matrix_with_meta = _dependencies._load_distance_matrix_with_meta
+_load_distance_matrix = _dependencies._load_distance_matrix
+_load_rules_registry = _dependencies._load_rules_registry
+_load_search_index = _dependencies._load_search_index
+_load_unigram_index = _dependencies._load_unigram_index
+_load_lexicon_map = _dependencies._load_lexicon_map
 
-
-@lru_cache(maxsize=8)
-def _load_lexicon_document(language_id: str) -> dict[str, Any]:
-    """Load a packaged lexicon document once per process.
-    
-    Args:
-        language_id: Normalized language identifier (e.g., "ancient_greek").
-    """
-    profile = get_language_profile(language_id)
-    lexicon_path = profile.lexicon_path
-    try:
-        raw_text = lexicon_path.read_text(encoding="utf-8")
-    except FileNotFoundError as err:
-        raise ValueError(f"Lexicon file not found at {lexicon_path}: {err}") from err
-    try:
-        document = json.loads(raw_text)
-    except json.JSONDecodeError as err:
-        raise ValueError(f"Failed to parse JSON in {lexicon_path}: {err}") from err
-    if not isinstance(document, dict):
-        raise ValueError(f"Lexicon file {lexicon_path} must contain a top-level object")
-    return document
-
-
-@lru_cache(maxsize=8)
-def _load_lexicon_entries(
-    language_id: str,
-) -> tuple[dict[str, Any], ...]:
-    """Load a packaged language lexicon once per process.
-    
-    Args:
-        language_id: Normalized language identifier (e.g., "ancient_greek").
-    """
-    document = _load_lexicon_document(language_id)
-
-    raw_entries = document.get("lemmas")
-    if not isinstance(raw_entries, list):
-        raise ValueError("Lexicon document must define a list under 'lemmas'")
-
-    entries: list[dict[str, Any]] = []
-    for index, entry in enumerate(raw_entries):
-        if not isinstance(entry, dict):
-            raise ValueError(f"Lexicon entry {index} must be an object")
-        entries.append(dict(entry))
-    return tuple(entries)
-
-
-def load_lexicon_entries(
-    language: str | None = None,
-) -> tuple[dict[str, Any], ...]:
-    """Return cached packaged lexicon entries for a language profile."""
-    return _load_lexicon_entries(_resolve_language_id(language))
-
-
-@lru_cache(maxsize=8)
-def _load_distance_matrix_with_meta(
-    language_id: str,
-) -> tuple[MatrixData, dict[str, Any]]:
-    """Load the packaged search distance matrix and metadata once per process.
-    
-    Args:
-        language_id: Normalized language identifier (e.g., "ancient_greek").
-    """
-    profile = get_language_profile(language_id)
-    return load_matrix_document(profile.matrix_path)
-
-
-def _load_distance_matrix(
-    language: str | None = None,
-) -> MatrixData:
-    """Load the packaged search distance matrix once per process."""
-    matrix, _ = _load_distance_matrix_with_meta(_resolve_language_id(language))
-    return matrix
-
-
-def _load_rules_registry(
-    language: str | None = None,
-) -> dict[str, dict[str, Any]]:
-    """Return the ``lru_cache``-backed registry owned by ``phonology_search.get_rules_registry``.
-
-    The returned dict is shared process-wide with the phonology search layer.
-    Callers must not mutate it.
-    """
-    return phonology_search.get_rules_registry(_resolve_language_id(language))
-
-
-@lru_cache(maxsize=8)
-def _load_search_index(
-    language_id: str,
-) -> phonology_search.KmerIndex:
-    """Build and cache the k-mer index for the packaged lexicon.
-    
-    Args:
-        language_id: Normalized language identifier (e.g., "ancient_greek").
-    """
-    profile = get_language_profile(language_id)
-    return phonology_search.build_kmer_index(
-        load_lexicon_entries(language_id),
-        phone_inventory=profile.phone_inventory,
-        vowel_phones=profile.vowel_phones,
-        dialect_skeleton_builders=profile.dialect_skeleton_builders,
-    )
-
-
-@lru_cache(maxsize=8)
-def _load_unigram_index(
-    language_id: str,
-) -> phonology_search.KmerIndex:
-    """Build and cache the k=1 unigram index for fallback lookup.
-    
-    Args:
-        language_id: Normalized language identifier (e.g., "ancient_greek").
-    """
-    profile = get_language_profile(language_id)
-    return phonology_search.build_kmer_index(
-        load_lexicon_entries(language_id),
-        k=1,
-        phone_inventory=profile.phone_inventory,
-        vowel_phones=profile.vowel_phones,
-        dialect_skeleton_builders=profile.dialect_skeleton_builders,
-    )
-
-
-@lru_cache(maxsize=8)
-def _load_lexicon_map(
-    language_id: str,
-) -> phonology_search.LexiconMap:
-    """Build and cache the lexicon map with per-entry token counts.
-    
-    Args:
-        language_id: Normalized language identifier (e.g., "ancient_greek").
-    """
-    profile = get_language_profile(language_id)
-    return phonology_search.build_lexicon_map(
-        load_lexicon_entries(language_id),
-        phone_inventory=profile.phone_inventory,
-    )
-
-
-@lru_cache(maxsize=8)
-def _load_ipa_index(
-    language_id: str,
-) -> phonology_search.IpaIndex:
-    """Build and cache the IPA-to-entry-id index for the packaged lexicon.
-    
-    Args:
-        language_id: Normalized language identifier (e.g., "ancient_greek").
-    """
-    return phonology_search.build_ipa_index(
-        _load_lexicon_map(language_id)
-    )
-
-
-@lru_cache(maxsize=8)
-def _get_rules_version_cached(rules_dir: Path) -> dict[str, str]:
-    """Return rules version metadata for a directory, cached per ``rules_dir``.
-
-    Wraps :func:`get_rules_version` so /languages and /search avoid re-parsing
-    YAML rule files on every request. Profile rules directories are immutable
-    once registered, so per-process caching is safe; tests clear this cache
-    via the autouse ``clear_rule_cache`` fixture for full isolation.
-    """
-    return get_rules_version(rules_dir)
-
-
-def _aggregate_rules_version(profile: LanguageProfile) -> str | None:
-    """Return the max ruleset version for a language profile, or ``None``.
-
-    Returns ``None`` when the profile has no rule files. Exceptions from rule
-    loading or version parsing propagate to the caller so the calling context
-    can decide whether to log them as degraded-but-recoverable or fatal.
-    """
-    rules_versions = _get_rules_version_cached(profile.rules_dir)
-    if not rules_versions:
-        return None
-    return str(max(Version(version) for version in rules_versions.values()))
-
-
-def _build_data_versions(
-    language: str | None = None,
-) -> DataVersions:
-    """Build DataVersions from loaded data sources.
-
-    Collects version metadata from lexicon, matrix, and rules.
-    """
-    language_id = _resolve_language_id(language)
-    profile = get_language_profile(language_id)
-    fields: dict[str, str] = {}
-
-    try:
-        document = _load_lexicon_document(language_id)
-        schema_version = document.get("schema_version")
-        if isinstance(schema_version, str) and schema_version.strip():
-            fields["lexicon"] = schema_version
-        meta = document.get("_meta", {})
-        if isinstance(meta, dict):
-            last_updated = meta.get("last_updated")
-            if isinstance(last_updated, str):
-                fields["lexicon_updated_at"] = last_updated
-    except (OSError, ValueError) as err:
-        logger.exception("Failed to load lexicon data version metadata: %s", err)
-
-    try:
-        _, matrix_meta = _load_distance_matrix_with_meta(language_id)
-        matrix_version = matrix_meta.get("version")
-        if isinstance(matrix_version, str) and matrix_version.strip():
-            fields["matrix"] = matrix_version
-        generated_at = matrix_meta.get("generated_at")
-        if isinstance(generated_at, str):
-            fields["matrix_generated_at"] = generated_at
-    except (OSError, ValueError, json.JSONDecodeError) as err:
-        logger.exception("Failed to load matrix data version metadata: %s", err)
-
-    try:
-        rules_version = _aggregate_rules_version(profile)
-        if rules_version is not None:
-            fields["rules"] = rules_version
-    except (OSError, ValueError, yaml.YAMLError, InvalidVersion) as err:
-        logger.exception("Failed to load rules data version metadata: %s", err)
-
-    return DataVersions(**fields)
-
-
-def _build_ruleset_versions(language: str) -> dict[str, str]:
-    """Return aggregated ruleset versions keyed by language profile id."""
-    try:
-        profile = get_language_profile(language)
-        rules_version = _aggregate_rules_version(profile)
-    # Same degraded-but-recoverable path as _build_data_versions; use
-    # logger.exception so both surfaces log at ERROR with the traceback.
-    except (OSError, ValueError, yaml.YAMLError, InvalidVersion):
-        logger.exception(
-            "Failed to load ruleset versions for language %s", language
-        )
-        return {}
-    if rules_version is None:
-        return {}
-    return {profile.language_id: rules_version}
-
-
-def _load_version_with_fallback(
-    load_fn: Callable[[], str | None], context: str, language_id: str
-) -> str:
-    """Load a version string, degrading missing or invalid assets to unknown."""
-    try:
-        version = load_fn()
-    except (
-        OSError,
-        ValueError,
-        json.JSONDecodeError,
-        yaml.YAMLError,
-        InvalidVersion,
-    ) as err:
-        # Degraded-but-recoverable: keep the response 200 and surface "unknown".
-        # warning + exc_info preserves the traceback for diagnostics without
-        # flooding stderr at error level on every probe poll.
-        logger.warning(
-            "Failed to load %s for language %s: %s",
-            context,
-            language_id,
-            err,
-            exc_info=True,
-        )
-        return "unknown"
-    if version is None:
-        return "unknown"
-    normalized = version.strip()
-    return normalized or "unknown"
-
-
-def _build_language_info(profile: LanguageProfile) -> LanguageInfo:
-    """Build public language metadata, degrading unavailable assets to unknown.
-
-    Descriptions are intentionally English-only in Phase 2; localized language
-    metadata can be added later without changing the profile registry contract.
-    """
-    def load_ruleset_version() -> str | None:
-        return _aggregate_rules_version(profile)
-
-    def load_lexicon_schema_version() -> str | None:
-        document = _load_lexicon_document(profile.language_id)
-        schema_version = document.get("schema_version")
-        if isinstance(schema_version, str) and schema_version.strip():
-            return schema_version
-        return None
-
-    def load_matrix_version() -> str | None:
-        _, matrix_meta = _load_distance_matrix_with_meta(profile.language_id)
-        raw_matrix_version = matrix_meta.get("version")
-        if isinstance(raw_matrix_version, str) and raw_matrix_version.strip():
-            return raw_matrix_version
-        return None
-
-    ruleset_version = _load_version_with_fallback(
-        load_ruleset_version,
-        "ruleset version",
-        profile.language_id,
-    )
-    lexicon_schema_version = _load_version_with_fallback(
-        load_lexicon_schema_version,
-        "lexicon schema version",
-        profile.language_id,
-    )
-    matrix_version = _load_version_with_fallback(
-        load_matrix_version,
-        "matrix version",
-        profile.language_id,
-    )
-
-    return LanguageInfo(
-        language_id=profile.language_id,
-        display_name=profile.display_name,
-        default_dialect=profile.default_dialect,
-        supported_dialects=list(profile.supported_dialects),
-        status=profile.status,
-        ruleset_version=ruleset_version,
-        lexicon_schema_version=lexicon_schema_version,
-        matrix_version=matrix_version,
-        description=profile.description,
-    )
-
-
-def _load_search_dependencies(
-    language: str | None = None,
-) -> SearchDependencies:
-    """Load all cached search dependencies needed by /ready and /search."""
-    try:
-        language_id = _resolve_language_id(language)
-        profile = get_language_profile(language_id)
-    except ValueError as err:
-        # Re-raise as a runner-defined subclass so both REST and MCP adapters
-        # can distinguish "unknown language" from other generic ValueErrors.
-        raise UnsupportedLanguageError(str(err)) from err
-    try:
-        lexicon = load_lexicon_entries(language_id)
-    except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
-        raise SearchDependenciesNotReadyError(
-            _SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL
-        ) from err
-
-    try:
-        data_versions = _build_data_versions(language_id)
-        if profile.orthographic_data_preparer is not None:
-            profile.orthographic_data_preparer()
-        corpus_adapter = (
-            profile.corpus_adapter_factory()
-            if profile.corpus_adapter_factory is not None
-            else EMPTY_CORPUS_ADAPTER
-        )
-        return SearchDependencies(
-            profile=profile,
-            lexicon=lexicon,
-            matrix=_load_distance_matrix(language_id),
-            rules_registry=_load_rules_registry(language_id),
-            search_index=_load_search_index(language_id),
-            unigram_index=_load_unigram_index(language_id),
-            lexicon_map=_load_lexicon_map(language_id),
-            ipa_index=_load_ipa_index(language_id),
-            data_versions=data_versions,
-            corpus_adapter=corpus_adapter,
-        )
-    except _SEARCH_DEPENDENCY_LOAD_ERRORS as err:
-        raise SearchDependenciesNotReadyError(
-            _SEARCH_DEPENDENCIES_GENERIC_NOT_READY_DETAIL
-        ) from err
+# The canonical search-dependency loaders live in ``api._dependencies`` so that
+# the MCP surface can import them without pulling in this FastAPI app module.
+# ``api.main`` re-exports them as aliases purely for backward-compatible names;
+# there is a single implementation (and a single ``lru_cache``) per loader.
+# Tests that need to stub sub-loader behavior must patch ``api._dependencies``;
+# whole-function swaps consumed by this module's endpoints/warmup may still
+# patch ``api.main`` since those names are read here at call time.
+_load_ipa_index = _dependencies._load_ipa_index
+_get_rules_version_cached = _dependencies._get_rules_version_cached
+_aggregate_rules_version = _dependencies._aggregate_rules_version
+_build_data_versions = _dependencies._build_data_versions
+_build_ruleset_versions = _dependencies._build_ruleset_versions
+_load_version_with_fallback = _dependencies._load_version_with_fallback
+_build_language_info = _dependencies._build_language_info
+_load_search_dependencies = _dependencies._load_search_dependencies
 
 
 def _search_dependencies_not_ready_exception(detail: str) -> HTTPException:
@@ -780,18 +348,20 @@ if _CHANGELOG_HTML is None:
 
 def render_frontend() -> HTMLResponse:
     """Return the packaged frontend HTML document."""
-    if _FRONTEND_HTML is None:
-        raise HTTPException(status_code=404, detail="Frontend asset not found")
-    escaped_version = html.escape(_APP_VERSION)
-    return HTMLResponse(_FRONTEND_HTML.replace("{{APP_VERSION}}", escaped_version))
+    return _assets.render_html_asset(
+        _FRONTEND_HTML,
+        app_version=_APP_VERSION,
+        missing_detail="Frontend asset not found",
+    )
 
 
 def render_changelog() -> HTMLResponse:
     """Return the packaged changelog HTML document."""
-    if _CHANGELOG_HTML is None:
-        raise HTTPException(status_code=404, detail="Changelog asset not found")
-    escaped_version = html.escape(_APP_VERSION)
-    return HTMLResponse(_CHANGELOG_HTML.replace("{{APP_VERSION}}", escaped_version))
+    return _assets.render_html_asset(
+        _CHANGELOG_HTML,
+        app_version=_APP_VERSION,
+        missing_detail="Changelog asset not found",
+    )
 
 
 @app.head("/")
@@ -959,7 +529,7 @@ else:
 # Public engine version shared by REST, MCP, and external callers.
 APP_VERSION: str = _APP_VERSION
 # Public dependency loader for non-REST search surfaces.
-load_search_dependencies: Callable[[str], SearchDependencies] = _load_search_dependencies
+load_search_dependencies: _SearchDependencyLoader = _load_search_dependencies
 # Public ruleset-version builder for non-REST response metadata.
 build_ruleset_versions: Callable[[str], dict[str, str]] = _build_ruleset_versions
 

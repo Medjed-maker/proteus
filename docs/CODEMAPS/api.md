@@ -229,7 +229,8 @@ HTTP POST { "query_form": "λόγος", "dialect_hint": "attic", "max_candidates
 SearchRequest(query_form="λόγος", dialect_hint="attic", max_candidates=5)
     ↓
 search(request: SearchRequest):
-    1. _load_search_dependencies()  [cached]
+    1. api._dependencies._load_search_dependencies()
+       → orchestrates cached sub-loaders
        → Lexicon (tuple of dicts)
        → Distance matrix (nested dict)
        → Rules registry (YAML-parsed)
@@ -341,32 +342,53 @@ freshly generated id so error responses still emit `X-Request-ID`.
 
 ## Dependency Loading
 
-Managed by `_load_search_dependencies()` with per-process LRU caching:
+Orchestrated by `api._dependencies._load_search_dependencies()`. The aggregate
+loader is not itself cached; per-process LRU caching lives on selected
+sub-loaders in `src/api/_dependencies.py`. `api.main` re-exports the canonical
+dependency functions as thin aliases for backward-compatible names. Tests that
+stub sub-loader behavior must patch `api._dependencies`; whole-function swaps
+consumed by this module's endpoints/warmup may still patch `api.main` because
+those names are resolved here at call time.
 
 ```python
-@lru_cache(maxsize=1)
-def _load_lexicon_entries() → tuple[dict[str, Any], ...]
+@lru_cache(maxsize=8)
+def _load_lexicon_document(language_id: str) → dict[str, Any]
   → from data/languages/ancient_greek/lexicon/greek_lemmas.json
 
-@lru_cache(maxsize=1)
-def _load_distance_matrix() → MatrixData
+@lru_cache(maxsize=8)
+def _load_lexicon_entries(language_id: str) → tuple[dict[str, Any], ...]
+  → parsed lemmas from _load_lexicon_document(language_id)
+
+@lru_cache(maxsize=8)
+def _load_distance_matrix_with_meta(language_id: str) → tuple[MatrixData, dict[str, Any]]
   → from data/languages/ancient_greek/matrices/attic_doric.json via distance.load_matrix()
 
-@lru_cache(maxsize=1)
-def _load_rules_registry() → dict[str, dict[str, Any]]
-  → from data/languages/ancient_greek/rules/*.yaml via explainer.load_rules()
+def _load_distance_matrix(language: str | None = None) → MatrixData
+  → wrapper around _load_distance_matrix_with_meta()
 
-@lru_cache(maxsize=1)
-def _load_search_index() → KmerIndex
+def _load_rules_registry(language: str | None = None) → dict[str, dict[str, Any]]
+  → from data/languages/ancient_greek/rules/*.yaml via explainer.load_rules()
+  → delegates to phonology_search.get_rules_registry()
+
+@lru_cache(maxsize=8)
+def _load_search_index(language_id: str) → KmerIndex
   → build_kmer_index(lexicon, k=2)
 
-@lru_cache(maxsize=1)
-def _load_unigram_index() → KmerIndex
+@lru_cache(maxsize=8)
+def _load_unigram_index(language_id: str) → KmerIndex
   → build_kmer_index(lexicon, k=1)
 
-@lru_cache(maxsize=1)
-def _load_lexicon_map() → LexiconMap
+@lru_cache(maxsize=8)
+def _load_lexicon_map(language_id: str) → LexiconMap
   → build_lexicon_map(lexicon)
+
+@lru_cache(maxsize=8)
+def _load_ipa_index(language_id: str) → IpaIndex
+  → build_ipa_index(_load_lexicon_map(language_id))
+
+@lru_cache(maxsize=8)
+def _get_rules_version_cached(rules_dir: Path) → dict[str, str]
+  → get_rules_version(rules_dir)
 ```
 
 On `/ready` or first `/search`, if any loading fails:

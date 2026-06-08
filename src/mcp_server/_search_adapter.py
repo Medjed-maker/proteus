@@ -8,13 +8,14 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from api import main as api_main
+from api._dependencies import build_ruleset_versions, load_search_dependencies
 from api._models import SearchRequest
 from api._request_context import (
     PUBLIC_BASE_URL_ENV_VAR,
     build_request_echo,
     generate_request_id,
 )
+from api._runtime_metadata import APP_VERSION
 from api._search_runner import (
     InvalidDialectError,
     InvalidSearchQueryError,
@@ -66,9 +67,9 @@ def _build_search_request(input_model: McpSearchInput) -> SearchRequest:
 def load_and_validate_search_deps(request_language: str) -> SearchDependencies:
     """Load and validate search dependencies for an MCP request.
 
-    Encapsulates the api_main.load_search_dependencies call and handles
+    Encapsulates the shared dependency loader call and handles
     UnsupportedLanguageError and SearchDependenciesNotReadyError.
-    ``api_main.load_search_dependencies`` is the single source of truth that
+    ``api._dependencies.load_search_dependencies`` is the single source of truth that
     populates ``corpus_adapter`` (via ``profile.corpus_adapter_factory``) for
     both REST and MCP paths, so source-reference enrichment behaves
     identically across both surfaces.
@@ -87,7 +88,7 @@ def load_and_validate_search_deps(request_language: str) -> SearchDependencies:
             ``.detail`` attribute is preserved for richer error mapping.
     """
     try:
-        return api_main.load_search_dependencies(request_language)
+        return load_search_dependencies(request_language)
     except UnsupportedLanguageError as err:
         logger.info("Rejected unsupported MCP language %r: %s", request_language, err)
         raise ValueError("Unsupported language") from err
@@ -133,8 +134,8 @@ def execute_search(
             deps=deps,
             request_id=request_id,
             base_url=_verification_base_url_for_mcp(),
-            engine_version=api_main.APP_VERSION,
-            ruleset_versions=api_main.build_ruleset_versions(
+            engine_version=APP_VERSION,
+            ruleset_versions=build_ruleset_versions(
                 (deps.profile or get_default_language_profile()).language_id
             ),
         )

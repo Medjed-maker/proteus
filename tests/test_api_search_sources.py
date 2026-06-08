@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from api import main as api_main
 from api._hit_formatting import _build_search_hit
 from api._models import SearchHit
+from mcp_server import _search_adapter
 from mcp_server._search_adapter import _run_search_for_mcp
 from mcp_server.tools.search import McpSearchInput
 from phonology import search as phonology_search
@@ -117,6 +118,7 @@ def _install_search_with_adapter(
 
     monkeypatch.setattr(api_main, "_load_search_dependencies", load_dependencies)
     monkeypatch.setattr(api_main, "load_search_dependencies", load_dependencies)
+    monkeypatch.setattr(_search_adapter, "load_search_dependencies", load_dependencies)
     monkeypatch.setattr(
         api_main.phonology_search,
         "search_execution",

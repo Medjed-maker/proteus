@@ -8,10 +8,9 @@ its surface-specific error mapping (HTTPException for REST, ``ValueError`` /
 ``api.main`` private symbols.
 
 This module deliberately does *not* import ``api.main`` (avoids circular
-imports). The dependency loader and the ``_build_ruleset_versions`` helper
-still live in ``api.main`` because they depend on private file-loading
-helpers; callers pass already-loaded ``deps`` and ``ruleset_versions`` into
-:func:`run_search`.
+imports). Callers pass already-loaded ``deps`` and ``ruleset_versions`` into
+:func:`run_search`; the canonical dependency and ruleset loaders live in
+``api._dependencies``.
 """
 
 from __future__ import annotations
@@ -139,8 +138,8 @@ def run_search(
     """Execute a phonology search with FastAPI-agnostic error semantics.
 
     Caller is responsible for loading ``deps`` (typically via
-    ``api.main._load_search_dependencies``) and for producing
-    ``ruleset_versions`` (via ``api.main._build_ruleset_versions``).
+    ``api._dependencies._load_search_dependencies``) and for producing
+    ``ruleset_versions`` (via ``api._dependencies._build_ruleset_versions``).
     Surface-specific exceptions are NOT raised here; callers translate the
     pure exception types declared in this module into their preferred
     representation.
