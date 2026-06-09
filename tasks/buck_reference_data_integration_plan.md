@@ -92,80 +92,80 @@
 
 ## Phase 1: Buck Reference Domain Model
 
-- [ ] Buck 参照用の内部 model を設計する。
-  - [ ] `BuckRule`
-  - [ ] `BuckDialect`
-  - [ ] `BuckGlossaryEntry`
-  - [ ] `BuckReference`
-  - [ ] `BuckReviewStatus`
-- [ ] phonology 層の index/public モデルは `frozen=True` dataclass に変換する（CLAUDE.md 不変性原則）。
-  - [ ] `load_buck_data()` のキャッシュ済み可変 dict から frozen dataclass へ変換し、可変構造への参照漏れを防ぐ。
+- [x] Buck 参照用の内部 model を設計する。
+  - [x] `BuckRule`
+  - [x] `BuckDialect`
+  - [x] `BuckGlossaryEntry`
+  - [x] `BuckReference`
+  - [x] `BuckReviewStatus`
+- [x] phonology 層の index/public モデルは `frozen=True` dataclass に変換する（CLAUDE.md 不変性原則）。
+  - [x] `load_buck_data()` のキャッシュ済み可変 dict から frozen dataclass へ変換し、可変構造への参照漏れを防ぐ。
   - [ ] API 層で Pydantic model に変換する。
-- [ ] `grammar_rules.yaml` の rule field を整理する。
-  - [ ] `id`
-  - [ ] `buck_section`
-  - [ ] `category`
-  - [ ] `description`
-  - [ ] `transformation`
-  - [ ] `affected_dialects`
-  - [ ] `variants`
-  - [ ] `notes`
-- [ ] `dialects.yaml` の dialect field を整理する。
-  - [ ] `id`
-  - [ ] `name`
-  - [ ] `kind`
-  - [ ] `group`
-  - [ ] `parent`
-  - [ ] `rules`
-- [ ] `glossary.yaml` の word field を整理する。
-  - [ ] `word`
-  - [ ] `standard_form`
-  - [ ] `dialect`
-  - [ ] `rule_id`
-  - [ ] `definition`
-  - [ ] `inscription_no`
-  - [ ] `buck_ref`
-  - [ ] `notes`
+- [x] `grammar_rules.yaml` の rule field を整理する。
+  - [x] `id`
+  - [x] `buck_section`
+  - [x] `category`
+  - [x] `description`
+  - [x] `transformation`
+  - [x] `affected_dialects`
+  - [x] `variants`
+  - [x] `notes`
+- [x] `dialects.yaml` の dialect field を整理する。
+  - [x] `id`
+  - [x] `name`
+  - [x] `kind`
+  - [x] `group`
+  - [x] `parent`
+  - [x] `rules`
+- [x] `glossary.yaml` の word field を整理する。
+  - [x] `word`
+  - [x] `standard_form`
+  - [x] `dialect`
+  - [x] `rule_id`
+  - [x] `definition`
+  - [x] `inscription_no`
+  - [x] `buck_ref`
+  - [x] `notes`
 - [ ] public response 用に返す field と内部専用 field を分ける。
 - [ ] `citation_ready` と `review_status` は、レスポンス全体 metadata と各 item の両方に持たせる（確定事項 3）。
 
 ## Phase 2: Buck Reference Service
 
-- [ ] service の配置先を決める。
-  - [ ] 候補: `src/phonology/languages/ancient_greek/buck_service.py`
+- [x] service の配置先を決める。
+  - [x] 候補: `src/phonology/languages/ancient_greek/buck_service.py`
   - [ ] 候補: `src/phonology/languages/ancient_greek/buck.py` に read-only query helper を追加
-  - [ ] 推奨: `buck.py` は loader、service は別 module に分離する。
-- [ ] `load_buck_data()` の戻り値から read-only index を作る。
-- [ ] index の cache 方針（確定）。
-  - [ ] 2つ目の `lru_cache` は持たない。`load_buck_data()` のキャッシュ済み結果から index を遅延構築する。
-  - [ ] env override（`PROTEUS_TRUSTED_BUCK_DIR`）時の cache clear は単一関数に集約し、`_load_buck_data_cached.cache_clear()` と index 再構築を同一手順で扱う。
-  - [ ] cache clear 手順を docs/test に書く。
-- [ ] section 正準化関数を service 層に1つだけ定義する。
-  - [ ] `"41.4"`（string）と numeric YAML 値の揺れをここで吸収する。
-  - [ ] Phase 3（`buck_section` / `buck_ref.section`）と Phase 10（型揺れ検証）はこの関数を共有し、層ごとに再実装しない。
-- [ ] rule id index を作る。
-  - [ ] `get_rule(rule_id: str)`
-  - [ ] `list_rules(category: str | None = None, dialect: str | None = None)`
-- [ ] Buck section index を作る。
-  - [ ] `get_rules_by_section(section: str)`
-  - [ ] section の正規化は上記の単一正準化関数を使用する。
-- [ ] dialect index を作る。
-  - [ ] `get_dialect(dialect_id: str)`
-  - [ ] `list_dialects(kind: str | None = None)`
-  - [ ] `get_dialect_rules(dialect_id: str, include_inherited: bool = True)`
-- [ ] dialect inheritance 解決を実装する。
-  - [ ] parent chain を上方向に辿る。
+  - [x] 推奨: `buck.py` は loader、service は別 module に分離する。
+- [x] `load_buck_data()` の戻り値から read-only index を作る。
+- [x] index の cache 方針（確定）。
+  - [x] 2つ目の `lru_cache` は持たない。`load_buck_data()` のキャッシュ済み結果から index を遅延構築する。
+  - [x] env override（`PROTEUS_TRUSTED_BUCK_DIR`）時の cache clear は単一関数に集約し、`_load_buck_data_cached.cache_clear()` と index 再構築を同一手順で扱う。
+  - [x] cache clear 手順を docs/test に書く。
+- [x] section 正準化関数を service 層に1つだけ定義する。
+  - [x] `"41.4"`（string）と numeric YAML 値の揺れをここで吸収する。
+  - [x] Phase 3（`buck_section` / `buck_ref.section`）と Phase 10（型揺れ検証）はこの関数を共有し、層ごとに再実装しない。
+- [x] rule id index を作る。
+  - [x] `get_rule(rule_id: str)`
+  - [x] `list_rules(category: str | None = None, dialect: str | None = None)`
+- [x] Buck section index を作る。
+  - [x] `get_rules_by_section(section: str)`
+  - [x] section の正規化は上記の単一正準化関数を使用する。
+- [x] dialect index を作る。
+  - [x] `get_dialect(dialect_id: str)`
+  - [x] `list_dialects(kind: str | None = None)`
+  - [x] `get_dialect_rules(dialect_id: str, include_inherited: bool = True)`
+- [x] dialect inheritance 解決を実装する。
+  - [x] parent chain を上方向に辿る。
   - [ ] cycle 検出は load/schema 検証（Phase 10）を単一の真実とし、ここでは「検証済み・非循環」を前提とする。
-  - [ ] 重複 rule id は first-seen order で dedupe する。
-- [ ] glossary index を作る。
-  - [ ] `list_glossary_entries(dialect: str | None = None, rule_id: str | None = None)`
-  - [ ] `find_glossary_by_word(word: str)`
-  - [ ] `find_glossary_by_standard_form(standard_form: str)`
-- [ ] Unicode normalization 方針を決める。
+  - [x] 重複 rule id は first-seen order で dedupe する。
+- [x] glossary index を作る。
+  - [x] `list_glossary_entries(dialect: str | None = None, rule_id: str | None = None)`
+  - [x] `find_glossary_by_word(word: str)`
+  - [x] `find_glossary_by_standard_form(standard_form: str)`
+- [x] Unicode normalization 方針を決める。
   - [ ] Greek diacritics を厳密一致にするか
-  - [ ] NFC/NFD 正規化だけ行うか
+  - [x] NFC/NFD 正規化だけ行うか
   - [ ] accent-insensitive search を別 option にするか
-- [ ] service が source YAML を mutation しないことをテストする。
+- [x] service が source YAML を mutation しないことをテストする。
 
 ## Phase 3: API Models
 
@@ -337,15 +337,15 @@
 
 ## Phase 13: Tests
 
-- [ ] Buck service tests を追加する。
-  - [ ] rule id lookup
-  - [ ] section lookup
-  - [ ] category filter
-  - [ ] dialect lookup
-  - [ ] dialect inherited rules
-  - [ ] glossary word lookup
-  - [ ] glossary standard_form lookup
-  - [ ] defensive copy / no mutation
+- [x] Buck service tests を追加する。
+  - [x] rule id lookup
+  - [x] section lookup
+  - [x] category filter
+  - [x] dialect lookup
+  - [x] dialect inherited rules
+  - [x] glossary word lookup
+  - [x] glossary standard_form lookup
+  - [x] defensive copy / no mutation
 - [ ] Buck API tests を追加する。
   - [ ] `/languages/ancient_greek/buck/rules`
   - [ ] `/languages/ancient_greek/buck/rules/{rule_id}`
@@ -391,7 +391,7 @@
 
 **MVP（本書）:**
 
-- [ ] Step 1: Buck service tests を先に書き（rule/dialect/glossary lookup・no mutation）、既存 `load_buck_data()` の上に read-only index（frozen dataclass）を構築する。
+- [x] Step 1: Buck service tests を先に書き（rule/dialect/glossary lookup・no mutation）、既存 `load_buck_data()` の上に read-only index（frozen dataclass）を構築する。
 - [ ] Step 2: MCP tests を先に書き、Buck 参照 MCP tool（`search_buck_rules` / `get_buck_dialect` / `search_buck_glossary`）を内部 service 直結で公開する。
 - [ ] Step 3: 検索結果への `buck_references` annotation を rule_id 限定で追加（回帰 snapshot test で ranking 不変を先に固定）。
 - [ ] Step 4: MCP docs（`docs/MCP.md` / `docs/mcp/tools.json`）と data schema / validation を更新する。

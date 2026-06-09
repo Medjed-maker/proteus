@@ -40,7 +40,7 @@ def _write_buck_fixture(
 def reset_buck_loader_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR, "1")
     monkeypatch.delenv("PROTEUS_TRUSTED_BUCK_DIR", raising=False)
-    buck_module._load_buck_data_cached.cache_clear()
+    buck_module.clear_buck_data_cache()
 
 
 def test_load_buck_data_reads_packaged_documents() -> None:
@@ -235,6 +235,223 @@ def test_load_buck_data_rejects_unknown_glossary_dialect(
         load_buck_data()
 
 
+def test_load_buck_data_rejects_unknown_parent_dialect(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules="rules:\n  - id: TEST-001\n",
+        dialects=(
+            "dialects:\n"
+            "  - id: child\n"
+            "    parent: missing_parent\n"
+            "    rules: [TEST-001]\n"
+        ),
+        glossary="words:\n  - word: test\n    dialect: child\n    rule_id: TEST-001\n",
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    with pytest.raises(
+        ValueError,
+        match="references unknown parent dialect id 'missing_parent'",
+    ):
+        load_buck_data()
+
+
+@pytest.mark.parametrize("parent_yaml", ["123", "''"])
+def test_load_buck_data_rejects_invalid_parent_dialect_shape(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    parent_yaml: str,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules="rules:\n  - id: TEST-001\n",
+        dialects=(
+            "dialects:\n"
+            "  - id: child\n"
+            f"    parent: {parent_yaml}\n"
+            "    rules: [TEST-001]\n"
+        ),
+        glossary="words:\n  - word: test\n    dialect: child\n    rule_id: TEST-001\n",
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    with pytest.raises(ValueError, match="must define 'parent' as a non-empty string"):
+        load_buck_data()
+
+
+def test_load_buck_data_rejects_direct_parent_cycle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules="rules:\n  - id: TEST-001\n",
+        dialects=(
+            "dialects:\n"
+            "  - id: child\n"
+            "    parent: child\n"
+            "    rules: [TEST-001]\n"
+        ),
+        glossary="words:\n  - word: test\n    dialect: child\n    rule_id: TEST-001\n",
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    with pytest.raises(ValueError, match="parent cycle: child -> child"):
+        load_buck_data()
+
+
+def test_load_buck_data_rejects_indirect_parent_cycle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules="rules:\n  - id: TEST-001\n",
+        dialects=(
+            "dialects:\n"
+            "  - id: child\n"
+            "    parent: parent\n"
+            "    rules: [TEST-001]\n"
+            "  - id: parent\n"
+            "    parent: child\n"
+            "    rules: []\n"
+        ),
+        glossary="words:\n  - word: test\n    dialect: child\n    rule_id: TEST-001\n",
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    with pytest.raises(ValueError, match="parent cycle: child -> parent -> child"):
+        load_buck_data()
+
+
+def test_load_buck_data_rejects_non_integer_glossary_page(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules="rules:\n  - id: TEST-001\n",
+        dialects="dialects:\n  - id: test_dialect\n    rules: [TEST-001]\n",
+        glossary=(
+            "words:\n"
+            "  - word: test\n"
+            "    dialect: test_dialect\n"
+            "    rule_id: TEST-001\n"
+            "    buck_ref:\n"
+            "      section: 41.4\n"
+            "      page: '130'\n"
+        ),
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    with pytest.raises(ValueError, match="must define 'buck_ref.page' as an integer"):
+        load_buck_data()
+
+
+def test_load_buck_data_rejects_non_mapping_glossary_buck_ref(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules="rules:\n  - id: TEST-001\n",
+        dialects="dialects:\n  - id: test_dialect\n    rules: [TEST-001]\n",
+        glossary=(
+            "words:\n"
+            "  - word: test\n"
+            "    dialect: test_dialect\n"
+            "    rule_id: TEST-001\n"
+            "    buck_ref: not-a-mapping\n"
+        ),
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    with pytest.raises(ValueError, match="must define 'buck_ref' as a mapping"):
+        load_buck_data()
+
+
+def test_load_buck_data_accepts_integer_glossary_page(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules="rules:\n  - id: TEST-001\n",
+        dialects="dialects:\n  - id: test_dialect\n    rules: [TEST-001]\n",
+        glossary=(
+            "words:\n"
+            "  - word: test\n"
+            "    dialect: test_dialect\n"
+            "    rule_id: TEST-001\n"
+            "    buck_ref:\n"
+            "      section: 41.4\n"
+            "      page: 130\n"
+        ),
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    data = load_buck_data()
+
+    assert data["glossary"]["words"][0]["buck_ref"]["page"] == 130
+
+
+def test_load_buck_data_rejects_non_boolean_meta_citation_ready(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules=(
+            "meta:\n"
+            "  citation_ready: 'false'\n"
+            "rules:\n"
+            "  - id: TEST-001\n"
+        ),
+        dialects="dialects:\n  - id: test_dialect\n    rules: [TEST-001]\n",
+        glossary="words:\n  - word: test\n    dialect: test_dialect\n    rule_id: TEST-001\n",
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    with pytest.raises(ValueError, match="must define 'meta.citation_ready' as a boolean"):
+        load_buck_data()
+
+
+def test_load_buck_data_accepts_boolean_meta_citation_ready(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules=(
+            "meta:\n"
+            "  status: provisional\n"
+            "  review_status: not_expert_reviewed\n"
+            "  citation_ready: false\n"
+            "rules:\n"
+            "  - id: TEST-001\n"
+        ),
+        dialects="dialects:\n  - id: test_dialect\n    rules: [TEST-001]\n",
+        glossary="words:\n  - word: test\n    dialect: test_dialect\n    rule_id: TEST-001\n",
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    data = load_buck_data()
+
+    assert data["grammar_rules"]["meta"]["citation_ready"] is False
+
+
 def test_load_buck_data_rejects_unknown_grammar_dialect_reference(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -340,7 +557,7 @@ def test_load_buck_data_cache_ignores_env_changes_until_cleared(
     first = load_buck_data()
     monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(second_dir))
     still_first = load_buck_data()
-    buck_module._load_buck_data_cached.cache_clear()
+    buck_module.clear_buck_data_cache()
     second = load_buck_data()
 
     assert first["grammar_rules"]["rules"][0]["id"] == "FIRST"
