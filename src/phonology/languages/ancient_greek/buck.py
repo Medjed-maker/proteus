@@ -13,7 +13,7 @@ import yaml
 from ..._paths import resolve_language_data_dir
 from ..._trusted_paths import resolve_trusted_dir_override
 
-__all__ = ["BuckData", "load_buck_data"]
+__all__ = ["BuckData", "clear_buck_data_cache", "load_buck_data"]
 
 
 class BuckData(TypedDict):
@@ -66,7 +66,31 @@ def _load_yaml_mapping(path: Path, *, required_list_key: str) -> dict[str, Any]:
         raise ValueError(
             f"Buck data file {path} must define a list under {required_list_key!r}"
         )
+    _validate_optional_meta(document, path)
     return document
+
+
+def _validate_optional_meta(document: dict[str, Any], path: Path) -> None:
+    """Validate optional Buck document metadata."""
+    raw_meta = document.get("meta")
+    if raw_meta is None:
+        return
+    if not isinstance(raw_meta, dict):
+        raise ValueError(f"Buck data file {path} must define 'meta' as a mapping")
+    for field_name in ("status", "review_status"):
+        raw_value = raw_meta.get(field_name)
+        if raw_value is None:
+            continue
+        if not isinstance(raw_value, str) or not raw_value.strip():
+            raise ValueError(
+                f"Buck data file {path} must define 'meta.{field_name}' "
+                "as a non-empty string"
+            )
+    citation_ready = raw_meta.get("citation_ready")
+    if citation_ready is not None and not isinstance(citation_ready, bool):
+        raise ValueError(
+            f"Buck data file {path} must define 'meta.citation_ready' as a boolean"
+        )
 
 
 def _validate_grammar_rules(document: dict[str, Any], path: Path) -> set[str]:
@@ -114,7 +138,55 @@ def _validate_dialects(document: dict[str, Any], path: Path) -> set[str]:
                 f"Buck dialect entry {dialect_id!r} in {path} must define 'rules' as a list"
             )
         dialect_ids.add(dialect_id)
+    _validate_dialect_parents(raw_dialects, dialect_ids, path)
     return dialect_ids
+
+
+def _validate_dialect_parents(
+    raw_dialects: list[Any],
+    dialect_ids: set[str],
+    path: Path,
+) -> None:
+    """Validate dialect parent references and reject cycles."""
+    parents_by_id: dict[str, str | None] = {}
+    for raw_dialect in raw_dialects:
+        dialect_id = raw_dialect["id"]
+        raw_parent = raw_dialect.get("parent")
+        if raw_parent is None:
+            parents_by_id[dialect_id] = None
+            continue
+        if not isinstance(raw_parent, str) or not raw_parent.strip():
+            raise ValueError(
+                f"Buck dialect entry {dialect_id!r} in {path} must define "
+                "'parent' as a non-empty string"
+            )
+        if raw_parent not in dialect_ids:
+            raise ValueError(
+                f"Buck dialect entry {dialect_id!r} in {path} references unknown "
+                f"parent dialect id {raw_parent!r}"
+            )
+        parents_by_id[dialect_id] = raw_parent
+
+    fully_checked: set[str] = set()
+    for dialect_id in parents_by_id:
+        if dialect_id in fully_checked:
+            continue
+        current: str | None = dialect_id
+        active_path: list[str] = []
+        active_indices: dict[str, int] = {}
+        while current is not None:
+            if current in fully_checked:
+                break
+            if current in active_indices:
+                cycle = active_path[active_indices[current] :] + [current]
+                raise ValueError(
+                    f"Buck dialect catalog {path} contains a parent cycle: "
+                    f"{' -> '.join(cycle)}"
+                )
+            active_indices[current] = len(active_path)
+            active_path.append(current)
+            current = parents_by_id[current]
+        fully_checked.update(active_path)
 
 
 def _validate_rule_refs(
@@ -155,6 +227,7 @@ def _validate_rule_refs(
                 f"Buck glossary entry {index} in {paths.glossary} "
                 f"references unknown dialect id {dialect_id!r}"
             )
+        _validate_glossary_buck_ref(raw_word.get("buck_ref"), index, paths.glossary)
         if "rule_id" not in raw_word or raw_word["rule_id"] is None:
             continue
         rule_id = raw_word["rule_id"]
@@ -167,6 +240,30 @@ def _validate_rule_refs(
                 f"Buck glossary entry {index} in {paths.glossary} "
                 f"references unknown rule id {rule_id!r} from {paths.grammar}"
             )
+
+
+def _validate_glossary_buck_ref(raw_ref: Any, index: int, path: Path) -> None:
+    """Validate the optional ``buck_ref`` mapping of a glossary entry.
+
+    ``buck_ref`` may be absent or null. When present it must be a mapping, and
+    its optional ``page`` must be an integer (``bool`` is rejected because it is
+    an ``int`` subclass). ``section`` is intentionally not type-checked here:
+    the service layer canonicalizes str/int/float section values.
+    """
+    if raw_ref is None:
+        return
+    if not isinstance(raw_ref, dict):
+        raise ValueError(
+            f"Buck glossary entry {index} in {path} must define 'buck_ref' as a mapping"
+        )
+    page = raw_ref.get("page")
+    if page is None:
+        return
+    if isinstance(page, bool) or not isinstance(page, int):
+        raise ValueError(
+            f"Buck glossary entry {index} in {path} must define 'buck_ref.page' "
+            "as an integer"
+        )
 
 
 def _validate_grammar_dialect_refs(
@@ -218,9 +315,9 @@ def _load_buck_data_cached() -> BuckData:
     same object without re-reading files.  Changes to the
     ``PROTEUS_TRUSTED_BUCK_DIR`` environment variable or to the
     underlying data files will **not** be picked up while the process
-    is alive.  Tests or callers that need to reload must call
-    ``_load_buck_data_cached.cache_clear()`` before invoking this
-    function again.  Note that :func:`load_buck_data` returns a
+    is alive.  Tests or callers that need to reload must call the public
+    :func:`clear_buck_data_cache` helper before invoking this function
+    again.  Note that :func:`load_buck_data` returns a
     defensive ``deepcopy``, so mutations of its result never affect
     the cached copy.
     """
@@ -288,3 +385,12 @@ def load_buck_data() -> BuckData:
             print(rule["id"])
     """
     return deepcopy(_load_buck_data_cached())
+
+
+def clear_buck_data_cache() -> None:
+    """Clear the cached Buck YAML documents.
+
+    Tests and trusted-directory override callers should use this public helper
+    instead of reaching into the private ``_load_buck_data_cached`` wrapper.
+    """
+    _load_buck_data_cached.cache_clear()
