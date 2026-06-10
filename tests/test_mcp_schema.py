@@ -22,15 +22,20 @@ def _runtime_mcp_schema() -> dict[str, Any]:
     return anyio.run(build_schema)
 
 
-def _search_tool(schema: dict[str, Any]) -> dict[str, Any]:
-    """Return the Ancient Phonology search tool schema."""
+def _tool(schema: dict[str, Any], name: str) -> dict[str, Any]:
+    """Return the named MCP tool schema."""
     tools = schema["tools"]
     tool = next(
-        (item for item in tools if item["name"] == "ancient_phonology.search"),
+        (item for item in tools if item["name"] == name),
         None,
     )
-    assert tool is not None, "ancient_phonology.search is missing from MCP schema"
+    assert tool is not None, f"{name} is missing from MCP schema"
     return tool
+
+
+def _search_tool(schema: dict[str, Any]) -> dict[str, Any]:
+    """Return the Ancient Phonology search tool schema."""
+    return _tool(schema, "ancient_phonology.search")
 
 
 def test_mcp_tools_artifact_matches_runtime() -> None:
@@ -78,3 +83,71 @@ def test_mcp_search_tool_output_schema_includes_meta_envelope() -> None:
     assert "meta" in output_schema["properties"]
     assert "meta" in output_schema["required"]
     assert output_schema["properties"]["meta"]["$ref"] == "#/$defs/ResponseMeta"
+
+
+def test_mcp_buck_tool_schemas_are_registered() -> None:
+    """Buck reference tools should be present in the runtime MCP schema."""
+    schema = _runtime_mcp_schema()
+    tool_names = {tool["name"] for tool in schema["tools"]}
+
+    assert {
+        "ancient_phonology.search_buck_rules",
+        "ancient_phonology.get_buck_dialect",
+        "ancient_phonology.search_buck_glossary",
+    }.issubset(tool_names)
+
+
+def test_mcp_buck_rule_tool_schema_includes_filters_and_review_fields() -> None:
+    """Buck rule schema should expose filters and review metadata."""
+    schema = _runtime_mcp_schema()
+    tool = _tool(schema, "ancient_phonology.search_buck_rules")
+    input_schema = tool["inputSchema"]
+    output_schema = tool["outputSchema"]
+
+    assert input_schema["required"] == ["request"]
+    request_schema = input_schema["$defs"]["McpBuckRuleSearchInput"]
+    assert {
+        "rule_id",
+        "category",
+        "dialect",
+        "section",
+        "source_language",
+        "max_results",
+    }.issubset(request_schema["properties"])
+    assert "metadata" in output_schema["required"]
+    metadata_schema = output_schema["$defs"]["McpBuckMetadata"]
+    assert {
+        "status",
+        "review_status",
+        "citation_ready",
+        "review_note",
+    }.issubset(metadata_schema["properties"])
+    rule_schema = output_schema["$defs"]["McpBuckRuleInfo"]
+    assert {"status", "review_status", "citation_ready"}.issubset(
+        rule_schema["properties"]
+    )
+
+
+def test_mcp_buck_dialect_and_glossary_output_schemas_include_review_fields() -> None:
+    """Buck dialect and glossary item schemas should include review boundaries."""
+    schema = _runtime_mcp_schema()
+    dialect_output_schema = _tool(
+        schema,
+        "ancient_phonology.get_buck_dialect",
+    )["outputSchema"]
+    glossary_output_schema = _tool(
+        schema,
+        "ancient_phonology.search_buck_glossary",
+    )["outputSchema"]
+
+    dialect_schema = dialect_output_schema["$defs"]["McpBuckDialectInfo"]
+    glossary_schema = glossary_output_schema["$defs"]["McpBuckGlossaryEntryInfo"]
+    reference_schema = glossary_output_schema["$defs"]["McpBuckReferenceInfo"]
+
+    assert {"status", "review_status", "citation_ready"}.issubset(
+        dialect_schema["properties"]
+    )
+    assert {"status", "review_status", "citation_ready"}.issubset(
+        glossary_schema["properties"]
+    )
+    assert {"section", "page"}.issubset(reference_schema["properties"])

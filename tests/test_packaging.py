@@ -503,6 +503,7 @@ def test_mcp_server_module_in_wheel(tmp_path: Path) -> None:
 
     assert "mcp_server/server.py" in asset_names, "mcp_server/server.py not found in wheel"
     assert "mcp_server/_search_adapter.py" in asset_names, "mcp_server/_search_adapter.py not found in wheel"
+    assert "mcp_server/tools/buck.py" in asset_names, "mcp_server/tools/buck.py not found in wheel"
     assert "mcp_server/tools/search.py" in asset_names, "mcp_server/tools/search.py not found in wheel"
 
 

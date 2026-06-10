@@ -2,6 +2,406 @@
   "tools": [
     {
       "annotations": null,
+      "description": "Fetch a provisional Buck dialect entry and linked rule summaries.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "$defs": {
+          "McpBuckDialectInput": {
+            "description": "Validated input for Buck dialect lookup.",
+            "properties": {
+              "dialect_id": {
+                "description": "Exact Buck dialect id.",
+                "title": "Dialect Id",
+                "type": "string"
+              },
+              "include_inherited": {
+                "default": true,
+                "description": "Whether included rule details should walk the parent chain.",
+                "title": "Include Inherited",
+                "type": "boolean"
+              },
+              "include_rules": {
+                "default": true,
+                "description": "Whether to include linked rule details.",
+                "title": "Include Rules",
+                "type": "boolean"
+              },
+              "source_language": {
+                "default": "ancient_greek",
+                "description": "Language profile for Buck references. Currently ancient_greek only.",
+                "title": "Source Language",
+                "type": "string"
+              }
+            },
+            "required": [
+              "dialect_id"
+            ],
+            "title": "McpBuckDialectInput",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "request": {
+            "$ref": "#/$defs/McpBuckDialectInput"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "title": "ancient_phonology_get_buck_dialectArguments",
+        "type": "object"
+      },
+      "meta": null,
+      "name": "ancient_phonology.get_buck_dialect",
+      "outputSchema": {
+        "$defs": {
+          "McpBuckDialectInfo": {
+            "description": "Public MCP representation of a Buck dialect catalog entry.",
+            "properties": {
+              "citation_ready": {
+                "description": "Whether this Buck dialect catalog entry is citation-ready.",
+                "title": "Citation Ready",
+                "type": "boolean"
+              },
+              "group": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Dialect group label.",
+                "title": "Group"
+              },
+              "id": {
+                "description": "Stable Buck-normalized dialect identifier.",
+                "title": "Id",
+                "type": "string"
+              },
+              "kind": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Dialect catalog kind.",
+                "title": "Kind"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Human-readable dialect name.",
+                "title": "Name"
+              },
+              "parent": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Parent dialect/group id.",
+                "title": "Parent"
+              },
+              "review_status": {
+                "description": "Review status inherited from Buck metadata.",
+                "title": "Review Status",
+                "type": "string"
+              },
+              "rules": {
+                "description": "Rule ids directly listed for this dialect.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Rules",
+                "type": "array"
+              },
+              "status": {
+                "description": "Data status inherited from Buck metadata.",
+                "title": "Status",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "status",
+              "review_status",
+              "citation_ready"
+            ],
+            "title": "McpBuckDialectInfo",
+            "type": "object"
+          },
+          "McpBuckMetadata": {
+            "description": "Review metadata shared by Buck MCP responses.",
+            "properties": {
+              "citation_ready": {
+                "description": "Whether the Buck reference data is ready for scholarly citation. False means clients must present it as provisional review metadata.",
+                "title": "Citation Ready",
+                "type": "boolean"
+              },
+              "review_note": {
+                "description": "Short warning describing the review and citation boundary.",
+                "title": "Review Note",
+                "type": "string"
+              },
+              "review_status": {
+                "description": "Expert-review status for the data.",
+                "title": "Review Status",
+                "type": "string"
+              },
+              "status": {
+                "description": "Data status for the Buck reference layer.",
+                "title": "Status",
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "review_status",
+              "citation_ready",
+              "review_note"
+            ],
+            "title": "McpBuckMetadata",
+            "type": "object"
+          },
+          "McpBuckRuleInfo": {
+            "description": "Public MCP representation of a Buck grammar-rule summary.",
+            "properties": {
+              "affected_dialects": {
+                "description": "Dialect ids listed as affected by this rule.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Affected Dialects",
+                "type": "array"
+              },
+              "buck_section": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Canonical Buck section string, when available.",
+                "title": "Buck Section"
+              },
+              "category": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Rule category.",
+                "title": "Category"
+              },
+              "citation_ready": {
+                "description": "Whether this Buck rule summary is citation-ready.",
+                "title": "Citation Ready",
+                "type": "boolean"
+              },
+              "description": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Short normalized rule summary; not a long source-text quote.",
+                "title": "Description"
+              },
+              "id": {
+                "description": "Stable Buck-normalized rule identifier.",
+                "title": "Id",
+                "type": "string"
+              },
+              "notes": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Short curation note, when available.",
+                "title": "Notes"
+              },
+              "review_status": {
+                "description": "Review status inherited from Buck metadata.",
+                "title": "Review Status",
+                "type": "string"
+              },
+              "status": {
+                "description": "Data status inherited from Buck metadata.",
+                "title": "Status",
+                "type": "string"
+              },
+              "transformation": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/McpBuckTransformation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Normalized transformation metadata, when the rule has one."
+              },
+              "variants": {
+                "description": "Short normalized variant examples; source text is not included.",
+                "items": {
+                  "$ref": "#/$defs/McpBuckVariant"
+                },
+                "title": "Variants",
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "status",
+              "review_status",
+              "citation_ready"
+            ],
+            "title": "McpBuckRuleInfo",
+            "type": "object"
+          },
+          "McpBuckTransformation": {
+            "additionalProperties": true,
+            "description": "Normalized phonological transformation for a Buck rule.\n\nFields are optional because Buck rules describe a range of phenomena; many\nrules carry no transformation at all. ``extra=\"allow\"`` preserves any\nadditional normalized keys without dropping data.",
+            "properties": {
+              "context": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Phonological context, when specified.",
+                "title": "Context"
+              },
+              "from": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Source phone/grapheme, when specified.",
+                "title": "From"
+              },
+              "to": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Resulting phone/grapheme, when specified.",
+                "title": "To"
+              }
+            },
+            "title": "McpBuckTransformation",
+            "type": "object"
+          },
+          "McpBuckVariant": {
+            "additionalProperties": true,
+            "description": "Normalized dialectal variant example for a Buck rule.\n\n``extra=\"allow\"`` preserves additional normalized keys without dropping data.",
+            "properties": {
+              "dialects": {
+                "description": "Dialect ids exhibiting this variant.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Dialects",
+                "type": "array"
+              },
+              "form": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Variant form, when specified.",
+                "title": "Form"
+              }
+            },
+            "title": "McpBuckVariant",
+            "type": "object"
+          }
+        },
+        "description": "Structured MCP response for Buck dialect lookup.",
+        "properties": {
+          "dialect": {
+            "$ref": "#/$defs/McpBuckDialectInfo",
+            "description": "Matching Buck dialect."
+          },
+          "metadata": {
+            "$ref": "#/$defs/McpBuckMetadata",
+            "description": "Buck review metadata."
+          },
+          "rules": {
+            "description": "Buck rule details linked from the dialect catalog.",
+            "items": {
+              "$ref": "#/$defs/McpBuckRuleInfo"
+            },
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dialect",
+          "metadata"
+        ],
+        "title": "McpBuckDialectOutput",
+        "type": "object"
+      },
+      "title": null
+    },
+    {
+      "annotations": null,
       "description": "Search Ancient Greek forms using the Proteus phonology engine.",
       "execution": null,
       "icons": null,
@@ -640,6 +1040,672 @@
           "meta"
         ],
         "title": "McpSearchOutput",
+        "type": "object"
+      },
+      "title": null
+    },
+    {
+      "annotations": null,
+      "description": "Search provisional Buck glossary examples without source-text quotes.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "$defs": {
+          "McpBuckGlossarySearchInput": {
+            "description": "Validated input for Buck glossary search.",
+            "properties": {
+              "dialect": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Exact Buck dialect id.",
+                "title": "Dialect"
+              },
+              "max_results": {
+                "default": 50,
+                "description": "Maximum number of glossary entries to return.",
+                "maximum": 200,
+                "minimum": 1,
+                "title": "Max Results",
+                "type": "integer"
+              },
+              "rule_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Exact linked Buck rule id.",
+                "title": "Rule Id"
+              },
+              "source_language": {
+                "default": "ancient_greek",
+                "description": "Language profile for Buck references. Currently ancient_greek only.",
+                "title": "Source Language",
+                "type": "string"
+              },
+              "standard_form": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Exact standard form after service-level NFC normalization.",
+                "title": "Standard Form"
+              },
+              "word": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Exact glossary word after service-level NFC normalization.",
+                "title": "Word"
+              }
+            },
+            "title": "McpBuckGlossarySearchInput",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "request": {
+            "$ref": "#/$defs/McpBuckGlossarySearchInput"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "title": "ancient_phonology_search_buck_glossaryArguments",
+        "type": "object"
+      },
+      "meta": null,
+      "name": "ancient_phonology.search_buck_glossary",
+      "outputSchema": {
+        "$defs": {
+          "McpBuckGlossaryEntryInfo": {
+            "description": "Public MCP representation of a Buck glossary example.",
+            "properties": {
+              "buck_ref": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/McpBuckReferenceInfo"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Buck section/page metadata; source text is not included."
+              },
+              "citation_ready": {
+                "description": "Whether this Buck glossary entry is citation-ready.",
+                "title": "Citation Ready",
+                "type": "boolean"
+              },
+              "definition": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Short gloss.",
+                "title": "Definition"
+              },
+              "dialect": {
+                "description": "Buck dialect id for the example.",
+                "title": "Dialect",
+                "type": "string"
+              },
+              "inscription_no": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Inscription identifier, when stored as a string.",
+                "title": "Inscription No"
+              },
+              "notes": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Short curation note.",
+                "title": "Notes"
+              },
+              "review_status": {
+                "description": "Review status inherited from Buck metadata.",
+                "title": "Review Status",
+                "type": "string"
+              },
+              "rule_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Linked Buck rule id, when available.",
+                "title": "Rule Id"
+              },
+              "standard_form": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Regularized or dictionary-facing form.",
+                "title": "Standard Form"
+              },
+              "status": {
+                "description": "Data status inherited from Buck metadata.",
+                "title": "Status",
+                "type": "string"
+              },
+              "word": {
+                "description": "Dialectal or example form.",
+                "title": "Word",
+                "type": "string"
+              }
+            },
+            "required": [
+              "word",
+              "dialect",
+              "status",
+              "review_status",
+              "citation_ready"
+            ],
+            "title": "McpBuckGlossaryEntryInfo",
+            "type": "object"
+          },
+          "McpBuckMetadata": {
+            "description": "Review metadata shared by Buck MCP responses.",
+            "properties": {
+              "citation_ready": {
+                "description": "Whether the Buck reference data is ready for scholarly citation. False means clients must present it as provisional review metadata.",
+                "title": "Citation Ready",
+                "type": "boolean"
+              },
+              "review_note": {
+                "description": "Short warning describing the review and citation boundary.",
+                "title": "Review Note",
+                "type": "string"
+              },
+              "review_status": {
+                "description": "Expert-review status for the data.",
+                "title": "Review Status",
+                "type": "string"
+              },
+              "status": {
+                "description": "Data status for the Buck reference layer.",
+                "title": "Status",
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "review_status",
+              "citation_ready",
+              "review_note"
+            ],
+            "title": "McpBuckMetadata",
+            "type": "object"
+          },
+          "McpBuckReferenceInfo": {
+            "description": "Specific Buck section/page reference for a glossary entry.",
+            "properties": {
+              "page": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Buck page number, when available.",
+                "title": "Page"
+              },
+              "section": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Canonical Buck section string, when available.",
+                "title": "Section"
+              }
+            },
+            "title": "McpBuckReferenceInfo",
+            "type": "object"
+          }
+        },
+        "description": "Structured MCP response for Buck glossary search.",
+        "properties": {
+          "count": {
+            "description": "Number of returned glossary entries.",
+            "minimum": 0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "entries": {
+            "description": "Matching Buck glossary entries.",
+            "items": {
+              "$ref": "#/$defs/McpBuckGlossaryEntryInfo"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "metadata": {
+            "$ref": "#/$defs/McpBuckMetadata",
+            "description": "Buck review metadata."
+          }
+        },
+        "required": [
+          "entries",
+          "count",
+          "metadata"
+        ],
+        "title": "McpBuckGlossaryOutput",
+        "type": "object"
+      },
+      "title": null
+    },
+    {
+      "annotations": null,
+      "description": "Search provisional Buck rule summaries without returning source text.",
+      "execution": null,
+      "icons": null,
+      "inputSchema": {
+        "$defs": {
+          "McpBuckRuleSearchInput": {
+            "description": "Validated input for Buck rule search.",
+            "properties": {
+              "category": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Exact Buck rule category.",
+                "title": "Category"
+              },
+              "dialect": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Dialect id matched against rule affected_dialects.",
+                "title": "Dialect"
+              },
+              "max_results": {
+                "default": 50,
+                "description": "Maximum number of rules to return.",
+                "maximum": 200,
+                "minimum": 1,
+                "title": "Max Results",
+                "type": "integer"
+              },
+              "rule_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Exact Buck rule id.",
+                "title": "Rule Id"
+              },
+              "section": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Buck section value; numeric and string values are canonicalized.",
+                "title": "Section"
+              },
+              "source_language": {
+                "default": "ancient_greek",
+                "description": "Language profile for Buck references. Currently ancient_greek only.",
+                "title": "Source Language",
+                "type": "string"
+              }
+            },
+            "title": "McpBuckRuleSearchInput",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "request": {
+            "$ref": "#/$defs/McpBuckRuleSearchInput"
+          }
+        },
+        "required": [
+          "request"
+        ],
+        "title": "ancient_phonology_search_buck_rulesArguments",
+        "type": "object"
+      },
+      "meta": null,
+      "name": "ancient_phonology.search_buck_rules",
+      "outputSchema": {
+        "$defs": {
+          "McpBuckMetadata": {
+            "description": "Review metadata shared by Buck MCP responses.",
+            "properties": {
+              "citation_ready": {
+                "description": "Whether the Buck reference data is ready for scholarly citation. False means clients must present it as provisional review metadata.",
+                "title": "Citation Ready",
+                "type": "boolean"
+              },
+              "review_note": {
+                "description": "Short warning describing the review and citation boundary.",
+                "title": "Review Note",
+                "type": "string"
+              },
+              "review_status": {
+                "description": "Expert-review status for the data.",
+                "title": "Review Status",
+                "type": "string"
+              },
+              "status": {
+                "description": "Data status for the Buck reference layer.",
+                "title": "Status",
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "review_status",
+              "citation_ready",
+              "review_note"
+            ],
+            "title": "McpBuckMetadata",
+            "type": "object"
+          },
+          "McpBuckRuleInfo": {
+            "description": "Public MCP representation of a Buck grammar-rule summary.",
+            "properties": {
+              "affected_dialects": {
+                "description": "Dialect ids listed as affected by this rule.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Affected Dialects",
+                "type": "array"
+              },
+              "buck_section": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Canonical Buck section string, when available.",
+                "title": "Buck Section"
+              },
+              "category": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Rule category.",
+                "title": "Category"
+              },
+              "citation_ready": {
+                "description": "Whether this Buck rule summary is citation-ready.",
+                "title": "Citation Ready",
+                "type": "boolean"
+              },
+              "description": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Short normalized rule summary; not a long source-text quote.",
+                "title": "Description"
+              },
+              "id": {
+                "description": "Stable Buck-normalized rule identifier.",
+                "title": "Id",
+                "type": "string"
+              },
+              "notes": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Short curation note, when available.",
+                "title": "Notes"
+              },
+              "review_status": {
+                "description": "Review status inherited from Buck metadata.",
+                "title": "Review Status",
+                "type": "string"
+              },
+              "status": {
+                "description": "Data status inherited from Buck metadata.",
+                "title": "Status",
+                "type": "string"
+              },
+              "transformation": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/McpBuckTransformation"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Normalized transformation metadata, when the rule has one."
+              },
+              "variants": {
+                "description": "Short normalized variant examples; source text is not included.",
+                "items": {
+                  "$ref": "#/$defs/McpBuckVariant"
+                },
+                "title": "Variants",
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "status",
+              "review_status",
+              "citation_ready"
+            ],
+            "title": "McpBuckRuleInfo",
+            "type": "object"
+          },
+          "McpBuckTransformation": {
+            "additionalProperties": true,
+            "description": "Normalized phonological transformation for a Buck rule.\n\nFields are optional because Buck rules describe a range of phenomena; many\nrules carry no transformation at all. ``extra=\"allow\"`` preserves any\nadditional normalized keys without dropping data.",
+            "properties": {
+              "context": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Phonological context, when specified.",
+                "title": "Context"
+              },
+              "from": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Source phone/grapheme, when specified.",
+                "title": "From"
+              },
+              "to": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Resulting phone/grapheme, when specified.",
+                "title": "To"
+              }
+            },
+            "title": "McpBuckTransformation",
+            "type": "object"
+          },
+          "McpBuckVariant": {
+            "additionalProperties": true,
+            "description": "Normalized dialectal variant example for a Buck rule.\n\n``extra=\"allow\"`` preserves additional normalized keys without dropping data.",
+            "properties": {
+              "dialects": {
+                "description": "Dialect ids exhibiting this variant.",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Dialects",
+                "type": "array"
+              },
+              "form": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Variant form, when specified.",
+                "title": "Form"
+              }
+            },
+            "title": "McpBuckVariant",
+            "type": "object"
+          }
+        },
+        "description": "Structured MCP response for Buck rule search.",
+        "properties": {
+          "count": {
+            "description": "Number of returned rules.",
+            "minimum": 0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "metadata": {
+            "$ref": "#/$defs/McpBuckMetadata",
+            "description": "Buck review metadata."
+          },
+          "rules": {
+            "description": "Matching Buck rule summaries.",
+            "items": {
+              "$ref": "#/$defs/McpBuckRuleInfo"
+            },
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rules",
+          "count",
+          "metadata"
+        ],
+        "title": "McpBuckRulesOutput",
         "type": "object"
       },
       "title": null
