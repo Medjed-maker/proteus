@@ -17,12 +17,20 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by direct script usa
     from _cli_utils import positive_int
 
 from mcp_server.server import app
+from mcp_server.tools.buck import (
+    McpBuckDialectOutput,
+    McpBuckGlossaryOutput,
+    McpBuckRulesOutput,
+)
 from mcp_server.tools.search import McpSearchOutput
 
 DEFAULT_OUTPUT = Path("docs/mcp/tools.json")
 
 _OUTPUT_SCHEMAS: dict[str, Callable[[], dict[str, Any]]] = {
+    "ancient_phonology.get_buck_dialect": McpBuckDialectOutput.model_json_schema,
     "ancient_phonology.search": McpSearchOutput.model_json_schema,
+    "ancient_phonology.search_buck_glossary": McpBuckGlossaryOutput.model_json_schema,
+    "ancient_phonology.search_buck_rules": McpBuckRulesOutput.model_json_schema,
 }
 
 

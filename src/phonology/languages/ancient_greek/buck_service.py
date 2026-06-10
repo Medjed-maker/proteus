@@ -127,13 +127,49 @@ class BuckReferenceIndex:
         return tuple(
             rule
             for rule in self.rules
-            if (category is None or rule.category == category)
-            and (dialect is None or dialect in rule.affected_dialects)
+            if _rule_matches_filters(rule, category=category, dialect=dialect)
         )
 
     def get_rules_by_section(self, section: str | int | float) -> tuple[BuckRule, ...]:
         """Return rules whose Buck section matches *section* after canonicalization."""
         return self._rules_by_section.get(canonicalize_buck_section(section), ())
+
+    def find_rules(
+        self,
+        *,
+        rule_id: str | None = None,
+        section: str | int | float | None = None,
+        category: str | None = None,
+        dialect: str | None = None,
+    ) -> tuple[BuckRule, ...]:
+        """Return rules matching the given constraints in deterministic id order.
+
+        Candidate selection prefers the most specific key available: an exact
+        ``rule_id`` first, then ``section`` (canonicalized), otherwise the full
+        rule set. The ``category`` and ``dialect`` filters then apply on top,
+        using the same matching semantics as :meth:`list_rules` (``dialect``
+        matches a rule's ``affected_dialects``). Results are sorted by ``id`` so
+        callers that truncate are not exposed to source-file ordering.
+        """
+        canonical_section = (
+            canonicalize_buck_section(section) if section is not None else None
+        )
+
+        if rule_id is not None:
+            rule = self.get_rule(rule_id)
+            candidates: tuple[BuckRule, ...] = () if rule is None else (rule,)
+        elif canonical_section is not None:
+            candidates = self._rules_by_section.get(canonical_section, ())
+        else:
+            candidates = self.rules
+
+        matched = (
+            rule
+            for rule in candidates
+            if (canonical_section is None or rule.buck_section == canonical_section)
+            and _rule_matches_filters(rule, category=category, dialect=dialect)
+        )
+        return tuple(sorted(matched, key=lambda rule: rule.id))
 
     def get_dialect(self, dialect_id: str) -> BuckDialect | None:
         """Return the dialect with *dialect_id*, if present."""
@@ -193,8 +229,49 @@ class BuckReferenceIndex:
         return tuple(
             entry
             for entry in self.glossary_entries
-            if (dialect is None or entry.dialect == dialect)
-            and (rule_id is None or entry.rule_id == rule_id)
+            if _glossary_matches_filters(entry, dialect=dialect, rule_id=rule_id)
+        )
+
+    def find_glossary_entries(
+        self,
+        *,
+        word: str | None = None,
+        standard_form: str | None = None,
+        dialect: str | None = None,
+        rule_id: str | None = None,
+    ) -> tuple[BuckGlossaryEntry, ...]:
+        """Return glossary entries matching the given constraints, deterministically.
+
+        Candidate selection uses the exact ``word`` index when provided, else the
+        exact ``standard_form`` index, else every entry. When both ``word`` and
+        ``standard_form`` are given, the candidate set is intersected with the
+        ``standard_form`` matches so all exact constraints hold simultaneously.
+        The ``dialect`` and ``rule_id`` filters then apply with the same
+        semantics as :meth:`list_glossary_entries`. Results are sorted by
+        ``(word, dialect, rule_id)`` so truncating callers see a stable order.
+        """
+        if word is not None:
+            candidates: tuple[BuckGlossaryEntry, ...] = self.find_glossary_by_word(word)
+            if standard_form is not None:
+                allowed = set(self.find_glossary_by_standard_form(standard_form))
+                candidates = tuple(
+                    entry for entry in candidates if entry in allowed
+                )
+        elif standard_form is not None:
+            candidates = self.find_glossary_by_standard_form(standard_form)
+        else:
+            candidates = self.glossary_entries
+
+        matched = (
+            entry
+            for entry in candidates
+            if _glossary_matches_filters(entry, dialect=dialect, rule_id=rule_id)
+        )
+        return tuple(
+            sorted(
+                matched,
+                key=lambda entry: (entry.word, entry.dialect, entry.rule_id or ""),
+            )
         )
 
     def find_glossary_by_word(self, word: str) -> tuple[BuckGlossaryEntry, ...]:
@@ -210,6 +287,41 @@ class BuckReferenceIndex:
             _normalize_lookup_text(standard_form),
             (),
         )
+
+
+def _rule_matches_filters(
+    rule: BuckRule,
+    *,
+    category: str | None,
+    dialect: str | None,
+) -> bool:
+    """Return whether *rule* satisfies the category and affected-dialect filters.
+
+    The ``dialect`` filter matches a rule's ``affected_dialects`` field, not the
+    dialect catalog's ``rules`` list. This is the single definition of rule
+    filtering semantics shared by :meth:`BuckReferenceIndex.list_rules` and
+    :meth:`BuckReferenceIndex.find_rules`.
+    """
+    return (category is None or rule.category == category) and (
+        dialect is None or dialect in rule.affected_dialects
+    )
+
+
+def _glossary_matches_filters(
+    entry: BuckGlossaryEntry,
+    *,
+    dialect: str | None,
+    rule_id: str | None,
+) -> bool:
+    """Return whether *entry* satisfies the dialect and rule-id filters.
+
+    This is the single definition of glossary filtering semantics shared by
+    :meth:`BuckReferenceIndex.list_glossary_entries` and
+    :meth:`BuckReferenceIndex.find_glossary_entries`.
+    """
+    return (dialect is None or entry.dialect == dialect) and (
+        rule_id is None or entry.rule_id == rule_id
+    )
 
 
 def build_buck_reference_index() -> BuckReferenceIndex:

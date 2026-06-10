@@ -41,8 +41,8 @@
 
 ## Acceptance Criteria
 
-- [ ] Buck データを参照する内部 service と MCP tool がある（REST public は契約安定後）。
-- [ ] Buck の rule / dialect / glossary を ID・section・dialect・word で検索できる。
+- [x] Buck データを参照する内部 service と MCP tool がある（REST public は契約安定後）。
+- [x] Buck の rule / dialect / glossary を ID・section・dialect・word で検索できる。
 - [ ] 既存検索 ranking、distance、rule explanation の挙動を不用意に変更しない。
   - [ ] 固定クエリ集合に対する `/search` golden/snapshot テストで、`buck_references` など追加注釈 field を除外した ranking、distance、candidate ordering、`rules_applied`、`matched_rules` が Buck 統合 ON/OFF で不変であることを保証する。
 - [ ] 検索結果に Buck 参照を付ける場合、音韻ルール適用とは別の注釈として扱う。
@@ -236,16 +236,16 @@
 
 > 確定事項 1 により、Buck 参照は内部 service + MCP tool を先に公開する。本 Phase は MVP の中核。
 
-- [ ] MCP に Buck 参照 tool を追加する（確定）。
-  - [ ] `search_buck_rules`
-  - [ ] `get_buck_dialect`
-  - [ ] `search_buck_glossary`
-  - [ ] 内部 service の response を直接利用する（REST API には依存しない）。
-- [ ] LLM 向けの system/tool description に review boundary を含める。
-- [ ] 長文引用を返さないことを tool schema に明記する。
-- [ ] `citation_ready: false` のとき、断定的な回答を避ける注意文を含める。
-- [ ] `docs/MCP.md` と `docs/mcp/tools.json` を更新する。
-- [ ] MCP tests を追加する。
+- [x] MCP に Buck 参照 tool を追加する（確定）。
+  - [x] `search_buck_rules`
+  - [x] `get_buck_dialect`
+  - [x] `search_buck_glossary`
+  - [x] 内部 service の response を直接利用する（REST API には依存しない）。
+- [x] LLM 向けの system/tool description に review boundary を含める。
+- [x] 長文引用を返さないことを tool schema に明記する。
+- [x] `citation_ready: false` のとき、断定的な回答を避ける注意文を含める。
+- [x] `docs/MCP.md` と `docs/mcp/tools.json` を更新する。
+- [x] MCP tests を追加する。
 
 ## Phase 6: Search Result Annotation
 
@@ -378,11 +378,11 @@
 
 - [ ] `uv run pytest tests/test_buck_loader.py -q`
 - [ ] `uv run pytest tests/test_buck_data_files.py -q`
-- [ ] `uv run pytest tests/test_packaging.py -q`
+- [x] `uv run pytest tests/test_packaging.py -q`
 - [ ] `uv run pytest tests/test_api_languages.py -q`
 - [ ] `uv run pytest tests/test_api_main.py -q`
-- [ ] `uv run pytest tests/test_mcp_search_tool.py -q`
-- [ ] `uv run pytest -q`
+- [x] `uv run pytest tests/test_mcp_search_tool.py -q`
+- [x] `uv run pytest -q`
 - [ ] `uv build --wheel`
 
 ## Suggested Implementation Order
@@ -392,7 +392,7 @@
 **MVP（本書）:**
 
 - [x] Step 1: Buck service tests を先に書き（rule/dialect/glossary lookup・no mutation）、既存 `load_buck_data()` の上に read-only index（frozen dataclass）を構築する。
-- [ ] Step 2: MCP tests を先に書き、Buck 参照 MCP tool（`search_buck_rules` / `get_buck_dialect` / `search_buck_glossary`）を内部 service 直結で公開する。
+- [x] Step 2: MCP tests を先に書き、Buck 参照 MCP tool（`search_buck_rules` / `get_buck_dialect` / `search_buck_glossary`）を内部 service 直結で公開する。
 - [ ] Step 3: 検索結果への `buck_references` annotation を rule_id 限定で追加（回帰 snapshot test で ranking 不変を先に固定）。
 - [ ] Step 4: MCP docs（`docs/MCP.md` / `docs/mcp/tools.json`）と data schema / validation を更新する。
 

@@ -7,12 +7,13 @@ import logging
 from mcp.server.fastmcp import FastMCP
 from phonology.core.ports.profiles import register_default_profiles
 
-from .tools import register_search_tool
+from .tools import register_buck_reference_tools, register_search_tool
 
 logger = logging.getLogger("proteus.mcp")
 
 app = FastMCP("proteus")
 register_search_tool(app)
+register_buck_reference_tools(app)
 
 
 def main() -> None:

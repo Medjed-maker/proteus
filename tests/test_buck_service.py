@@ -216,6 +216,69 @@ def test_glossary_lookup_filters_and_uses_nfc_strict_matching(
     assert by_word[0].citation_ready is False
 
 
+def test_find_rules_selects_candidates_and_returns_sorted_ids(
+    fixture_index: BuckReferenceIndex,
+) -> None:
+    assert [rule.id for rule in fixture_index.find_rules(rule_id="R1")] == ["R1"]
+    assert fixture_index.find_rules(rule_id="missing") == ()
+    assert [rule.id for rule in fixture_index.find_rules(section=41.4)] == ["R1"]
+    # Full set is returned in deterministic id order, not source-file order.
+    assert [rule.id for rule in fixture_index.find_rules()] == ["R1", "R2", "R3", "R4"]
+
+
+def test_find_rules_applies_section_filter_with_rule_id(
+    fixture_index: BuckReferenceIndex,
+) -> None:
+    assert [rule.id for rule in fixture_index.find_rules(rule_id="R1", section=41.4)] == [
+        "R1"
+    ]
+    assert fixture_index.find_rules(rule_id="R1", section=10) == ()
+    with pytest.raises(ValueError, match="Buck section must not be empty"):
+        fixture_index.find_rules(rule_id="R1", section=" ")
+
+
+def test_find_rules_applies_category_and_dialect_filters(
+    fixture_index: BuckReferenceIndex,
+) -> None:
+    assert [rule.id for rule in fixture_index.find_rules(category="vowels")] == [
+        "R1",
+        "R3",
+    ]
+    assert [rule.id for rule in fixture_index.find_rules(dialect="attic")] == ["R1"]
+    # Filters compose with candidate selection: section 41.4 is consonants? No.
+    assert fixture_index.find_rules(section=41.4, category="consonants") == ()
+
+
+def test_find_glossary_entries_combines_word_and_standard_form(
+    fixture_index: BuckReferenceIndex,
+) -> None:
+    decomposed = unicodedata.normalize("NFD", "λαός")
+
+    both = fixture_index.find_glossary_entries(word="λεώς", standard_form=decomposed)
+    mismatch = fixture_index.find_glossary_entries(
+        word="λεώς", standard_form="Δωρικός"
+    )
+
+    assert [entry.word for entry in both] == ["λεώς"]
+    assert mismatch == ()
+
+
+def test_find_glossary_entries_filters_and_sorts(
+    fixture_index: BuckReferenceIndex,
+) -> None:
+    assert [
+        entry.word for entry in fixture_index.find_glossary_entries(dialect="doric")
+    ] == ["Δωρικός"]
+    assert [
+        entry.word for entry in fixture_index.find_glossary_entries(rule_id="R1")
+    ] == ["λεώς"]
+    # No constraints: every entry in deterministic (word, dialect, rule_id) order.
+    assert [entry.word for entry in fixture_index.find_glossary_entries()] == [
+        "Δωρικός",
+        "λεώς",
+    ]
+
+
 def test_packaged_buck_data_counts_and_metadata_are_exposed() -> None:
     index = build_buck_reference_index()
 
