@@ -1,6 +1,128 @@
 {
   "components": {
     "schemas": {
+      "BuckReferenceAnnotation": {
+        "description": "Metadata-only Buck reference linked to an applied phonological rule.",
+        "properties": {
+          "affected_dialects": {
+            "description": "Dialect ids listed as affected by the Buck rule.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Dialects",
+            "type": "array"
+          },
+          "buck_rule_id": {
+            "description": "Stable Buck-normalized rule identifier.",
+            "title": "Buck Rule Id",
+            "type": "string"
+          },
+          "buck_section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Canonical Buck section string, when available.",
+            "title": "Buck Section"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Buck rule category.",
+            "title": "Category"
+          },
+          "citation_ready": {
+            "description": "Whether this Buck reference annotation is citation-ready.",
+            "title": "Citation Ready",
+            "type": "boolean"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Short normalized Buck rule summary; not a source-text quote.",
+            "title": "Description"
+          },
+          "review_note": {
+            "description": "Short warning describing the review and citation boundary.",
+            "title": "Review Note",
+            "type": "string"
+          },
+          "review_status": {
+            "description": "Review status inherited from Buck metadata.",
+            "title": "Review Status",
+            "type": "string"
+          },
+          "source_rule_id": {
+            "description": "Applied Proteus rule id that produced this Buck annotation.",
+            "title": "Source Rule Id",
+            "type": "string"
+          },
+          "status": {
+            "description": "Data status inherited from Buck metadata.",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_rule_id",
+          "buck_rule_id",
+          "status",
+          "review_status",
+          "citation_ready",
+          "review_note"
+        ],
+        "title": "BuckReferenceAnnotation",
+        "type": "object"
+      },
+      "BuckReferenceMetadata": {
+        "description": "Review metadata for Buck reference annotations.",
+        "properties": {
+          "citation_ready": {
+            "description": "Whether the Buck reference data is ready for scholarly citation. False means clients must present it as provisional review metadata.",
+            "title": "Citation Ready",
+            "type": "boolean"
+          },
+          "review_note": {
+            "description": "Short warning describing the review and citation boundary.",
+            "title": "Review Note",
+            "type": "string"
+          },
+          "review_status": {
+            "description": "Expert-review status for the data.",
+            "title": "Review Status",
+            "type": "string"
+          },
+          "status": {
+            "description": "Data status for the Buck reference layer.",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "review_status",
+          "citation_ready",
+          "review_note"
+        ],
+        "title": "BuckReferenceMetadata",
+        "type": "object"
+      },
       "DataVersions": {
         "description": "Version metadata for data sources used in search.",
         "properties": {
@@ -434,6 +556,14 @@
             "title": "Applied Rule Count",
             "type": "integer"
           },
+          "buck_references": {
+            "description": "Metadata-only provisional Buck references linked from applied rule references. These annotations do not affect ranking or rule application.",
+            "items": {
+              "$ref": "#/components/schemas/BuckReferenceAnnotation"
+            },
+            "title": "Buck References",
+            "type": "array"
+          },
           "candidate_bucket": {
             "default": "Exploratory",
             "description": "Default presentation bucket for the result list.",
@@ -618,6 +748,17 @@
       "SearchResponse": {
         "description": "Top-level response payload for a phonological search.",
         "properties": {
+          "buck_reference_metadata": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuckReferenceMetadata"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Review metadata for Buck reference annotations, when annotation was attempted for this response."
+          },
           "data_versions": {
             "$ref": "#/components/schemas/DataVersions",
             "description": "Version metadata for data sources used in this search. Mirrors meta.data_versions for backward compatibility."

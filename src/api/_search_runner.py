@@ -27,6 +27,7 @@ from phonology.distance import MatrixData
 from phonology.core.ports.profiles import LanguageProfile, get_default_language_profile
 from phonology.search._types import QueryMode
 
+from ._buck_annotations import build_buck_annotation_context
 from ._hit_formatting import _build_search_hit
 from ._models import DataVersions, SearchHit, SearchRequest, SearchResponse
 from ._response_meta import build_response_meta
@@ -192,6 +193,10 @@ def run_search(
         ) from err
 
     hits: list[SearchHit] = []
+    buck_annotation_context = build_buck_annotation_context(
+        deps.rules_registry,
+        logger=logger,
+    )
     for result in execution.results:
         source_references = safe_lookup(
             deps.corpus_adapter,
@@ -209,6 +214,7 @@ def run_search(
             query_form=request.query_form,
             orthographic_note_builder=profile.orthographic_note_builder,
             source_references=source_references,
+            buck_annotation_context=buck_annotation_context,
         )
         hits.append(hit)
     meta = build_response_meta(
@@ -227,6 +233,7 @@ def run_search(
         hits=hits,
         truncated=execution.truncated,
         data_versions=deps.data_versions,
+        buck_reference_metadata=buck_annotation_context.metadata,
         meta=meta,
     )
     return SearchExecutionOutcome(

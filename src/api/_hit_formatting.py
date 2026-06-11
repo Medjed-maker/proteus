@@ -16,6 +16,11 @@ from phonology.core.ipa import strip_ignored_ipa_combining_marks
 from phonology.core.ports.orthography_notes import OrthographicNoteBuilder, OrthographicNoteDataError
 from phonology import search as phonology_search
 
+from ._buck_annotations import (
+    BuckAnnotationContext,
+    EMPTY_BUCK_ANNOTATION_CONTEXT,
+    buck_references_for_rule_steps,
+)
 from ._models import OrthographicNote, RuleStep, SearchHit
 
 logger = logging.getLogger(__name__)
@@ -536,6 +541,7 @@ def _build_search_hit(
     orthographic_note_builder: OrthographicNoteBuilder | None = None,
     orthography_hint: str | None = None,
     source_references: tuple[SourceReference, ...] = (),
+    buck_annotation_context: BuckAnnotationContext = EMPTY_BUCK_ANNOTATION_CONTEXT,
 ) -> SearchHit:
     """Convert a core search result into the public API response shape."""
     source_ipa = result.ipa or ""
@@ -589,6 +595,17 @@ def _build_search_hit(
         _build_candidate_bucket(match_type, query_mode=query_mode, uncertainty=uncertainty),
         orthographic_notes,
     )
+    rules_applied = [
+        RuleStep(
+            rule_id=step.rule_id,
+            rule_name=step.rule_name,
+            rule_name_en=step.rule_name_en,
+            from_phone=step.from_phone,
+            to_phone=step.to_phone,
+            position=step.position,
+        )
+        for step in steps
+    ]
     return SearchHit(
         headword=result.lemma,
         ipa=source_ipa,
@@ -615,18 +632,12 @@ def _build_search_hit(
         ),
         uncertainty=uncertainty,
         candidate_bucket=candidate_bucket,
-        rules_applied=[
-            RuleStep(
-                rule_id=step.rule_id,
-                rule_name=step.rule_name,
-                rule_name_en=step.rule_name_en,
-                from_phone=step.from_phone,
-                to_phone=step.to_phone,
-                position=step.position,
-            )
-            for step in steps
-        ],
+        rules_applied=rules_applied,
         orthographic_notes=orthographic_notes,
         source_references=list(source_references),
+        buck_references=buck_references_for_rule_steps(
+            buck_annotation_context,
+            rules_applied,
+        ),
         explanation=to_prose(explanation),
     )

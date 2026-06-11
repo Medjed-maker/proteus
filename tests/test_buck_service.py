@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 from types import MappingProxyType
@@ -17,6 +18,7 @@ from phonology.languages.ancient_greek.buck_service import (
     BuckReferenceIndex,
     build_buck_reference_index,
     canonicalize_buck_section,
+    clear_buck_reference_index_cache,
 )
 
 
@@ -33,11 +35,54 @@ def _write_buck_fixture(
     (buck_dir / "glossary.yaml").write_text(glossary, encoding="utf-8")
 
 
+def _write_minimal_buck_fixture(
+    buck_dir: Path,
+    *,
+    rule_id: str,
+    section: str,
+) -> None:
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules=(
+            "meta:\n"
+            "  status: provisional\n"
+            "  review_status: not_expert_reviewed\n"
+            "  citation_ready: false\n"
+            "rules:\n"
+            f"  - id: {rule_id}\n"
+            f"    buck_section: '{section}'\n"
+            "    description: Test rule.\n"
+        ),
+        dialects=(
+            "meta:\n"
+            "  status: provisional\n"
+            "  review_status: not_expert_reviewed\n"
+            "  citation_ready: false\n"
+            "dialects:\n"
+            "  - id: attic\n"
+            "    name: Attic\n"
+            "    kind: dialect\n"
+            f"    rules: [{rule_id}]\n"
+        ),
+        glossary=(
+            "meta:\n"
+            "  status: provisional\n"
+            "  review_status: not_expert_reviewed\n"
+            "  citation_ready: false\n"
+            "words: []\n"
+        ),
+    )
+
+
 @pytest.fixture(autouse=True)
-def reset_buck_loader_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+def reset_buck_loader_cache(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv(TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR, "1")
     monkeypatch.delenv("PROTEUS_TRUSTED_BUCK_DIR", raising=False)
     buck_module.clear_buck_data_cache()
+    clear_buck_reference_index_cache()
+    yield
+    buck_module.clear_buck_data_cache()
+    clear_buck_reference_index_cache()
 
 
 @pytest.fixture
@@ -289,6 +334,28 @@ def test_packaged_buck_data_counts_and_metadata_are_exposed() -> None:
     assert index.metadata.review_status == "not_expert_reviewed"
     assert index.metadata.citation_ready is False
     assert index.get_rule("grc_phon_41_4") is not None
+
+
+def test_clear_buck_data_cache_also_clears_reference_index_cache(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    first_dir = tmp_path / "buck-a"
+    second_dir = tmp_path / "buck-b"
+    _write_minimal_buck_fixture(first_dir, rule_id="A1", section="1")
+    _write_minimal_buck_fixture(second_dir, rule_id="B1", section="2")
+
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(first_dir))
+    first_index = build_buck_reference_index()
+    assert first_index.get_rule("A1") is not None
+    assert first_index.get_rule("B1") is None
+
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(second_dir))
+    buck_module.clear_buck_data_cache()
+
+    second_index = build_buck_reference_index()
+    assert second_index.get_rule("A1") is None
+    assert second_index.get_rule("B1") is not None
 
 
 def test_service_treats_non_boolean_citation_ready_as_false(

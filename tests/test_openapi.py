@@ -54,6 +54,18 @@ def test_openapi_schema_contains_version_endpoint() -> None:
     assert "/version" in schema["paths"]
 
 
+def test_openapi_search_hit_schema_includes_buck_references() -> None:
+    """The /search hit schema should expose Buck reference annotations."""
+    schema = _runtime_openapi()
+    search_hit_schema = schema["components"]["schemas"]["SearchHit"]
+
+    assert "buck_references" in search_hit_schema["properties"]
+    assert (
+        search_hit_schema["properties"]["buck_references"]["items"]["$ref"]
+        == "#/components/schemas/BuckReferenceAnnotation"
+    )
+
+
 def test_openapi_artifact_matches_app_openapi() -> None:
     """The committed OpenAPI artifact should match the runtime schema."""
     assert OPENAPI_ARTIFACT.exists(), (

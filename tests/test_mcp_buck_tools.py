@@ -18,6 +18,9 @@ from mcp_server.tools.buck import (
     search_buck_rules_for_mcp,
 )
 from phonology.languages.ancient_greek import buck as buck_module
+from phonology.languages.ancient_greek.buck_service import (
+    clear_buck_reference_index_cache,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -25,6 +28,7 @@ def reset_buck_loader_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep Buck MCP tests independent from loader override/cache tests."""
     monkeypatch.delenv("PROTEUS_TRUSTED_BUCK_DIR", raising=False)
     buck_module.clear_buck_data_cache()
+    clear_buck_reference_index_cache()
 
 
 def _run_tool_call(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:

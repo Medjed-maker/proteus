@@ -145,6 +145,7 @@ def _skip_known_uv_build_instability(result: subprocess.CompletedProcess[str]) -
         or "Tokio executor failed" in stderr
         or "system-configuration" in stderr
         or "Failed to download distribution due to network timeout" in stderr
+        or "operation timed out" in stderr
     ):
         pytest.skip(f"uv build is unstable in this runtime: {stderr}")
 

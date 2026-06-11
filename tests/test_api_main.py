@@ -16,9 +16,18 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from api import main as api_main
+from api import _buck_annotations as api_buck_annotations
 from api import _dependencies as api_deps
 from api import _hit_formatting as api_hit_formatting
-from api._models import OrthographicNote, RuleStep, SearchHit, SearchRequest
+from api._models import (
+    BuckReferenceAnnotation,
+    BuckReferenceMetadata,
+    OrthographicNote,
+    ResponseMeta,
+    RuleStep,
+    SearchHit,
+    SearchRequest,
+)
 from api._request_context import is_valid_request_id
 from phonology import search as search_module
 from phonology.explainer import RuleApplication
@@ -235,6 +244,59 @@ class TestSearchHit:
         )
 
         assert hit.orthographic_notes == []
+
+    def test_buck_references_defaults_to_empty_list(self) -> None:
+        hit = SearchHit(
+            headword="λόγος",
+            ipa="loɡos",
+            distance=0.5,
+            confidence=0.5,
+            explanation="example",
+        )
+
+        assert hit.buck_references == []
+
+    def test_search_response_accepts_buck_reference_metadata(self) -> None:
+        metadata = BuckReferenceMetadata(
+            status="provisional",
+            review_status="not_expert_reviewed",
+            citation_ready=False,
+            review_note="Buck reference data is provisional.",
+        )
+        response = api_main.SearchResponse(
+            query="λόγος",
+            query_ipa="loɡos",
+            query_mode="Full-form",
+            hits=[],
+            buck_reference_metadata=metadata,
+            meta=ResponseMeta(
+                api_version="1.0",
+                schema_version="1.1.0",
+                engine_version="test",
+                data_versions=api_main.DataVersions(),
+                request_id="0123456789abcdef",
+                timestamp="2026-06-11T00:00:00+00:00",
+            ),
+        )
+
+        assert response.buck_reference_metadata == metadata
+
+    def test_buck_reference_annotation_serializes_review_boundary(self) -> None:
+        annotation = BuckReferenceAnnotation(
+            source_rule_id="VSH-001",
+            buck_rule_id="grc_phon_9",
+            buck_section="9",
+            category="phonology",
+            description="Ionic-Attic change of inherited long a.",
+            affected_dialects=["ionic", "attic"],
+            status="provisional",
+            review_status="not_expert_reviewed",
+            citation_ready=False,
+            review_note="Buck reference data is provisional.",
+        )
+
+        assert annotation.model_dump()["citation_ready"] is False
+        assert annotation.affected_dialects == ["ionic", "attic"]
 
     def test_orthographic_note_accepts_supported_payload(self) -> None:
         note = OrthographicNote(
@@ -2419,6 +2481,217 @@ class TestSearchEndpoint:
         assert payload["hits"][0]["dialect_attribution"] == (
             "lemma dialect: attic; query-compatible dialects: koine"
         )
+
+    def test_search_adds_buck_references_from_applied_rule_references(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        td = _make_test_dependencies()
+        rules_registry = {
+            "VSH-001": {
+                "id": "VSH-001",
+                "name_en": "Ionic long alpha to eta shift",
+                "name_ja": "イオニア方言の長母音 ā > ē 推移",
+                "input": "aː",
+                "output": "ɛː",
+                "dialects": ["ionic"],
+                "references": ["Buck §9", "Smyth §31"],
+            }
+        }
+        monkeypatch.setattr(
+            api_main,
+            "_load_search_dependencies",
+            lambda _language: api_main.SearchDependencies(
+                lexicon=td["lexicon"],
+                matrix=td["matrix"],
+                rules_registry=rules_registry,
+                search_index=td["search_index"],
+                unigram_index=td["unigram_index"],
+                lexicon_map=td["lexicon_map"],
+                ipa_index=td["ipa_index"],
+                data_versions=api_main.DataVersions(),
+                profile=get_default_language_profile(),
+            ),
+        )
+        monkeypatch.setattr(
+            api_main.phonology_search,
+            "search_execution",
+            lambda *args, **kwargs: search_module.SearchExecutionResult(
+                results=[
+                    SearchResult(
+                        lemma="γῆ",
+                        confidence=0.82,
+                        dialect_attribution="lemma dialect: attic",
+                        applied_rules=["VSH-001"],
+                        rule_applications=[
+                            RuleApplication(
+                                rule_id="VSH-001",
+                                rule_name="Ionic long alpha to eta shift",
+                                rule_name_en="Ionic long alpha to eta shift",
+                                from_phone="aː",
+                                to_phone="ɛː",
+                                position=0,
+                                dialects=["ionic"],
+                            )
+                        ],
+                        ipa="ɡɛː",
+                    )
+                ],
+                query_ipa="ɡaː",
+                query_mode="Full-form",
+                truncated=False,
+            ),
+        )
+
+        response = client.post("/search", json={"query_form": "γα"})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["buck_reference_metadata"]["citation_ready"] is False
+        buck_references = payload["hits"][0]["buck_references"]
+        assert [reference["buck_rule_id"] for reference in buck_references] == [
+            "grc_phon_9"
+        ]
+        assert buck_references[0]["source_rule_id"] == "VSH-001"
+        assert buck_references[0]["buck_section"] == "9"
+        assert buck_references[0]["review_status"] == "not_expert_reviewed"
+        assert buck_references[0]["citation_ready"] is False
+
+    def test_search_keeps_payload_stable_except_buck_annotations(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        td = _make_test_dependencies()
+        base_registry = {
+            "VSH-001": {
+                "id": "VSH-001",
+                "name_en": "Ionic long alpha to eta shift",
+                "name_ja": "イオニア方言の長母音 ā > ē 推移",
+                "input": "aː",
+                "output": "ɛː",
+                "dialects": ["ionic"],
+            }
+        }
+
+        def fake_execution(*args: object, **kwargs: object) -> search_module.SearchExecutionResult:
+            return search_module.SearchExecutionResult(
+                results=[
+                    SearchResult(
+                        lemma="γῆ",
+                        confidence=0.82,
+                        dialect_attribution="lemma dialect: attic",
+                        applied_rules=["VSH-001"],
+                        rule_applications=[
+                            RuleApplication(
+                                rule_id="VSH-001",
+                                rule_name="Ionic long alpha to eta shift",
+                                rule_name_en="Ionic long alpha to eta shift",
+                                from_phone="aː",
+                                to_phone="ɛː",
+                                position=0,
+                                dialects=["ionic"],
+                            )
+                        ],
+                        ipa="ɡɛː",
+                    )
+                ],
+                query_ipa="ɡaː",
+                query_mode="Full-form",
+                truncated=False,
+            )
+
+        def set_dependencies(rules_registry: dict[str, dict[str, object]]) -> None:
+            monkeypatch.setattr(
+                api_main,
+                "_load_search_dependencies",
+                lambda _language: api_main.SearchDependencies(
+                    lexicon=td["lexicon"],
+                    matrix=td["matrix"],
+                    rules_registry=rules_registry,
+                    search_index=td["search_index"],
+                    unigram_index=td["unigram_index"],
+                    lexicon_map=td["lexicon_map"],
+                    ipa_index=td["ipa_index"],
+                    data_versions=api_main.DataVersions(),
+                    profile=get_default_language_profile(),
+                ),
+            )
+
+        monkeypatch.setattr(api_main.phonology_search, "search_execution", fake_execution)
+        set_dependencies(base_registry)
+        without_buck = client.post("/search", json={"query_form": "γα"}).json()
+
+        with_buck_registry = {
+            "VSH-001": {
+                **base_registry["VSH-001"],
+                "references": ["Buck §9", "Smyth §31"],
+            }
+        }
+        set_dependencies(with_buck_registry)
+        with_buck = client.post("/search", json={"query_form": "γα"}).json()
+
+        def strip_buck_annotations(payload: dict[str, object]) -> dict[str, object]:
+            stripped = dict(payload)
+            stripped.pop("buck_reference_metadata", None)
+            meta = dict(stripped["meta"])
+            meta.pop("request_id", None)
+            meta.pop("timestamp", None)
+            stripped["meta"] = meta
+            stripped["hits"] = [
+                {
+                    key: value
+                    for key, value in hit.items()
+                    if key != "buck_references"
+                }
+                for hit in payload["hits"]
+            ]
+            return stripped
+
+        assert strip_buck_annotations(with_buck) == strip_buck_annotations(
+            without_buck
+        )
+        assert without_buck["hits"][0]["buck_references"] == []
+        assert with_buck["hits"][0]["buck_references"]
+
+    def test_search_keeps_200_when_buck_annotation_service_fails(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured = mock_search_dependencies(monkeypatch)
+        td = _make_test_dependencies()
+        monkeypatch.setattr(
+            api_main,
+            "_load_search_dependencies",
+            lambda _language: api_main.SearchDependencies(
+                lexicon=td["lexicon"],
+                matrix=td["matrix"],
+                rules_registry={
+                    "CCH-001": {
+                        "id": "CCH-001",
+                        "input": "s",
+                        "output": "h",
+                        "dialects": ["attic"],
+                        "references": ["Buck §68"],
+                    }
+                },
+                search_index=td["search_index"],
+                unigram_index=td["unigram_index"],
+                lexicon_map=td["lexicon_map"],
+                ipa_index=td["ipa_index"],
+                data_versions=api_main.DataVersions(),
+                profile=get_default_language_profile(),
+            ),
+        )
+
+        def fail() -> object:
+            raise OSError("buck data unavailable")
+
+        monkeypatch.setattr(api_buck_annotations, "build_buck_reference_index", fail)
+
+        response = client.post("/search", json={"query_form": "λόγος"})
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["hits"][0]["headword"] == "λόγος"
+        assert payload["hits"][0]["buck_references"] == []
+        assert "converter_queries" in captured
 
     def test_search_uses_contextual_rule_ids_and_matching_distance_in_api_response(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
