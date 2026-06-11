@@ -43,10 +43,10 @@
 
 - [x] Buck データを参照する内部 service と MCP tool がある（REST public は契約安定後）。
 - [x] Buck の rule / dialect / glossary を ID・section・dialect・word で検索できる。
-- [ ] 既存検索 ranking、distance、rule explanation の挙動を不用意に変更しない。
-  - [ ] 固定クエリ集合に対する `/search` golden/snapshot テストで、`buck_references` など追加注釈 field を除外した ranking、distance、candidate ordering、`rules_applied`、`matched_rules` が Buck 統合 ON/OFF で不変であることを保証する。
-- [ ] 検索結果に Buck 参照を付ける場合、音韻ルール適用とは別の注釈として扱う。
-- [ ] `citation_ready: false` と expert-review boundary が API/docs で明示される。
+- [x] 既存検索 ranking、distance、rule explanation の挙動を不用意に変更しない。
+  - [x] 固定クエリ集合に対する `/search` golden/snapshot テストで、`buck_references` など追加注釈 field を除外した ranking、distance、candidate ordering、`rules_applied`、`matched_rules` が Buck 統合 ON/OFF で不変であることを保証する。
+- [x] 検索結果に Buck 参照を付ける場合、音韻ルール適用とは別の注釈として扱う。
+- [x] `citation_ready: false` と expert-review boundary が API/docs で明示される。
 - [ ] Buck glossary の増補は OCR 本文からの自動投入ではなく、抽出・正規化・レビュー状態を分ける。
 - [ ] 方言を増やす場合、`LanguageProfile.supported_dialects`、API validation、UI、テストを同時に更新する。
 - [ ] wheel/sdist に Buck データと追加 schema/docs が含まれる。
@@ -251,30 +251,29 @@
 
 > 初期スコープは rule_id 対応に限定する。glossary は現状 15 件のため `word` / `standard_form` 一致注釈はほぼ発火せず、費用対効果が低い。glossary `word` / `standard_form` ベースの注釈は [buck_glossary_expansion_epic.md](buck_glossary_expansion_epic.md) 完了後に拡張する。
 
-- [ ] Buck 参照を検索結果に付ける対象（初期）。
-  - [ ] applied/matched rule id が Buck `rule_id` と対応（初期スコープ）。
-  - [ ] candidate dialect と Buck dialect の一致だけでは初期 annotation 対象にしない。
+- [x] Buck 参照を検索結果に付ける対象（初期）。
+  - [x] applied/matched rule id の rule metadata `references` が Buck section と対応（初期スコープ）。
+  - [x] candidate dialect と Buck dialect の一致だけでは初期 annotation 対象にしない。
   - [ ] query form が glossary `word` と一致（glossary 拡充後・NFC 正規化前提）。
   - [ ] candidate headword が glossary `standard_form` と一致（glossary 拡充後・NFC 正規化前提）。
-- [ ] annotation model を設計する。
-  - [ ] `kind: "buck_reference"`
-  - [ ] `rule_id`
-  - [ ] `buck_section`
-  - [ ] `dialect`
-  - [ ] `example_word`
-  - [ ] `standard_form`
-  - [ ] `message`
-  - [ ] `citation_ready`
-  - [ ] `review_status`
-- [ ] 既存の `orthographic_notes` には入れず、別 field `buck_references` に出す（確定事項 2）。
-  - [ ] 理由: Buck は表記補助だけでなく、方言・音韻・形態・統語情報を含む。
-- [ ] `citation_ready` と `review_status` を `buck_references` の各 item に含める（確定事項 3）。
-- [ ] `rules_applied` / `matched_rules` と混ぜない方針を固定する。
-- [ ] ranking score を変更しない。
-- [ ] candidate bucket を変更しない。
-- [ ] annotation 生成失敗時は検索全体を落とさず warning log にする。
-- [ ] MCP の response に `buck_references` field を出す（REST は契約安定後に同 field を追加）。
-- [ ] API docs に field の意味と provisional status を書く。
+- [x] annotation model を設計する。
+  - [x] `source_rule_id`
+  - [x] `buck_rule_id`
+  - [x] `buck_section`
+  - [x] `category`
+  - [x] `description`
+  - [x] `affected_dialects`
+  - [x] `citation_ready`
+  - [x] `review_status`
+- [x] 既存の `orthographic_notes` には入れず、別 field `buck_references` に出す（確定事項 2）。
+  - [x] 理由: Buck は表記補助だけでなく、方言・音韻・形態・統語情報を含む。
+- [x] `citation_ready` と `review_status` を `buck_references` の各 item に含める（確定事項 3）。
+- [x] `rules_applied` / `matched_rules` と混ぜない方針を固定する。
+- [x] ranking score を変更しない。
+- [x] candidate bucket を変更しない。
+- [x] annotation 生成失敗時は検索全体を落とさず warning log にする。
+- [x] MCP search response と REST `/search` response に `buck_references` field を出す（Buck 専用 REST endpoints は Step 5）。
+- [x] API docs に field の意味と provisional status を書く。
 
 ## Phase 7-9: 後続 Epic（別書に分離）
 
@@ -356,10 +355,10 @@
   - [ ] unknown rule id
   - [ ] unknown dialect id
   - [ ] pagination limit validation
-- [ ] Buck search annotation tests を追加する。
-  - [ ] rule id 対応がある hit に `buck_references` が付く（初期スコープ）。
-  - [ ] annotation failure は検索 200 を維持する。
-  - [ ] 固定クエリ集合の `/search` 出力から `buck_references` など追加注釈 field を除外した ranking、distance、candidate ordering、`rules_applied`、`matched_rules` が Buck ON/OFF で不変（ranking 不変の回帰 snapshot）。
+- [x] Buck search annotation tests を追加する。
+  - [x] rule metadata `references` で Buck section 対応がある hit に `buck_references` が付く（初期スコープ）。
+  - [x] annotation failure は検索 200 を維持する。
+  - [x] 固定クエリ集合の `/search` 出力から `buck_references` など追加注釈 field を除外した ranking、distance、candidate ordering、`rules_applied`、`matched_rules` が Buck ON/OFF で不変（ranking 不変の回帰 snapshot）。
   - [ ] glossary word/standard_form 一致注釈は glossary 拡充 epic 後に追加。
 - [ ] Executable conversion pilot tests は別 epic で扱う（[buck_executable_rule_conversion_epic.md](buck_executable_rule_conversion_epic.md)）。
 - [ ] Data schema tests を追加する。
@@ -380,9 +379,9 @@
 - [ ] `uv run pytest tests/test_buck_data_files.py -q`
 - [x] `uv run pytest tests/test_packaging.py -q`
 - [ ] `uv run pytest tests/test_api_languages.py -q`
-- [ ] `uv run pytest tests/test_api_main.py -q`
+- [x] `uv run pytest tests/test_api_main.py -q`
 - [x] `uv run pytest tests/test_mcp_search_tool.py -q`
-- [x] `uv run pytest -q`
+- [~] `uv run pytest -q`
 - [ ] `uv build --wheel`
 
 ## Suggested Implementation Order
@@ -393,7 +392,7 @@
 
 - [x] Step 1: Buck service tests を先に書き（rule/dialect/glossary lookup・no mutation）、既存 `load_buck_data()` の上に read-only index（frozen dataclass）を構築する。
 - [x] Step 2: MCP tests を先に書き、Buck 参照 MCP tool（`search_buck_rules` / `get_buck_dialect` / `search_buck_glossary`）を内部 service 直結で公開する。
-- [ ] Step 3: 検索結果への `buck_references` annotation を rule_id 限定で追加（回帰 snapshot test で ranking 不変を先に固定）。
+- [x] Step 3: 検索結果への `buck_references` annotation を rule_id 限定で追加（回帰 snapshot test で ranking 不変を先に固定）。
 - [ ] Step 4: MCP docs（`docs/MCP.md` / `docs/mcp/tools.json`）と data schema / validation を更新する。
 
 **契約安定後:**

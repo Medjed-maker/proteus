@@ -89,6 +89,7 @@ Example response excerpt:
       "rules_applied": [],
       "orthographic_notes": [],
       "source_references": [],
+      "buck_references": [],
       "explanation": "Exact phonological match."
     }
   ],
@@ -98,6 +99,7 @@ Example response excerpt:
     "matrix": "1.0.0",
     "rules": "0.1.0"
   },
+  "buck_reference_metadata": null,
   "meta": {
     "api_version": "1.0",
     "schema_version": "1.1.0",
@@ -171,11 +173,13 @@ Serves the packaged changelog HTML page.
 | Model | Purpose | Important fields |
 | --- | --- | --- |
 | `SearchRequest` | Search input. | `query_form`, `language`, `dialect_hint`, `max_candidates`, `response_language`; deprecated `orthography_hint`, `lang`. |
-| `SearchResponse` | Top-level search output. | `query`, `query_ipa`, `query_mode`, `hits`, `truncated`, `data_versions`, `meta`. |
-| `SearchHit` | Ranked candidate. | `headword`, `ipa`, `distance`, `confidence`, `dialect_attribution`, `match_type`, `rules_applied`, `orthographic_notes`, `source_references`, `explanation`. |
+| `SearchResponse` | Top-level search output. | `query`, `query_ipa`, `query_mode`, `hits`, `truncated`, `data_versions`, `buck_reference_metadata`, `meta`. |
+| `SearchHit` | Ranked candidate. | `headword`, `ipa`, `distance`, `confidence`, `dialect_attribution`, `match_type`, `rules_applied`, `orthographic_notes`, `source_references`, `buck_references`, `explanation`. |
 | `RuleStep` | One phonological rule application. | `rule_id`, `rule_name`, `rule_name_en`, `from_phone`, `to_phone`, `position`. |
 | `OrthographicNote` | Candidate-level spelling or writing-system note. | `kind`, `label`, `messages`, `normalized_form`, `romanization`, `period_label`, `references`, `confidence`, `pre_reform_spelling`, `pre_reform_romanization`. |
 | `SourceReference` | Candidate-level external source metadata. | `source_id`, `corpus`, `short_citation`, `external_url`, `license_note`, `access_policy`, `citation_ready`. |
+| `BuckReferenceAnnotation` | Candidate-level provisional Buck reference metadata. | `source_rule_id`, `buck_rule_id`, `buck_section`, `category`, `description`, `affected_dialects`, `status`, `review_status`, `citation_ready`, `review_note`. |
+| `BuckReferenceMetadata` | Response-level Buck review boundary. | `status`, `review_status`, `citation_ready`, `review_note`. |
 | `DataVersions` | Data source metadata. | `lexicon`, `lexicon_updated_at`, `matrix`, `matrix_generated_at`, `rules`. |
 | `ResponseMeta` | Search response metadata. | `api_version`, `schema_version`, `engine_version`, `data_versions`, `ruleset_versions`, `request_id`, `timestamp`, `verification_url`, `request_echo`. |
 | `RequestEcho` | Sanitized validated request echo. | `query_form`, `language`, `dialect_hint`, `max_candidates`, `response_language`. |
@@ -208,6 +212,19 @@ records. It never contains source text, passage excerpts, or long quotations.
 Restricted corpora are linked rather than redistributed, and
 `citation_ready=false` means the reference is useful for discovery but should be
 reviewed before scholarly citation.
+
+### `SearchHit.buck_references` content guidelines
+
+`hits[].buck_references` contains metadata-only Buck reference annotations
+derived from applied rule references such as `Buck §9`. These annotations are
+added after search ranking and rule application are complete. They do not
+change `distance`, candidate ordering, `rules_applied`, or explanations.
+
+Buck reference data is provisional. Clients must display
+`citation_ready=false` and the accompanying `review_note` as a review boundary;
+the annotation is useful for discovery but is not citation-ready scholarly
+evidence. Broad Buck ranges such as `Buck §§63-65` are intentionally not
+expanded by the current API.
 
 ## Error Responses
 

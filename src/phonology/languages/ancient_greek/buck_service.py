@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from functools import lru_cache
 import math
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, NewType
@@ -21,6 +22,7 @@ __all__ = [
     "BuckRule",
     "build_buck_reference_index",
     "canonicalize_buck_section",
+    "clear_buck_reference_index_cache",
 ]
 
 
@@ -324,9 +326,31 @@ def _glossary_matches_filters(
     )
 
 
-def build_buck_reference_index() -> BuckReferenceIndex:
-    """Build a read-only Buck reference index from validated loader data."""
+@lru_cache(maxsize=1)
+def _build_buck_reference_index_cached() -> BuckReferenceIndex:
     return _build_index(load_buck_data())
+
+
+def build_buck_reference_index() -> BuckReferenceIndex:
+    """Return the read-only Buck reference index built from validated loader data.
+
+    The index is deeply immutable (frozen dataclasses, tuples, and read-only
+    mappings), so a single cached instance is shared across callers. Use
+    :func:`clear_buck_reference_index_cache` after changing the underlying
+    data location (e.g. trusted-directory overrides in tests).
+    """
+    return _build_buck_reference_index_cached()
+
+
+def clear_buck_reference_index_cache() -> None:
+    """Clear the cached Buck reference index.
+
+    Tests and trusted-directory override callers should use this public helper
+    (together with :func:`phonology.languages.ancient_greek.buck.clear_buck_data_cache`)
+    instead of reaching into the private ``_build_buck_reference_index_cached``
+    wrapper.
+    """
+    _build_buck_reference_index_cached.cache_clear()
 
 
 def canonicalize_buck_section(section: str | int | float) -> str:

@@ -388,9 +388,14 @@ def load_buck_data() -> BuckData:
 
 
 def clear_buck_data_cache() -> None:
-    """Clear the cached Buck YAML documents.
+    """Clear cached Buck YAML documents and derived Buck indexes.
 
     Tests and trusted-directory override callers should use this public helper
     instead of reaching into the private ``_load_buck_data_cached`` wrapper.
+    This also clears the Buck reference index cache so callers that change the
+    underlying data location only need to use this single public reset point.
     """
     _load_buck_data_cached.cache_clear()
+    from .buck_service import clear_buck_reference_index_cache
+
+    clear_buck_reference_index_cache()

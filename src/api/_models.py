@@ -33,6 +33,8 @@ __all__ = [
     "SearchRequest",
     "RuleStep",
     "OrthographicNote",
+    "BuckReferenceMetadata",
+    "BuckReferenceAnnotation",
     "SourceReference",
     "SearchHit",
     "SearchResponse",
@@ -498,6 +500,52 @@ class OrthographicNote(BaseModel):
         return value
 
 
+class BuckReferenceMetadata(BaseModel):
+    """Review metadata for Buck reference annotations."""
+
+    status: str = Field(description="Data status for the Buck reference layer.")
+    review_status: str = Field(description="Expert-review status for the data.")
+    citation_ready: bool = Field(
+        description=(
+            "Whether the Buck reference data is ready for scholarly citation. "
+            "False means clients must present it as provisional review metadata."
+        )
+    )
+    review_note: str = Field(
+        description="Short warning describing the review and citation boundary."
+    )
+
+
+class BuckReferenceAnnotation(BaseModel):
+    """Metadata-only Buck reference linked to an applied phonological rule."""
+
+    source_rule_id: str = Field(
+        description="Applied Proteus rule id that produced this Buck annotation."
+    )
+    buck_rule_id: str = Field(description="Stable Buck-normalized rule identifier.")
+    buck_section: str | None = Field(
+        default=None,
+        description="Canonical Buck section string, when available.",
+    )
+    category: str | None = Field(default=None, description="Buck rule category.")
+    description: str | None = Field(
+        default=None,
+        description="Short normalized Buck rule summary; not a source-text quote.",
+    )
+    affected_dialects: list[str] = Field(
+        default_factory=list,
+        description="Dialect ids listed as affected by the Buck rule.",
+    )
+    status: str = Field(description="Data status inherited from Buck metadata.")
+    review_status: str = Field(description="Review status inherited from Buck metadata.")
+    citation_ready: bool = Field(
+        description="Whether this Buck reference annotation is citation-ready."
+    )
+    review_note: str = Field(
+        description="Short warning describing the review and citation boundary."
+    )
+
+
 class SearchHit(BaseModel):
     """A matched headword returned from phonological search."""
 
@@ -586,6 +634,13 @@ class SearchHit(BaseModel):
             "texts and excerpts are intentionally excluded."
         ),
     )
+    buck_references: list[BuckReferenceAnnotation] = Field(
+        default_factory=list,
+        description=(
+            "Metadata-only provisional Buck references linked from applied rule "
+            "references. These annotations do not affect ranking or rule application."
+        ),
+    )
     explanation: str = Field(
         description="Human-readable prose summary of the derivation.",
     )
@@ -621,6 +676,13 @@ class SearchResponse(BaseModel):
         description=(
             "Version metadata for data sources used in this search. Mirrors "
             "meta.data_versions for backward compatibility."
+        ),
+    )
+    buck_reference_metadata: BuckReferenceMetadata | None = Field(
+        default=None,
+        description=(
+            "Review metadata for Buck reference annotations, when annotation was "
+            "attempted for this response."
         ),
     )
     meta: ResponseMeta = Field(

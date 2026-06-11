@@ -85,6 +85,20 @@ def test_mcp_search_tool_output_schema_includes_meta_envelope() -> None:
     assert output_schema["properties"]["meta"]["$ref"] == "#/$defs/ResponseMeta"
 
 
+def test_mcp_search_tool_output_schema_includes_buck_references() -> None:
+    """MCP search candidates should expose Buck reference annotations."""
+    schema = _runtime_mcp_schema()
+    tool = _search_tool(schema)
+    output_schema = tool["outputSchema"]
+
+    search_hit_schema = output_schema["$defs"]["SearchHit"]
+    assert "buck_references" in search_hit_schema["properties"]
+    assert (
+        search_hit_schema["properties"]["buck_references"]["items"]["$ref"]
+        == "#/$defs/BuckReferenceAnnotation"
+    )
+
+
 def test_mcp_buck_tool_schemas_are_registered() -> None:
     """Buck reference tools should be present in the runtime MCP schema."""
     schema = _runtime_mcp_schema()
