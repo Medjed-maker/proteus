@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Medjed-maker/proteus/schemas/buck_dialects.schema.json",
+  "title": "Buck Dialects Schema",
+  "description": "Shape schema for the provisional Buck-normalized dialect catalog.",
+  "type": "object",
+  "required": ["meta", "dialects"],
+  "additionalProperties": true,
+  "not": {
+    "required": ["rules"]
+  },
+  "properties": {
+    "meta": {
+      "$ref": "#/$defs/buckMetadata"
+    },
+    "dialects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dialect"
+      },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "buckMetadata": {
+      "type": "object",
+      "description": "Shared Buck document metadata. additionalProperties stays permissive for forward compatibility. Keep this definition identical across all buck_*.schema.json files (guarded by tests/test_buck_data_files.py).",
+      "required": ["status", "review_status", "citation_ready", "source_notes"],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "description": "citation_ready: true requires review_status: expert_reviewed (project-wide convention; see docs/REQUIREMENTS.md and docs/API.md).",
+          "if": {
+            "properties": {
+              "citation_ready": {
+                "const": true
+              }
+            },
+            "required": ["citation_ready"]
+          },
+          "then": {
+            "properties": {
+              "review_status": {
+                "const": "expert_reviewed"
+              }
+            },
+            "required": ["review_status"]
+          }
+        }
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["provisional", "draft", "stable"]
+        },
+        "review_status": {
+          "type": "string",
+          "enum": ["not_expert_reviewed", "expert_reviewed", "peer_reviewed"]
+        },
+        "citation_ready": {
+          "type": "boolean"
+        },
+        "source_notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "dialect": {
+      "type": "object",
+      "description": "Entry-level definition: additionalProperties is strict so field typos fail validation instead of being silently ignored.",
+      "required": ["id", "rules"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rules": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    },
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

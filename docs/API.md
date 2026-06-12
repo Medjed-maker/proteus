@@ -226,6 +226,14 @@ the annotation is useful for discovery but is not citation-ready scholarly
 evidence. Broad Buck ranges such as `Buck §§63-65` are intentionally not
 expanded by the current API.
 
+Buck data files may declare `citation_ready: true` only when
+`meta.review_status` is `expert_reviewed`, i.e. the file content has been
+verified by an expert reviewer against the original Buck reference. This is
+the same project-wide convention used for orthographic notes (see
+`docs/REQUIREMENTS.md`), and the Buck JSON Schemas under `data/schemas/`
+enforce it at validation time. Files whose `review_status` is
+`not_expert_reviewed` or `peer_reviewed` must keep `citation_ready: false`.
+
 ## Error Responses
 
 | Status | Endpoint | Shape | Typical cause |

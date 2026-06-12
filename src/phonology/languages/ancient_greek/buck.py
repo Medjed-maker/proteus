@@ -91,6 +91,11 @@ def _validate_optional_meta(document: dict[str, Any], path: Path) -> None:
         raise ValueError(
             f"Buck data file {path} must define 'meta.citation_ready' as a boolean"
         )
+    if citation_ready is True and raw_meta.get("review_status") != "expert_reviewed":
+        raise ValueError(
+            f"Buck data file {path} with meta.citation_ready true must have "
+            "meta.review_status 'expert_reviewed'"
+        )
 
 
 def _validate_grammar_rules(document: dict[str, Any], path: Path) -> set[str]:
@@ -266,6 +271,30 @@ def _validate_glossary_buck_ref(raw_ref: Any, index: int, path: Path) -> None:
         )
 
 
+def _validate_glossary_entry_count(
+    glossary_document: dict[str, Any],
+    path: Path,
+) -> None:
+    """Validate optional glossary entry-count metadata against committed words."""
+    raw_meta = glossary_document.get("meta")
+    if raw_meta is None:
+        return
+    raw_current_entries = raw_meta.get("current_entries")
+    if raw_current_entries is None:
+        return
+    if isinstance(raw_current_entries, bool) or not isinstance(raw_current_entries, int):
+        raise ValueError(
+            f"Buck glossary file {path} must define 'meta.current_entries' "
+            "as an integer"
+        )
+    actual_entries = len(glossary_document["words"])
+    if raw_current_entries != actual_entries:
+        raise ValueError(
+            f"Buck glossary file {path} declares meta.current_entries "
+            f"{raw_current_entries}, but contains {actual_entries} word entries"
+        )
+
+
 def _validate_grammar_dialect_refs(
     grammar_document: dict[str, Any],
     *,
@@ -350,6 +379,7 @@ def _load_buck_data_cached() -> BuckData:
         dialect_ids=dialect_ids,
         paths=paths,
     )
+    _validate_glossary_entry_count(glossary_document, paths.glossary)
     _validate_grammar_dialect_refs(
         grammar_document,
         dialect_ids=dialect_ids,

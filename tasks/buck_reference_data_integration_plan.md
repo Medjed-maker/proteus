@@ -285,22 +285,22 @@
 
 ## Phase 10: Data Schema & Validation
 
-- [ ] Buck 専用 JSON Schema を追加するか決める。
-  - [ ] `data/schemas/buck_grammar_rules.schema.json`
-  - [ ] `data/schemas/buck_dialects.schema.json`
-  - [ ] `data/schemas/buck_glossary.schema.json`
-- [ ] 既存 Python validation と JSON Schema の責務を分ける。
-  - [ ] schema: shape validation
-  - [ ] Python: cross-file reference validation
-- [ ] `tests/test_buck_data_files.py` を schema validation に拡張する。
-- [ ] dialect parent cycle validation を追加する（cycle 検出の単一の真実。Phase 2 の継承解決はこれを前提とする）。
-- [ ] `affected_dialects` と `variants[].dialects` の unknown dialect 検証を維持する。
-- [ ] glossary `buck_ref.section` 型の揺れは Phase 2 の単一 section 正準化関数で正規化する。
-- [ ] glossary `rule_id: null` の許可条件を明記する。
-- [ ] `meta.current_entries` と実際の `words` 件数一致を検証する。
-- [ ] `meta.total_entries_original` は実件数 validation 対象外にする。
+- [x] Buck 専用 JSON Schema を追加するか決める。
+  - [x] `data/schemas/buck_grammar_rules.schema.json`
+  - [x] `data/schemas/buck_dialects.schema.json`
+  - [x] `data/schemas/buck_glossary.schema.json`
+- [x] 既存 Python validation と JSON Schema の責務を分ける。
+  - [x] schema: shape validation
+  - [x] Python: cross-file reference validation
+- [x] `tests/test_buck_data_files.py` を schema validation に拡張する。
+- [x] dialect parent cycle validation を追加する（cycle 検出の単一の真実。Phase 2 の継承解決はこれを前提とする）。
+- [x] `affected_dialects` と `variants[].dialects` の unknown dialect 検証を維持する。
+- [x] glossary `buck_ref.section` 型の揺れは Phase 2 の単一 section 正準化関数で正規化する。
+- [x] glossary `rule_id: null` の許可条件を明記する。
+- [x] `meta.current_entries` と実際の `words` 件数一致を検証する。
+- [x] `meta.total_entries_original` は実件数 validation 対象外にする。
 - [ ] 未レビュー OCR draft の一括 merge を防ぐ guard を設ける（OCR draft から `glossary.yaml` へ自動 merge する場合は未承認 entry を拒否する。既存 provisional reference data は `citation_ready: false` として許可する。詳細は glossary epic）。
-- [ ] `citation_ready: true` を許可する条件を docs に書く。
+- [x] `citation_ready: true` を許可する条件を docs に書く（`docs/API.md` の `SearchHit.buck_references` content guidelines に記載。`review_status: expert_reviewed` のみ許可）。
 
 ## Phase 11: Documentation
 
@@ -361,27 +361,27 @@
   - [x] 固定クエリ集合の `/search` 出力から `buck_references` など追加注釈 field を除外した ranking、distance、candidate ordering、`rules_applied`、`matched_rules` が Buck ON/OFF で不変（ranking 不変の回帰 snapshot）。
   - [ ] glossary word/standard_form 一致注釈は glossary 拡充 epic 後に追加。
 - [ ] Executable conversion pilot tests は別 epic で扱う（[buck_executable_rule_conversion_epic.md](buck_executable_rule_conversion_epic.md)）。
-- [ ] Data schema tests を追加する。
-  - [ ] valid Buck YAML を受け入れる。
-  - [ ] duplicate ids を拒否する。
-  - [ ] unknown refs を拒否する。
-  - [ ] parent cycle を拒否する。
-  - [ ] `current_entries` mismatch を拒否する。
-- [ ] Packaging tests を更新する。
-  - [ ] new schema files
-  - [ ] new docs where required
+- [x] Data schema tests を追加する。
+  - [x] valid Buck YAML を受け入れる。
+  - [x] duplicate ids を拒否する。
+  - [x] unknown refs を拒否する。
+  - [x] parent cycle を拒否する。
+  - [x] `current_entries` mismatch を拒否する。
+- [x] Packaging tests を更新する。
+  - [x] new schema files
+  - [x] new docs where required
   - [ ] generated OpenAPI if committed
 - [ ] Web UI tests を追加する場合の範囲を決める。
 
 ## Phase 14: Verification Commands
 
-- [ ] `uv run pytest tests/test_buck_loader.py -q`
-- [ ] `uv run pytest tests/test_buck_data_files.py -q`
+- [x] `uv run pytest tests/test_buck_loader.py -q`
+- [x] `uv run pytest tests/test_buck_data_files.py -q`
 - [x] `uv run pytest tests/test_packaging.py -q`
 - [ ] `uv run pytest tests/test_api_languages.py -q`
 - [x] `uv run pytest tests/test_api_main.py -q`
 - [x] `uv run pytest tests/test_mcp_search_tool.py -q`
-- [~] `uv run pytest -q`
+- [x] `uv run pytest -q`
 - [ ] `uv build --wheel`
 
 ## Suggested Implementation Order
@@ -393,7 +393,7 @@
 - [x] Step 1: Buck service tests を先に書き（rule/dialect/glossary lookup・no mutation）、既存 `load_buck_data()` の上に read-only index（frozen dataclass）を構築する。
 - [x] Step 2: MCP tests を先に書き、Buck 参照 MCP tool（`search_buck_rules` / `get_buck_dialect` / `search_buck_glossary`）を内部 service 直結で公開する。
 - [x] Step 3: 検索結果への `buck_references` annotation を rule_id 限定で追加（回帰 snapshot test で ranking 不変を先に固定）。
-- [ ] Step 4: MCP docs（`docs/MCP.md` / `docs/mcp/tools.json`）と data schema / validation を更新する。
+- [x] Step 4: MCP docs（`docs/MCP.md` / `docs/mcp/tools.json`）と data schema / validation を更新する。
 
 **契約安定後:**
 

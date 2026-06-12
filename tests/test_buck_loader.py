@@ -405,6 +405,58 @@ def test_load_buck_data_accepts_integer_glossary_page(
     assert data["glossary"]["words"][0]["buck_ref"]["page"] == 130
 
 
+def test_load_buck_data_rejects_glossary_current_entries_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules="rules:\n  - id: TEST-001\n",
+        dialects="dialects:\n  - id: test_dialect\n    rules: [TEST-001]\n",
+        glossary=(
+            "meta:\n"
+            "  current_entries: 2\n"
+            "words:\n"
+            "  - word: test\n"
+            "    dialect: test_dialect\n"
+            "    rule_id: TEST-001\n"
+        ),
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    with pytest.raises(
+        ValueError,
+        match="declares meta.current_entries 2, but contains 1 word entries",
+    ):
+        load_buck_data()
+
+
+def test_load_buck_data_accepts_matching_glossary_current_entries(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules="rules:\n  - id: TEST-001\n",
+        dialects="dialects:\n  - id: test_dialect\n    rules: [TEST-001]\n",
+        glossary=(
+            "meta:\n"
+            "  current_entries: 1\n"
+            "words:\n"
+            "  - word: test\n"
+            "    dialect: test_dialect\n"
+            "    rule_id: TEST-001\n"
+        ),
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    data = load_buck_data()
+
+    assert data["glossary"]["meta"]["current_entries"] == 1
+
+
 def test_load_buck_data_rejects_non_boolean_meta_citation_ready(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -450,6 +502,61 @@ def test_load_buck_data_accepts_boolean_meta_citation_ready(
     data = load_buck_data()
 
     assert data["grammar_rules"]["meta"]["citation_ready"] is False
+
+
+def test_load_buck_data_rejects_citation_ready_without_expert_review(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules=(
+            "meta:\n"
+            "  status: provisional\n"
+            "  review_status: not_expert_reviewed\n"
+            "  citation_ready: true\n"
+            "rules:\n"
+            "  - id: TEST-001\n"
+        ),
+        dialects="dialects:\n  - id: test_dialect\n    rules: [TEST-001]\n",
+        glossary="words:\n  - word: test\n    dialect: test_dialect\n    rule_id: TEST-001\n",
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "meta.citation_ready true must have "
+            "meta.review_status 'expert_reviewed'"
+        ),
+    ):
+        load_buck_data()
+
+
+def test_load_buck_data_accepts_citation_ready_with_expert_review(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules=(
+            "meta:\n"
+            "  status: stable\n"
+            "  review_status: expert_reviewed\n"
+            "  citation_ready: true\n"
+            "rules:\n"
+            "  - id: TEST-001\n"
+        ),
+        dialects="dialects:\n  - id: test_dialect\n    rules: [TEST-001]\n",
+        glossary="words:\n  - word: test\n    dialect: test_dialect\n    rule_id: TEST-001\n",
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
+
+    data = load_buck_data()
+
+    assert data["grammar_rules"]["meta"]["citation_ready"] is True
 
 
 def test_load_buck_data_rejects_unknown_grammar_dialect_reference(

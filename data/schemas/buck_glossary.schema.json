@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Medjed-maker/proteus/schemas/buck_glossary.schema.json",
+  "title": "Buck Glossary Schema",
+  "description": "Shape schema for provisional Buck-normalized glossary examples.",
+  "type": "object",
+  "required": ["meta", "words"],
+  "additionalProperties": true,
+  "properties": {
+    "meta": {
+      "$ref": "#/$defs/buckMetadata"
+    },
+    "words": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/glossaryEntry"
+      },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "buckMetadata": {
+      "type": "object",
+      "description": "Shared Buck document metadata. additionalProperties stays permissive for forward compatibility. Keep this definition identical across all buck_*.schema.json files (guarded by tests/test_buck_data_files.py).",
+      "required": ["status", "review_status", "citation_ready", "source_notes"],
+      "additionalProperties": true,
+      "allOf": [
+        {
+          "description": "citation_ready: true requires review_status: expert_reviewed (project-wide convention; see docs/REQUIREMENTS.md and docs/API.md).",
+          "if": {
+            "properties": {
+              "citation_ready": {
+                "const": true
+              }
+            },
+            "required": ["citation_ready"]
+          },
+          "then": {
+            "properties": {
+              "review_status": {
+                "const": "expert_reviewed"
+              }
+            },
+            "required": ["review_status"]
+          }
+        }
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["provisional", "draft", "stable"]
+        },
+        "review_status": {
+          "type": "string",
+          "enum": ["not_expert_reviewed", "expert_reviewed", "peer_reviewed"]
+        },
+        "citation_ready": {
+          "type": "boolean"
+        },
+        "source_notes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "glossaryEntry": {
+      "type": "object",
+      "description": "Entry-level definition: additionalProperties is strict so field typos fail validation instead of being silently ignored.",
+      "required": ["word", "dialect"],
+      "additionalProperties": false,
+      "properties": {
+        "word": {
+          "type": "string",
+          "minLength": 1
+        },
+        "standard_form": {
+          "type": "string",
+          "minLength": 1
+        },
+        "dialect": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rule_id": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inscription_no": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "buck_ref": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "section": {
+              "$ref": "#/$defs/section"
+            },
+            "page": {
+              "type": "integer"
+            }
+          }
+        },
+        "notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "section": {
+      "type": ["string", "integer", "number"]
+    }
+  }
+}
