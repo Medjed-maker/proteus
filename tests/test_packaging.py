@@ -35,6 +35,9 @@ EXPECTED_WHEEL_ASSETS = {
     "phonology/data/languages/ancient_greek/rules/buck/grammar_rules.yaml",
     "phonology/data/languages/ancient_greek/rules/morphophonemic_alternations.yaml",
     "phonology/data/languages/ancient_greek/rules/vowel_shifts.yaml",
+    "phonology/data/schemas/buck_dialects.schema.json",
+    "phonology/data/schemas/buck_glossary.schema.json",
+    "phonology/data/schemas/buck_grammar_rules.schema.json",
     "phonology/data/schemas/corpus_source_reference.schema.json",
     "phonology/data/schemas/phonology_rule_file.schema.json",
     "web/changelog.html",
@@ -344,6 +347,9 @@ def test_wheel_force_include_config_and_packaged_layout_support_runtime_loaders(
         "data/languages/ancient_greek/matrices": "phonology/data/languages/ancient_greek/matrices",
         "data/languages/ancient_greek/orthography": "phonology/data/languages/ancient_greek/orthography",
         "data/languages/ancient_greek/rules": "phonology/data/languages/ancient_greek/rules",
+        "data/schemas/buck_dialects.schema.json": "phonology/data/schemas/buck_dialects.schema.json",
+        "data/schemas/buck_glossary.schema.json": "phonology/data/schemas/buck_glossary.schema.json",
+        "data/schemas/buck_grammar_rules.schema.json": "phonology/data/schemas/buck_grammar_rules.schema.json",
         "data/schemas/corpus_source_reference.schema.json": "phonology/data/schemas/corpus_source_reference.schema.json",
         "data/schemas/phonology_rule_file.schema.json": "phonology/data/schemas/phonology_rule_file.schema.json",
         "src/web/index.html": "web/index.html",
@@ -444,6 +450,9 @@ def test_sdist_force_include_config_bundles_generated_lexicon_and_metadata() -> 
         "data/languages/ancient_greek/lexicon/greek_lemmas.meta.json": "data/languages/ancient_greek/lexicon/greek_lemmas.meta.json",
         "data/languages/ancient_greek/lexicon/supplemental_lemmas.yaml": "data/languages/ancient_greek/lexicon/supplemental_lemmas.yaml",
         "data/languages/ancient_greek/corpus_sources": "data/languages/ancient_greek/corpus_sources",
+        "data/schemas/buck_dialects.schema.json": "data/schemas/buck_dialects.schema.json",
+        "data/schemas/buck_glossary.schema.json": "data/schemas/buck_glossary.schema.json",
+        "data/schemas/buck_grammar_rules.schema.json": "data/schemas/buck_grammar_rules.schema.json",
         "data/schemas/corpus_source_reference.schema.json": "data/schemas/corpus_source_reference.schema.json",
         "data/schemas/phonology_rule_file.schema.json": "data/schemas/phonology_rule_file.schema.json",
     }
@@ -720,6 +729,14 @@ def test_uv_build_generates_missing_lexicon_for_sdist(tmp_path: Path) -> None:
             name.endswith("data/schemas/phonology_rule_file.schema.json")
             for name in names
         ), "sdist does not contain data/schemas/phonology_rule_file.schema.json"
+        for schema_name in (
+            "buck_dialects.schema.json",
+            "buck_glossary.schema.json",
+            "buck_grammar_rules.schema.json",
+        ):
+            assert any(
+                name.endswith(f"data/schemas/{schema_name}") for name in names
+            ), f"sdist does not contain data/schemas/{schema_name}"
 
     assert any(
         entry.get("headword") == "ἄνθρωπος" for entry in lexicon_document["lemmas"]
@@ -777,6 +794,9 @@ def test_uv_build_generates_missing_lexicon_for_wheel(tmp_path: Path) -> None:
             in asset_names
         )
         assert "phonology/data/schemas/phonology_rule_file.schema.json" in asset_names
+        assert "phonology/data/schemas/buck_dialects.schema.json" in asset_names
+        assert "phonology/data/schemas/buck_glossary.schema.json" in asset_names
+        assert "phonology/data/schemas/buck_grammar_rules.schema.json" in asset_names
         expected_license_assets = (
             ".dist-info/licenses/DATA_LICENSE.md",
             ".dist-info/licenses/LICENSE",
