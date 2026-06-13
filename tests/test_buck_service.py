@@ -12,7 +12,6 @@ import pytest
 
 from phonology._trusted_paths import TRUSTED_DIR_OVERRIDES_OPT_IN_ENV_VAR
 from phonology.languages.ancient_greek import buck as buck_module
-from phonology.languages.ancient_greek import buck_service as buck_service_module
 from phonology.languages.ancient_greek.buck import load_buck_data
 from phonology.languages.ancient_greek.buck_service import (
     BuckReferenceIndex,
@@ -358,29 +357,28 @@ def test_clear_buck_data_cache_also_clears_reference_index_cache(
     assert second_index.get_rule("B1") is not None
 
 
-def test_service_treats_non_boolean_citation_ready_as_false(
+def test_service_rejects_non_boolean_citation_ready_from_loader_path(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def fake_load_buck_data() -> dict[str, object]:
-        return {
-            "grammar_rules": {
-                "meta": {
-                    "status": "provisional",
-                    "review_status": "not_expert_reviewed",
-                    "citation_ready": "false",
-                },
-                "rules": [{"id": "R1"}],
-            },
-            "dialects": {"dialects": []},
-            "glossary": {"words": []},
-        }
+    buck_dir = tmp_path / "buck"
+    _write_buck_fixture(
+        buck_dir,
+        grammar_rules=(
+            "meta:\n"
+            "  status: provisional\n"
+            "  review_status: not_expert_reviewed\n"
+            "  citation_ready: 'false'\n"
+            "rules:\n"
+            "  - id: R1\n"
+        ),
+        dialects="dialects:\n  - id: attic\n    rules: [R1]\n",
+        glossary="words: []\n",
+    )
+    monkeypatch.setenv("PROTEUS_TRUSTED_BUCK_DIR", str(buck_dir))
 
-    monkeypatch.setattr(buck_service_module, "load_buck_data", fake_load_buck_data)
-
-    index = build_buck_reference_index()
-
-    assert index.metadata.citation_ready is False
-    assert index.get_rule("R1").citation_ready is False
+    with pytest.raises(ValueError, match="must define 'meta.citation_ready' as a boolean"):
+        build_buck_reference_index()
 
 
 def test_index_is_not_affected_by_mutating_loaded_source_copy(
