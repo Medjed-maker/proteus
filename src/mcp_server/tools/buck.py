@@ -17,14 +17,11 @@ from phonology.languages.ancient_greek.buck_service import (
     build_buck_reference_index,
 )
 
-_SUPPORTED_BUCK_LANGUAGE = "ancient_greek"
-_PROVISIONAL_REVIEW_NOTE = (
-    "Buck reference data is provisional, not expert-reviewed, and must not be "
-    "treated as citation-ready scholarly evidence."
-)
-_CITATION_READY_REVIEW_NOTE = (
-    "Buck reference data is marked citation-ready; verify the specific context "
-    "before scholarly citation."
+from api.conversion import (
+    SUPPORTED_BUCK_LANGUAGE as _SUPPORTED_BUCK_LANGUAGE,
+    inscription_number_as_json,
+    json_mapping,
+    review_note_for,
 )
 
 
@@ -166,9 +163,11 @@ class McpBuckGlossaryEntryInfo(BaseModel):
         description="Linked Buck rule id, when available.",
     )
     definition: str | None = Field(default=None, description="Short gloss.")
-    inscription_no: str | None = Field(
+    inscription_no: str | list[int] | None = Field(
         default=None,
-        description="Inscription identifier, when stored as a string.",
+        description=(
+            "Inscription identifier, when stored as a string or integer array."
+        ),
     )
     buck_ref: McpBuckReferenceInfo | None = Field(
         default=None,
@@ -393,11 +392,7 @@ def _metadata_info(metadata: BuckMetadata) -> McpBuckMetadata:
         status=metadata.status,
         review_status=str(metadata.review_status),
         citation_ready=metadata.citation_ready,
-        review_note=(
-            _CITATION_READY_REVIEW_NOTE
-            if metadata.citation_ready
-            else _PROVISIONAL_REVIEW_NOTE
-        ),
+        review_note=review_note_for(metadata.citation_ready),
     )
 
 
@@ -410,7 +405,7 @@ def _rule_info(rule: BuckRule) -> McpBuckRuleInfo:
         transformation=_transformation_info(rule.transformation),
         affected_dialects=list(rule.affected_dialects),
         variants=[
-            McpBuckVariant.model_validate(_json_mapping(variant))
+            McpBuckVariant.model_validate(json_mapping(variant))
             for variant in rule.variants
         ],
         notes=rule.notes,
@@ -426,7 +421,7 @@ def _transformation_info(
     """Build a typed transformation, or ``None`` when the rule has no data."""
     if not transformation:
         return None
-    return McpBuckTransformation.model_validate(_json_mapping(transformation))
+    return McpBuckTransformation.model_validate(json_mapping(transformation))
 
 
 def _dialect_info(dialect: BuckDialect) -> McpBuckDialectInfo:
@@ -450,7 +445,7 @@ def _glossary_entry_info(entry: BuckGlossaryEntry) -> McpBuckGlossaryEntryInfo:
         dialect=entry.dialect,
         rule_id=entry.rule_id,
         definition=entry.definition,
-        inscription_no=entry.inscription_no,
+        inscription_no=inscription_number_as_json(entry.inscription_no),
         buck_ref=_reference_info(entry.buck_ref),
         notes=entry.notes,
         status=entry.status,
@@ -465,18 +460,6 @@ def _reference_info(
     if reference is None:
         return None
     return McpBuckReferenceInfo(section=reference.section, page=reference.page)
-
-
-def _json_mapping(raw_mapping: Mapping[str, Any]) -> dict[str, Any]:
-    return {key: _json_value(value) for key, value in raw_mapping.items()}
-
-
-def _json_value(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return _json_mapping(value)
-    if isinstance(value, tuple):
-        return [_json_value(item) for item in value]
-    return value
 
 
 __all__ = [

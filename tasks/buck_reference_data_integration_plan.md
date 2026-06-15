@@ -126,8 +126,8 @@
   - [x] `inscription_no`
   - [x] `buck_ref`
   - [x] `notes`
-- [ ] public response 用に返す field と内部専用 field を分ける。
-- [ ] `citation_ready` と `review_status` は、レスポンス全体 metadata と各 item の両方に持たせる（確定事項 3）。
+- [x] public response 用に返す field と内部専用 field を分ける。
+- [x] `citation_ready` と `review_status` は、レスポンス全体 metadata と各 item の両方に持たせる（確定事項 3）。
 
 ## Phase 2: Buck Reference Service
 
@@ -169,68 +169,71 @@
 
 ## Phase 3: API Models
 
-- [ ] `src/api/_models.py` に Buck response model を追加する。
-  - [ ] `BuckMetadata`
-  - [ ] `BuckRuleInfo`
-  - [ ] `BuckDialectInfo`
-  - [ ] `BuckGlossaryEntryInfo`
-  - [ ] `BuckRulesResponse`
-  - [ ] `BuckDialectsResponse`
-  - [ ] `BuckGlossaryResponse`
-  - [ ] `BuckRuleResponse`
-  - [ ] `BuckDialectResponse`
-- [ ] Field descriptions を英語で追加する。
-- [ ] `citation_ready` と `review_status` を全体 metadata と各 item の両方に持たせる（確定事項 3）。
-- [ ] `citation_ready` の意味を description に含める。
-- [ ] `review_status` の許可値を Literal 化するか決める。
-- [ ] `buck_section` / `buck_ref.section` は Phase 2 の単一 section 正準化関数を通して string で返す。
-- [ ] OpenAPI 生成結果の差分方針（確定）。
-  - [ ] endpoint 追加は後方互換のため major schema version bump は不要。
-  - [ ] `docs/api/openapi.json` を再生成してコミットし、`tests/test_packaging.py` の対象を更新する。
+- [x] `src/api/_models.py` に Buck response model を追加する。
+  - [x] `BuckMetadata`
+  - [x] `BuckRuleInfo`
+  - [x] `BuckDialectInfo`
+  - [x] `BuckGlossaryEntryInfo`
+  - [x] `BuckRulesResponse`
+  - [x] `BuckDialectsResponse`
+  - [x] `BuckGlossaryResponse`
+  - [x] `BuckRuleResponse`
+  - [x] `BuckDialectResponse`
+- [x] Field descriptions を英語で追加する。
+- [x] `citation_ready` と `review_status` を全体 metadata と各 item の両方に持たせる（確定事項 3）。
+- [x] `citation_ready` の意味を description に含める。
+- [x] `review_status` の許可値を Literal 化するか決める。
+  - [x] 初期 REST 契約では MCP と同じく string とし、将来の review status 追加に後方互換で対応する。
+- [x] `buck_section` / `buck_ref.section` は Phase 2 の単一 section 正準化関数を通して string で返す。
+- [x] OpenAPI 生成結果の差分方針（確定）。
+  - [x] endpoint 追加は後方互換のため major schema version bump は不要。
+  - [x] `docs/api/openapi.json` を再生成してコミットし、OpenAPI drift test を更新する。
 
 ## Phase 4: REST API Endpoints （後続: MCP 契約安定後）
 
-> 確定事項 1 により公開面は MCP 先行。本 Phase の endpoint 設計は残すが、実装は MCP 契約が安定してから着手する。
+> 確定事項 1 により公開面は MCP 先行。本 Phase の endpoint 設計は MCP 契約安定後の Step 5 で実装した。
 
-- [ ] endpoint の URL 設計を決める。
-  - [ ] 候補: `/languages/{language}/buck/rules`
-  - [ ] 候補: `/languages/{language}/buck/rules/{rule_id}`
-  - [ ] 候補: `/languages/{language}/buck/dialects`
-  - [ ] 候補: `/languages/{language}/buck/dialects/{dialect_id}`
-  - [ ] 候補: `/languages/{language}/buck/glossary`
-  - [ ] 推奨: `language` path parameter を入れ、初期は `ancient_greek` のみ対応。
-- [ ] unsupported language の扱いを決める。
-  - [ ] `404 Not Found`
-  - [ ] または `422 Validation Error`
-  - [ ] 推奨: registered language だが Buck 非対応なら `404`。
-- [ ] `/buck/rules` query params を設計する。
-  - [ ] `category`
-  - [ ] `dialect`
-  - [ ] `section`
-  - [ ] `limit`
-  - [ ] `offset`
-- [ ] `/buck/dialects` query params を設計する。
-  - [ ] `kind`
-  - [ ] `group`
-  - [ ] `include_rules`
-  - [ ] `include_inherited`
-- [ ] `/buck/glossary` query params を設計する。
-  - [ ] `word`
-  - [ ] `standard_form`
-  - [ ] `dialect`
-  - [ ] `rule_id`
-  - [ ] `accent_insensitive`
-  - [ ] `limit`
-  - [ ] `offset`
-- [ ] pagination の default と上限を決める。
-  - [ ] 推奨: `limit=50`, max `200`
-- [ ] response meta に engine/api/schema version を入れるか確認する。
-- [ ] API error messages を英語で統一する。
-- [ ] endpoint 単位で cache 可能性を検討する。
-- [ ] `/languages` response に Buck availability を追加するか決める。
-  - [ ] `has_buck_reference_data: true`
-  - [ ] `buck_reference_status: "provisional"`
-  - [ ] 初期実装では endpoint discovery docs だけに留めるか検討する。
+- [x] endpoint の URL 設計を決める。
+  - [x] 候補: `/languages/{language}/buck/rules`
+  - [x] 候補: `/languages/{language}/buck/rules/{rule_id}`
+  - [x] 候補: `/languages/{language}/buck/dialects`
+  - [x] 候補: `/languages/{language}/buck/dialects/{dialect_id}`
+  - [x] 候補: `/languages/{language}/buck/glossary`
+  - [x] 推奨: `language` path parameter を入れ、初期は `ancient_greek` のみ対応。
+- [x] unsupported language の扱いを決める。
+  - [x] 決定: unsupported language と Buck 非対応の registered language は `404 Not Found` を返す。
+- [x] `/buck/rules` query params を設計する。
+  - [x] `category`
+  - [x] `dialect`
+  - [x] `section`
+  - [x] `limit`
+  - [x] `offset`
+- [x] `/buck/dialects` query params を設計する。
+  - [x] `kind`
+  - [x] `group`
+- [x] `/buck/dialects/{dialect_id}` query params を設計する。
+  - [x] `include_rules`
+  - [x] `include_inherited`
+- [x] `/buck/glossary` query params を設計する。
+  - [x] `word`
+  - [x] `standard_form`
+  - [x] `dialect`
+  - [x] `rule_id`
+  - [x] `accent_insensitive`
+  - [x] `limit`
+  - [x] `offset`
+- [x] pagination の default と上限を決める。
+  - [x] 推奨: `limit=50`, max `200`
+- [x] response meta に engine/api/schema version を入れるか確認する。
+  - [x] Buck 参照 endpoint は検索実行結果ではないため、初期実装では Buck review metadata のみ返す。
+- [x] API error messages を英語で統一する。
+- [x] endpoint 単位で cache 可能性を検討する。
+  - [x] endpoint では追加 cache を持たず、内部 Buck service index cache を共有する。
+- [x] `/languages` response に Buck availability を追加するか決める。
+  - [x] 決定: Phase 4 では `/languages` response に Buck availability fields を追加しない。
+  - [x] 採用: endpoint discovery docs だけで Buck endpoint availability を案内する。
+  - [ ] deferred/rejected: `has_buck_reference_data: true`
+  - [ ] deferred/rejected: `buck_reference_status: "provisional"`
 
 ## Phase 5: MCP Tool Exposure （MVP: 公開面の先行実装）
 
@@ -397,7 +400,7 @@
 
 **契約安定後:**
 
-- [ ] Step 5: REST API model と Buck endpoints を追加し、`docs/API.md` と `docs/api/openapi.json` を再生成・コミットする。
+- [x] Step 5: REST API model と Buck endpoints を追加し、`docs/API.md` と `docs/api/openapi.json` を再生成・コミットする。
 
 **後続 epic（別書）:**
 

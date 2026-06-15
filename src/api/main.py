@@ -25,7 +25,6 @@ from phonology.core.ports.profiles import (
     list_language_profiles,
     register_default_profiles,
 )
-
 from . import _assets, _dependencies, _runtime_metadata
 from ._app_version import (
     _APP_VERSION_ENV_VAR as _APP_VERSION_ENV_VAR,
@@ -38,6 +37,7 @@ from ._dependencies import (
     _SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL as _SEARCH_DEPENDENCIES_LEXICON_NOT_READY_DETAIL,
     _SEARCH_DEPENDENCY_LOAD_ERRORS as _SEARCH_DEPENDENCY_LOAD_ERRORS,
 )
+from ._buck_routes import router as buck_router
 from ._models import (
     DataVersions as DataVersions,
     LanguagesResponse,
@@ -180,6 +180,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-Request-ID"],
     allow_credentials=False,
 )
+app.include_router(buck_router)
 
 
 @app.middleware("http")

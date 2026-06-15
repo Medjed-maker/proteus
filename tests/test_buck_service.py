@@ -234,6 +234,23 @@ def test_dialect_lookup_and_inherited_rules_dedupe_first_seen(
     ] == ["R1", "R3"]
 
 
+def test_list_dialects_filters_by_group_and_kind(
+    fixture_index: BuckReferenceIndex,
+) -> None:
+    """list_dialects applies group alongside kind and excludes other groups."""
+    assert [item.id for item in fixture_index.list_dialects(group="Test")] == [
+        "parent",
+        "child",
+        "attic",
+        "doric",
+    ]
+    assert [
+        item.id
+        for item in fixture_index.list_dialects(kind="dialect", group="Test")
+    ] == ["child", "attic", "doric"]
+    assert fixture_index.list_dialects(group="Nonexistent") == ()
+
+
 def test_glossary_lookup_filters_and_uses_nfc_strict_matching(
     fixture_index: BuckReferenceIndex,
 ) -> None:
@@ -256,6 +273,7 @@ def test_glossary_lookup_filters_and_uses_nfc_strict_matching(
     assert by_word[0].buck_ref is not None
     assert by_word[0].buck_ref.section == "41.4"
     assert by_word[0].buck_ref.page == 130
+    assert by_word[0].inscription_no == "IG I 1"
     assert by_word[0].review_status == "not_expert_reviewed"
     assert by_word[0].citation_ready is False
 
@@ -333,6 +351,7 @@ def test_packaged_buck_data_counts_and_metadata_are_exposed() -> None:
     assert index.metadata.review_status == "not_expert_reviewed"
     assert index.metadata.citation_ready is False
     assert index.get_rule("grc_phon_41_4") is not None
+    assert index.find_glossary_by_standard_form("ἐν")[0].inscription_no == (47,)
 
 
 def test_clear_buck_data_cache_also_clears_reference_index_cache(

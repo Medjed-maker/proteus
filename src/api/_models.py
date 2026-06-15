@@ -25,6 +25,7 @@ from phonology.core.ports.profiles import get_default_language_profile, get_lang
 
 __all__ = [
     "DataVersions",
+    "ErrorResponse",
     "VersionInfo",
     "RequestEcho",
     "ResponseMeta",
@@ -35,6 +36,18 @@ __all__ = [
     "OrthographicNote",
     "BuckReferenceMetadata",
     "BuckReferenceAnnotation",
+    "BuckMetadata",
+    "BuckReferenceInfo",
+    "BuckTransformation",
+    "BuckVariant",
+    "BuckRuleInfo",
+    "BuckDialectInfo",
+    "BuckGlossaryEntryInfo",
+    "BuckRulesResponse",
+    "BuckDialectsResponse",
+    "BuckGlossaryResponse",
+    "BuckRuleResponse",
+    "BuckDialectResponse",
     "SourceReference",
     "SearchHit",
     "SearchResponse",
@@ -80,6 +93,12 @@ class DataVersions(BaseModel):
     @classmethod
     def _validate_timestamp(cls, value: str) -> str:
         return _validate_iso8601_timestamp(value)
+
+
+class ErrorResponse(BaseModel):
+    """Simple error response produced by HTTPException handlers."""
+
+    detail: str = Field(description="Human-readable error detail.")
 
 
 class VersionInfo(BaseModel):
@@ -544,6 +563,216 @@ class BuckReferenceAnnotation(BaseModel):
     review_note: str = Field(
         description="Short warning describing the review and citation boundary."
     )
+
+
+class BuckMetadata(BaseModel):
+    """Review metadata shared by Buck reference-data REST responses."""
+
+    status: str = Field(description="Data status for the Buck reference layer.")
+    review_status: str = Field(description="Expert-review status for the data.")
+    citation_ready: bool = Field(
+        description=(
+            "Whether the Buck reference data is ready for scholarly citation. "
+            "False means clients must present it as provisional review metadata."
+        )
+    )
+    review_note: str = Field(
+        description="Short warning describing the review and citation boundary."
+    )
+
+
+class BuckReferenceInfo(BaseModel):
+    """Specific Buck section/page reference for a glossary entry."""
+
+    section: str | None = Field(
+        default=None,
+        description="Canonical Buck section string, when available.",
+    )
+    page: int | None = Field(default=None, description="Buck page number, when stored.")
+
+
+class BuckTransformation(BaseModel):
+    """Normalized phonological transformation for a Buck rule."""
+
+    # The Buck grammar-rules schema defines `transformation` with
+    # additionalProperties: false, so only from/to/context can ever appear.
+    # `extra="ignore"` keeps the public surface to this curated field set rather
+    # than forwarding arbitrary keys. populate_by_name enables the `from` alias.
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
+
+    from_: str | None = Field(
+        default=None,
+        alias="from",
+        description="Source phone/grapheme, when specified.",
+    )
+    to: str | None = Field(
+        default=None,
+        description="Resulting phone/grapheme, when specified.",
+    )
+    context: str | None = Field(
+        default=None,
+        description="Phonological context, when specified.",
+    )
+
+
+class BuckVariant(BaseModel):
+    """Normalized dialectal variant example for a Buck rule."""
+
+    # The Buck grammar-rules schema defines `variant` with
+    # additionalProperties: true: variants are heterogeneous summaries, so
+    # `extra="allow"` deliberately forwards their curated extra fields. Do not
+    # tighten this without changing the data schema first.
+    model_config = ConfigDict(extra="allow")
+
+    form: str | None = Field(default=None, description="Variant form, when specified.")
+    dialects: list[str] = Field(
+        default_factory=list,
+        description="Dialect ids exhibiting this variant.",
+    )
+
+
+class BuckRuleInfo(BaseModel):
+    """Public REST representation of a Buck grammar-rule summary."""
+
+    id: str = Field(description="Stable Buck-normalized rule identifier.")
+    buck_section: str | None = Field(
+        default=None,
+        description="Canonical Buck section string, when available.",
+    )
+    category: str | None = Field(default=None, description="Rule category.")
+    description: str | None = Field(
+        default=None,
+        description="Short normalized rule summary; not a long source-text quote.",
+    )
+    transformation: BuckTransformation | None = Field(
+        default=None,
+        description="Normalized transformation metadata, when the rule has one.",
+    )
+    affected_dialects: list[str] = Field(
+        default_factory=list,
+        description="Dialect ids listed as affected by this rule.",
+    )
+    variants: list[BuckVariant] = Field(
+        default_factory=list,
+        description="Short normalized variant examples; source text is not included.",
+    )
+    notes: str | None = Field(default=None, description="Short curation note.")
+    status: str = Field(description="Data status inherited from Buck metadata.")
+    review_status: str = Field(description="Review status inherited from Buck metadata.")
+    citation_ready: bool = Field(
+        description="Whether this Buck rule summary is citation-ready."
+    )
+
+
+class BuckDialectInfo(BaseModel):
+    """Public REST representation of a Buck dialect catalog entry."""
+
+    id: str = Field(description="Stable Buck-normalized dialect identifier.")
+    name: str | None = Field(default=None, description="Human-readable dialect name.")
+    kind: str | None = Field(default=None, description="Dialect catalog kind.")
+    group: str | None = Field(default=None, description="Dialect group label.")
+    parent: str | None = Field(default=None, description="Parent dialect/group id.")
+    rules: list[str] = Field(
+        default_factory=list,
+        description="Rule ids directly listed for this dialect.",
+    )
+    status: str = Field(description="Data status inherited from Buck metadata.")
+    review_status: str = Field(description="Review status inherited from Buck metadata.")
+    citation_ready: bool = Field(
+        description="Whether this Buck dialect catalog entry is citation-ready."
+    )
+
+
+class BuckGlossaryEntryInfo(BaseModel):
+    """Public REST representation of a Buck glossary example."""
+
+    word: str = Field(description="Dialectal or example form.")
+    standard_form: str | None = Field(
+        default=None,
+        description="Regularized or dictionary-facing form.",
+    )
+    dialect: str = Field(description="Buck dialect id for the example.")
+    rule_id: str | None = Field(
+        default=None,
+        description="Linked Buck rule id, when available.",
+    )
+    definition: str | None = Field(default=None, description="Short gloss.")
+    inscription_no: str | list[int] | None = Field(
+        default=None,
+        description=(
+            "Inscription identifier, when stored as a string or integer array."
+        ),
+    )
+    buck_ref: BuckReferenceInfo | None = Field(
+        default=None,
+        description="Buck section/page metadata; source text is not included.",
+    )
+    notes: str | None = Field(default=None, description="Short curation note.")
+    status: str = Field(description="Data status inherited from Buck metadata.")
+    review_status: str = Field(description="Review status inherited from Buck metadata.")
+    citation_ready: bool = Field(
+        description="Whether this Buck glossary entry is citation-ready."
+    )
+
+
+class BuckRulesResponse(BaseModel):
+    """Response payload for Buck rule searches."""
+
+    rules: list[BuckRuleInfo] = Field(description="Matching Buck rule summaries.")
+    count: int = Field(ge=0, description="Number of rules in the current page.")
+    total: int = Field(
+        ge=0,
+        description="Total matching rules before pagination is applied.",
+    )
+    metadata: BuckMetadata = Field(description="Buck review metadata.")
+
+
+class BuckDialectsResponse(BaseModel):
+    """Response payload for Buck dialect enumeration."""
+
+    dialects: list[BuckDialectInfo] = Field(
+        description="Matching Buck dialect catalog entries."
+    )
+    count: int = Field(ge=0, description="Number of dialects in the current page.")
+    total: int = Field(
+        ge=0,
+        description="Total matching dialects before pagination is applied.",
+    )
+    metadata: BuckMetadata = Field(description="Buck review metadata.")
+
+
+class BuckGlossaryResponse(BaseModel):
+    """Response payload for Buck glossary searches."""
+
+    entries: list[BuckGlossaryEntryInfo] = Field(
+        description="Matching Buck glossary entries."
+    )
+    count: int = Field(
+        ge=0, description="Number of glossary entries in the current page."
+    )
+    total: int = Field(
+        ge=0,
+        description="Total matching glossary entries before pagination is applied.",
+    )
+    metadata: BuckMetadata = Field(description="Buck review metadata.")
+
+
+class BuckRuleResponse(BaseModel):
+    """Response payload for a single Buck rule lookup."""
+
+    rule: BuckRuleInfo = Field(description="Matching Buck rule summary.")
+    metadata: BuckMetadata = Field(description="Buck review metadata.")
+
+
+class BuckDialectResponse(BaseModel):
+    """Response payload for a single Buck dialect lookup."""
+
+    dialect: BuckDialectInfo = Field(description="Matching Buck dialect.")
+    rules: list[BuckRuleInfo] = Field(
+        default_factory=list,
+        description="Buck rule summaries linked from the dialect catalog.",
+    )
+    metadata: BuckMetadata = Field(description="Buck review metadata.")
 
 
 class SearchHit(BaseModel):

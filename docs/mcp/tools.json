@@ -1284,11 +1284,17 @@
                     "type": "string"
                   },
                   {
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
                 "default": null,
-                "description": "Inscription identifier, when stored as a string.",
+                "description": "Inscription identifier, when stored as a string or integer array.",
                 "title": "Inscription No"
               },
               "notes": {
