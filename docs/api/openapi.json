@@ -1,6 +1,345 @@
 {
   "components": {
     "schemas": {
+      "BuckDialectInfo": {
+        "description": "Public REST representation of a Buck dialect catalog entry.",
+        "properties": {
+          "citation_ready": {
+            "description": "Whether this Buck dialect catalog entry is citation-ready.",
+            "title": "Citation Ready",
+            "type": "boolean"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Dialect group label.",
+            "title": "Group"
+          },
+          "id": {
+            "description": "Stable Buck-normalized dialect identifier.",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Dialect catalog kind.",
+            "title": "Kind"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Human-readable dialect name.",
+            "title": "Name"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Parent dialect/group id.",
+            "title": "Parent"
+          },
+          "review_status": {
+            "description": "Review status inherited from Buck metadata.",
+            "title": "Review Status",
+            "type": "string"
+          },
+          "rules": {
+            "description": "Rule ids directly listed for this dialect.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "status": {
+            "description": "Data status inherited from Buck metadata.",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "review_status",
+          "citation_ready"
+        ],
+        "title": "BuckDialectInfo",
+        "type": "object"
+      },
+      "BuckDialectResponse": {
+        "description": "Response payload for a single Buck dialect lookup.",
+        "properties": {
+          "dialect": {
+            "$ref": "#/components/schemas/BuckDialectInfo",
+            "description": "Matching Buck dialect."
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/BuckMetadata",
+            "description": "Buck review metadata."
+          },
+          "rules": {
+            "description": "Buck rule summaries linked from the dialect catalog.",
+            "items": {
+              "$ref": "#/components/schemas/BuckRuleInfo"
+            },
+            "title": "Rules",
+            "type": "array"
+          }
+        },
+        "required": [
+          "dialect",
+          "metadata"
+        ],
+        "title": "BuckDialectResponse",
+        "type": "object"
+      },
+      "BuckDialectsResponse": {
+        "description": "Response payload for Buck dialect enumeration.",
+        "properties": {
+          "count": {
+            "description": "Number of dialects in the current page.",
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "dialects": {
+            "description": "Matching Buck dialect catalog entries.",
+            "items": {
+              "$ref": "#/components/schemas/BuckDialectInfo"
+            },
+            "title": "Dialects",
+            "type": "array"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/BuckMetadata",
+            "description": "Buck review metadata."
+          },
+          "total": {
+            "description": "Total matching dialects before pagination is applied.",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "dialects",
+          "count",
+          "total",
+          "metadata"
+        ],
+        "title": "BuckDialectsResponse",
+        "type": "object"
+      },
+      "BuckGlossaryEntryInfo": {
+        "description": "Public REST representation of a Buck glossary example.",
+        "properties": {
+          "buck_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuckReferenceInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Buck section/page metadata; source text is not included."
+          },
+          "citation_ready": {
+            "description": "Whether this Buck glossary entry is citation-ready.",
+            "title": "Citation Ready",
+            "type": "boolean"
+          },
+          "definition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Short gloss.",
+            "title": "Definition"
+          },
+          "dialect": {
+            "description": "Buck dialect id for the example.",
+            "title": "Dialect",
+            "type": "string"
+          },
+          "inscription_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Inscription identifier, when stored as a string or integer array.",
+            "title": "Inscription No"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Short curation note.",
+            "title": "Notes"
+          },
+          "review_status": {
+            "description": "Review status inherited from Buck metadata.",
+            "title": "Review Status",
+            "type": "string"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Linked Buck rule id, when available.",
+            "title": "Rule Id"
+          },
+          "standard_form": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Regularized or dictionary-facing form.",
+            "title": "Standard Form"
+          },
+          "status": {
+            "description": "Data status inherited from Buck metadata.",
+            "title": "Status",
+            "type": "string"
+          },
+          "word": {
+            "description": "Dialectal or example form.",
+            "title": "Word",
+            "type": "string"
+          }
+        },
+        "required": [
+          "word",
+          "dialect",
+          "status",
+          "review_status",
+          "citation_ready"
+        ],
+        "title": "BuckGlossaryEntryInfo",
+        "type": "object"
+      },
+      "BuckGlossaryResponse": {
+        "description": "Response payload for Buck glossary searches.",
+        "properties": {
+          "count": {
+            "description": "Number of glossary entries in the current page.",
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "entries": {
+            "description": "Matching Buck glossary entries.",
+            "items": {
+              "$ref": "#/components/schemas/BuckGlossaryEntryInfo"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/BuckMetadata",
+            "description": "Buck review metadata."
+          },
+          "total": {
+            "description": "Total matching glossary entries before pagination is applied.",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entries",
+          "count",
+          "total",
+          "metadata"
+        ],
+        "title": "BuckGlossaryResponse",
+        "type": "object"
+      },
+      "BuckMetadata": {
+        "description": "Review metadata shared by Buck reference-data REST responses.",
+        "properties": {
+          "citation_ready": {
+            "description": "Whether the Buck reference data is ready for scholarly citation. False means clients must present it as provisional review metadata.",
+            "title": "Citation Ready",
+            "type": "boolean"
+          },
+          "review_note": {
+            "description": "Short warning describing the review and citation boundary.",
+            "title": "Review Note",
+            "type": "string"
+          },
+          "review_status": {
+            "description": "Expert-review status for the data.",
+            "title": "Review Status",
+            "type": "string"
+          },
+          "status": {
+            "description": "Data status for the Buck reference layer.",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "review_status",
+          "citation_ready",
+          "review_note"
+        ],
+        "title": "BuckMetadata",
+        "type": "object"
+      },
       "BuckReferenceAnnotation": {
         "description": "Metadata-only Buck reference linked to an applied phonological rule.",
         "properties": {
@@ -90,6 +429,37 @@
         "title": "BuckReferenceAnnotation",
         "type": "object"
       },
+      "BuckReferenceInfo": {
+        "description": "Specific Buck section/page reference for a glossary entry.",
+        "properties": {
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Buck page number, when stored.",
+            "title": "Page"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Canonical Buck section string, when available.",
+            "title": "Section"
+          }
+        },
+        "title": "BuckReferenceInfo",
+        "type": "object"
+      },
       "BuckReferenceMetadata": {
         "description": "Review metadata for Buck reference annotations.",
         "properties": {
@@ -121,6 +491,241 @@
           "review_note"
         ],
         "title": "BuckReferenceMetadata",
+        "type": "object"
+      },
+      "BuckRuleInfo": {
+        "description": "Public REST representation of a Buck grammar-rule summary.",
+        "properties": {
+          "affected_dialects": {
+            "description": "Dialect ids listed as affected by this rule.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Dialects",
+            "type": "array"
+          },
+          "buck_section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Canonical Buck section string, when available.",
+            "title": "Buck Section"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Rule category.",
+            "title": "Category"
+          },
+          "citation_ready": {
+            "description": "Whether this Buck rule summary is citation-ready.",
+            "title": "Citation Ready",
+            "type": "boolean"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Short normalized rule summary; not a long source-text quote.",
+            "title": "Description"
+          },
+          "id": {
+            "description": "Stable Buck-normalized rule identifier.",
+            "title": "Id",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Short curation note.",
+            "title": "Notes"
+          },
+          "review_status": {
+            "description": "Review status inherited from Buck metadata.",
+            "title": "Review Status",
+            "type": "string"
+          },
+          "status": {
+            "description": "Data status inherited from Buck metadata.",
+            "title": "Status",
+            "type": "string"
+          },
+          "transformation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuckTransformation"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Normalized transformation metadata, when the rule has one."
+          },
+          "variants": {
+            "description": "Short normalized variant examples; source text is not included.",
+            "items": {
+              "$ref": "#/components/schemas/BuckVariant"
+            },
+            "title": "Variants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "review_status",
+          "citation_ready"
+        ],
+        "title": "BuckRuleInfo",
+        "type": "object"
+      },
+      "BuckRuleResponse": {
+        "description": "Response payload for a single Buck rule lookup.",
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/BuckMetadata",
+            "description": "Buck review metadata."
+          },
+          "rule": {
+            "$ref": "#/components/schemas/BuckRuleInfo",
+            "description": "Matching Buck rule summary."
+          }
+        },
+        "required": [
+          "rule",
+          "metadata"
+        ],
+        "title": "BuckRuleResponse",
+        "type": "object"
+      },
+      "BuckRulesResponse": {
+        "description": "Response payload for Buck rule searches.",
+        "properties": {
+          "count": {
+            "description": "Number of rules in the current page.",
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/BuckMetadata",
+            "description": "Buck review metadata."
+          },
+          "rules": {
+            "description": "Matching Buck rule summaries.",
+            "items": {
+              "$ref": "#/components/schemas/BuckRuleInfo"
+            },
+            "title": "Rules",
+            "type": "array"
+          },
+          "total": {
+            "description": "Total matching rules before pagination is applied.",
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rules",
+          "count",
+          "total",
+          "metadata"
+        ],
+        "title": "BuckRulesResponse",
+        "type": "object"
+      },
+      "BuckTransformation": {
+        "description": "Normalized phonological transformation for a Buck rule.",
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Phonological context, when specified.",
+            "title": "Context"
+          },
+          "from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Source phone/grapheme, when specified.",
+            "title": "From"
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Resulting phone/grapheme, when specified.",
+            "title": "To"
+          }
+        },
+        "title": "BuckTransformation",
+        "type": "object"
+      },
+      "BuckVariant": {
+        "additionalProperties": true,
+        "description": "Normalized dialectal variant example for a Buck rule.",
+        "properties": {
+          "dialects": {
+            "description": "Dialect ids exhibiting this variant.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Dialects",
+            "type": "array"
+          },
+          "form": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Variant form, when specified.",
+            "title": "Form"
+          }
+        },
+        "title": "BuckVariant",
         "type": "object"
       },
       "DataVersions": {
@@ -158,6 +763,21 @@
           }
         },
         "title": "DataVersions",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "Simple error response produced by HTTPException handlers.",
+        "properties": {
+          "detail": {
+            "description": "Human-readable error detail.",
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1114,6 +1734,537 @@
           }
         },
         "summary": "Languages Head"
+      }
+    },
+    "/languages/{language}/buck/dialects": {
+      "get": {
+        "description": "Return Buck dialect catalog entries for a supported language.",
+        "operationId": "buck_dialects_languages__language__buck_dialects_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "language",
+            "required": true,
+            "schema": {
+              "title": "Language",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "group",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Group"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuckDialectsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Buck reference data is not available or the resource was not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Buck Dialects"
+      }
+    },
+    "/languages/{language}/buck/dialects/{dialect_id}": {
+      "get": {
+        "description": "Return one Buck dialect entry and optional linked rule summaries.",
+        "operationId": "buck_dialect_languages__language__buck_dialects__dialect_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "language",
+            "required": true,
+            "schema": {
+              "title": "Language",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "dialect_id",
+            "required": true,
+            "schema": {
+              "title": "Dialect Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_rules",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Rules",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_inherited",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Inherited",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuckDialectResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Buck reference data is not available or the resource was not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Buck Dialect"
+      }
+    },
+    "/languages/{language}/buck/glossary": {
+      "get": {
+        "description": "Return Buck-normalized glossary examples for a supported language.",
+        "operationId": "buck_glossary_languages__language__buck_glossary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "language",
+            "required": true,
+            "schema": {
+              "title": "Language",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "word",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Word"
+            }
+          },
+          {
+            "in": "query",
+            "name": "standard_form",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Standard Form"
+            }
+          },
+          {
+            "in": "query",
+            "name": "dialect",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Dialect"
+            }
+          },
+          {
+            "in": "query",
+            "name": "rule_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rule Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "accent_insensitive",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Accent Insensitive",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuckGlossaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Buck reference request parameters are invalid."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Buck reference data is not available or the resource was not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Buck Glossary"
+      }
+    },
+    "/languages/{language}/buck/rules": {
+      "get": {
+        "description": "Return Buck-normalized rule summaries for a supported language.",
+        "operationId": "buck_rules_languages__language__buck_rules_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "language",
+            "required": true,
+            "schema": {
+              "title": "Language",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "dialect",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Dialect"
+            }
+          },
+          {
+            "in": "query",
+            "name": "section",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Section"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuckRulesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Buck reference request parameters are invalid."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Buck reference data is not available or the resource was not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Buck Rules"
+      }
+    },
+    "/languages/{language}/buck/rules/{rule_id}": {
+      "get": {
+        "description": "Return one Buck-normalized rule summary by id.",
+        "operationId": "buck_rule_languages__language__buck_rules__rule_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "language",
+            "required": true,
+            "schema": {
+              "title": "Language",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuckRuleResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Buck reference data is not available or the resource was not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Buck Rule"
       }
     },
     "/ready": {

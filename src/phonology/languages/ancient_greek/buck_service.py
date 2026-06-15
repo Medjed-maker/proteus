@@ -27,6 +27,7 @@ __all__ = [
 
 
 _ReadOnlyMapping = Mapping[str, Any]
+_InscriptionNumber = str | tuple[int, ...]
 BuckReviewStatus = NewType("BuckReviewStatus", str)
 
 
@@ -88,7 +89,7 @@ class BuckGlossaryEntry:
     dialect: str
     rule_id: str | None
     definition: str | None
-    inscription_no: str | None
+    inscription_no: _InscriptionNumber | None
     buck_ref: BuckReference | None
     notes: str | None
     status: str
@@ -177,10 +178,15 @@ class BuckReferenceIndex:
         """Return the dialect with *dialect_id*, if present."""
         return self._dialects_by_id.get(dialect_id)
 
-    def list_dialects(self, *, kind: str | None = None) -> tuple[BuckDialect, ...]:
-        """Return dialects, optionally filtered by dialect kind."""
+    def list_dialects(
+        self, *, kind: str | None = None, group: str | None = None
+    ) -> tuple[BuckDialect, ...]:
+        """Return dialects, optionally filtered by dialect kind and/or group."""
         return tuple(
-            dialect for dialect in self.dialects if kind is None or dialect.kind == kind
+            dialect
+            for dialect in self.dialects
+            if (kind is None or dialect.kind == kind)
+            and (group is None or dialect.group == group)
         )
 
     def get_dialect_rules(
@@ -477,7 +483,7 @@ def _parse_glossary_entry(
         dialect=str(raw_entry["dialect"]),
         rule_id=_optional_string(raw_entry.get("rule_id")),
         definition=_optional_string(raw_entry.get("definition")),
-        inscription_no=_optional_string(raw_entry.get("inscription_no")),
+        inscription_no=_inscription_number(raw_entry.get("inscription_no")),
         buck_ref=_parse_reference(raw_entry.get("buck_ref")),
         notes=_optional_string(raw_entry.get("notes")),
         status=metadata.status,
@@ -549,6 +555,16 @@ def _string_tuple(raw_values: object) -> tuple[str, ...]:
 
 def _optional_string(value: object) -> str | None:
     return value if isinstance(value, str) else None
+
+
+def _inscription_number(value: object) -> _InscriptionNumber | None:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, tuple)) and all(
+        isinstance(item, int) and not isinstance(item, bool) for item in value
+    ):
+        return tuple(value)
+    return None
 
 
 def _string_or_default(value: object, default: str) -> str:

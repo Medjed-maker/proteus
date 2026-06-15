@@ -135,6 +135,96 @@ curl -sS http://127.0.0.1:8000/languages
 The response contains `languages: LanguageInfo[]` and `meta: VersionInfo`.
 Ancient Greek is currently the bundled pilot profile.
 
+### Buck Reference Endpoints
+
+Buck reference endpoints expose provisional, normalized Ancient Greek Buck
+metadata as independent reference data. They are not merely supplementary
+annotations on search results. They do not change search ranking or
+phonological rule application, and they do not return Buck source text or long
+quotations.
+
+These REST endpoints are separate from `hits[].buck_references`: search-result
+annotations are derived from applied Proteus rules after ranking is complete,
+while Buck reference endpoints let clients browse and query the normalized Buck
+rule, dialect, and glossary catalogs directly.
+
+The endpoints are backed by the internal Buck service, but clients should treat
+the REST resources below as the public HTTP contract. MCP tools and internal
+service APIs are separate integration layers and may expose different
+operation names or packaging without changing these endpoint paths.
+
+All Buck responses include top-level `metadata` with `status`,
+`review_status`, `citation_ready`, and `review_note`. Each returned rule,
+dialect, or glossary item repeats `status`, `review_status`, and
+`citation_ready`. When `citation_ready=false`, clients must treat the result as
+provisional discovery metadata, not citation-ready scholarly evidence.
+
+List responses (`rules`, `dialects`, `glossary`) include `count` (items in the
+current page) and `total` (matching items before pagination is applied) so
+clients can drive pagination.
+
+Supported language path value: `ancient_greek`.
+
+#### `GET /languages/{language}/buck/rules`
+
+Lists Buck-normalized rule summaries.
+
+Query fields:
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `category` | string or null | `null` | Exact rule category. |
+| `dialect` | string or null | `null` | Exact affected-dialect id. |
+| `section` | string or null | `null` | Canonicalized by the Buck service (e.g. `41.4`). |
+| `limit` | integer | `50` | Range `1` to `200`. |
+| `offset` | integer | `0` | Zero-based result offset. |
+
+#### `GET /languages/{language}/buck/rules/{rule_id}`
+
+Returns one Buck-normalized rule summary by exact rule id.
+
+#### `GET /languages/{language}/buck/dialects`
+
+Lists Buck dialect catalog entries.
+
+Query fields:
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `kind` | string or null | `null` | Exact dialect kind. |
+| `group` | string or null | `null` | Exact dialect group label. |
+| `limit` | integer | `50` | Range `1` to `200`. |
+| `offset` | integer | `0` | Zero-based result offset. |
+
+#### `GET /languages/{language}/buck/dialects/{dialect_id}`
+
+Returns one Buck dialect catalog entry. By default, the response also includes
+linked rule summaries from the dialect catalog and inherited parent chain.
+
+Query fields:
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `include_rules` | boolean | `true` | Include linked rule summaries. |
+| `include_inherited` | boolean | `true` | Walk parent dialect/group rules when including rule summaries. |
+
+#### `GET /languages/{language}/buck/glossary`
+
+Searches Buck-normalized glossary examples. Matching is NFC-normalized exact
+matching; accent-insensitive search is intentionally not enabled yet.
+
+Query fields:
+
+| Field | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `word` | string or null | `null` | Exact glossary word after NFC normalization. |
+| `standard_form` | string or null | `null` | Exact standard form after NFC normalization. |
+| `dialect` | string or null | `null` | Exact Buck dialect id. |
+| `rule_id` | string or null | `null` | Exact linked Buck rule id. |
+| `accent_insensitive` | boolean | `false` | `true` currently returns HTTP 400. |
+| `limit` | integer | `50` | Range `1` to `200`. |
+| `offset` | integer | `0` | Zero-based result offset. |
+
 ### `GET /version`
 
 Returns runtime metadata:
@@ -180,6 +270,10 @@ Serves the packaged changelog HTML page.
 | `SourceReference` | Candidate-level external source metadata. | `source_id`, `corpus`, `short_citation`, `external_url`, `license_note`, `access_policy`, `citation_ready`. |
 | `BuckReferenceAnnotation` | Candidate-level provisional Buck reference metadata. | `source_rule_id`, `buck_rule_id`, `buck_section`, `category`, `description`, `affected_dialects`, `status`, `review_status`, `citation_ready`, `review_note`. |
 | `BuckReferenceMetadata` | Response-level Buck review boundary. | `status`, `review_status`, `citation_ready`, `review_note`. |
+| `BuckMetadata` | Buck reference endpoint review boundary. | `status`, `review_status`, `citation_ready`, `review_note`. |
+| `BuckRuleInfo` | Buck reference endpoint rule summary. | `id`, `buck_section`, `category`, `description`, `transformation`, `affected_dialects`, `variants`, `status`, `review_status`, `citation_ready`. |
+| `BuckDialectInfo` | Buck reference endpoint dialect entry. | `id`, `name`, `kind`, `group`, `parent`, `rules`, `status`, `review_status`, `citation_ready`. |
+| `BuckGlossaryEntryInfo` | Buck reference endpoint glossary entry. | `word`, `standard_form`, `dialect`, `rule_id`, `definition`, `inscription_no` (string, integer array, or null), `buck_ref`, `status`, `review_status`, `citation_ready`. |
 | `DataVersions` | Data source metadata. | `lexicon`, `lexicon_updated_at`, `matrix`, `matrix_generated_at`, `rules`. |
 | `ResponseMeta` | Search response metadata. | `api_version`, `schema_version`, `engine_version`, `data_versions`, `ruleset_versions`, `request_id`, `timestamp`, `verification_url`, `request_echo`. |
 | `RequestEcho` | Sanitized validated request echo. | `query_form`, `language`, `dialect_hint`, `max_candidates`, `response_language`. |
@@ -239,7 +333,11 @@ enforce it at validation time. Files whose `review_status` is
 | Status | Endpoint | Shape | Typical cause |
 | --- | --- | --- | --- |
 | 400 | `POST /search` | `{"detail": "Invalid search query"}` | Query rejected after validation. |
+| 400 | `GET /languages/{language}/buck/rules` | `{"detail": "..."}` | Invalid `section` filter, such as a blank value. |
+| 400 | `GET /languages/{language}/buck/glossary` | `{"detail": "..."}` | `accent_insensitive=true`, which is not implemented yet. |
+| 404 | Buck reference endpoints | `{"detail": "..."}` | Buck data is unavailable for the requested language, rule id, or dialect id. |
 | 422 | `POST /search` | FastAPI validation detail | Missing or malformed request fields, including unknown language profiles and unsupported `dialect_hint` values. |
+| 422 | Buck reference endpoints | FastAPI validation detail | Malformed query parameters such as out-of-range `limit` or `offset`. |
 | 503 | `POST /search`, `GET /ready` | `{"detail": "...not ready..."}` | Search dependencies are unavailable. |
 | 503 | `GET /languages` | `{"detail": "No language profiles registered"}` | No profiles are registered. |
 

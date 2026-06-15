@@ -54,6 +54,50 @@ def test_openapi_schema_contains_version_endpoint() -> None:
     assert "/version" in schema["paths"]
 
 
+def test_openapi_schema_contains_buck_reference_endpoints() -> None:
+    """The runtime OpenAPI schema should expose Buck reference endpoints."""
+    schema = _runtime_openapi()
+
+    assert {
+        "/languages/{language}/buck/rules",
+        "/languages/{language}/buck/rules/{rule_id}",
+        "/languages/{language}/buck/dialects",
+        "/languages/{language}/buck/dialects/{dialect_id}",
+        "/languages/{language}/buck/glossary",
+    }.issubset(schema["paths"])
+
+
+def test_openapi_buck_reference_endpoints_document_404_responses() -> None:
+    """Buck reference endpoints should document not-found responses."""
+    schema = _runtime_openapi()
+
+    for path in (
+        "/languages/{language}/buck/rules",
+        "/languages/{language}/buck/rules/{rule_id}",
+        "/languages/{language}/buck/dialects",
+        "/languages/{language}/buck/dialects/{dialect_id}",
+        "/languages/{language}/buck/glossary",
+    ):
+        response = schema["paths"][path]["get"]["responses"]["404"]
+        assert response["content"]["application/json"]["schema"]["$ref"] == (
+            "#/components/schemas/ErrorResponse"
+        )
+
+
+def test_openapi_buck_reference_endpoints_document_400_responses() -> None:
+    """Buck reference endpoints with custom bad requests should document 400s."""
+    schema = _runtime_openapi()
+
+    for path in (
+        "/languages/{language}/buck/rules",
+        "/languages/{language}/buck/glossary",
+    ):
+        response = schema["paths"][path]["get"]["responses"]["400"]
+        assert response["content"]["application/json"]["schema"]["$ref"] == (
+            "#/components/schemas/ErrorResponse"
+        )
+
+
 def test_openapi_search_hit_schema_includes_buck_references() -> None:
     """The /search hit schema should expose Buck reference annotations."""
     schema = _runtime_openapi()
@@ -64,6 +108,36 @@ def test_openapi_search_hit_schema_includes_buck_references() -> None:
         search_hit_schema["properties"]["buck_references"]["items"]["$ref"]
         == "#/components/schemas/BuckReferenceAnnotation"
     )
+
+
+def test_openapi_buck_rule_schema_includes_review_fields() -> None:
+    """Buck REST item schemas should expose review boundaries."""
+    schema = _runtime_openapi()
+    rule_schema = schema["components"]["schemas"]["BuckRuleInfo"]
+    metadata_schema = schema["components"]["schemas"]["BuckMetadata"]
+
+    assert {"status", "review_status", "citation_ready"}.issubset(
+        rule_schema["properties"]
+    )
+    assert {
+        "status",
+        "review_status",
+        "citation_ready",
+        "review_note",
+    }.issubset(metadata_schema["properties"])
+
+
+def test_openapi_buck_glossary_schema_allows_inscription_number_arrays() -> None:
+    """Buck glossary entries should expose string or integer-array inscription ids."""
+    schema = _runtime_openapi()
+    entry_schema = schema["components"]["schemas"]["BuckGlossaryEntryInfo"]
+    inscription_schema = entry_schema["properties"]["inscription_no"]
+
+    assert inscription_schema["anyOf"] == [
+        {"type": "string"},
+        {"items": {"type": "integer"}, "type": "array"},
+        {"type": "null"},
+    ]
 
 
 def test_openapi_artifact_matches_app_openapi() -> None:

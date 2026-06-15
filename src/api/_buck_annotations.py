@@ -16,20 +16,13 @@ from phonology.languages.ancient_greek.buck_service import (
     canonicalize_buck_section,
 )
 
+from ._buck_conversion import review_note_for
 from ._models import BuckReferenceAnnotation, BuckReferenceMetadata, RuleStep
 
 # ``(?!\.?\d)`` rejects partial matches produced by backtracking: without it,
 # a range such as "Buck §132-135" would match the section prefix "13".
 _BUCK_SINGLE_SECTION_RE = re.compile(
     r"\bBuck\s+§(?!§)\s*(\d+(?:\.\d+)?)(?!\.?\d)(?!\s*[-–—])"
-)
-_PROVISIONAL_REVIEW_NOTE = (
-    "Buck reference data is provisional, not expert-reviewed, and must not be "
-    "treated as citation-ready scholarly evidence."
-)
-_CITATION_READY_REVIEW_NOTE = (
-    "Buck reference data is marked citation-ready; verify the specific context "
-    "before scholarly citation."
 )
 
 
@@ -163,7 +156,7 @@ def _metadata_info(metadata: BuckMetadata) -> BuckReferenceMetadata:
         status=metadata.status,
         review_status=str(metadata.review_status),
         citation_ready=metadata.citation_ready,
-        review_note=_review_note(metadata.citation_ready),
+        review_note=review_note_for(metadata.citation_ready),
     )
 
 
@@ -182,12 +175,8 @@ def _annotation_info(
         status=rule.status,
         review_status=str(rule.review_status),
         citation_ready=rule.citation_ready,
-        review_note=_review_note(rule.citation_ready),
+        review_note=review_note_for(rule.citation_ready),
     )
-
-
-def _review_note(citation_ready: bool) -> str:
-    return _CITATION_READY_REVIEW_NOTE if citation_ready else _PROVISIONAL_REVIEW_NOTE
 
 
 __all__ = [
