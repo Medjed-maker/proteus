@@ -1108,6 +1108,63 @@ class TestFrontendHtml:
         assert "/static/styles.css" in response.text
         assert "cdn.tailwindcss.com" not in response.text
 
+    def test_google_analytics_is_omitted_when_env_is_unset(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv(api_main._assets._GOOGLE_ANALYTICS_ENV_VAR, raising=False)
+
+        root_response = client.get("/")
+        changelog_response = client.get("/changelog")
+
+        for response in (root_response, changelog_response):
+            assert response.status_code == 200
+            assert "googletagmanager.com" not in response.text
+            assert "gtag(" not in response.text
+            assert "G-WS2PK867KQ" not in response.text
+            assert "{{GOOGLE_ANALYTICS_TAG}}" not in response.text
+            # The placeholder line is removed entirely: charset is followed
+            # directly by the viewport meta, with no stray blank line.
+            assert (
+                '<meta charset="UTF-8" />\n'
+                '  <meta name="viewport"'
+            ) in response.text
+
+    def test_google_analytics_is_injected_when_env_is_set(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(api_main._assets._GOOGLE_ANALYTICS_ENV_VAR, "G-TEST123")
+
+        root_response = client.get("/")
+        changelog_response = client.get("/changelog")
+
+        for response in (root_response, changelog_response):
+            assert response.status_code == 200
+            assert (
+                "https://www.googletagmanager.com/gtag/js?id=G-TEST123"
+                in response.text
+            )
+            assert 'gtag(\'config\', "G-TEST123");' in response.text
+            assert "{{GOOGLE_ANALYTICS_TAG}}" not in response.text
+            # The tag is injected after the charset declaration so the charset
+            # stays first in <head> per HTML best practice.
+            assert response.text.index("<meta charset") < response.text.index(
+                "googletagmanager.com"
+            )
+
+    def test_google_analytics_measurement_id_is_escaped(
+        self, client: TestClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        unsafe_id = 'G-X"></script><img src=x onerror=alert(1)>&'
+        monkeypatch.setenv(api_main._assets._GOOGLE_ANALYTICS_ENV_VAR, unsafe_id)
+
+        response = client.get("/")
+
+        assert response.status_code == 200
+        assert unsafe_id not in response.text
+        assert "id=G-X%22%3E%3C%2Fscript%3E%3Cimg" in response.text
+        assert "\\u003c/script\\u003e\\u003cimg" in response.text
+        assert "\\u0026" in response.text
+
     def test_changelog_returns_404_when_asset_is_missing(
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -1186,6 +1243,7 @@ class TestFrontendHtml:
         assert "/static/styles.css" in response.text
         assert "cdn.tailwindcss.com" not in response.text
         assert "fonts.googleapis.com" not in response.text
+        assert "googletagmanager.com" not in response.text
 
     def test_root_html_footer_uses_sticky_layout_and_announces_external_links(
         self, client: TestClient

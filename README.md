@@ -334,6 +334,10 @@ Claude Desktop configuration example:
   (relative URLs, embedded query strings) abort startup with a clear
   `RuntimeError`. When unset, Proteus falls back to the request's own
   `base_url`, which is sufficient for development.
+- **`PROTEUS_GOOGLE_ANALYTICS_ID`**: Optional. Injects the Google Analytics
+  tag into the packaged HTML pages only when set, e.g. `G-WS2PK867KQ`.
+  Leave unset for local development, tests, and self-hosted deployments that
+  should not send page views to Google Analytics.
 - **Response metadata vs. server-side query redaction**: `meta.request_echo`
   and `meta.verification_url` always carry the client-supplied
   `query_form`/`q` so the request is reproducible. They are independent of

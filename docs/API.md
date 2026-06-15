@@ -285,6 +285,7 @@ do not add per-response headers.
 | `PROTEUS_PUBLIC_BASE_URL` | Absolute public base URL for `meta.verification_url`. |
 | `PROTEUS_APP_VERSION` | Override for `engine_version`. |
 | `PROTEUS_ENABLE_API_DOCS` | Enables Swagger UI and `/openapi.json` when set to `1`. |
+| `PROTEUS_GOOGLE_ANALYTICS_ID` | Injects the Google Analytics tag into packaged HTML pages when set. |
 | `PROTEUS_LOG_RAW_SEARCH_QUERY` | Allows raw query logging when enabled; response metadata still includes the query. |
 | `PROTEUS_DISABLE_STARTUP_WARMUP` | Skips startup warmup when set. |
 | `PROTEUS_GIT_SHA` | Optional deployment commit surfaced by `/version`. |
