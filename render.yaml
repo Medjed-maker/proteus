@@ -18,5 +18,8 @@ services:
     branch: main
     autoDeploy: true
     healthCheckPath: /health
+    envVars:
+      - key: PROTEUS_GOOGLE_ANALYTICS_ID
+        value: G-WS2PK867KQ
     buildCommand: "uv sync --frozen --no-dev --extra extract && uv run --frozen --no-sync python -m phonology.languages.ancient_greek.build_lexicon --if-missing && uv cache prune --ci"
     startCommand: "uv run --frozen --no-sync uvicorn api.main:app --host 0.0.0.0 --port $PORT"
