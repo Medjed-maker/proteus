@@ -81,3 +81,292 @@ cases:
     false_positive_notes: []
     false_negative_notes:
       - "If λόγος is absent, the evaluator or baseline search setup is broken."
+
+  - case_id: "hq-ag-0003"
+    visibility: "public_seed"
+    input_form: "θεός"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 5
+    expected_candidates:
+      - headword: "θεός"
+        acceptable_forms: []
+        note: "Control case: exact lemma should remain a top candidate."
+    reasoning: >
+      This common lemma is a repo-safe control for checking that exact noun
+      lookup still works while harder Phase 3 cases are added.
+    source_notes:
+      - source_id: "lsj-theos-control"
+        short_citation: "LSJ, θεός"
+        note: "Common public lemma used only as an evaluator control; no source text is reproduced."
+    existing_search_failure:
+      tool: "not applicable"
+      query: "θεός"
+      failure_type: "not_yet_checked"
+      notes: "This is a control case rather than a documented failure of an external search tool."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-06-29"
+      summary: "Control lemma is present in the packaged lexicon."
+    tool_assisted_search:
+      checked_at: "2026-06-29"
+      summary: "Proteus should return θεός at rank 1 or within the requested top-N."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes: []
+    false_negative_notes:
+      - "If θεός is absent, exact control search has regressed."
+
+  - case_id: "hq-ag-0004"
+    visibility: "public_seed"
+    input_form: "ἄνθρωπος"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 5
+    expected_candidates:
+      - headword: "ἄνθρωπος"
+        acceptable_forms: []
+        note: "Control case: exact lemma should remain a top candidate."
+    reasoning: >
+      A longer common headword helps catch regressions in exact matching,
+      tokenization, and lexicon loading beyond short noun forms.
+    source_notes:
+      - source_id: "lsj-anthropos-control"
+        short_citation: "LSJ, ἄνθρωπος"
+        note: "Common public lemma used only as an evaluator control; no source text is reproduced."
+    existing_search_failure:
+      tool: "not applicable"
+      query: "ἄνθρωπος"
+      failure_type: "not_yet_checked"
+      notes: "This is a control case rather than a documented failure of an external search tool."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-06-29"
+      summary: "Control lemma is present in the packaged lexicon."
+    tool_assisted_search:
+      checked_at: "2026-06-29"
+      summary: "Proteus should return ἄνθρωπος at rank 1 or within the requested top-N."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes: []
+    false_negative_notes:
+      - "If ἄνθρωπος is absent, exact control search has regressed."
+
+  - case_id: "hq-ag-0005"
+    visibility: "public_seed"
+    input_form: "γυνή"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 5
+    expected_candidates:
+      - headword: "γυνή"
+        acceptable_forms: []
+        note: "Control case: exact lemma should remain a top candidate."
+    reasoning: >
+      This short exact-control case checks that the evaluator handles a common
+      accented feminine noun without adding source or reviewer claims.
+    source_notes:
+      - source_id: "lsj-gyne-control"
+        short_citation: "LSJ, γυνή"
+        note: "Common public lemma used only as an evaluator control; no source text is reproduced."
+    existing_search_failure:
+      tool: "not applicable"
+      query: "γυνή"
+      failure_type: "not_yet_checked"
+      notes: "This is a control case rather than a documented failure of an external search tool."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-06-29"
+      summary: "Control lemma is present in the packaged lexicon."
+    tool_assisted_search:
+      checked_at: "2026-06-29"
+      summary: "Proteus should return γυνή at rank 1 or within the requested top-N."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes: []
+    false_negative_notes:
+      - "If γυνή is absent, exact control search has regressed."
+
+  - case_id: "hq-ag-0006"
+    visibility: "public_seed"
+    input_form: "θάλασσα"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 5
+    expected_candidates:
+      - headword: "θάλασσα"
+        acceptable_forms: []
+        note: "Control case for a curated supplemental lexicon entry."
+    reasoning: >
+      The lemma is maintained through the packaged supplemental lexicon, so it
+      checks that Phase 3 evaluation covers curated supplement loading as well
+      as generated LSJ entries.
+    source_notes:
+      - source_id: "proteus-supplement-thalassa"
+        short_citation: "Proteus supplemental lexicon, θάλασσα"
+        note: "Curated public supplement entry used only as an evaluator control."
+    existing_search_failure:
+      tool: "not applicable"
+      query: "θάλασσα"
+      failure_type: "not_yet_checked"
+      notes: "This is a control case rather than a documented failure of an external search tool."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-06-29"
+      summary: "Control lemma is present in the packaged supplemental lexicon."
+    tool_assisted_search:
+      checked_at: "2026-06-29"
+      summary: "Proteus should return θάλασσα at rank 1 or within the requested top-N."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes: []
+    false_negative_notes:
+      - "If θάλασσα is absent, supplemental lexicon loading may have regressed."
+
+  - case_id: "hq-ag-0007"
+    visibility: "public_seed"
+    input_form: "λογος"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "λόγος"
+        acceptable_forms: []
+        note: "Accentless input should still recover the accented packaged lemma."
+    reasoning: >
+      Search users often enter unaccented forms. This semi-real case verifies
+      that the evaluator tracks recovery of the normalized accented headword
+      without claiming a citation-ready inscriptional reading.
+    source_notes:
+      - source_id: "lsj-logos-accentless-control"
+        short_citation: "LSJ, λόγος"
+        note: "Common public lemma used for an accentless-input evaluator case; no source text is reproduced."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "λογος"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching can miss the accented lemma when the user enters an unaccented form."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-06-29"
+      summary: "The intended headword is the packaged lemma λόγος."
+    tool_assisted_search:
+      checked_at: "2026-06-29"
+      summary: "Proteus should return λόγος within the requested top-N for the unaccented input."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes:
+      - "Evaluator reports should show whether near accent variants outrank λόγος."
+    false_negative_notes:
+      - "If λόγος is absent, accentless input handling may have regressed."
+
+  - case_id: "hq-ag-0008"
+    visibility: "public_seed"
+    input_form: "θεος"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "θεός"
+        acceptable_forms: []
+        note: "Accentless input should still recover the accented packaged lemma."
+    reasoning: >
+      This semi-real case checks short unaccented input against a common
+      accented headword and helps expose false positives that can outrank
+      expected candidates in compact queries.
+    source_notes:
+      - source_id: "lsj-theos-accentless-control"
+        short_citation: "LSJ, θεός"
+        note: "Common public lemma used for an accentless-input evaluator case; no source text is reproduced."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "θεος"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching can miss the accented lemma when the user enters an unaccented form."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-06-29"
+      summary: "The intended headword is the packaged lemma θεός."
+    tool_assisted_search:
+      checked_at: "2026-06-29"
+      summary: "Proteus should return θεός within the requested top-N for the unaccented input."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes:
+      - "Evaluator reports should show whether short near forms outrank θεός."
+    false_negative_notes:
+      - "If θεός is absent, accentless input handling may have regressed."
+
+  - case_id: "hq-ag-0009"
+    visibility: "public_seed"
+    input_form: "δᾶμος"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "δῆμος"
+        acceptable_forms: []
+        note: "Rule-supported Doric-style vowel correspondence should recover δῆμος."
+    reasoning: >
+      This semi-real dialectal case exercises the documented ā-to-ē
+      correspondence without treating the public seed as expert-reviewed
+      citation evidence.
+    source_notes:
+      - source_id: "proteus-rule-vsh-002-damos"
+        short_citation: "Proteus rule seed, VSH-002"
+        note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "δᾶμος"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching does not explain the dialectal vowel correspondence to δῆμος."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-06-29"
+      summary: "Kept as a semi-real rule-backed case for dialectal correspondence evaluation."
+    tool_assisted_search:
+      checked_at: "2026-06-29"
+      summary: "Proteus should return δῆμος within the requested top-N and expose ranking competitors."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes:
+      - "Evaluator reports should show whether non-expected near forms outrank δῆμος."
+    false_negative_notes:
+      - "If δῆμος is absent, rule-supported dialectal lookup may have regressed."
+
+  - case_id: "hq-ag-0010"
+    visibility: "public_seed"
+    input_form: "δημος"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "δῆμος"
+        acceptable_forms: []
+        note: "Unaccented input should still recover the long-vowel headword."
+    reasoning: >
+      This compact unaccented input is a negative-risk case because similar
+      short headwords can rank nearby. It helps classify outranking candidates
+      without changing search ranking in this dataset update.
+    source_notes:
+      - source_id: "lsj-demos-accentless-control"
+        short_citation: "LSJ, δῆμος"
+        note: "Common public lemma used for an accentless-input evaluator case; no source text is reproduced."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "δημος"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching can miss the accented long-vowel lemma from an unaccented input."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-06-29"
+      summary: "The intended headword is the packaged lemma δῆμος."
+    tool_assisted_search:
+      checked_at: "2026-06-29"
+      summary: "Proteus should return δῆμος within the requested top-N and expose close outranking forms."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes:
+      - "Evaluator reports should show whether short near forms outrank δῆμος."
+    false_negative_notes:
+      - "If δῆμος is absent, accentless long-vowel lookup may have regressed."
