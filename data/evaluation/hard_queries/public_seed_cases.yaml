@@ -2,8 +2,9 @@ metadata:
   dataset_id: "phase3-public-seed"
   status: "public_seed"
   description: >
-    Small repo-safe seed set for Phase 3 hard query validation. The full
-    20-case collection may include non-public collaborator logs until cases are
+    Repo-safe seed set for Phase 3 hard query validation. The public seed now
+    reaches the 20-case Phase 3 target on its own; additional non-public
+    collaborator cases may still be tracked outside this file until they are
     cleared for publication.
   data_boundary: >
     This file stores source identifiers and short citations only. It does not
@@ -370,3 +371,378 @@ cases:
       - "Evaluator reports should show whether short near forms outrank δῆμος."
     false_negative_notes:
       - "If δῆμος is absent, accentless long-vowel lookup may have regressed."
+
+  - case_id: "hq-ag-0011"
+    visibility: "public_seed"
+    input_form: "θάλαττα"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "θάλασσα"
+        acceptable_forms: []
+        note: "Attic double-tau spelling should recover the sigma-sigma headword via the documented consonant correspondence."
+    reasoning: >
+      The Attic tt for ss correspondence is a textbook consonant alternation
+      and the first consonant-rule case in this dataset. It checks that
+      CCH-006 recovers the packaged sigma-sigma headword from the common
+      Attic literary spelling.
+    source_notes:
+      - source_id: "proteus-rule-cch-006-thalatta"
+        short_citation: "Proteus rule seed, CCH-006"
+        note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "θάλαττα"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching does not connect the Attic tt spelling to the sigma-sigma headword."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-07-04"
+      summary: "The intended headword is the packaged supplemental lemma θάλασσα; the tt variant is not a separate packaged lemma."
+    tool_assisted_search:
+      checked_at: "2026-07-04"
+      summary: "Proteus returned θάλασσα at rank 2 via CCH-006; the unrelated lemma βλάττα outranked it at rank 1."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes:
+      - "βλάττα outranks θάλασσα at rank 1; ranking of short OBS-edit competitors above rule-backed hits needs review."
+    false_negative_notes:
+      - "If θάλασσα is absent, the CCH-006 tt-to-ss correspondence has regressed."
+
+  - case_id: "hq-ag-0012"
+    visibility: "public_seed"
+    input_form: "νίκα"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "νίκη"
+        acceptable_forms: []
+        note: "Doric-style feminine in long alpha should recover the eta headword."
+    reasoning: >
+      A Doric-style feminine noun in final long alpha tests the documented
+      feminine-ending alternation against a common packaged headword without
+      claiming citation-ready dialectal evidence.
+    source_notes:
+      - source_id: "proteus-rule-mph-006-nika"
+        short_citation: "Proteus rule seed, MPH-006"
+        note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "νίκα"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching does not connect the Doric-style alpha ending to the eta headword."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-07-04"
+      summary: "The intended headword is the packaged lemma νίκη."
+    tool_assisted_search:
+      checked_at: "2026-07-04"
+      summary: "Proteus returned νίκη at rank 1 via MPH-006 with no wrong-outranking candidates."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes: []
+    false_negative_notes:
+      - "If νίκη is absent, the MPH-006 feminine-ending alternation has regressed."
+
+  - case_id: "hq-ag-0013"
+    visibility: "public_seed"
+    input_form: "ψυχά"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "ψυχή"
+        acceptable_forms: []
+        note: "Doric-style feminine in long alpha after chi should recover the eta headword."
+    reasoning: >
+      This case repeats the feminine-ending alternation after a consonant
+      where Attic itself shows eta, so the alpha form is distinctly
+      Doric-style. It also exposes derivationally related competitors such
+      as the verb form.
+    source_notes:
+      - source_id: "proteus-rule-mph-006-psycha"
+        short_citation: "Proteus rule seed, MPH-006"
+        note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "ψυχά"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching does not connect the Doric-style alpha ending to the eta headword."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-07-04"
+      summary: "The intended headword is the packaged lemma ψυχή."
+    tool_assisted_search:
+      checked_at: "2026-07-04"
+      summary: "Proteus returned ψυχή at rank 1 via MPH-006; the related verb ψύχω followed at rank 2."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes:
+      - "Evaluator reports should track whether ψύχω or other derivationally related forms outrank ψυχή."
+    false_negative_notes:
+      - "If ψυχή is absent, the MPH-006 feminine-ending alternation has regressed."
+
+  - case_id: "hq-ag-0014"
+    visibility: "public_seed"
+    input_form: "σελάνα"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "σελήνη"
+        acceptable_forms: []
+        note: "Two independent alpha-for-eta correspondences must both apply to recover the headword."
+    reasoning: >
+      The Doric-style form differs from the packaged headword in two vowels
+      at once, so recovery requires stacking the stem-internal long-alpha
+      correspondence with the feminine-ending alternation. This is the
+      hardest rule-backed vowel case in the public seed.
+    source_notes:
+      - source_id: "proteus-rule-vsh-002-selana"
+        short_citation: "Proteus rule seed, VSH-002 with MPH-006"
+        note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "σελάνα"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching cannot bridge two simultaneous dialectal vowel correspondences."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-07-04"
+      summary: "The intended headword is the packaged lemma σελήνη."
+    tool_assisted_search:
+      checked_at: "2026-07-04"
+      summary: "Proteus returned σελήνη at rank 1 via VSH-002 plus MPH-006 with no wrong-outranking candidates."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes: []
+    false_negative_notes:
+      - "If σελήνη is absent, stacked dialectal vowel correspondences have regressed."
+
+  - case_id: "hq-ag-0015"
+    visibility: "public_seed"
+    input_form: "χώρη"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "χώρα"
+        acceptable_forms: []
+        note: "Ionic-style eta after rho should map back to the Attic alpha headword."
+    reasoning: >
+      Attic keeps long alpha after e, i, or r where Ionic generalized eta, so
+      an Ionic-style eta form is a documented correspondence target. This is
+      a known-miss case kept to drive rule-set improvement: the packaged
+      rules cover alpha-to-eta but not the reverse eta-to-alpha direction
+      needed here.
+    source_notes:
+      - source_id: "proteus-rule-vsh-001-chore"
+        short_citation: "Proteus rule seed, VSH-001 with VSH-009"
+        note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "χώρη"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching does not connect the Ionic-style eta form to the Attic alpha headword."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-07-04"
+      summary: "The intended headword is the packaged lemma χώρα."
+    tool_assisted_search:
+      checked_at: "2026-07-04"
+      summary: "Proteus did not return χώρα in the top 10; unrelated short forms such as ἄχωρ and ἰχώρ filled the top ranks. Documented false negative."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes:
+      - "All top-10 candidates outrank the missing expected headword; none reflects the eta-to-alpha correspondence."
+    false_negative_notes:
+      - "χώρα is absent from the top 10: no packaged rule maps Ionic-style eta back to Attic alpha after rho. Candidate for a rule-set improvement PR."
+
+  - case_id: "hq-ag-0016"
+    visibility: "public_seed"
+    input_form: "δίκα"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "δίκη"
+        acceptable_forms: []
+        note: "Doric-style feminine in long alpha should recover the eta headword despite close competitors."
+    reasoning: >
+      This compact Doric-style form sits one edit away from the unrelated
+      numeral δέκα, so it measures whether rule-backed candidates hold rank
+      against short plain-edit competitors.
+    source_notes:
+      - source_id: "proteus-rule-mph-006-dika"
+        short_citation: "Proteus rule seed, MPH-006"
+        note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "δίκα"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching does not connect the Doric-style alpha ending to the eta headword."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-07-04"
+      summary: "The intended headword is the packaged lemma δίκη."
+    tool_assisted_search:
+      checked_at: "2026-07-04"
+      summary: "Proteus returned δίκη at rank 2 via MPH-006; the unrelated numeral δέκα outranked it at rank 1."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes:
+      - "δέκα outranks δίκη at rank 1; single-substitution competitors can outrank rule-backed hits on short queries."
+    false_negative_notes:
+      - "If δίκη is absent, the MPH-006 feminine-ending alternation has regressed."
+
+  - case_id: "hq-ag-0017"
+    visibility: "public_seed"
+    input_form: "μίτιρ"
+    language: "ancient_greek"
+    dialect_hint: "koine"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "μήτηρ"
+        acceptable_forms: []
+        note: "Iotacized Koine spelling should recover the classical eta headword."
+    reasoning: >
+      This is the first koine dialect-hint case in the public seed. The
+      iotacized spelling with iota for both etas follows the documented
+      Koine merger and must apply the correspondence twice to recover the
+      classical headword.
+    source_notes:
+      - source_id: "proteus-rule-vsh-005-mitir"
+        short_citation: "Proteus rule seed, VSH-005"
+        note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "μίτιρ"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching does not connect the iotacized spelling to the classical eta headword."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-07-04"
+      summary: "The intended headword is the packaged lemma μήτηρ."
+    tool_assisted_search:
+      checked_at: "2026-07-04"
+      summary: "Proteus returned μήτηρ at rank 1 with VSH-005 applied twice and no wrong-outranking candidates."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes: []
+    false_negative_notes:
+      - "If μήτηρ is absent, Koine iotacism handling (VSH-005) has regressed."
+
+  - case_id: "hq-ag-0018"
+    visibility: "public_seed"
+    input_form: "ἰς"
+    language: "ancient_greek"
+    dialect_hint: "koine"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "εἰς"
+        acceptable_forms: []
+        note: "Koine monophthongized spelling should recover the preposition despite many short competitors."
+    reasoning: >
+      The two-letter iotacized spelling of the common preposition is a
+      stress test for very short inputs: exact homograph lemmas and other
+      short forms legitimately crowd the top ranks, so this case measures
+      how deep the expected headword sinks rather than a simple hit.
+    source_notes:
+      - source_id: "proteus-rule-vsh-008-is"
+        short_citation: "Proteus rule seed, VSH-008"
+        note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "ἰς"
+      failure_type: "wrong_candidate"
+      notes: "Exact matching returns the homograph lemma ἴς (sinew) rather than the intended preposition."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-07-04"
+      summary: "The intended headword is the packaged preposition εἰς; the homographs ις and ἴς are separate packaged lemmas."
+    tool_assisted_search:
+      checked_at: "2026-07-04"
+      summary: "Proteus returned εἰς at rank 9; exact homographs ις and ἴς took ranks 1-2 and other short forms filled ranks 3-8."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes:
+      - "Eight candidates outrank εἰς, led by the exact homographs ις and ἴς; expected for a two-letter query but worth tracking."
+    false_negative_notes:
+      - "If εἰς drops out of the top 10, very-short-input handling for VSH-008 has regressed."
+
+  - case_id: "hq-ag-0019"
+    visibility: "public_seed"
+    input_form: "νικα"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "νίκη"
+        acceptable_forms: []
+        note: "Accentless Doric-style input should still recover the eta headword."
+    reasoning: >
+      Combining accent loss with the feminine-ending alternation reflects
+      realistic user input for dialectal forms. This case pairs with
+      hq-ag-0012 to isolate whether missing accents change the ranking of
+      the same underlying correspondence.
+    source_notes:
+      - source_id: "proteus-rule-mph-006-nika-accentless"
+        short_citation: "Proteus rule seed, MPH-006"
+        note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "νικα"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching misses both the accents and the dialectal ending correspondence."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-07-04"
+      summary: "The intended headword is the packaged lemma νίκη."
+    tool_assisted_search:
+      checked_at: "2026-07-04"
+      summary: "Proteus returned νίκη at rank 1 via MPH-006, matching the accented variant hq-ag-0012."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes: []
+    false_negative_notes:
+      - "If νίκη is absent, accentless dialectal-ending lookup has regressed."
+
+  - case_id: "hq-ag-0020"
+    visibility: "public_seed"
+    input_form: "θαλαττα"
+    language: "ancient_greek"
+    dialect_hint: "attic"
+    max_candidates: 10
+    expected_candidates:
+      - headword: "θάλασσα"
+        acceptable_forms: []
+        note: "Accentless Attic double-tau input should still recover the sigma-sigma headword."
+    reasoning: >
+      Combining accent loss with the tt for ss consonant correspondence
+      reflects realistic keyboard input for the common Attic literary
+      spelling. This case pairs with hq-ag-0011 to isolate the effect of
+      missing accents on the consonant-rule path.
+    source_notes:
+      - source_id: "proteus-rule-cch-006-thalatta-accentless"
+        short_citation: "Proteus rule seed, CCH-006"
+        note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
+    existing_search_failure:
+      tool: "exact string search"
+      query: "θαλαττα"
+      failure_type: "exact_search_miss"
+      notes: "Exact matching misses both the accents and the tt-to-ss consonant correspondence."
+    manual_search:
+      checked_by: "project"
+      checked_at: "2026-07-04"
+      summary: "The intended headword is the packaged supplemental lemma θάλασσα."
+    tool_assisted_search:
+      checked_at: "2026-07-04"
+      summary: "Proteus returned θάλασσα at rank 2 via CCH-006; βλάττα outranked it at rank 1, matching the accented variant hq-ag-0011."
+    review_status: "collected"
+    reviewer: ""
+    false_positive_notes:
+      - "βλάττα outranks θάλασσα at rank 1, identical to hq-ag-0011; accent loss does not change the competitor set."
+    false_negative_notes:
+      - "If θάλασσα is absent, accentless consonant-correspondence lookup has regressed."
