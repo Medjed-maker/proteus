@@ -123,7 +123,8 @@ are cleared or anonymized.
 - Prepare documentation for scholarly collaborators
 
 ### Acceptance Criteria
-- At least 20 real or semi-real hard query cases documented
+- At least 20 real or semi-real hard query cases documented ✅
+  (the public seed set alone reaches 20 cases as of 2026-07-04)
 - Each case includes input form, expected candidate, reasoning, and source notes
 - Student-facing inscriptional orthography aid is clearly marked provisional
 - The first reviewed orthographic-note seed has a recorded reviewer decision
