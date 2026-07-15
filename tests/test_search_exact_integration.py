@@ -138,6 +138,38 @@ class TestSearchExactMatchIntegration:
         assert thalassa is not None, "Expected θάλασσα in search results"
         assert "CCH-006" in thalassa.applied_rules
 
+    def test_full_form_prefers_late_same_length_rule_supported_candidate(
+        self,
+    ) -> None:
+        """A late same-length seed should survive the bounded Stage 2 window."""
+        fillers = [
+            {
+                "id": f"A{index:03d}",
+                "headword": f"filler-{index:03d}",
+                "ipa": "kʰarax",
+                "dialect": "attic",
+            }
+            for index in range(210)
+        ]
+        target = {
+            "id": "TARGET",
+            "headword": "χώρα",
+            "ipa": "kʰɔ́ːra",
+            "dialect": "attic",
+        }
+
+        results = search(
+            "χώρη",
+            [*fillers, target],
+            load_matrix(MATRIX_FILE),
+            max_results=10,
+            dialect="attic",
+        )
+
+        assert results[0].lemma == "χώρα"
+        assert results[0].confidence > 0.5
+        assert "MPH-003" in results[0].applied_rules
+
     def test_search_deduplicates_homograph_entries(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -22,7 +22,7 @@
 - [x] At least 20 real or semi-real hard query cases documented
   - 公開 seed `data/evaluation/hard_queries/public_seed_cases.yaml` のみで 20 件到達(hq-ag-0001〜0020、2026-07-04)。
   - `tools/validate_hard_queries.py --min-cases 20` で確認済み。
-  - hq-ag-0015(χώρη → χώρα)は evaluator 実測で false negative を記録した known-miss ケースとして保持し、ルール改善 PR の材料にする。
+  - hq-ag-0015(χώρη → χώρα)の false negative は、同長 seed を優先する Stage 2 補完改善で解消済み。2026-07-15 の evaluator 実測で公開 seed 20件すべてが matched。
 - [x] Each case includes input form, expected candidate, reasoning, and source notes
   - `data/schemas/hard_query_case.schema.json` で必須化済み。
 - [x] Student-facing inscriptional orthography aid is clearly marked provisional
@@ -122,4 +122,5 @@
   - 公開 seed のみで 20 件到達(2026-07-04)。非公開 collaborator ログの追加収集は任意の継続タスク。
 - [ ] Complete expert review for the first orthographic-note seed.
 - [ ] Promote the first seed to `citation_ready: true` only after complete source and reviewer metadata are recorded.
-- [ ] Use evaluator reports to decide rule-set improvements in separate PRs.
+- [x] Use evaluator reports to decide search or rule-set improvements in separate PRs.
+  - hq-ag-0015 の evaluator report から候補窓脱落を特定し、近い音素数差 bucket から公平に巡回する Stage 2 補完へ改善した。

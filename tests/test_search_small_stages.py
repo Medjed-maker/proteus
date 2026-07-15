@@ -18,6 +18,7 @@ from phonology import search as search_module
 import phonology.search.compat as search_compat
 from phonology.languages.ancient_greek.ipa import tokenize_ipa
 from phonology.search import (
+    LexiconRecord,
     SearchResult,
     build_kmer_index,
     build_lexicon_map,
@@ -28,6 +29,7 @@ from phonology.search import (
     prepare_query_ipa,
     seed_stage,
 )
+from phonology.search._selection import _inject_length_proximate_candidates
 from phonology.search._types import PhoneInventory
 from tests._helpers.fakes import install_test_language_profile
 
@@ -49,6 +51,138 @@ class TestFilterStage:
     def test_rejects_non_positive_max_results(self, max_results: int) -> None:
         with pytest.raises(ValueError, match="positive integer"):
             filter_stage([], max_results=max_results)
+
+
+class TestLengthProximateCandidateSelection:
+    """Verify bounded full-form seed supplementation contracts."""
+
+    def test_prioritizes_exact_length_and_preserves_seed_order(self) -> None:
+        """Keep initial candidates, then prefer exact-length seeds stably."""
+        entries = {
+            "initial": LexiconRecord(
+                entry={"headword": "initial", "ipa": "abc"}, token_count=3
+            ),
+            "near-first": LexiconRecord(
+                entry={"headword": "near-first", "ipa": "abcd"}, token_count=4
+            ),
+            "exact-first": LexiconRecord(
+                entry={"headword": "exact-first", "ipa": "abc"}, token_count=3
+            ),
+            "exact-second": LexiconRecord(
+                entry={"headword": "exact-second", "ipa": "xyz"}, token_count=3
+            ),
+            "near-second": LexiconRecord(
+                entry={"headword": "near-second", "ipa": "ab"}, token_count=2
+            ),
+        }
+
+        selected = _inject_length_proximate_candidates(
+            query_token_count=3,
+            seed_candidates=[
+                "initial",
+                "near-first",
+                "exact-first",
+                "exact-second",
+                "near-second",
+            ],
+            candidate_ids=["initial"],
+            lexicon_lookup=entries,
+            limit=4,
+            phone_inventory=(),
+        )
+
+        assert selected == [
+            "initial",
+            "exact-first",
+            "near-first",
+            "exact-second",
+        ]
+
+    def test_does_not_let_exact_length_seeds_starve_adjacent_lengths(self) -> None:
+        """Uneven distance buckets should round-robin within max_delta."""
+        entries = {
+            "initial": LexiconRecord(
+                entry={"headword": "initial", "ipa": "abc"}, token_count=3
+            ),
+            "adjacent": LexiconRecord(
+                entry={"headword": "adjacent", "ipa": "abcd"}, token_count=4
+            ),
+            "too-far": LexiconRecord(
+                entry={"headword": "too-far", "ipa": "abcdef"}, token_count=6
+            ),
+            **{
+                f"exact-{index}": LexiconRecord(
+                    entry={"headword": f"exact-{index}", "ipa": "abc"},
+                    token_count=3,
+                )
+                for index in range(2)
+            },
+            **{
+                f"distance-two-{index}": LexiconRecord(
+                    entry={"headword": f"distance-two-{index}", "ipa": "abcde"},
+                    token_count=5,
+                )
+                for index in range(4)
+            },
+        }
+
+        selected = _inject_length_proximate_candidates(
+            query_token_count=3,
+            seed_candidates=[
+                "initial",
+                "too-far",
+                "distance-two-0",
+                "exact-0",
+                "adjacent",
+                "distance-two-1",
+                "exact-1",
+                "distance-two-2",
+                "distance-two-3",
+            ],
+            candidate_ids=["initial"],
+            lexicon_lookup=entries,
+            limit=8,
+            phone_inventory=(),
+            max_delta=2,
+        )
+
+        assert selected == [
+            "initial",
+            "exact-0",
+            "adjacent",
+            "distance-two-0",
+            "exact-1",
+            "distance-two-1",
+            "distance-two-2",
+            "distance-two-3",
+        ]
+        assert len(selected) == 8
+        assert "too-far" not in selected
+
+        capacity_limited = _inject_length_proximate_candidates(
+            query_token_count=3,
+            seed_candidates=[
+                "initial",
+                "too-far",
+                "distance-two-0",
+                "exact-0",
+                "adjacent",
+                "distance-two-1",
+                "exact-1",
+                "distance-two-2",
+                "distance-two-3",
+            ],
+            candidate_ids=["initial"],
+            lexicon_lookup=entries,
+            limit=3,
+            phone_inventory=(),
+            max_delta=2,
+        )
+
+        assert len(capacity_limited) == 3
+        assert "initial" in capacity_limited
+        assert "adjacent" in capacity_limited
+        assert "distance-two-0" not in capacity_limited
 
 
 class TestPublicCompatibilityBoundary:

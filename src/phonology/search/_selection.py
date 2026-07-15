@@ -68,20 +68,24 @@ def _inject_length_proximate_candidates(
 ) -> list[str]:
     """Append seed candidates whose IPA token count is close to the query's.
 
-    This preserves the caller's existing Stage 2 window first, then draws a
-    bounded supplement from the original seed order so tied k-mer groups do not
-    drop short, length-near full-form candidates before scoring.
+    This preserves the caller's existing Stage 2 window first, then fills the
+    bounded supplement by repeatedly visiting token-count-distance buckets
+    from nearest to farthest. Candidates within the same distance bucket
+    retain their original seed order. The round-robin traversal prioritizes
+    exact-length seeds in each pass without allowing a large bucket to starve
+    adjacent-length candidates such as a lemma with one missing final phone.
     """
     if limit <= 0:
         return []
 
     merged_ids = list(candidate_ids[:limit])
-    seen = set(merged_ids)
     if len(merged_ids) >= limit:
         return merged_ids
 
+    distance_buckets: dict[int, list[str]] = {}
+    queued = set(merged_ids)
     for entry_id in seed_candidates:
-        if entry_id in seen:
+        if entry_id in queued:
             continue
         record_or_entry = lexicon_lookup.get(entry_id)
         if record_or_entry is None:
@@ -95,12 +99,30 @@ def _inject_length_proximate_candidates(
                     phone_inventory=phone_inventory,
                 )
             )
-        if abs(token_count - query_token_count) > max_delta:
+        token_count_delta = abs(token_count - query_token_count)
+        if token_count_delta > max_delta:
             continue
 
-        merged_ids.append(entry_id)
-        seen.add(entry_id)
-        if len(merged_ids) >= limit:
+        distance_buckets.setdefault(token_count_delta, []).append(entry_id)
+        queued.add(entry_id)
+
+    bucket_offsets = {token_count_delta: 0 for token_count_delta in distance_buckets}
+    while len(merged_ids) < limit:
+        added_candidate = False
+        for token_count_delta in range(max_delta + 1):
+            bucket = distance_buckets.get(token_count_delta)
+            if bucket is None:
+                continue
+            offset = bucket_offsets[token_count_delta]
+            if offset >= len(bucket):
+                continue
+            entry_id = bucket[offset]
+            bucket_offsets[token_count_delta] = offset + 1
+            merged_ids.append(entry_id)
+            added_candidate = True
+            if len(merged_ids) >= limit:
+                return merged_ids
+        if not added_candidate:
             break
 
     return merged_ids

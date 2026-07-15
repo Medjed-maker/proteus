@@ -533,13 +533,14 @@ cases:
         note: "Ionic-style eta after rho should map back to the Attic alpha headword."
     reasoning: >
       Attic keeps long alpha after e, i, or r where Ionic generalized eta, so
-      an Ionic-style eta form is a documented correspondence target. This is
-      a known-miss case kept to drive rule-set improvement: the packaged
-      rules cover alpha-to-eta but not the reverse eta-to-alpha direction
-      needed here.
+      an Ionic-style eta form is a documented correspondence target. The
+      packaged MPH-003 suffix rule already explains the lemma-final alpha to
+      query-final eta correspondence. The historical false negative occurred
+      because the large tied consonant-skeleton seed group exhausted the
+      bounded Stage 2 window before this same-length lemma could be scored.
     source_notes:
-      - source_id: "proteus-rule-vsh-001-chore"
-        short_citation: "Proteus rule seed, VSH-001 with VSH-009"
+      - source_id: "proteus-rule-seeds-hq-ag-0015"
+        short_citation: "Proteus rule seeds, MPH-003 with VSH-001 and VSH-009"
         note: "Rule-backed public evaluator seed; direct source evidence remains outside this dataset."
     existing_search_failure:
       tool: "exact string search"
@@ -551,14 +552,12 @@ cases:
       checked_at: "2026-07-04"
       summary: "The intended headword is the packaged lemma χώρα."
     tool_assisted_search:
-      checked_at: "2026-07-04"
-      summary: "Proteus did not return χώρα in the top 10; unrelated short forms such as ἄχωρ and ἰχώρ filled the top ranks. Documented false negative."
+      checked_at: "2026-07-15"
+      summary: "Proteus returns χώρα at rank 1 with MPH-003 after exact-length Stage 2 supplementation was prioritized."
     review_status: "collected"
     reviewer: ""
-    false_positive_notes:
-      - "All top-10 candidates outrank the missing expected headword; none reflects the eta-to-alpha correspondence."
-    false_negative_notes:
-      - "χώρα is absent from the top 10: no packaged rule maps Ionic-style eta back to Attic alpha after rho. Candidate for a rule-set improvement PR."
+    false_positive_notes: []
+    false_negative_notes: []
 
   - case_id: "hq-ag-0016"
     visibility: "public_seed"
