@@ -130,3 +130,17 @@ Tests use `pytest` with a shared `conftest.py` providing a FastAPI `TestClient` 
 ## Language
 
 Project documentation (`project.md`, CodeRabbit config) and project discussions are in Japanese. Code, docstrings, and commit messages are in English.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked as local Markdown under `.scratch/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage roles use the repository's Japanese status vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repository uses a single-context domain-document layout. See `docs/agents/domain.md`.
