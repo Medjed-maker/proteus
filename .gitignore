@@ -106,11 +106,16 @@ search-latency-benchmark.json
 
 # Business strategy docs (keep out of the public repo; kept locally, untracked)
 #
-# NOT purged from history. docs/ROADMAP.md, docs/project.md,
-# docs/requirements.md and all 16 files under tasks/ were tracked and pushed,
-# so they remain readable in origin/main's history. Ignoring them here only
-# stops future edits from being published; purging the past needs a history
-# rewrite (git filter-repo + force-push), which is deliberately not done here.
+# Purged from history on 2026-08-15. docs/ROADMAP.md, docs/project.md,
+# docs/requirements.md and all 16 files under tasks/ had been tracked and
+# pushed, so ignoring them here would only have stopped future edits from
+# being published. They were removed from every commit with git filter-repo.
+#
+# A force-push alone would not have been enough: GitHub keeps refs/pull/*/head
+# permanently and neither a rewrite nor the repository owner can delete them,
+# so the two closed PRs would have kept serving the old blobs. The repository
+# was therefore deleted and recreated from the rewritten history. The
+# pre-rewrite history is preserved locally, outside this repository.
 docs/business_plan_4_1_revision.md
 docs/COMPETITIVE_LANDSCAPE.md
 docs/project.md
