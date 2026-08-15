@@ -1,0 +1,33 @@
+{
+  "split": "test",
+  "tag": "",
+  "dump": "dump_b3u_feat.jsonl",
+  "lemma_dirs": [
+    "glaux_lemmas"
+  ],
+  "groups": [
+    1
+  ],
+  "sources": [
+    {
+      "dir": "glaux_lemmas",
+      "group": 1,
+      "files": 30,
+      "tokens": 1167825
+    }
+  ],
+  "lm_tokens": 1167825,
+  "lm_types": 29010,
+  "variants": {
+    "dilemma|2.0": {
+      "recall5": 0.7722371967654986,
+      "diff": {
+        "point": 0.04245283018867924,
+        "lo": 0.03014318010550113,
+        "hi": 0.05488958990536277,
+        "n_docs": 222,
+        "n_tokens": 1484
+      }
+    }
+  }
+}

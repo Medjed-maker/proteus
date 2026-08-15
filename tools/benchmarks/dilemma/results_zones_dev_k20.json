@@ -1,0 +1,20 @@
+{
+  "split": "dev",
+  "k": 20,
+  "n_tokens": 659,
+  "n_docs": 88,
+  "recall20": 0.8512898330804249,
+  "gold_zone": {
+    "confident": 542,
+    "miss": 98,
+    "explore": 19
+  },
+  "explore_only_share_of_hits": 0.0338680926916221,
+  "explore_only_boot": {
+    "point": 0.0338680926916221,
+    "lo": 0.019933554817275746,
+    "hi": 0.05021834061135371,
+    "n_docs": 85,
+    "n_tokens": 561
+  }
+}

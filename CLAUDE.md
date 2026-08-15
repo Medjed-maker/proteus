@@ -129,7 +129,7 @@ Tests use `pytest` with a shared `conftest.py` providing a FastAPI `TestClient` 
 
 ## Language
 
-Project documentation (`project.md`, CodeRabbit config) and project discussions are in Japanese. Code, docstrings, and commit messages are in English.
+Project documentation (`docs/benchmarks/`, CodeRabbit config) and project discussions are in Japanese. Code, docstrings, and commit messages are in English. Reference documentation aimed at API consumers (`docs/API.md`, `docs/ARCHITECTURE.md`) is in English.
 
 ## Agent skills
 

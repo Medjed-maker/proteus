@@ -1,0 +1,6028 @@
+{
+  "docs": [
+    {
+      "file": "bgu.1.261.xml",
+      "tm_id": [
+        "41596"
+      ],
+      "hgv_id": "41596",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "105",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.1.261.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2586.xml",
+      "tm_id": [
+        "23309"
+      ],
+      "hgv_id": "23309",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2586.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2600.xml",
+      "tm_id": [
+        "23323"
+      ],
+      "hgv_id": "23323",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-13",
+      "date_not_after": "-13",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2600.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2602.xml",
+      "tm_id": [
+        "23325"
+      ],
+      "hgv_id": "23325",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-14",
+      "date_not_after": "-13",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2602.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2604.xml",
+      "tm_id": [
+        "23327"
+      ],
+      "hgv_id": "23327",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-7",
+      "date_not_after": "-7",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2604.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.16.2606.xml",
+      "tm_id": [
+        "23329"
+      ],
+      "hgv_id": "23329",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-7",
+      "date_not_after": "-7",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2606.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2607.xml",
+      "tm_id": [
+        "23330"
+      ],
+      "hgv_id": "23330",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-15",
+      "date_not_after": "-15",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2607.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2608.xml",
+      "tm_id": [
+        "23331"
+      ],
+      "hgv_id": "23331",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-10",
+      "date_not_after": "-1",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2608.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2610.xml",
+      "tm_id": [
+        "23333"
+      ],
+      "hgv_id": "23333",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-9",
+      "date_not_after": "-9",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2610.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2611.xml",
+      "tm_id": [
+        "23334"
+      ],
+      "hgv_id": "23334",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-10",
+      "date_not_after": "-10",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2611.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2612.xml",
+      "tm_id": [
+        "23335"
+      ],
+      "hgv_id": "23335",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-15",
+      "date_not_after": "-15",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2612.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.16.2613.xml",
+      "tm_id": [
+        "23337"
+      ],
+      "hgv_id": "23337",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-14",
+      "date_not_after": "-14",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2613.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2614.xml",
+      "tm_id": [
+        "23338"
+      ],
+      "hgv_id": "23338",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2614.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2618.xml",
+      "tm_id": [
+        "23342"
+      ],
+      "hgv_id": "23342",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-7",
+      "date_not_after": "-7",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2618.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2619.xml",
+      "tm_id": [
+        "23343"
+      ],
+      "hgv_id": "23343",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2619.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.16.2622.xml",
+      "tm_id": [
+        "23346"
+      ],
+      "hgv_id": "23346",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2622.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2623.xml",
+      "tm_id": [
+        "23347"
+      ],
+      "hgv_id": "23347",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-10",
+      "date_not_after": "-10",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2623.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2625.xml",
+      "tm_id": [
+        "23349"
+      ],
+      "hgv_id": "23349",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-15",
+      "date_not_after": "-15",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2625.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.16.2626.xml",
+      "tm_id": [
+        "23350"
+      ],
+      "hgv_id": "23350",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-5",
+      "date_not_after": "-4",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2626.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2627.xml",
+      "tm_id": [
+        "23351"
+      ],
+      "hgv_id": "23351",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-2",
+      "date_not_after": "-2",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2627.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2628.xml",
+      "tm_id": [
+        "23352"
+      ],
+      "hgv_id": "23352",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2628.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2629.xml",
+      "tm_id": [
+        "23353"
+      ],
+      "hgv_id": "23353",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-4",
+      "date_not_after": "-4",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2629.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.16.2630.xml",
+      "tm_id": [
+        "23354"
+      ],
+      "hgv_id": "23354",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-10",
+      "date_not_after": "-10",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2630.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2631.xml",
+      "tm_id": [
+        "23355"
+      ],
+      "hgv_id": "23355",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-9",
+      "date_not_after": "-9",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2631.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2632.xml",
+      "tm_id": [
+        "23356"
+      ],
+      "hgv_id": "23356",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-7",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2632.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2633.xml",
+      "tm_id": [
+        "23357"
+      ],
+      "hgv_id": "23357",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2633.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2635.xml",
+      "tm_id": [
+        "23359"
+      ],
+      "hgv_id": "23359",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2635.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2636.xml",
+      "tm_id": [
+        "23360"
+      ],
+      "hgv_id": "23360",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2636.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2637.xml",
+      "tm_id": [
+        "23361"
+      ],
+      "hgv_id": "23361",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-3",
+      "date_not_after": "-2",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2637.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2638.xml",
+      "tm_id": [
+        "23362"
+      ],
+      "hgv_id": "23362",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2638.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2639.xml",
+      "tm_id": [
+        "23363"
+      ],
+      "hgv_id": "23363",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-10",
+      "date_not_after": "-9",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2639.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.16.2640.xml",
+      "tm_id": [
+        "23364"
+      ],
+      "hgv_id": "23364",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-10",
+      "date_not_after": "-10",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2640.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2641.xml",
+      "tm_id": [
+        "23365"
+      ],
+      "hgv_id": "23365",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-10",
+      "date_not_after": "-9",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2641.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2642.xml",
+      "tm_id": [
+        "23366"
+      ],
+      "hgv_id": "23366",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2642.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2644.xml",
+      "tm_id": [
+        "23368"
+      ],
+      "hgv_id": "23368",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-4",
+      "date_not_after": "-4",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2644.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.16.2645.xml",
+      "tm_id": [
+        "23369"
+      ],
+      "hgv_id": "23369",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-13",
+      "date_not_after": "-13",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2645.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2646.xml",
+      "tm_id": [
+        "23370"
+      ],
+      "hgv_id": "23370",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-3",
+      "date_not_after": "-3",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2646.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2647.xml",
+      "tm_id": [
+        "23371"
+      ],
+      "hgv_id": "23371",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-8",
+      "date_not_after": "-8",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2647.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2648.xml",
+      "tm_id": [
+        "23372"
+      ],
+      "hgv_id": "23372",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2648.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.16.2650.xml",
+      "tm_id": [
+        "23374"
+      ],
+      "hgv_id": "23374",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-13",
+      "date_not_after": "-12",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2650.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2651.xml",
+      "tm_id": [
+        "23375"
+      ],
+      "hgv_id": "23375",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-9",
+      "date_not_after": "-9",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2651.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2652.xml",
+      "tm_id": [
+        "23376"
+      ],
+      "hgv_id": "23376",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-10",
+      "date_not_after": "-2",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2652.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2653.xml",
+      "tm_id": [
+        "23377"
+      ],
+      "hgv_id": "23377",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-9",
+      "date_not_after": "-9",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2653.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2654.xml",
+      "tm_id": [
+        "23378"
+      ],
+      "hgv_id": "23378",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-6",
+      "date_not_after": "-6",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2654.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2655.xml",
+      "tm_id": [
+        "23379"
+      ],
+      "hgv_id": "23379",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "-20",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2655.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2656.xml",
+      "tm_id": [
+        "23380"
+      ],
+      "hgv_id": "23380",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-21",
+      "date_not_after": "5",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2656.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2660.xml",
+      "tm_id": [
+        "23384"
+      ],
+      "hgv_id": "23384",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "1",
+      "date_not_after": "1",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2660.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2661.xml",
+      "tm_id": [
+        "23385"
+      ],
+      "hgv_id": "23385",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-12",
+      "date_not_after": "-12",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2661.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.16.2663.xml",
+      "tm_id": [
+        "23387"
+      ],
+      "hgv_id": "23387",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-9",
+      "date_not_after": "-9",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2663.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.16.2664.xml",
+      "tm_id": [
+        "23388"
+      ],
+      "hgv_id": "23388",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-4",
+      "date_not_after": "-4",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2664.xml",
+      "role": "unused"
+    },
+    {
+      "file": "bgu.16.2665.xml",
+      "tm_id": [
+        "23389"
+      ],
+      "hgv_id": "23389",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-28",
+      "date_not_after": "-27",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.16.2665.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.2.380.xml",
+      "tm_id": [
+        "31263"
+      ],
+      "hgv_id": "31263",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "201",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.2.380.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.2.385.xml",
+      "tm_id": [
+        "28133"
+      ],
+      "hgv_id": "28133",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.2.385.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.2.601.xml",
+      "tm_id": [
+        "28189"
+      ],
+      "hgv_id": "28189",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.2.601.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.2.602.xml",
+      "tm_id": [
+        "28190"
+      ],
+      "hgv_id": "28190",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.2.602.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.3.701.xml",
+      "tm_id": [
+        "28077"
+      ],
+      "hgv_id": "28077",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.3.701.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.3.714.xml",
+      "tm_id": [
+        "28080"
+      ],
+      "hgv_id": "28080",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.3.714.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.3.801.xml",
+      "tm_id": [
+        "28089"
+      ],
+      "hgv_id": "28089",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.3.801.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.3.822.xml",
+      "tm_id": [
+        "28093"
+      ],
+      "hgv_id": "28093",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "105",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.3.822.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.3.827.xml",
+      "tm_id": [
+        "24886"
+      ],
+      "hgv_id": "24886",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.3.827.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.3.948.xml",
+      "tm_id": [
+        "33251"
+      ],
+      "hgv_id": "33251",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "301",
+      "date_not_after": "500",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.3.948.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.3.994.xml",
+      "tm_id": [
+        "56"
+      ],
+      "hgv_id": "56",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-113",
+      "date_not_after": "-113",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.3.994.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.4.1050.xml",
+      "tm_id": [
+        "18493"
+      ],
+      "hgv_id": "18493",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-12",
+      "date_not_after": "-11",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.4.1050.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.4.1203.xml",
+      "tm_id": [
+        "18653"
+      ],
+      "hgv_id": "18653",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-29",
+      "date_not_after": "-29",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.4.1203.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.4.1204.xml",
+      "tm_id": [
+        "18654"
+      ],
+      "hgv_id": "18654",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-28",
+      "date_not_after": "-28",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.4.1204.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.4.1205.xml",
+      "tm_id": [
+        "18655"
+      ],
+      "hgv_id": "18655",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-28",
+      "date_not_after": "-28",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.4.1205.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.4.1206.xml",
+      "tm_id": [
+        "18656"
+      ],
+      "hgv_id": "18656",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-28",
+      "date_not_after": "-28",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.4.1206.xml",
+      "role": "dev"
+    },
+    {
+      "file": "bgu.4.1207.xml",
+      "tm_id": [
+        "18657"
+      ],
+      "hgv_id": "18657",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-28",
+      "date_not_after": "-28",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.4.1207.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.6.1211.xml",
+      "tm_id": [
+        "4527"
+      ],
+      "hgv_id": "4527",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-215",
+      "date_not_after": "-205",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.6.1211.xml",
+      "role": "test"
+    },
+    {
+      "file": "bgu.6.1249.xml",
+      "tm_id": [
+        "4540"
+      ],
+      "hgv_id": "4540",
+      "series": "bgu",
+      "series_type": "documentary",
+      "date_not_before": "-136",
+      "date_not_after": "-136",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/bgu/bgu.6.1249.xml",
+      "role": "unused"
+    },
+    {
+      "file": "chr.wilck.499.xml",
+      "tm_id": [
+        "28975"
+      ],
+      "hgv_id": "28975",
+      "series": "chr.wilck",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/chr.wilck/chr.wilck.499.xml",
+      "role": "test"
+    },
+    {
+      "file": "cpr.18.1.xml",
+      "tm_id": [
+        "7760"
+      ],
+      "hgv_id": "7760",
+      "series": "cpr",
+      "series_type": "documentary",
+      "date_not_before": "-206",
+      "date_not_after": "-231",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/cpr/cpr.18.1.xml",
+      "role": "unused"
+    },
+    {
+      "file": "o.claud.1.1.xml",
+      "tm_id": [
+        "29810"
+      ],
+      "hgv_id": "29810",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.1.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.124.xml",
+      "tm_id": [
+        "24136"
+      ],
+      "hgv_id": "24136",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "107",
+      "date_not_after": "107",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.124.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.125.xml",
+      "tm_id": [
+        "24137"
+      ],
+      "hgv_id": "24137",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "107",
+      "date_not_after": "107",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.125.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.126.xml",
+      "tm_id": [
+        "24138"
+      ],
+      "hgv_id": "24138",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "107",
+      "date_not_after": "107",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.126.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.128.xml",
+      "tm_id": [
+        "24140"
+      ],
+      "hgv_id": "24140",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "107",
+      "date_not_after": "107",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.128.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.129.xml",
+      "tm_id": [
+        "24141"
+      ],
+      "hgv_id": "24141",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "107",
+      "date_not_after": "107",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.129.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.1.132.xml",
+      "tm_id": [
+        "24144"
+      ],
+      "hgv_id": "24144",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "107",
+      "date_not_after": "107",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.132.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.134.xml",
+      "tm_id": [
+        "24146"
+      ],
+      "hgv_id": "24146",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "107",
+      "date_not_after": "107",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.134.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.137.xml",
+      "tm_id": [
+        "24149"
+      ],
+      "hgv_id": "24149",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "110",
+      "date_not_after": "110",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.137.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.138.xml",
+      "tm_id": [
+        "24150"
+      ],
+      "hgv_id": "24150",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "110",
+      "date_not_after": "110",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.138.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.139.xml",
+      "tm_id": [
+        "24151"
+      ],
+      "hgv_id": "24151",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "110",
+      "date_not_after": "110",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.139.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.1.141.xml",
+      "tm_id": [
+        "24153"
+      ],
+      "hgv_id": "24153",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "109",
+      "date_not_after": "110",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.141.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.1.142.xml",
+      "tm_id": [
+        "24154"
+      ],
+      "hgv_id": "24154",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "109",
+      "date_not_after": "110",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.142.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.143.xml",
+      "tm_id": [
+        "24155"
+      ],
+      "hgv_id": "24155",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.143.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.1.145.xml",
+      "tm_id": [
+        "24157"
+      ],
+      "hgv_id": "24157",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.145.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.1.146.xml",
+      "tm_id": [
+        "24158"
+      ],
+      "hgv_id": "24158",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.146.xml",
+      "role": "unused"
+    },
+    {
+      "file": "o.claud.1.147.xml",
+      "tm_id": [
+        "29813"
+      ],
+      "hgv_id": "29813",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.147.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.148.xml",
+      "tm_id": [
+        "24159"
+      ],
+      "hgv_id": "24159",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.148.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.149.xml",
+      "tm_id": [
+        "24160"
+      ],
+      "hgv_id": "24160",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.149.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.1.150.xml",
+      "tm_id": [
+        "24161"
+      ],
+      "hgv_id": "24161",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.150.xml",
+      "role": "unused"
+    },
+    {
+      "file": "o.claud.1.151.xml",
+      "tm_id": [
+        "24162"
+      ],
+      "hgv_id": "24162",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.151.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.152.xml",
+      "tm_id": [
+        "24163"
+      ],
+      "hgv_id": "24163",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.152.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.154.xml",
+      "tm_id": [
+        "24165"
+      ],
+      "hgv_id": "24165",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.154.xml",
+      "role": "unused"
+    },
+    {
+      "file": "o.claud.1.155.xml",
+      "tm_id": [
+        "29814"
+      ],
+      "hgv_id": "29814",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.155.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.156.xml",
+      "tm_id": [
+        "29815"
+      ],
+      "hgv_id": "29815",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.156.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.157.xml",
+      "tm_id": [
+        "29816"
+      ],
+      "hgv_id": "29816",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.157.xml",
+      "role": "unused"
+    },
+    {
+      "file": "o.claud.1.158.xml",
+      "tm_id": [
+        "24166"
+      ],
+      "hgv_id": "24166",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "110",
+      "date_not_after": "110",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.158.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.159.xml",
+      "tm_id": [
+        "24167"
+      ],
+      "hgv_id": "24167",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.159.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.160.xml",
+      "tm_id": [
+        "24168"
+      ],
+      "hgv_id": "24168",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.160.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.161.xml",
+      "tm_id": [
+        "24169"
+      ],
+      "hgv_id": "24169",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.161.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.162.xml",
+      "tm_id": [
+        "24170"
+      ],
+      "hgv_id": "24170",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.162.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.163.xml",
+      "tm_id": [
+        "24171"
+      ],
+      "hgv_id": "24171",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.163.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.164.xml",
+      "tm_id": [
+        "29817"
+      ],
+      "hgv_id": "29817",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.164.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.165.xml",
+      "tm_id": [
+        "24172"
+      ],
+      "hgv_id": "24172",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.165.xml",
+      "role": "unused"
+    },
+    {
+      "file": "o.claud.1.166.xml",
+      "tm_id": [
+        "24173"
+      ],
+      "hgv_id": "24173",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.166.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.167.xml",
+      "tm_id": [
+        "24174",
+        "24175"
+      ],
+      "hgv_id": "24174 24175",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "107",
+      "date_not_after": "107",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.167.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.168.xml",
+      "tm_id": [
+        "24176"
+      ],
+      "hgv_id": "24176",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.168.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.169.xml",
+      "tm_id": [
+        "24177"
+      ],
+      "hgv_id": "24177",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.169.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.170.xml",
+      "tm_id": [
+        "24178"
+      ],
+      "hgv_id": "24178",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.170.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.171.xml",
+      "tm_id": [
+        "24179"
+      ],
+      "hgv_id": "24179",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "100",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.171.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.172.xml",
+      "tm_id": [
+        "24180"
+      ],
+      "hgv_id": "24180",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "110",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.172.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.1.173.xml",
+      "tm_id": [
+        "24181"
+      ],
+      "hgv_id": "24181",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "110",
+      "date_not_after": "120",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.173.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.1.174.xml",
+      "tm_id": [
+        "29818"
+      ],
+      "hgv_id": "29818",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "125",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.174.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.175.xml",
+      "tm_id": [
+        "29819"
+      ],
+      "hgv_id": "29819",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "125",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.175.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.176.xml",
+      "tm_id": [
+        "29820"
+      ],
+      "hgv_id": "29820",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "125",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.176.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.177.xml",
+      "tm_id": [
+        "29821"
+      ],
+      "hgv_id": "29821",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.177.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.1.178.xml",
+      "tm_id": [
+        "29822"
+      ],
+      "hgv_id": "29822",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.1.178.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.224.xml",
+      "tm_id": [
+        "29647"
+      ],
+      "hgv_id": "29647",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.224.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.2.225.xml",
+      "tm_id": [
+        "29648"
+      ],
+      "hgv_id": "29648",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.225.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.226.xml",
+      "tm_id": [
+        "29649"
+      ],
+      "hgv_id": "29649",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.226.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.2.227.xml",
+      "tm_id": [
+        "29650"
+      ],
+      "hgv_id": "29650",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.227.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.228.xml",
+      "tm_id": [
+        "29651"
+      ],
+      "hgv_id": "29651",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.228.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.2.229.xml",
+      "tm_id": [
+        "29652"
+      ],
+      "hgv_id": "29652",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.229.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.233.xml",
+      "tm_id": [
+        "29656"
+      ],
+      "hgv_id": "29656",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.233.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.236.xml",
+      "tm_id": [
+        "29659"
+      ],
+      "hgv_id": "29659",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.236.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.237.xml",
+      "tm_id": [
+        "29660"
+      ],
+      "hgv_id": "29660",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.237.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.238.xml",
+      "tm_id": [
+        "29661"
+      ],
+      "hgv_id": "29661",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.238.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.239.xml",
+      "tm_id": [
+        "29662"
+      ],
+      "hgv_id": "29662",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.239.xml",
+      "role": "unused"
+    },
+    {
+      "file": "o.claud.2.240.xml",
+      "tm_id": [
+        "29808"
+      ],
+      "hgv_id": "29808",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.240.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.241.xml",
+      "tm_id": [
+        "29809"
+      ],
+      "hgv_id": "29809",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.241.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.242.xml",
+      "tm_id": [
+        "23994"
+      ],
+      "hgv_id": "23994",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "144",
+      "date_not_after": "145",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.242.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.243.xml",
+      "tm_id": [
+        "29663"
+      ],
+      "hgv_id": "29663",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.243.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.245.xml",
+      "tm_id": [
+        "29665"
+      ],
+      "hgv_id": "29665",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.245.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.246.xml",
+      "tm_id": [
+        "29666"
+      ],
+      "hgv_id": "29666",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.246.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.247.xml",
+      "tm_id": [
+        "29667"
+      ],
+      "hgv_id": "29667",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.247.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.claud.2.248.xml",
+      "tm_id": [
+        "29668"
+      ],
+      "hgv_id": "29668",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.248.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.2.249.xml",
+      "tm_id": [
+        "29669"
+      ],
+      "hgv_id": "29669",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.249.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.claud.2.252.xml",
+      "tm_id": [
+        "29672"
+      ],
+      "hgv_id": "29672",
+      "series": "o.claud",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "175",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.claud/o.claud.2.252.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.florida.14.xml",
+      "tm_id": [
+        "74508"
+      ],
+      "hgv_id": "74508",
+      "series": "o.florida",
+      "series_type": "documentary",
+      "date_not_before": "126",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.florida/o.florida.14.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.krok.1.70.xml",
+      "tm_id": [
+        "88661"
+      ],
+      "hgv_id": "88661",
+      "series": "o.krok",
+      "series_type": "documentary",
+      "date_not_before": "98",
+      "date_not_after": "117",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.krok/o.krok.1.70.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.krok.1.78.xml",
+      "tm_id": [
+        "88669"
+      ],
+      "hgv_id": "88669",
+      "series": "o.krok",
+      "series_type": "documentary",
+      "date_not_before": "98",
+      "date_not_after": "117",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.krok/o.krok.1.78.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.krok.2.314.xml",
+      "tm_id": [
+        "704599"
+      ],
+      "hgv_id": "704599",
+      "series": "o.krok",
+      "series_type": "documentary",
+      "date_not_before": "98",
+      "date_not_after": "117",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.krok/o.krok.2.314.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.narm.1.xml",
+      "tm_id": [
+        "29537"
+      ],
+      "hgv_id": "29537",
+      "series": "o.narm",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.narm/o.narm.1.xml",
+      "role": "dev"
+    },
+    {
+      "file": "o.narm.3.xml",
+      "tm_id": [
+        "29539"
+      ],
+      "hgv_id": "29539",
+      "series": "o.narm",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.narm/o.narm.3.xml",
+      "role": "test"
+    },
+    {
+      "file": "o.narm.5.xml",
+      "tm_id": [
+        "29541"
+      ],
+      "hgv_id": "29541",
+      "series": "o.narm",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/o.narm/o.narm.5.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.abinn.32.xml",
+      "tm_id": [
+        "10029"
+      ],
+      "hgv_id": "10029",
+      "series": "p.abinn",
+      "series_type": "documentary",
+      "date_not_before": "346",
+      "date_not_after": "346",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.abinn/p.abinn.32.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.adl.G10.xml",
+      "tm_id": [
+        "10"
+      ],
+      "hgv_id": "10",
+      "series": "p.adl",
+      "series_type": "documentary",
+      "date_not_before": "-101",
+      "date_not_after": "-101",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.adl/p.adl.G10.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.adl.G15.xml",
+      "tm_id": [
+        "15"
+      ],
+      "hgv_id": "15",
+      "series": "p.adl",
+      "series_type": "documentary",
+      "date_not_before": "-100",
+      "date_not_after": "-100",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.adl/p.adl.G15.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.adl.G6.xml",
+      "tm_id": [
+        "5"
+      ],
+      "hgv_id": "5",
+      "series": "p.adl",
+      "series_type": "documentary",
+      "date_not_before": "-106",
+      "date_not_after": "-106",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.adl/p.adl.G6.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.athen.60.xml",
+      "tm_id": [
+        "77953"
+      ],
+      "hgv_id": "77953",
+      "series": "p.athen",
+      "series_type": "documentary",
+      "date_not_before": "-400",
+      "date_not_after": "-1",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.athen/p.athen.60.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.bour.10.xml",
+      "tm_id": [
+        "304"
+      ],
+      "hgv_id": "304",
+      "series": "p.bour",
+      "series_type": "documentary",
+      "date_not_before": "-88",
+      "date_not_after": "-88",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.bour/p.bour.10.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.bour.12.xml",
+      "tm_id": [
+        "305"
+      ],
+      "hgv_id": "305",
+      "series": "p.bour",
+      "series_type": "documentary",
+      "date_not_before": "-88",
+      "date_not_after": "-88",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.bour/p.bour.12.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.bour.25.xml",
+      "tm_id": [
+        "32904"
+      ],
+      "hgv_id": "32904",
+      "series": "p.bour",
+      "series_type": "documentary",
+      "date_not_before": "301",
+      "date_not_after": "500",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.bour/p.bour.25.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.masp.1.67037.xml",
+      "tm_id": [
+        "36792"
+      ],
+      "hgv_id": "36792",
+      "series": "p.cair.masp",
+      "series_type": "documentary",
+      "date_not_before": "514",
+      "date_not_after": "515",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.masp/p.cair.masp.1.67037.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59002.xml",
+      "tm_id": [
+        "2293"
+      ],
+      "hgv_id": "2293",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-260",
+      "date_not_after": "-260",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59002.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59016.xml",
+      "tm_id": [
+        "677"
+      ],
+      "hgv_id": "677",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-259",
+      "date_not_after": "-259",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59016.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59018.xml",
+      "tm_id": [
+        "678"
+      ],
+      "hgv_id": "678",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-258",
+      "date_not_after": "-258",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59018.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59019.xml",
+      "tm_id": [
+        "679"
+      ],
+      "hgv_id": "679",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-258",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59019.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59021.xml",
+      "tm_id": [
+        "681"
+      ],
+      "hgv_id": "681",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-258",
+      "date_not_after": "-258",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59021.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.1.59024.xml",
+      "tm_id": [
+        "684"
+      ],
+      "hgv_id": "684",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-258",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59024.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59025.xml",
+      "tm_id": [
+        "685"
+      ],
+      "hgv_id": "685",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-258",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59025.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59027.xml",
+      "tm_id": [
+        "687"
+      ],
+      "hgv_id": "687",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-258",
+      "date_not_after": "-258",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59027.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.1.59028.xml",
+      "tm_id": [
+        "688"
+      ],
+      "hgv_id": "688",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-258",
+      "date_not_after": "-258",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59028.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59029.xml",
+      "tm_id": [
+        "689"
+      ],
+      "hgv_id": "689",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-258",
+      "date_not_after": "-258",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59029.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59030.xml",
+      "tm_id": [
+        "690"
+      ],
+      "hgv_id": "690",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-258",
+      "date_not_after": "-258",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59030.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59031.xml",
+      "tm_id": [
+        "691"
+      ],
+      "hgv_id": "691",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-258",
+      "date_not_after": "-258",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59031.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.1.59033.xml",
+      "tm_id": [
+        "693"
+      ],
+      "hgv_id": "693",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59033.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.1.59038.xml",
+      "tm_id": [
+        "698"
+      ],
+      "hgv_id": "698",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59038.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59039.xml",
+      "tm_id": [
+        "699"
+      ],
+      "hgv_id": "699",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59039.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59040.xml",
+      "tm_id": [
+        "700"
+      ],
+      "hgv_id": "700",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59040.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59042.xml",
+      "tm_id": [
+        "702"
+      ],
+      "hgv_id": "702",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59042.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.1.59043.xml",
+      "tm_id": [
+        "703"
+      ],
+      "hgv_id": "703",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59043.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59045.xml",
+      "tm_id": [
+        "705"
+      ],
+      "hgv_id": "705",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59045.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59046.xml",
+      "tm_id": [
+        "706"
+      ],
+      "hgv_id": "706",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59046.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59047.xml",
+      "tm_id": [
+        "707"
+      ],
+      "hgv_id": "707",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59047.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59048.xml",
+      "tm_id": [
+        "708"
+      ],
+      "hgv_id": "708",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59048.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59053.xml",
+      "tm_id": [
+        "712"
+      ],
+      "hgv_id": "712",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59053.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59058.xml",
+      "tm_id": [
+        "716"
+      ],
+      "hgv_id": "716",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-258",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59058.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59059.xml",
+      "tm_id": [
+        "717"
+      ],
+      "hgv_id": "717",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59059.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59060.xml",
+      "tm_id": [
+        "718"
+      ],
+      "hgv_id": "718",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59060.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.1.59061.xml",
+      "tm_id": [
+        "719"
+      ],
+      "hgv_id": "719",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59061.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59066.xml",
+      "tm_id": [
+        "723"
+      ],
+      "hgv_id": "723",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59066.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.1.59068.xml",
+      "tm_id": [
+        "724"
+      ],
+      "hgv_id": "724",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59068.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59074.xml",
+      "tm_id": [
+        "729"
+      ],
+      "hgv_id": "729",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59074.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.1.59075.xml",
+      "tm_id": [
+        "730"
+      ],
+      "hgv_id": "730",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59075.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59077.xml",
+      "tm_id": [
+        "732"
+      ],
+      "hgv_id": "732",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59077.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59085.xml",
+      "tm_id": [
+        "740"
+      ],
+      "hgv_id": "740",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59085.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59086.xml",
+      "tm_id": [
+        "741"
+      ],
+      "hgv_id": "741",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59086.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59093.xml",
+      "tm_id": [
+        "747"
+      ],
+      "hgv_id": "747",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59093.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59096.xml",
+      "tm_id": [
+        "749"
+      ],
+      "hgv_id": "749",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59096.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59099.xml",
+      "tm_id": [
+        "751"
+      ],
+      "hgv_id": "751",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59099.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59105.xml",
+      "tm_id": [
+        "755"
+      ],
+      "hgv_id": "755",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59105.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59107.xml",
+      "tm_id": [
+        "757"
+      ],
+      "hgv_id": "757",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59107.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59109.xml",
+      "tm_id": [
+        "759"
+      ],
+      "hgv_id": "759",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59109.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59110.xml",
+      "tm_id": [
+        "760"
+      ],
+      "hgv_id": "760",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59110.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.1.59120.xml",
+      "tm_id": [
+        "769"
+      ],
+      "hgv_id": "769",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59120.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59121.xml",
+      "tm_id": [
+        "770"
+      ],
+      "hgv_id": "770",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59121.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59124.xml",
+      "tm_id": [
+        "773"
+      ],
+      "hgv_id": "773",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-256",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59124.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59125.xml",
+      "tm_id": [
+        "774"
+      ],
+      "hgv_id": "774",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-256",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59125.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59129.xml",
+      "tm_id": [
+        "778"
+      ],
+      "hgv_id": "778",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-256",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59129.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59130.xml",
+      "tm_id": [
+        "779"
+      ],
+      "hgv_id": "779",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-254",
+      "date_not_after": "-254",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59130.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59132.xml",
+      "tm_id": [
+        "781"
+      ],
+      "hgv_id": "781",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-256",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59132.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.1.59134.xml",
+      "tm_id": [
+        "783"
+      ],
+      "hgv_id": "783",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-256",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59134.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59135.xml",
+      "tm_id": [
+        "784"
+      ],
+      "hgv_id": "784",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-256",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59135.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.1.59136.xml",
+      "tm_id": [
+        "785"
+      ],
+      "hgv_id": "785",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-256",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.1.59136.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.2.59154.xml",
+      "tm_id": [
+        "802"
+      ],
+      "hgv_id": "802",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-256",
+      "date_not_after": "-256",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.2.59154.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.2.59236.xml",
+      "tm_id": [
+        "881"
+      ],
+      "hgv_id": "881",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-253",
+      "date_not_after": "-252",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.2.59236.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.2.59237.xml",
+      "tm_id": [
+        "882"
+      ],
+      "hgv_id": "882",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-253",
+      "date_not_after": "-253",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.2.59237.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.2.59244.xml",
+      "tm_id": [
+        "889"
+      ],
+      "hgv_id": "889",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-252",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.2.59244.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.2.59245.xml",
+      "tm_id": [
+        "890"
+      ],
+      "hgv_id": "890",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-252",
+      "date_not_after": "-252",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.2.59245.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.2.59253.xml",
+      "tm_id": [
+        "898"
+      ],
+      "hgv_id": "898",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-252",
+      "date_not_after": "-252",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.2.59253.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.2.59254.xml",
+      "tm_id": [
+        "899"
+      ],
+      "hgv_id": "899",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-252",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.2.59254.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.2.59264.xml",
+      "tm_id": [
+        "908"
+      ],
+      "hgv_id": "908",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-251",
+      "date_not_after": "-251",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.2.59264.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.2.59287.xml",
+      "tm_id": [
+        "931"
+      ],
+      "hgv_id": "931",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-250",
+      "date_not_after": "-250",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.2.59287.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.cair.zen.2.59288.xml",
+      "tm_id": [
+        "932"
+      ],
+      "hgv_id": "932",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-250",
+      "date_not_after": "-250",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.2.59288.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.2.59291.xml",
+      "tm_id": [
+        "935"
+      ],
+      "hgv_id": "935",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-251",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.2.59291.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.cair.zen.3.59408.xml",
+      "tm_id": [
+        "1050"
+      ],
+      "hgv_id": "1050",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-275",
+      "date_not_after": "-226",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.3.59408.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.cair.zen.3.59426.xml",
+      "tm_id": [
+        "1066"
+      ],
+      "hgv_id": "1066",
+      "series": "p.cair.zen",
+      "series_type": "documentary",
+      "date_not_before": "-275",
+      "date_not_after": "-226",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.cair.zen/p.cair.zen.3.59426.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.col.3.16.xml",
+      "tm_id": [
+        "1736"
+      ],
+      "hgv_id": "1736",
+      "series": "p.col",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.col/p.col.3.16.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.dryton.1.25.xml",
+      "tm_id": [
+        "215"
+      ],
+      "hgv_id": "215",
+      "series": "p.dryton",
+      "series_type": "documentary",
+      "date_not_before": "-117",
+      "date_not_after": "-117",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.dryton/p.dryton.1.25.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.dryton.1.29.xml",
+      "tm_id": [
+        "66"
+      ],
+      "hgv_id": "66",
+      "series": "p.dryton",
+      "series_type": "documentary",
+      "date_not_before": "-105",
+      "date_not_after": "-105",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.dryton/p.dryton.1.29.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.dryton.1.32.xml",
+      "tm_id": [
+        "287"
+      ],
+      "hgv_id": "287",
+      "series": "p.dryton",
+      "series_type": "documentary",
+      "date_not_before": "-137",
+      "date_not_after": "-130",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.dryton/p.dryton.1.32.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.dryton.1.36.xml",
+      "tm_id": [
+        "290"
+      ],
+      "hgv_id": "290",
+      "series": "p.dryton",
+      "series_type": "documentary",
+      "date_not_before": "-130",
+      "date_not_after": "-130",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.dryton/p.dryton.1.36.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.eleph.1intdupl.xml",
+      "tm_id": [
+        "5836"
+      ],
+      "hgv_id": "5836",
+      "series": "p.eleph",
+      "series_type": "documentary",
+      "date_not_before": "-310",
+      "date_not_after": "-310",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.eleph/p.eleph.1intdupl.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.flor.3.367.xml",
+      "tm_id": [
+        "31149"
+      ],
+      "hgv_id": "31149",
+      "series": "p.flor",
+      "series_type": "documentary",
+      "date_not_before": "201",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.flor/p.flor.3.367.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.fouad.75.xml",
+      "tm_id": [
+        "11201"
+      ],
+      "hgv_id": "11201",
+      "series": "p.fouad",
+      "series_type": "documentary",
+      "date_not_before": "64",
+      "date_not_after": "64",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.fouad/p.fouad.75.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.giss.1.97.xml",
+      "tm_id": [
+        "27875"
+      ],
+      "hgv_id": "27875",
+      "series": "p.giss",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.giss/p.giss.1.97.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.grenf.1.26.xml",
+      "tm_id": [
+        "48348"
+      ],
+      "hgv_id": "48348",
+      "series": "p.grenf",
+      "series_type": "documentary",
+      "date_not_before": "-109",
+      "date_not_after": "-109",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.grenf/p.grenf.1.26.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.grenf.2.16.xml",
+      "tm_id": [
+        "59"
+      ],
+      "hgv_id": "59",
+      "series": "p.grenf",
+      "series_type": "documentary",
+      "date_not_before": "-136",
+      "date_not_after": "-136",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.grenf/p.grenf.2.16.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.grenf.2.25.xml",
+      "tm_id": [
+        "69"
+      ],
+      "hgv_id": "69",
+      "series": "p.grenf",
+      "series_type": "documentary",
+      "date_not_before": "-103",
+      "date_not_after": "-103",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.grenf/p.grenf.2.25.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.grenf.2.29.xml",
+      "tm_id": [
+        "73"
+      ],
+      "hgv_id": "73",
+      "series": "p.grenf",
+      "series_type": "documentary",
+      "date_not_before": "-102",
+      "date_not_after": "-102",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.grenf/p.grenf.2.29.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.grenf.2.31.xml",
+      "tm_id": [
+        "75"
+      ],
+      "hgv_id": "75",
+      "series": "p.grenf",
+      "series_type": "documentary",
+      "date_not_before": "-104",
+      "date_not_after": "-104",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.grenf/p.grenf.2.31.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.haun.2.18.xml",
+      "tm_id": [
+        "30121"
+      ],
+      "hgv_id": "30121",
+      "series": "p.haun",
+      "series_type": "documentary",
+      "date_not_before": "201",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.haun/p.haun.2.18.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.hels.1.10.xml",
+      "tm_id": [
+        "5145"
+      ],
+      "hgv_id": "5145",
+      "series": "p.hels",
+      "series_type": "documentary",
+      "date_not_before": "-163",
+      "date_not_after": "-163",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.hels/p.hels.1.10.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.hels.1.2.xml",
+      "tm_id": [
+        "5139"
+      ],
+      "hgv_id": "5139",
+      "series": "p.hels",
+      "series_type": "documentary",
+      "date_not_before": "-195",
+      "date_not_after": "-192",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.hels/p.hels.1.2.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.hib.1.40.xml",
+      "tm_id": [
+        "8191"
+      ],
+      "hgv_id": "8191",
+      "series": "p.hib",
+      "series_type": "documentary",
+      "date_not_before": "-261",
+      "date_not_after": "-261",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.hib/p.hib.1.40.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.hib.1.41.xml",
+      "tm_id": [
+        "8192"
+      ],
+      "hgv_id": "8192",
+      "series": "p.hib",
+      "series_type": "documentary",
+      "date_not_before": "-261",
+      "date_not_after": "-261",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.hib/p.hib.1.41.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.hib.1.43.xml",
+      "tm_id": [
+        "8194"
+      ],
+      "hgv_id": "8194",
+      "series": "p.hib",
+      "series_type": "documentary",
+      "date_not_before": "-261",
+      "date_not_after": "-261",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.hib/p.hib.1.43.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.hib.1.45.xml",
+      "tm_id": [
+        "8196"
+      ],
+      "hgv_id": "8196",
+      "series": "p.hib",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.hib/p.hib.1.45.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.hib.1.46.xml",
+      "tm_id": [
+        "8197"
+      ],
+      "hgv_id": "8197",
+      "series": "p.hib",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.hib/p.hib.1.46.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.hib.1.48.xml",
+      "tm_id": [
+        "8199"
+      ],
+      "hgv_id": "8199",
+      "series": "p.hib",
+      "series_type": "documentary",
+      "date_not_before": "-255",
+      "date_not_after": "-255",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.hib/p.hib.1.48.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.hib.1.50.xml",
+      "tm_id": [
+        "8201"
+      ],
+      "hgv_id": "8201",
+      "series": "p.hib",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.hib/p.hib.1.50.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.lond.6.1915.xml",
+      "tm_id": [
+        "16853"
+      ],
+      "hgv_id": "16853",
+      "series": "p.lond",
+      "series_type": "documentary",
+      "date_not_before": "330",
+      "date_not_after": "340",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.lond/p.lond.6.1915.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.mert.1.32.xml",
+      "tm_id": [
+        "33519"
+      ],
+      "hgv_id": "33519",
+      "series": "p.mert",
+      "series_type": "documentary",
+      "date_not_before": "301",
+      "date_not_after": "325",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.mert/p.mert.1.32.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.mich.3.157.xml",
+      "tm_id": [
+        "11977"
+      ],
+      "hgv_id": "11977",
+      "series": "p.mich",
+      "series_type": "documentary",
+      "date_not_before": "250",
+      "date_not_after": "250",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.mich/p.mich.3.157.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.mich.3.202.xml",
+      "tm_id": [
+        "21341"
+      ],
+      "hgv_id": "21341",
+      "series": "p.mich",
+      "series_type": "documentary",
+      "date_not_before": "105",
+      "date_not_after": "105",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.mich/p.mich.3.202.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.mich.8.475.xml",
+      "tm_id": [
+        "27088"
+      ],
+      "hgv_id": "27088",
+      "series": "p.mich",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "125",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.mich/p.mich.8.475.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.mich.8.476.xml",
+      "tm_id": [
+        "27089"
+      ],
+      "hgv_id": "27089",
+      "series": "p.mich",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "125",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.mich/p.mich.8.476.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.mich.8.479.xml",
+      "tm_id": [
+        "27092"
+      ],
+      "hgv_id": "27092",
+      "series": "p.mich",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "125",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.mich/p.mich.8.479.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.mich.8.481.xml",
+      "tm_id": [
+        "27094"
+      ],
+      "hgv_id": "27094",
+      "series": "p.mich",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "125",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.mich/p.mich.8.481.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.mil.vogl.2.76.xml",
+      "tm_id": [
+        "15188"
+      ],
+      "hgv_id": "15188",
+      "series": "p.mil.vogl",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.mil.vogl/p.mil.vogl.2.76.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.nag.hamm.72.xml",
+      "tm_id": [
+        "32414"
+      ],
+      "hgv_id": "32414",
+      "series": "p.nag.hamm",
+      "series_type": "documentary",
+      "date_not_before": "301",
+      "date_not_after": "400",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.nag.hamm/p.nag.hamm.72.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.1.114.xml",
+      "tm_id": [
+        "28406"
+      ],
+      "hgv_id": "28406",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.1.114.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.1.115.xml",
+      "tm_id": [
+        "28407"
+      ],
+      "hgv_id": "28407",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.1.115.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.oxy.1.116.xml",
+      "tm_id": [
+        "28408"
+      ],
+      "hgv_id": "28408",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.1.116.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.1.120.xml",
+      "tm_id": [
+        "31346"
+      ],
+      "hgv_id": "31346",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "201",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.1.120.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.1.123.xml",
+      "tm_id": [
+        "31349"
+      ],
+      "hgv_id": "31349",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "201",
+      "date_not_after": "400",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.1.123.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.10.1299.xml",
+      "tm_id": [
+        "33637"
+      ],
+      "hgv_id": "33637",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "301",
+      "date_not_after": "400",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.10.1299.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.oxy.14.1668.xml",
+      "tm_id": [
+        "31779"
+      ],
+      "hgv_id": "31779",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "201",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.14.1668.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.14.1676.xml",
+      "tm_id": [
+        "21966"
+      ],
+      "hgv_id": "21966",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "324",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.14.1676.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.oxy.14.1680.xml",
+      "tm_id": [
+        "31788"
+      ],
+      "hgv_id": "31788",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "276",
+      "date_not_after": "325",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.14.1680.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.14.1681.xml",
+      "tm_id": [
+        "31789"
+      ],
+      "hgv_id": "31789",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "201",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.14.1681.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.14.1765.xml",
+      "tm_id": [
+        "31807"
+      ],
+      "hgv_id": "31807",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "201",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.14.1765.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.14.1774.xml",
+      "tm_id": [
+        "33676"
+      ],
+      "hgv_id": "33676",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "301",
+      "date_not_after": "325",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.14.1774.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.16.1849.xml",
+      "tm_id": [
+        "37855"
+      ],
+      "hgv_id": "37855",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "501",
+      "date_not_after": "700",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.16.1849.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.16.1872.xml",
+      "tm_id": [
+        "35601"
+      ],
+      "hgv_id": "35601",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "476",
+      "date_not_after": "525",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.16.1872.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.2.299.xml",
+      "tm_id": [
+        "25672"
+      ],
+      "hgv_id": "25672",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "76",
+      "date_not_after": "100",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.2.299.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.33.2680.xml",
+      "tm_id": [
+        "26930"
+      ],
+      "hgv_id": "26930",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.33.2680.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.38.2844.xml",
+      "tm_id": [
+        "25939"
+      ],
+      "hgv_id": "25939",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "51",
+      "date_not_after": "100",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.38.2844.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.42.3059.xml",
+      "tm_id": [
+        "26811"
+      ],
+      "hgv_id": "26811",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "101",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.42.3059.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.oxy.48.3403.xml",
+      "tm_id": [
+        "33714"
+      ],
+      "hgv_id": "33714",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "301",
+      "date_not_after": "400",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.48.3403.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.48.3406.xml",
+      "tm_id": [
+        "33716"
+      ],
+      "hgv_id": "33716",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "301",
+      "date_not_after": "400",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.48.3406.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.6.932.xml",
+      "tm_id": [
+        "28343"
+      ],
+      "hgv_id": "28343",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "176",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.6.932.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.oxy.7.1068.xml",
+      "tm_id": [
+        "31315"
+      ],
+      "hgv_id": "31315",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "201",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.7.1068.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.oxy.9.1223.xml",
+      "tm_id": [
+        "21597"
+      ],
+      "hgv_id": "21597",
+      "series": "p.oxy",
+      "series_type": "documentary",
+      "date_not_before": "370",
+      "date_not_after": "370",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.oxy/p.oxy.9.1223.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.polit.iud.1.xml",
+      "tm_id": [
+        "44617"
+      ],
+      "hgv_id": "44617",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-135",
+      "date_not_after": "-135",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.1.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.polit.iud.10.xml",
+      "tm_id": [
+        "44626"
+      ],
+      "hgv_id": "44626",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-138",
+      "date_not_after": "-137",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.10.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.polit.iud.11.xml",
+      "tm_id": [
+        "44627"
+      ],
+      "hgv_id": "44627",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-133",
+      "date_not_after": "-132",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.11.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.polit.iud.12.xml",
+      "tm_id": [
+        "44628"
+      ],
+      "hgv_id": "44628",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-135",
+      "date_not_after": "-135",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.12.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.polit.iud.15.xml",
+      "tm_id": [
+        "44631"
+      ],
+      "hgv_id": "44631",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-143",
+      "date_not_after": "-132",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.15.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.polit.iud.17.xml",
+      "tm_id": [
+        "44633"
+      ],
+      "hgv_id": "44633",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-143",
+      "date_not_after": "-143",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.17.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.polit.iud.18.xml",
+      "tm_id": [
+        "44634"
+      ],
+      "hgv_id": "44634",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-142",
+      "date_not_after": "-142",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.18.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.polit.iud.19.xml",
+      "tm_id": [
+        "44635"
+      ],
+      "hgv_id": "44635",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-141",
+      "date_not_after": "-131",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.19.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.polit.iud.2.xml",
+      "tm_id": [
+        "44618"
+      ],
+      "hgv_id": "44618",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-135",
+      "date_not_after": "-135",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.2.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.polit.iud.20.xml",
+      "tm_id": [
+        "44636"
+      ],
+      "hgv_id": "44636",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-143",
+      "date_not_after": "-132",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.20.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.polit.iud.3.xml",
+      "tm_id": [
+        "44619"
+      ],
+      "hgv_id": "44619",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-140",
+      "date_not_after": "-140",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.3.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.polit.iud.4.xml",
+      "tm_id": [
+        "44620"
+      ],
+      "hgv_id": "44620",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-134",
+      "date_not_after": "-134",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.4.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.polit.iud.5.xml",
+      "tm_id": [
+        "44621"
+      ],
+      "hgv_id": "44621",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-135",
+      "date_not_after": "-134",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.5.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.polit.iud.6.xml",
+      "tm_id": [
+        "44622"
+      ],
+      "hgv_id": "44622",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-134",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.6.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.polit.iud.7.xml",
+      "tm_id": [
+        "44623"
+      ],
+      "hgv_id": "44623",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-134",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.7.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.polit.iud.8.xml",
+      "tm_id": [
+        "44624"
+      ],
+      "hgv_id": "44624",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-133",
+      "date_not_after": "-133",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.8.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.polit.iud.9.xml",
+      "tm_id": [
+        "44625"
+      ],
+      "hgv_id": "44625",
+      "series": "p.polit.iud",
+      "series_type": "documentary",
+      "date_not_before": "-132",
+      "date_not_after": "-132",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.polit.iud/p.polit.iud.9.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.tebt.1.10.xml",
+      "tm_id": [
+        "3646"
+      ],
+      "hgv_id": "3646",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-119",
+      "date_not_after": "-119",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.10.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.tebt.1.11.xml",
+      "tm_id": [
+        "3647"
+      ],
+      "hgv_id": "3647",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-119",
+      "date_not_after": "-119",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.11.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.tebt.1.12.xml",
+      "tm_id": [
+        "3648"
+      ],
+      "hgv_id": "3648",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-118",
+      "date_not_after": "-118",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.12.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.tebt.1.14.xml",
+      "tm_id": [
+        "3650"
+      ],
+      "hgv_id": "3650",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-114",
+      "date_not_after": "-114",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.14.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.tebt.1.15.xml",
+      "tm_id": [
+        "3651"
+      ],
+      "hgv_id": "3651",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-114",
+      "date_not_after": "-114",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.15.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.tebt.1.16.xml",
+      "tm_id": [
+        "3652"
+      ],
+      "hgv_id": "3652",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-114",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.16.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.tebt.1.17.xml",
+      "tm_id": [
+        "3653"
+      ],
+      "hgv_id": "3653",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-114",
+      "date_not_after": "-114",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.17.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.tebt.1.19.xml",
+      "tm_id": [
+        "3655"
+      ],
+      "hgv_id": "3655",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-114",
+      "date_not_after": "-114",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.19.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.tebt.1.20.xml",
+      "tm_id": [
+        "3656"
+      ],
+      "hgv_id": "3656",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-113",
+      "date_not_after": "-113",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.20.xml",
+      "role": "dev"
+    },
+    {
+      "file": "p.tebt.1.21.xml",
+      "tm_id": [
+        "78764"
+      ],
+      "hgv_id": "78764",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-115",
+      "date_not_after": "-115",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.21.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.tebt.1.22.xml",
+      "tm_id": [
+        "3658"
+      ],
+      "hgv_id": "3658",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-112",
+      "date_not_after": "-112",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.22.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.tebt.1.23.xml",
+      "tm_id": [
+        "3659"
+      ],
+      "hgv_id": "3659",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "-114",
+      "date_not_after": "-114",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.1.23.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.tebt.2.424.xml",
+      "tm_id": [
+        "31368"
+      ],
+      "hgv_id": "31368",
+      "series": "p.tebt",
+      "series_type": "documentary",
+      "date_not_before": "276",
+      "date_not_after": "300",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.tebt/p.tebt.2.424.xml",
+      "role": "test"
+    },
+    {
+      "file": "p.yale.1.32.xml",
+      "tm_id": [
+        "8200"
+      ],
+      "hgv_id": "8200",
+      "series": "p.yale",
+      "series_type": "documentary",
+      "date_not_before": "-257",
+      "date_not_after": "-257",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.yale/p.yale.1.32.xml",
+      "role": "unused"
+    },
+    {
+      "file": "p.yale.1.33.xml",
+      "tm_id": [
+        "8195"
+      ],
+      "hgv_id": "8195",
+      "series": "p.yale",
+      "series_type": "documentary",
+      "date_not_before": "-253",
+      "date_not_after": "-253",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/p.yale/p.yale.1.33.xml",
+      "role": "test"
+    },
+    {
+      "file": "psi.15.1539.xml",
+      "tm_id": [
+        "114322"
+      ],
+      "hgv_id": "114322",
+      "series": "psi",
+      "series_type": "documentary",
+      "date_not_before": "-25",
+      "date_not_after": "-1",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/psi/psi.15.1539.xml",
+      "role": "unused"
+    },
+    {
+      "file": "sb.1.5216.xml",
+      "tm_id": [
+        "5636"
+      ],
+      "hgv_id": "5636",
+      "series": "sb",
+      "series_type": "documentary",
+      "date_not_before": "-39",
+      "date_not_after": "-39",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/sb/sb.1.5216.xml",
+      "role": "test"
+    },
+    {
+      "file": "sb.20.15192.xml",
+      "tm_id": [
+        "35785"
+      ],
+      "hgv_id": "35785",
+      "series": "sb",
+      "series_type": "documentary",
+      "date_not_before": "401",
+      "date_not_after": "600",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/sb/sb.20.15192.xml",
+      "role": "dev"
+    },
+    {
+      "file": "sb.3.6264.xml",
+      "tm_id": [
+        "27793"
+      ],
+      "hgv_id": "27793",
+      "series": "sb",
+      "series_type": "documentary",
+      "date_not_before": "176",
+      "date_not_after": "200",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/sb/sb.3.6264.xml",
+      "role": "dev"
+    },
+    {
+      "file": "sb.5.7572.xml",
+      "tm_id": [
+        "27328"
+      ],
+      "hgv_id": "27328",
+      "series": "sb",
+      "series_type": "documentary",
+      "date_not_before": "104",
+      "date_not_after": "104",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/sb/sb.5.7572.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.10.xml",
+      "tm_id": [
+        "3401"
+      ],
+      "hgv_id": "3401",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-160",
+      "date_not_after": "-160",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.10.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.11.xml",
+      "tm_id": [
+        "3402"
+      ],
+      "hgv_id": "3402",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-160",
+      "date_not_after": "-160",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.11.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.111.xml",
+      "tm_id": [
+        "3503"
+      ],
+      "hgv_id": "3503",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-163",
+      "date_not_after": "-163",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.111.xml",
+      "role": "unused"
+    },
+    {
+      "file": "upz.1.12.xml",
+      "tm_id": [
+        "3403"
+      ],
+      "hgv_id": "3403",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-158",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.12.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.13.xml",
+      "tm_id": [
+        "3404"
+      ],
+      "hgv_id": "3404",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-158",
+      "date_not_after": "-157",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.13.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.14.xml",
+      "tm_id": [
+        "3405"
+      ],
+      "hgv_id": "3405",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-157",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.14.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.15.xml",
+      "tm_id": [
+        "3406"
+      ],
+      "hgv_id": "3406",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-156",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.15.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.16.xml",
+      "tm_id": [
+        "3407"
+      ],
+      "hgv_id": "3407",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-156",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.16.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.17.xml",
+      "tm_id": [
+        "3408"
+      ],
+      "hgv_id": "3408",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-163",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.17.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.18r.xml",
+      "tm_id": [
+        "3409"
+      ],
+      "hgv_id": "3409a",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-163",
+      "date_not_after": "-163",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.18r.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.18v.xml",
+      "tm_id": [
+        "3409"
+      ],
+      "hgv_id": "3409b",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.18v.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.19.xml",
+      "tm_id": [
+        "3410"
+      ],
+      "hgv_id": "3410",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-163",
+      "date_not_after": "-163",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.19.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.2.xml",
+      "tm_id": [
+        "3393"
+      ],
+      "hgv_id": "3393",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-163",
+      "date_not_after": "-163",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.2.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.20.xml",
+      "tm_id": [
+        "3411"
+      ],
+      "hgv_id": "3411",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-163",
+      "date_not_after": "-163",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.20.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.21.xml",
+      "tm_id": [
+        "3412"
+      ],
+      "hgv_id": "3412",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.21.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.22.xml",
+      "tm_id": [
+        "3413"
+      ],
+      "hgv_id": "3413",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.22.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.23.xml",
+      "tm_id": [
+        "3414"
+      ],
+      "hgv_id": "3414",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.23.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.24.xml",
+      "tm_id": [
+        "3415"
+      ],
+      "hgv_id": "3415",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.24.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.25.xml",
+      "tm_id": [
+        "3416"
+      ],
+      "hgv_id": "3416",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.25.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.26.xml",
+      "tm_id": [
+        "3417"
+      ],
+      "hgv_id": "3417",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.26.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.27.xml",
+      "tm_id": [
+        "3418"
+      ],
+      "hgv_id": "3418",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.27.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.28.xml",
+      "tm_id": [
+        "3419"
+      ],
+      "hgv_id": "3419",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.28.xml",
+      "role": "unused"
+    },
+    {
+      "file": "upz.1.29.xml",
+      "tm_id": [
+        "3420"
+      ],
+      "hgv_id": "3420a 3420b",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.29.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.3.xml",
+      "tm_id": [
+        "3394"
+      ],
+      "hgv_id": "3394",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-164",
+      "date_not_after": "-164",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.3.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.30.xml",
+      "tm_id": [
+        "3421"
+      ],
+      "hgv_id": "3421",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.30.xml",
+      "role": "unused"
+    },
+    {
+      "file": "upz.1.31.xml",
+      "tm_id": [
+        "3422"
+      ],
+      "hgv_id": "3422",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.31.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.32.xml",
+      "tm_id": [
+        "3423"
+      ],
+      "hgv_id": "3423",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.32.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.33.xml",
+      "tm_id": [
+        "3424"
+      ],
+      "hgv_id": "3424",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.33.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.34.xml",
+      "tm_id": [
+        "3425"
+      ],
+      "hgv_id": "3425",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.34.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.35.xml",
+      "tm_id": [
+        "3426"
+      ],
+      "hgv_id": "3426",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.35.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.36.xml",
+      "tm_id": [
+        "3427"
+      ],
+      "hgv_id": "3427",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.36.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.37.xml",
+      "tm_id": [
+        "3428"
+      ],
+      "hgv_id": "3428",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.37.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.38.xml",
+      "tm_id": [
+        "3429"
+      ],
+      "hgv_id": "3429",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.38.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.39.xml",
+      "tm_id": [
+        "3430"
+      ],
+      "hgv_id": "3430",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.39.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.40.xml",
+      "tm_id": [
+        "3431"
+      ],
+      "hgv_id": "3431",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.40.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.41.xml",
+      "tm_id": [
+        "3432"
+      ],
+      "hgv_id": "3432",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "-160",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.41.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.42.xml",
+      "tm_id": [
+        "3433"
+      ],
+      "hgv_id": "3433",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.42.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.43.xml",
+      "tm_id": [
+        "3434"
+      ],
+      "hgv_id": "3434",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.43.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.44.xml",
+      "tm_id": [
+        "3435"
+      ],
+      "hgv_id": "3435",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.44.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.45.xml",
+      "tm_id": [
+        "3436"
+      ],
+      "hgv_id": "3436",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.45.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.46.xml",
+      "tm_id": [
+        "3437"
+      ],
+      "hgv_id": "3437",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.46.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.47.xml",
+      "tm_id": [
+        "3438"
+      ],
+      "hgv_id": "3438",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.47.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.48.xml",
+      "tm_id": [
+        "3439"
+      ],
+      "hgv_id": "3439",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.48.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.49.xml",
+      "tm_id": [
+        "3440"
+      ],
+      "hgv_id": "3440",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.49.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.5.xml",
+      "tm_id": [
+        "3396"
+      ],
+      "hgv_id": "3396",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-163",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.5.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.50.xml",
+      "tm_id": [
+        "3441"
+      ],
+      "hgv_id": "3441",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.50.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.51.xml",
+      "tm_id": [
+        "3442"
+      ],
+      "hgv_id": "3442",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.51.xml",
+      "role": "unused"
+    },
+    {
+      "file": "upz.1.52.xml",
+      "tm_id": [
+        "3443"
+      ],
+      "hgv_id": "3443",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.52.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.53.xml",
+      "tm_id": [
+        "3444"
+      ],
+      "hgv_id": "3444",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.53.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.54.xml",
+      "tm_id": [
+        "3445"
+      ],
+      "hgv_id": "3445",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.54.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.55.xml",
+      "tm_id": [
+        "3446"
+      ],
+      "hgv_id": "3446",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.55.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.56.xml",
+      "tm_id": [
+        "3447"
+      ],
+      "hgv_id": "3447",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-160",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.56.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.57.xml",
+      "tm_id": [
+        "3448"
+      ],
+      "hgv_id": "3448",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-164",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.57.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.58.xml",
+      "tm_id": [
+        "3449"
+      ],
+      "hgv_id": "3449",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-163",
+      "date_not_after": "-162",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.58.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.59.xml",
+      "tm_id": [
+        "3450"
+      ],
+      "hgv_id": "3450",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-179",
+      "date_not_after": "-179",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.59.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.6.xml",
+      "tm_id": [
+        "3397"
+      ],
+      "hgv_id": "3397",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-163",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.6.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.60.xml",
+      "tm_id": [
+        "3451"
+      ],
+      "hgv_id": "3451",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-168",
+      "date_not_after": "-168",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.60.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.61.xml",
+      "tm_id": [
+        "3452"
+      ],
+      "hgv_id": "3452",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "-161",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.61.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.62.xml",
+      "tm_id": [
+        "3453"
+      ],
+      "hgv_id": "3453",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "",
+      "date_not_after": "-160",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.62.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.63.xml",
+      "tm_id": [
+        "3454"
+      ],
+      "hgv_id": "3454",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-158",
+      "date_not_after": "-158",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.63.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.64.xml",
+      "tm_id": [
+        "3455"
+      ],
+      "hgv_id": "3455",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-156",
+      "date_not_after": "-156",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.64.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.65.xml",
+      "tm_id": [
+        "3456"
+      ],
+      "hgv_id": "3456",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-154",
+      "date_not_after": "-154",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.65.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.66.xml",
+      "tm_id": [
+        "3457"
+      ],
+      "hgv_id": "3457",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-153",
+      "date_not_after": "-153",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.66.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.67.xml",
+      "tm_id": [
+        "3458"
+      ],
+      "hgv_id": "3458",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-153",
+      "date_not_after": "-152",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.67.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.68.xml",
+      "tm_id": [
+        "3459"
+      ],
+      "hgv_id": "3459",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-152",
+      "date_not_after": "-152",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.68.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.69.xml",
+      "tm_id": [
+        "3460"
+      ],
+      "hgv_id": "3460",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-152",
+      "date_not_after": "-152",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.69.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.7.xml",
+      "tm_id": [
+        "3398"
+      ],
+      "hgv_id": "3398",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-163",
+      "date_not_after": "-163",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.7.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.70.xml",
+      "tm_id": [
+        "3461"
+      ],
+      "hgv_id": "3461",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-152",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.70.xml",
+      "role": "dev"
+    },
+    {
+      "file": "upz.1.71.xml",
+      "tm_id": [
+        "3462"
+      ],
+      "hgv_id": "3462",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-152",
+      "date_not_after": "-152",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.71.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.72.xml",
+      "tm_id": [
+        "3463"
+      ],
+      "hgv_id": "3463",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-152",
+      "date_not_after": "-152",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.72.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.73.xml",
+      "tm_id": [
+        "3464"
+      ],
+      "hgv_id": "3464",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-200",
+      "date_not_after": "-151",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.73.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.74.xml",
+      "tm_id": [
+        "3465"
+      ],
+      "hgv_id": "3465",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.74.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.75.xml",
+      "tm_id": [
+        "3466"
+      ],
+      "hgv_id": "3466",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-162",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.75.xml",
+      "role": "unused"
+    },
+    {
+      "file": "upz.1.76.xml",
+      "tm_id": [
+        "3467"
+      ],
+      "hgv_id": "3467",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-200",
+      "date_not_after": "-151",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.76.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.77.xml",
+      "tm_id": [
+        "3468"
+      ],
+      "hgv_id": "3468",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-158",
+      "date_not_after": "-158",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.77.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.78.xml",
+      "tm_id": [
+        "3469"
+      ],
+      "hgv_id": "3469",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-159",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.78.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.79.xml",
+      "tm_id": [
+        "3470"
+      ],
+      "hgv_id": "3470",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-159",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.79.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.8.xml",
+      "tm_id": [
+        "3399"
+      ],
+      "hgv_id": "3399",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.8.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.80.xml",
+      "tm_id": [
+        "3471"
+      ],
+      "hgv_id": "3471",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-158",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.80.xml",
+      "role": "test"
+    },
+    {
+      "file": "upz.1.9.xml",
+      "tm_id": [
+        "3400"
+      ],
+      "hgv_id": "3400",
+      "series": "upz",
+      "series_type": "documentary",
+      "date_not_before": "-161",
+      "date_not_after": "-160",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/documentary/upz/upz.1.9.xml",
+      "role": "test"
+    },
+    {
+      "file": "64091.xml",
+      "tm_id": [
+        "64091"
+      ],
+      "hgv_id": "",
+      "series": "65",
+      "series_type": "literary",
+      "date_not_before": "",
+      "date_not_after": "",
+      "path": "ezhenrik-papygreek-treebanks-b87127c/literary/65/64091.xml",
+      "role": "unused"
+    }
+  ],
+  "glaux": {
+    "n_texts": 1421,
+    "documentary_genres": 0,
+    "raw_id_collisions": 37,
+    "collisions": [
+      {
+        "tm": "66",
+        "glaux": "Flavius Arrianus/Historia Indica",
+        "glaux_genre": "History",
+        "papygreek": "p.dryton.1.29.xml",
+        "role": "test"
+      },
+      {
+        "tm": "75",
+        "glaux": "Athenaeus/Deipnosophistae",
+        "glaux_genre": "Polyhistory",
+        "papygreek": "p.grenf.2.31.xml",
+        "role": "dev"
+      },
+      {
+        "tm": "287",
+        "glaux": "Plutarchus/Amatorius",
+        "glaux_genre": "Philosophic Dialogue",
+        "papygreek": "p.dryton.1.32.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "290",
+        "glaux": "Plutarchus/De sollertia animalium",
+        "glaux_genre": "Biology",
+        "papygreek": "p.dryton.1.36.xml",
+        "role": "dev"
+      },
+      {
+        "tm": "304",
+        "glaux": "Plutarchus/Pompeius",
+        "glaux_genre": "Biography",
+        "papygreek": "p.bour.10.xml",
+        "role": "test"
+      },
+      {
+        "tm": "305",
+        "glaux": "Plutarchus/Pyrrhus",
+        "glaux_genre": "Biography",
+        "papygreek": "p.bour.12.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "687",
+        "glaux": "Demosthenes/In Dionysodorum",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59027.xml",
+        "role": "dev"
+      },
+      {
+        "tm": "688",
+        "glaux": "Demosthenes/Contra Boeotum 2",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59028.xml",
+        "role": "test"
+      },
+      {
+        "tm": "689",
+        "glaux": "Demosthenes/Adversus Androtionem",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59029.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "690",
+        "glaux": "Demosthenes/Contra Aphobum",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59030.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "691",
+        "glaux": "Demosthenes/Exordia",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59031.xml",
+        "role": "dev"
+      },
+      {
+        "tm": "693",
+        "glaux": "Demosthenes/Epistulae",
+        "glaux_genre": "Epistolography",
+        "papygreek": "p.cair.zen.1.59033.xml",
+        "role": "dev"
+      },
+      {
+        "tm": "698",
+        "glaux": "Demosthenes/In Aristogitonem 1",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59038.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "699",
+        "glaux": "Demosthenes/Contra Macartatum",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59039.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "700",
+        "glaux": "Demosthenes/De Halonneso",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59040.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "702",
+        "glaux": "Demosthenes/In epistulam Philippi",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59042.xml",
+        "role": "dev"
+      },
+      {
+        "tm": "703",
+        "glaux": "Demosthenes/Contra Phormionem",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59043.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "705",
+        "glaux": "Demosthenes/De corona",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59045.xml",
+        "role": "test"
+      },
+      {
+        "tm": "706",
+        "glaux": "Demosthenes/De Chersoneso",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59046.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "707",
+        "glaux": "Demosthenes/Contra Polyclem",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59047.xml",
+        "role": "test"
+      },
+      {
+        "tm": "708",
+        "glaux": "Demosthenes/Contra Timotheum",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59048.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "717",
+        "glaux": "Dinarchus/In Philoclem",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59059.xml",
+        "role": "test"
+      },
+      {
+        "tm": "719",
+        "glaux": "Dio Chrysostomus/Orationes",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.cair.zen.1.59061.xml",
+        "role": "test"
+      },
+      {
+        "tm": "751",
+        "glaux": "Euripides/Hecuba",
+        "glaux_genre": "Tragedy",
+        "papygreek": "p.cair.zen.1.59099.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "755",
+        "glaux": "Euripides/Rhesus",
+        "glaux_genre": "Tragedy",
+        "papygreek": "p.cair.zen.1.59105.xml",
+        "role": "test"
+      },
+      {
+        "tm": "759",
+        "glaux": "Euripides/Iphigenia Aulidensis",
+        "glaux_genre": "Tragedy",
+        "papygreek": "p.cair.zen.1.59109.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "760",
+        "glaux": "Euripides/Hippolytus",
+        "glaux_genre": "Tragedy",
+        "papygreek": "p.cair.zen.1.59110.xml",
+        "role": "dev"
+      },
+      {
+        "tm": "773",
+        "glaux": "Galenus/De placitis Hippocratis et Platonis",
+        "glaux_genre": "Medicine",
+        "papygreek": "p.cair.zen.1.59124.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "774",
+        "glaux": "Galenus/De naturalibus facultatibus",
+        "glaux_genre": "Medicine",
+        "papygreek": "p.cair.zen.1.59125.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "802",
+        "glaux": "Hippocrates et Corpus Hippocraticum/De diaeta in morbis acutis",
+        "glaux_genre": "Medicine",
+        "papygreek": "p.cair.zen.2.59154.xml",
+        "role": "unused"
+      },
+      {
+        "tm": "889",
+        "glaux": "Oppianus/Halieutica",
+        "glaux_genre": "Scientific Poetry",
+        "papygreek": "p.cair.zen.2.59244.xml",
+        "role": "dev"
+      },
+      {
+        "tm": "1050",
+        "glaux": "Xenophon/Oeconomicus",
+        "glaux_genre": "Philosophic Dialogue",
+        "papygreek": "p.cair.zen.3.59408.xml",
+        "role": "test"
+      },
+      {
+        "tm": "3418",
+        "glaux": "Origenes/Fragmenta ex commentariis in Exodum",
+        "glaux_genre": "Commentary",
+        "papygreek": "upz.1.27.xml",
+        "role": "dev"
+      },
+      {
+        "tm": "3450",
+        "glaux": "Hippocrates et Corpus Hippocraticum/Jusjurandum",
+        "glaux_genre": "Medicine",
+        "papygreek": "upz.1.59.xml",
+        "role": "test"
+      },
+      {
+        "tm": "3471",
+        "glaux": "Apocalypsis Adam/Νυχθήμερον",
+        "glaux_genre": "Religious Prophecy",
+        "papygreek": "upz.1.80.xml",
+        "role": "test"
+      },
+      {
+        "tm": "11201",
+        "glaux": "Antiphon/De caede Herodis",
+        "glaux_genre": "Oratory",
+        "papygreek": "p.fouad.75.xml",
+        "role": "dev"
+      },
+      {
+        "tm": "15188",
+        "glaux": "Vitae Sanctorum Perpetuae Et Felicitatis/Passio Perpetuae et Felicitatis",
+        "glaux_genre": "Religious Narrative",
+        "papygreek": "p.mil.vogl.2.76.xml",
+        "role": "dev"
+      }
+    ]
+  },
+  "test_tm_ids": [
+    "10",
+    "10029",
+    "1050",
+    "11977",
+    "15",
+    "18493",
+    "18653",
+    "18654",
+    "18655",
+    "18657",
+    "21341",
+    "21597",
+    "23309",
+    "23323",
+    "23325",
+    "23329",
+    "23330",
+    "23331",
+    "23333",
+    "23334",
+    "23342",
+    "23346",
+    "23347",
+    "23351",
+    "23354",
+    "23355",
+    "23360",
+    "23366",
+    "23370",
+    "23371",
+    "23374",
+    "23375",
+    "23376",
+    "23378",
+    "23379",
+    "23380",
+    "23384",
+    "23387",
+    "23994",
+    "24136",
+    "24137",
+    "24138",
+    "24140",
+    "24144",
+    "24146",
+    "24149",
+    "24150",
+    "24154",
+    "24159",
+    "24162",
+    "24163",
+    "24166",
+    "24167",
+    "24168",
+    "24169",
+    "24170",
+    "24171",
+    "24173",
+    "24174",
+    "24175",
+    "24176",
+    "24177",
+    "24178",
+    "24179",
+    "24886",
+    "25672",
+    "25939",
+    "26930",
+    "27088",
+    "27092",
+    "27094",
+    "27875",
+    "28077",
+    "28080",
+    "28089",
+    "28093",
+    "28133",
+    "28189",
+    "28190",
+    "28406",
+    "28408",
+    "28975",
+    "29539",
+    "29541",
+    "29648",
+    "29650",
+    "29652",
+    "29656",
+    "29659",
+    "29660",
+    "29661",
+    "29663",
+    "29665",
+    "29666",
+    "29667",
+    "29808",
+    "29809",
+    "29810",
+    "29813",
+    "29814",
+    "29815",
+    "29817",
+    "29818",
+    "29819",
+    "29820",
+    "29821",
+    "29822",
+    "30121",
+    "304",
+    "31149",
+    "31263",
+    "31315",
+    "31346",
+    "31349",
+    "31368",
+    "31779",
+    "31788",
+    "31789",
+    "31807",
+    "32414",
+    "32904",
+    "33519",
+    "33676",
+    "33714",
+    "33716",
+    "3393",
+    "3396",
+    "3397",
+    "3398",
+    "3399",
+    "3400",
+    "3401",
+    "3404",
+    "3405",
+    "3406",
+    "3407",
+    "3409",
+    "3411",
+    "3412",
+    "3413",
+    "3415",
+    "3416",
+    "3420",
+    "3423",
+    "3425",
+    "3426",
+    "3428",
+    "3429",
+    "3430",
+    "3431",
+    "3438",
+    "3439",
+    "3443",
+    "3444",
+    "3447",
+    "3449",
+    "3450",
+    "3451",
+    "3456",
+    "3457",
+    "3458",
+    "3459",
+    "3460",
+    "3462",
+    "3463",
+    "3464",
+    "3465",
+    "3467",
+    "3468",
+    "3469",
+    "3470",
+    "3471",
+    "35601",
+    "3647",
+    "3650",
+    "3652",
+    "3658",
+    "37855",
+    "41596",
+    "44618",
+    "44621",
+    "44623",
+    "44626",
+    "44633",
+    "44634",
+    "44635",
+    "4527",
+    "5",
+    "5145",
+    "56",
+    "5636",
+    "5836",
+    "59",
+    "66",
+    "679",
+    "685",
+    "688",
+    "69",
+    "704599",
+    "705",
+    "707",
+    "712",
+    "717",
+    "719",
+    "73",
+    "732",
+    "74508",
+    "747",
+    "755",
+    "757",
+    "770",
+    "778",
+    "77953",
+    "783",
+    "784",
+    "8194",
+    "8195",
+    "8197",
+    "8199",
+    "881",
+    "88661",
+    "88669",
+    "932"
+  ],
+  "all_tm_ids": [
+    "10",
+    "10029",
+    "1050",
+    "1066",
+    "11201",
+    "114322",
+    "11977",
+    "15",
+    "15188",
+    "16853",
+    "1736",
+    "18493",
+    "18653",
+    "18654",
+    "18655",
+    "18656",
+    "18657",
+    "21341",
+    "215",
+    "21597",
+    "21966",
+    "2293",
+    "23309",
+    "23323",
+    "23325",
+    "23327",
+    "23329",
+    "23330",
+    "23331",
+    "23333",
+    "23334",
+    "23335",
+    "23337",
+    "23338",
+    "23342",
+    "23343",
+    "23346",
+    "23347",
+    "23349",
+    "23350",
+    "23351",
+    "23352",
+    "23353",
+    "23354",
+    "23355",
+    "23356",
+    "23357",
+    "23359",
+    "23360",
+    "23361",
+    "23362",
+    "23363",
+    "23364",
+    "23365",
+    "23366",
+    "23368",
+    "23369",
+    "23370",
+    "23371",
+    "23372",
+    "23374",
+    "23375",
+    "23376",
+    "23377",
+    "23378",
+    "23379",
+    "23380",
+    "23384",
+    "23385",
+    "23387",
+    "23388",
+    "23389",
+    "23994",
+    "24136",
+    "24137",
+    "24138",
+    "24140",
+    "24141",
+    "24144",
+    "24146",
+    "24149",
+    "24150",
+    "24151",
+    "24153",
+    "24154",
+    "24155",
+    "24157",
+    "24158",
+    "24159",
+    "24160",
+    "24161",
+    "24162",
+    "24163",
+    "24165",
+    "24166",
+    "24167",
+    "24168",
+    "24169",
+    "24170",
+    "24171",
+    "24172",
+    "24173",
+    "24174",
+    "24175",
+    "24176",
+    "24177",
+    "24178",
+    "24179",
+    "24180",
+    "24181",
+    "24886",
+    "25672",
+    "25939",
+    "26811",
+    "26930",
+    "27088",
+    "27089",
+    "27092",
+    "27094",
+    "27328",
+    "27793",
+    "27875",
+    "28077",
+    "28080",
+    "28089",
+    "28093",
+    "28133",
+    "28189",
+    "28190",
+    "28343",
+    "28406",
+    "28407",
+    "28408",
+    "287",
+    "28975",
+    "290",
+    "29537",
+    "29539",
+    "29541",
+    "29647",
+    "29648",
+    "29649",
+    "29650",
+    "29651",
+    "29652",
+    "29656",
+    "29659",
+    "29660",
+    "29661",
+    "29662",
+    "29663",
+    "29665",
+    "29666",
+    "29667",
+    "29668",
+    "29669",
+    "29672",
+    "29808",
+    "29809",
+    "29810",
+    "29813",
+    "29814",
+    "29815",
+    "29816",
+    "29817",
+    "29818",
+    "29819",
+    "29820",
+    "29821",
+    "29822",
+    "30121",
+    "304",
+    "305",
+    "31149",
+    "31263",
+    "31315",
+    "31346",
+    "31349",
+    "31368",
+    "31779",
+    "31788",
+    "31789",
+    "31807",
+    "32414",
+    "32904",
+    "33251",
+    "33519",
+    "33637",
+    "33676",
+    "33714",
+    "33716",
+    "3393",
+    "3394",
+    "3396",
+    "3397",
+    "3398",
+    "3399",
+    "3400",
+    "3401",
+    "3402",
+    "3403",
+    "3404",
+    "3405",
+    "3406",
+    "3407",
+    "3408",
+    "3409",
+    "3410",
+    "3411",
+    "3412",
+    "3413",
+    "3414",
+    "3415",
+    "3416",
+    "3417",
+    "3418",
+    "3419",
+    "3420",
+    "3421",
+    "3422",
+    "3423",
+    "3424",
+    "3425",
+    "3426",
+    "3427",
+    "3428",
+    "3429",
+    "3430",
+    "3431",
+    "3432",
+    "3433",
+    "3434",
+    "3435",
+    "3436",
+    "3437",
+    "3438",
+    "3439",
+    "3440",
+    "3441",
+    "3442",
+    "3443",
+    "3444",
+    "3445",
+    "3446",
+    "3447",
+    "3448",
+    "3449",
+    "3450",
+    "3451",
+    "3452",
+    "3453",
+    "3454",
+    "3455",
+    "3456",
+    "3457",
+    "3458",
+    "3459",
+    "3460",
+    "3461",
+    "3462",
+    "3463",
+    "3464",
+    "3465",
+    "3466",
+    "3467",
+    "3468",
+    "3469",
+    "3470",
+    "3471",
+    "3503",
+    "35601",
+    "35785",
+    "3646",
+    "3647",
+    "3648",
+    "3650",
+    "3651",
+    "3652",
+    "3653",
+    "3655",
+    "3656",
+    "3658",
+    "3659",
+    "36792",
+    "37855",
+    "41596",
+    "44617",
+    "44618",
+    "44619",
+    "44620",
+    "44621",
+    "44622",
+    "44623",
+    "44624",
+    "44625",
+    "44626",
+    "44627",
+    "44628",
+    "44631",
+    "44633",
+    "44634",
+    "44635",
+    "44636",
+    "4527",
+    "4540",
+    "48348",
+    "5",
+    "5139",
+    "5145",
+    "56",
+    "5636",
+    "5836",
+    "59",
+    "64091",
+    "66",
+    "677",
+    "678",
+    "679",
+    "681",
+    "684",
+    "685",
+    "687",
+    "688",
+    "689",
+    "69",
+    "690",
+    "691",
+    "693",
+    "698",
+    "699",
+    "700",
+    "702",
+    "703",
+    "704599",
+    "705",
+    "706",
+    "707",
+    "708",
+    "712",
+    "716",
+    "717",
+    "718",
+    "719",
+    "723",
+    "724",
+    "729",
+    "73",
+    "730",
+    "732",
+    "740",
+    "741",
+    "74508",
+    "747",
+    "749",
+    "75",
+    "751",
+    "755",
+    "757",
+    "759",
+    "760",
+    "769",
+    "770",
+    "773",
+    "774",
+    "7760",
+    "778",
+    "779",
+    "77953",
+    "781",
+    "783",
+    "784",
+    "785",
+    "78764",
+    "802",
+    "8191",
+    "8192",
+    "8194",
+    "8195",
+    "8196",
+    "8197",
+    "8199",
+    "8200",
+    "8201",
+    "881",
+    "882",
+    "88661",
+    "88669",
+    "889",
+    "890",
+    "898",
+    "899",
+    "908",
+    "931",
+    "932",
+    "935"
+  ]
+}

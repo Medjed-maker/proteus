@@ -1,0 +1,2924 @@
+{
+  "all": [
+    [
+      "gemination",
+      271
+    ],
+    [
+      "insertion (ε)",
+      261
+    ],
+    [
+      "other substitution",
+      213
+    ],
+    [
+      "deletion (ε)",
+      186
+    ],
+    [
+      "ο/ω quantity",
+      145
+    ],
+    [
+      "ε/αι",
+      105
+    ],
+    [
+      "deletion (ι)",
+      78
+    ],
+    [
+      "nasal assimilation",
+      71
+    ],
+    [
+      "insertion (ι)",
+      61
+    ],
+    [
+      "itacism η/ι/ει",
+      41
+    ],
+    [
+      "voicing κ/γ π/β τ/δ",
+      36
+    ],
+    [
+      "itacism οι/υ/ι",
+      36
+    ],
+    [
+      "insertion (ν)",
+      30
+    ],
+    [
+      "multiple alternations",
+      25
+    ],
+    [
+      "insertion (υ)",
+      22
+    ],
+    [
+      "insertion (ς)",
+      22
+    ],
+    [
+      "deletion (ν)",
+      21
+    ],
+    [
+      "deletion (long)",
+      19
+    ],
+    [
+      "insertion (α)",
+      17
+    ],
+    [
+      "insertion (ο)",
+      17
+    ],
+    [
+      "insertion (γ)",
+      14
+    ],
+    [
+      "insertion (σ)",
+      13
+    ],
+    [
+      "deletion (σ)",
+      13
+    ],
+    [
+      "deletion (ν) + insertion (ε)",
+      12
+    ],
+    [
+      "insertion (λ)",
+      9
+    ],
+    [
+      "deletion (υ)",
+      9
+    ],
+    [
+      "deletion (ε) + gemination",
+      9
+    ],
+    [
+      "deletion (ε) + insertion (γ)",
+      8
+    ],
+    [
+      "insertion (long)",
+      8
+    ],
+    [
+      "deletion (κ)",
+      7
+    ],
+    [
+      "gemination + other substitution",
+      6
+    ],
+    [
+      "insertion (το)",
+      6
+    ],
+    [
+      "insertion (ε) + insertion (υ)",
+      5
+    ],
+    [
+      "insertion (ρ)",
+      5
+    ],
+    [
+      "gemination + ο/ω quantity",
+      5
+    ],
+    [
+      "insertion (η)",
+      5
+    ],
+    [
+      "insertion (ν) + ο/ω quantity",
+      4
+    ],
+    [
+      "accent/breathing only",
+      4
+    ],
+    [
+      "insertion (ε) + ο/ω quantity",
+      4
+    ],
+    [
+      "insertion (κα)",
+      4
+    ],
+    [
+      "deletion (τ)",
+      4
+    ],
+    [
+      "deletion (ε) + ο/ω quantity",
+      4
+    ],
+    [
+      "deletion (ε) + ε/αι",
+      4
+    ],
+    [
+      "deletion (α)",
+      4
+    ],
+    [
+      "deletion (ο)",
+      4
+    ],
+    [
+      "insertion (τα) + ο/ω quantity",
+      4
+    ],
+    [
+      "insertion (ι) + ο/ω quantity",
+      4
+    ],
+    [
+      "deletion (long) + deletion (ν)",
+      4
+    ],
+    [
+      "deletion (ς)",
+      4
+    ],
+    [
+      "deletion (ς) + insertion (ε)",
+      4
+    ],
+    [
+      "insertion (τα)",
+      4
+    ],
+    [
+      "gemination + insertion (ε)",
+      4
+    ],
+    [
+      "insertion (μ)",
+      4
+    ],
+    [
+      "gemination + insertion (ι)",
+      3
+    ],
+    [
+      "gemination + ε/αι",
+      3
+    ],
+    [
+      "deletion (γω)",
+      3
+    ],
+    [
+      "deletion (δι) + insertion (δι)",
+      3
+    ],
+    [
+      "insertion (ει)",
+      3
+    ],
+    [
+      "deletion (ε) + insertion (ο)",
+      3
+    ],
+    [
+      "other substitution + ε/αι",
+      3
+    ],
+    [
+      "nasal assimilation + ε/αι",
+      3
+    ],
+    [
+      "insertion (ε) + other substitution",
+      3
+    ],
+    [
+      "deletion (λ)",
+      3
+    ],
+    [
+      "insertion (long) + other substitution",
+      3
+    ],
+    [
+      "insertion (αι)",
+      3
+    ],
+    [
+      "deletion (ν) + gemination",
+      3
+    ],
+    [
+      "gemination + insertion (ρι)",
+      3
+    ],
+    [
+      "deletion (μ)",
+      3
+    ],
+    [
+      "deletion (ι) + insertion (ι)",
+      3
+    ],
+    [
+      "σ/ζ",
+      2
+    ],
+    [
+      "nasal assimilation + ο/ω quantity",
+      2
+    ],
+    [
+      "deletion (long) + other substitution",
+      2
+    ],
+    [
+      "insertion (γ) + insertion (ε)",
+      2
+    ],
+    [
+      "gemination + nasal assimilation",
+      2
+    ],
+    [
+      "deletion (ρ)",
+      2
+    ],
+    [
+      "insertion (κ) + insertion (σ)",
+      2
+    ],
+    [
+      "insertion (κ)",
+      2
+    ],
+    [
+      "insertion (ε) + insertion (ι)",
+      2
+    ],
+    [
+      "deletion (σ) + ε/αι",
+      2
+    ],
+    [
+      "insertion (τι)",
+      2
+    ],
+    [
+      "deletion (ε) + itacism οι/υ/ι",
+      2
+    ],
+    [
+      "insertion (ις)",
+      2
+    ],
+    [
+      "insertion (ε) + itacism οι/υ/ι",
+      2
+    ],
+    [
+      "other substitution + ο/ω quantity",
+      2
+    ],
+    [
+      "deletion (ε) + insertion (ε)",
+      2
+    ],
+    [
+      "insertion (ατ)",
+      2
+    ],
+    [
+      "deletion (ος)",
+      2
+    ],
+    [
+      "insertion (τ)",
+      2
+    ],
+    [
+      "deletion (ι) + itacism οι/υ/ι",
+      2
+    ],
+    [
+      "itacism οι/υ/ι + ο/ω quantity",
+      2
+    ],
+    [
+      "insertion (ιο)",
+      2
+    ],
+    [
+      "deletion (ν) + deletion (τ)",
+      2
+    ],
+    [
+      "deletion (δ)",
+      2
+    ],
+    [
+      "deletion (υ) + insertion (υ)",
+      2
+    ],
+    [
+      "insertion (ος) + ο/ω quantity",
+      2
+    ],
+    [
+      "insertion (ʼ) + insertion (αν)",
+      2
+    ],
+    [
+      "insertion (σι)",
+      2
+    ],
+    [
+      "deletion (η) + insertion (ι)",
+      2
+    ],
+    [
+      "insertion (ου)",
+      2
+    ],
+    [
+      "insertion (δω)",
+      1
+    ],
+    [
+      "itacism η/ι/ει + other substitution",
+      1
+    ],
+    [
+      "gemination + itacism η/ι/ει",
+      1
+    ],
+    [
+      "deletion (σσ) + insertion (ησ)",
+      1
+    ],
+    [
+      "deletion (αν) + insertion (αγ)",
+      1
+    ],
+    [
+      "deletion (ος) + ο/ω quantity",
+      1
+    ],
+    [
+      "insertion (ι) + insertion (ν)",
+      1
+    ],
+    [
+      "deletion (ε) + deletion (ν)",
+      1
+    ],
+    [
+      "deletion (σε) + other substitution",
+      1
+    ],
+    [
+      "insertion (ως)",
+      1
+    ],
+    [
+      "insertion (ημ) + other substitution",
+      1
+    ],
+    [
+      "insertion (υ) + other substitution",
+      1
+    ],
+    [
+      "deletion (ρ) + ε/αι",
+      1
+    ],
+    [
+      "gemination + insertion (κ)",
+      1
+    ],
+    [
+      "insertion (α) + insertion (ρ)",
+      1
+    ],
+    [
+      "insertion (ητ)",
+      1
+    ],
+    [
+      "insertion (ν) + insertion (τ)",
+      1
+    ],
+    [
+      "deletion (ι) + insertion (ν)",
+      1
+    ],
+    [
+      "deletion (κ) + insertion (ν)",
+      1
+    ],
+    [
+      "deletion (γο)",
+      1
+    ],
+    [
+      "insertion (ω)",
+      1
+    ],
+    [
+      "deletion (ι) + gemination",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (long)",
+      1
+    ],
+    [
+      "insertion (ωγ)",
+      1
+    ],
+    [
+      "deletion (ρε) + insertion (ερ)",
+      1
+    ],
+    [
+      "ε/αι + ο/ω quantity",
+      1
+    ],
+    [
+      "αυ/α ευ/ε",
+      1
+    ],
+    [
+      "deletion (σ) + insertion (long)",
+      1
+    ],
+    [
+      "insertion (εν)",
+      1
+    ],
+    [
+      "deletion (π) + insertion (ε)",
+      1
+    ],
+    [
+      "deletion (να) + gemination",
+      1
+    ],
+    [
+      "gemination + σ/ζ",
+      1
+    ],
+    [
+      "deletion (σω) + insertion (ωσ)",
+      1
+    ],
+    [
+      "deletion (ζ)",
+      1
+    ],
+    [
+      "deletion (π) + ε/αι",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (δε)",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (υ)",
+      1
+    ],
+    [
+      "insertion (υς)",
+      1
+    ],
+    [
+      "gemination + insertion (ο)",
+      1
+    ],
+    [
+      "insertion (θ)",
+      1
+    ],
+    [
+      "insertion (ο) + other substitution",
+      1
+    ],
+    [
+      "insertion (ν) + other substitution",
+      1
+    ],
+    [
+      "gemination + insertion (ησ)",
+      1
+    ],
+    [
+      "deletion (α) + other substitution",
+      1
+    ],
+    [
+      "deletion (ε) + other substitution",
+      1
+    ],
+    [
+      "deletion (ι) + insertion (μ)",
+      1
+    ],
+    [
+      "insertion (long) + itacism οι/υ/ι",
+      1
+    ],
+    [
+      "gemination + itacism οι/υ/ι",
+      1
+    ],
+    [
+      "insertion (γ) + other substitution",
+      1
+    ],
+    [
+      "deletion (ν) + insertion (γε)",
+      1
+    ],
+    [
+      "insertion (ο) + itacism η/ι/ει",
+      1
+    ],
+    [
+      "insertion (ωτ) + other substitution",
+      1
+    ],
+    [
+      "deletion (ρα) + insertion (ρ)",
+      1
+    ],
+    [
+      "insertion (ψ) + nasal assimilation",
+      1
+    ],
+    [
+      "insertion (σα)",
+      1
+    ],
+    [
+      "deletion (υ) + gemination",
+      1
+    ],
+    [
+      "ε/αι + σ/ζ",
+      1
+    ],
+    [
+      "insertion (ος)",
+      1
+    ],
+    [
+      "insertion (σ) + other substitution",
+      1
+    ],
+    [
+      "insertion (ο) + insertion (ς)",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (ος)",
+      1
+    ],
+    [
+      "deletion (ος) + insertion (η)",
+      1
+    ],
+    [
+      "insertion (ς) + insertion (τ)",
+      1
+    ],
+    [
+      "insertion (ωσ)",
+      1
+    ],
+    [
+      "insertion (ε) + insertion (ν)",
+      1
+    ],
+    [
+      "deletion (τα) + ο/ω quantity",
+      1
+    ],
+    [
+      "insertion (ε) + ε/αι",
+      1
+    ],
+    [
+      "insertion (π) + other substitution",
+      1
+    ],
+    [
+      "insertion (υ) + itacism οι/υ/ι",
+      1
+    ],
+    [
+      "gemination + insertion (ν)",
+      1
+    ],
+    [
+      "insertion (ασ) + ε/αι",
+      1
+    ],
+    [
+      "voicing κ/γ π/β τ/δ + ε/αι",
+      1
+    ],
+    [
+      "deletion (ιν) + insertion (long)",
+      1
+    ],
+    [
+      "insertion (ε) + nasal assimilation",
+      1
+    ],
+    [
+      "insertion (ε) + itacism η/ι/ει",
+      1
+    ],
+    [
+      "insertion (long) + insertion (με)",
+      1
+    ],
+    [
+      "deletion (γ)",
+      1
+    ],
+    [
+      "deletion (ον)",
+      1
+    ],
+    [
+      "deletion (αυ)",
+      1
+    ],
+    [
+      "deletion (ογ)",
+      1
+    ],
+    [
+      "insertion (γ) + insertion (ο)",
+      1
+    ],
+    [
+      "deletion (ρ) + insertion (long)",
+      1
+    ],
+    [
+      "insertion (υ) + ο/ω quantity",
+      1
+    ],
+    [
+      "deletion (εν) + insertion (υ)",
+      1
+    ],
+    [
+      "deletion (ορ)",
+      1
+    ],
+    [
+      "deletion (σ) + nasal assimilation",
+      1
+    ],
+    [
+      "other substitution + voicing κ/γ π/β τ/δ",
+      1
+    ],
+    [
+      "deletion (το) + ο/ω quantity",
+      1
+    ],
+    [
+      "deletion (ι) + itacism η/ι/ει",
+      1
+    ],
+    [
+      "deletion (μο)",
+      1
+    ],
+    [
+      "deletion (γ) + gemination",
+      1
+    ],
+    [
+      "deletion (γ) + deletion (σ)",
+      1
+    ],
+    [
+      "deletion (τω)",
+      1
+    ],
+    [
+      "deletion (ρ) + other substitution",
+      1
+    ],
+    [
+      "gemination + insertion (γ)",
+      1
+    ],
+    [
+      "insertion (α) + other substitution",
+      1
+    ],
+    [
+      "gemination + insertion (long)",
+      1
+    ],
+    [
+      "deletion (ι) + ο/ω quantity",
+      1
+    ],
+    [
+      "deletion (τε)",
+      1
+    ],
+    [
+      "insertion (με) + insertion (ον)",
+      1
+    ],
+    [
+      "deletion (η) + gemination",
+      1
+    ],
+    [
+      "deletion (ε) + deletion (ι)",
+      1
+    ],
+    [
+      "insertion (σα) + ο/ω quantity",
+      1
+    ],
+    [
+      "insertion (τ) + insertion (υ)",
+      1
+    ],
+    [
+      "insertion (τε)",
+      1
+    ],
+    [
+      "deletion (σ) + other substitution",
+      1
+    ],
+    [
+      "insertion (ημ)",
+      1
+    ],
+    [
+      "insertion (αρ)",
+      1
+    ],
+    [
+      "insertion (ε) + insertion (μ)",
+      1
+    ],
+    [
+      "deletion (γ) + insertion (ι)",
+      1
+    ],
+    [
+      "insertion (αυ)",
+      1
+    ],
+    [
+      "insertion (ν) + insertion (σι)",
+      1
+    ],
+    [
+      "deletion (ι) + insertion (υ)",
+      1
+    ],
+    [
+      "insertion (ς) + σ/ζ",
+      1
+    ],
+    [
+      "insertion (ε) + voicing κ/γ π/β τ/δ",
+      1
+    ],
+    [
+      "insertion (ν) + nasal assimilation",
+      1
+    ],
+    [
+      "deletion (long) + insertion (ε)",
+      1
+    ],
+    [
+      "insertion (ι) + other substitution",
+      1
+    ],
+    [
+      "gemination + insertion (τη)",
+      1
+    ],
+    [
+      "insertion (με)",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (μ)",
+      1
+    ],
+    [
+      "deletion (σα)",
+      1
+    ],
+    [
+      "insertion (ων)",
+      1
+    ],
+    [
+      "deletion (ε) + voicing κ/γ π/β τ/δ",
+      1
+    ],
+    [
+      "insertion (αι) + ο/ω quantity",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (ασ)",
+      1
+    ],
+    [
+      "deletion (σ) + insertion (ι)",
+      1
+    ],
+    [
+      "deletion (ε) + nasal assimilation",
+      1
+    ],
+    [
+      "insertion (λ) + other substitution",
+      1
+    ],
+    [
+      "deletion (ητ) + insertion (ν)",
+      1
+    ],
+    [
+      "insertion (ον) + ο/ω quantity",
+      1
+    ],
+    [
+      "deletion (σι) + insertion (ισ)",
+      1
+    ],
+    [
+      "deletion (ο) + insertion (α)",
+      1
+    ],
+    [
+      "deletion (ι) + insertion (ε)",
+      1
+    ],
+    [
+      "deletion (long) + insertion (long)",
+      1
+    ],
+    [
+      "deletion (π)",
+      1
+    ],
+    [
+      "deletion (long) + deletion (ι)",
+      1
+    ],
+    [
+      "deletion (ς) + insertion (ντ)",
+      1
+    ],
+    [
+      "deletion (κ) + gemination",
+      1
+    ],
+    [
+      "insertion (ς) + voicing κ/γ π/β τ/δ",
+      1
+    ],
+    [
+      "deletion (ος) + insertion (ε)",
+      1
+    ],
+    [
+      "deletion (κα)",
+      1
+    ],
+    [
+      "gemination + insertion (υ)",
+      1
+    ],
+    [
+      "deletion (ν) + insertion (με)",
+      1
+    ],
+    [
+      "insertion (η) + itacism η/ι/ει",
+      1
+    ],
+    [
+      "insertion (ε) + insertion (η)",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (ν)",
+      1
+    ],
+    [
+      "deletion (σ) + gemination",
+      1
+    ],
+    [
+      "deletion (ει) + insertion (υ)",
+      1
+    ],
+    [
+      "insertion (ε) + insertion (σ)",
+      1
+    ],
+    [
+      "deletion (ρ) + insertion (ρ)",
+      1
+    ],
+    [
+      "insertion (ι) + ε/αι",
+      1
+    ],
+    [
+      "deletion (εν)",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (ι)",
+      1
+    ],
+    [
+      "itacism οι/υ/ι + ε/αι",
+      1
+    ],
+    [
+      "deletion (ν) + other substitution",
+      1
+    ]
+  ],
+  "failed": [
+    [
+      "insertion (ε)",
+      186
+    ],
+    [
+      "gemination",
+      158
+    ],
+    [
+      "deletion (ε)",
+      127
+    ],
+    [
+      "other substitution",
+      97
+    ],
+    [
+      "ε/αι",
+      66
+    ],
+    [
+      "ο/ω quantity",
+      62
+    ],
+    [
+      "nasal assimilation",
+      57
+    ],
+    [
+      "deletion (ι)",
+      42
+    ],
+    [
+      "itacism η/ι/ει",
+      32
+    ],
+    [
+      "itacism οι/υ/ι",
+      30
+    ],
+    [
+      "insertion (ι)",
+      28
+    ],
+    [
+      "voicing κ/γ π/β τ/δ",
+      23
+    ],
+    [
+      "multiple alternations",
+      23
+    ],
+    [
+      "insertion (ν)",
+      19
+    ],
+    [
+      "insertion (υ)",
+      18
+    ],
+    [
+      "deletion (long)",
+      17
+    ],
+    [
+      "insertion (α)",
+      15
+    ],
+    [
+      "insertion (ο)",
+      15
+    ],
+    [
+      "deletion (ν)",
+      14
+    ],
+    [
+      "insertion (σ)",
+      13
+    ],
+    [
+      "deletion (σ)",
+      13
+    ],
+    [
+      "insertion (γ)",
+      12
+    ],
+    [
+      "insertion (λ)",
+      8
+    ],
+    [
+      "deletion (ε) + gemination",
+      7
+    ],
+    [
+      "deletion (κ)",
+      6
+    ],
+    [
+      "insertion (long)",
+      5
+    ],
+    [
+      "gemination + other substitution",
+      5
+    ],
+    [
+      "insertion (ε) + insertion (υ)",
+      5
+    ],
+    [
+      "insertion (ρ)",
+      5
+    ],
+    [
+      "deletion (υ)",
+      5
+    ],
+    [
+      "insertion (ε) + ο/ω quantity",
+      4
+    ],
+    [
+      "deletion (ε) + ο/ω quantity",
+      4
+    ],
+    [
+      "deletion (ε) + ε/αι",
+      4
+    ],
+    [
+      "deletion (ν) + insertion (ε)",
+      4
+    ],
+    [
+      "deletion (ο)",
+      4
+    ],
+    [
+      "insertion (ς)",
+      4
+    ],
+    [
+      "deletion (long) + deletion (ν)",
+      4
+    ],
+    [
+      "insertion (το)",
+      4
+    ],
+    [
+      "deletion (ς) + insertion (ε)",
+      4
+    ],
+    [
+      "gemination + ο/ω quantity",
+      4
+    ],
+    [
+      "insertion (μ)",
+      4
+    ],
+    [
+      "deletion (γω)",
+      3
+    ],
+    [
+      "deletion (δι) + insertion (δι)",
+      3
+    ],
+    [
+      "insertion (ει)",
+      3
+    ],
+    [
+      "other substitution + ε/αι",
+      3
+    ],
+    [
+      "nasal assimilation + ε/αι",
+      3
+    ],
+    [
+      "insertion (ε) + other substitution",
+      3
+    ],
+    [
+      "deletion (λ)",
+      3
+    ],
+    [
+      "insertion (η)",
+      3
+    ],
+    [
+      "insertion (long) + other substitution",
+      3
+    ],
+    [
+      "insertion (αι)",
+      3
+    ],
+    [
+      "deletion (ν) + gemination",
+      3
+    ],
+    [
+      "gemination + insertion (ρι)",
+      3
+    ],
+    [
+      "deletion (μ)",
+      3
+    ],
+    [
+      "deletion (ι) + insertion (ι)",
+      3
+    ],
+    [
+      "insertion (κα)",
+      3
+    ],
+    [
+      "σ/ζ",
+      2
+    ],
+    [
+      "nasal assimilation + ο/ω quantity",
+      2
+    ],
+    [
+      "deletion (long) + other substitution",
+      2
+    ],
+    [
+      "deletion (ε) + insertion (γ)",
+      2
+    ],
+    [
+      "gemination + ε/αι",
+      2
+    ],
+    [
+      "gemination + nasal assimilation",
+      2
+    ],
+    [
+      "deletion (ρ)",
+      2
+    ],
+    [
+      "insertion (κ) + insertion (σ)",
+      2
+    ],
+    [
+      "deletion (ε) + insertion (ο)",
+      2
+    ],
+    [
+      "insertion (κ)",
+      2
+    ],
+    [
+      "insertion (ε) + insertion (ι)",
+      2
+    ],
+    [
+      "deletion (σ) + ε/αι",
+      2
+    ],
+    [
+      "deletion (α)",
+      2
+    ],
+    [
+      "deletion (ε) + itacism οι/υ/ι",
+      2
+    ],
+    [
+      "insertion (ε) + itacism οι/υ/ι",
+      2
+    ],
+    [
+      "other substitution + ο/ω quantity",
+      2
+    ],
+    [
+      "deletion (ε) + insertion (ε)",
+      2
+    ],
+    [
+      "deletion (ος)",
+      2
+    ],
+    [
+      "insertion (τ)",
+      2
+    ],
+    [
+      "deletion (ι) + itacism οι/υ/ι",
+      2
+    ],
+    [
+      "itacism οι/υ/ι + ο/ω quantity",
+      2
+    ],
+    [
+      "deletion (τ)",
+      2
+    ],
+    [
+      "insertion (τα)",
+      2
+    ],
+    [
+      "gemination + insertion (ι)",
+      2
+    ],
+    [
+      "insertion (ιο)",
+      2
+    ],
+    [
+      "deletion (δ)",
+      2
+    ],
+    [
+      "deletion (υ) + insertion (υ)",
+      2
+    ],
+    [
+      "gemination + insertion (ε)",
+      2
+    ],
+    [
+      "insertion (ʼ) + insertion (αν)",
+      2
+    ],
+    [
+      "deletion (η) + insertion (ι)",
+      2
+    ],
+    [
+      "insertion (ου)",
+      2
+    ],
+    [
+      "insertion (δω)",
+      1
+    ],
+    [
+      "itacism η/ι/ει + other substitution",
+      1
+    ],
+    [
+      "gemination + itacism η/ι/ει",
+      1
+    ],
+    [
+      "deletion (σσ) + insertion (ησ)",
+      1
+    ],
+    [
+      "deletion (αν) + insertion (αγ)",
+      1
+    ],
+    [
+      "insertion (ι) + insertion (ν)",
+      1
+    ],
+    [
+      "deletion (ε) + deletion (ν)",
+      1
+    ],
+    [
+      "deletion (σε) + other substitution",
+      1
+    ],
+    [
+      "accent/breathing only",
+      1
+    ],
+    [
+      "insertion (ως)",
+      1
+    ],
+    [
+      "insertion (ημ) + other substitution",
+      1
+    ],
+    [
+      "insertion (υ) + other substitution",
+      1
+    ],
+    [
+      "deletion (ρ) + ε/αι",
+      1
+    ],
+    [
+      "gemination + insertion (κ)",
+      1
+    ],
+    [
+      "insertion (α) + insertion (ρ)",
+      1
+    ],
+    [
+      "insertion (ητ)",
+      1
+    ],
+    [
+      "deletion (ι) + insertion (ν)",
+      1
+    ],
+    [
+      "deletion (κ) + insertion (ν)",
+      1
+    ],
+    [
+      "deletion (γο)",
+      1
+    ],
+    [
+      "insertion (ω)",
+      1
+    ],
+    [
+      "deletion (ι) + gemination",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (long)",
+      1
+    ],
+    [
+      "insertion (ωγ)",
+      1
+    ],
+    [
+      "deletion (ρε) + insertion (ερ)",
+      1
+    ],
+    [
+      "ε/αι + ο/ω quantity",
+      1
+    ],
+    [
+      "αυ/α ευ/ε",
+      1
+    ],
+    [
+      "deletion (σ) + insertion (long)",
+      1
+    ],
+    [
+      "insertion (εν)",
+      1
+    ],
+    [
+      "deletion (π) + insertion (ε)",
+      1
+    ],
+    [
+      "insertion (τι)",
+      1
+    ],
+    [
+      "deletion (να) + gemination",
+      1
+    ],
+    [
+      "gemination + σ/ζ",
+      1
+    ],
+    [
+      "deletion (ζ)",
+      1
+    ],
+    [
+      "deletion (π) + ε/αι",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (δε)",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (υ)",
+      1
+    ],
+    [
+      "insertion (υς)",
+      1
+    ],
+    [
+      "gemination + insertion (ο)",
+      1
+    ],
+    [
+      "insertion (θ)",
+      1
+    ],
+    [
+      "insertion (ο) + other substitution",
+      1
+    ],
+    [
+      "insertion (ν) + other substitution",
+      1
+    ],
+    [
+      "gemination + insertion (ησ)",
+      1
+    ],
+    [
+      "deletion (ε) + other substitution",
+      1
+    ],
+    [
+      "deletion (ι) + insertion (μ)",
+      1
+    ],
+    [
+      "insertion (long) + itacism οι/υ/ι",
+      1
+    ],
+    [
+      "gemination + itacism οι/υ/ι",
+      1
+    ],
+    [
+      "insertion (γ) + other substitution",
+      1
+    ],
+    [
+      "deletion (ν) + insertion (γε)",
+      1
+    ],
+    [
+      "insertion (ο) + itacism η/ι/ει",
+      1
+    ],
+    [
+      "insertion (ωτ) + other substitution",
+      1
+    ],
+    [
+      "deletion (ρα) + insertion (ρ)",
+      1
+    ],
+    [
+      "insertion (ψ) + nasal assimilation",
+      1
+    ],
+    [
+      "insertion (σα)",
+      1
+    ],
+    [
+      "deletion (υ) + gemination",
+      1
+    ],
+    [
+      "ε/αι + σ/ζ",
+      1
+    ],
+    [
+      "insertion (ος)",
+      1
+    ],
+    [
+      "insertion (σ) + other substitution",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (ος)",
+      1
+    ],
+    [
+      "insertion (ς) + insertion (τ)",
+      1
+    ],
+    [
+      "insertion (ωσ)",
+      1
+    ],
+    [
+      "insertion (ν) + ο/ω quantity",
+      1
+    ],
+    [
+      "insertion (ε) + insertion (ν)",
+      1
+    ],
+    [
+      "insertion (ε) + ε/αι",
+      1
+    ],
+    [
+      "insertion (π) + other substitution",
+      1
+    ],
+    [
+      "insertion (υ) + itacism οι/υ/ι",
+      1
+    ],
+    [
+      "gemination + insertion (ν)",
+      1
+    ],
+    [
+      "voicing κ/γ π/β τ/δ + ε/αι",
+      1
+    ],
+    [
+      "deletion (ιν) + insertion (long)",
+      1
+    ],
+    [
+      "insertion (ε) + nasal assimilation",
+      1
+    ],
+    [
+      "insertion (ε) + itacism η/ι/ει",
+      1
+    ],
+    [
+      "deletion (γ)",
+      1
+    ],
+    [
+      "deletion (ον)",
+      1
+    ],
+    [
+      "deletion (αυ)",
+      1
+    ],
+    [
+      "deletion (ογ)",
+      1
+    ],
+    [
+      "insertion (γ) + insertion (ο)",
+      1
+    ],
+    [
+      "deletion (ρ) + insertion (long)",
+      1
+    ],
+    [
+      "insertion (ατ)",
+      1
+    ],
+    [
+      "insertion (υ) + ο/ω quantity",
+      1
+    ],
+    [
+      "deletion (εν) + insertion (υ)",
+      1
+    ],
+    [
+      "deletion (ορ)",
+      1
+    ],
+    [
+      "deletion (σ) + nasal assimilation",
+      1
+    ],
+    [
+      "other substitution + voicing κ/γ π/β τ/δ",
+      1
+    ],
+    [
+      "deletion (το) + ο/ω quantity",
+      1
+    ],
+    [
+      "deletion (μο)",
+      1
+    ],
+    [
+      "deletion (γ) + gemination",
+      1
+    ],
+    [
+      "deletion (γ) + deletion (σ)",
+      1
+    ],
+    [
+      "deletion (τω)",
+      1
+    ],
+    [
+      "deletion (ρ) + other substitution",
+      1
+    ],
+    [
+      "gemination + insertion (γ)",
+      1
+    ],
+    [
+      "deletion (ς)",
+      1
+    ],
+    [
+      "insertion (α) + other substitution",
+      1
+    ],
+    [
+      "gemination + insertion (long)",
+      1
+    ],
+    [
+      "deletion (τε)",
+      1
+    ],
+    [
+      "insertion (με) + insertion (ον)",
+      1
+    ],
+    [
+      "deletion (η) + gemination",
+      1
+    ],
+    [
+      "deletion (ε) + deletion (ι)",
+      1
+    ],
+    [
+      "insertion (σα) + ο/ω quantity",
+      1
+    ],
+    [
+      "deletion (σ) + other substitution",
+      1
+    ],
+    [
+      "insertion (ημ)",
+      1
+    ],
+    [
+      "insertion (αρ)",
+      1
+    ],
+    [
+      "insertion (ε) + insertion (μ)",
+      1
+    ],
+    [
+      "deletion (γ) + insertion (ι)",
+      1
+    ],
+    [
+      "insertion (αυ)",
+      1
+    ],
+    [
+      "insertion (ν) + insertion (σι)",
+      1
+    ],
+    [
+      "deletion (ι) + insertion (υ)",
+      1
+    ],
+    [
+      "insertion (ς) + σ/ζ",
+      1
+    ],
+    [
+      "insertion (ε) + voicing κ/γ π/β τ/δ",
+      1
+    ],
+    [
+      "insertion (ν) + nasal assimilation",
+      1
+    ],
+    [
+      "deletion (long) + insertion (ε)",
+      1
+    ],
+    [
+      "insertion (ι) + other substitution",
+      1
+    ],
+    [
+      "gemination + insertion (τη)",
+      1
+    ],
+    [
+      "insertion (με)",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (μ)",
+      1
+    ],
+    [
+      "deletion (σα)",
+      1
+    ],
+    [
+      "insertion (ων)",
+      1
+    ],
+    [
+      "deletion (ε) + voicing κ/γ π/β τ/δ",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (ασ)",
+      1
+    ],
+    [
+      "deletion (σ) + insertion (ι)",
+      1
+    ],
+    [
+      "deletion (ε) + nasal assimilation",
+      1
+    ],
+    [
+      "insertion (λ) + other substitution",
+      1
+    ],
+    [
+      "deletion (ητ) + insertion (ν)",
+      1
+    ],
+    [
+      "insertion (ον) + ο/ω quantity",
+      1
+    ],
+    [
+      "deletion (σι) + insertion (ισ)",
+      1
+    ],
+    [
+      "deletion (ο) + insertion (α)",
+      1
+    ],
+    [
+      "deletion (ι) + insertion (ε)",
+      1
+    ],
+    [
+      "deletion (long) + insertion (long)",
+      1
+    ],
+    [
+      "deletion (π)",
+      1
+    ],
+    [
+      "deletion (long) + deletion (ι)",
+      1
+    ],
+    [
+      "deletion (κ) + gemination",
+      1
+    ],
+    [
+      "insertion (ς) + voicing κ/γ π/β τ/δ",
+      1
+    ],
+    [
+      "deletion (κα)",
+      1
+    ],
+    [
+      "insertion (σι)",
+      1
+    ],
+    [
+      "gemination + insertion (υ)",
+      1
+    ],
+    [
+      "deletion (ν) + insertion (με)",
+      1
+    ],
+    [
+      "insertion (ε) + insertion (η)",
+      1
+    ],
+    [
+      "deletion (σ) + gemination",
+      1
+    ],
+    [
+      "deletion (ει) + insertion (υ)",
+      1
+    ],
+    [
+      "insertion (ε) + insertion (σ)",
+      1
+    ],
+    [
+      "deletion (ρ) + insertion (ρ)",
+      1
+    ],
+    [
+      "deletion (εν)",
+      1
+    ],
+    [
+      "deletion (ε) + insertion (ι)",
+      1
+    ],
+    [
+      "itacism οι/υ/ι + ε/αι",
+      1
+    ],
+    [
+      "insertion (ις)",
+      1
+    ]
+  ],
+  "examples": {
+    "voicing κ/γ π/β τ/δ": [
+      "ἐνέκκαι -> ἐνέγκαι (φέρω) [pred ἐνέκκαι]",
+      "ἐγβάλεται -> ἐκβάλεται (ἐκβάλλω) [pred ἐγβάλεται]",
+      "τὴ -> δὴ (δή) [pred ὅς]",
+      "ἐγλήμπτωρ -> ἐκλήμπτωρ (ἐκλήμπτωρ) [pred ἐγλήμπτωρ]",
+      "ἐνδάχιον -> ἐντάχιον (ἐν-ταχύς) [pred ἐνδάχιον]",
+      "ἐγδέξασθαί -> ἐκδέξασθαί (ἐκδέχομαι) [pred ἐγδέξασθαί]",
+      "δεμάχια -> τεμάχια (τεμάχιον) [pred δεμάχια]",
+      "πούπλικα -> πούβλικα (πούβλικος) [pred πουπλιξ]"
+    ],
+    "insertion (ν)": [
+      "αὐτη -> αὐτὴν (αὐτός) [pred ἀϋτή]",
+      "Νεστοριαινα -> Νεστορίαιναν (Νεστοριαινα) [pred νεστοριαινος]",
+      "δίμουν -> δίμνουν (δίμνουν) [pred δίμουν]",
+      "ἐνέα -> ἐννέα (ἐννέα) [pred νεάω]",
+      "Ἰλῶι -> Νίλωι (Νεῖλος) [pred ἱλάσκομαι]",
+      "ἐσμε -> ἐσμέν (εἰμί) [pred ἑσμός]",
+      "τη -> τὴν (ὁ) [pred ὅς]",
+      "σεμνοπρεπεστατη -> σεμνοπρεπεστάτην (σεμνοπρεπής) [pred σεμνοπρεπεστατη]"
+    ],
+    "insertion (ε)": [
+      "ἰσώρακεν -> εἰσώρακεν (εἰσοράω) [pred ἰσώρακεν]",
+      "μαρτυρήσι -> μαρτυρήσει (μαρτυρέω) [pred μαρτύρησις]",
+      "ἀντιλημμένοι -> ἀντειλημμένοι (ἀντιλαμβάνω) [pred ἀντιλημμένοι]",
+      "αὐθαδίας -> αὐθαδείας (αὐθάδεια) [pred αὐθαδία]",
+      "ὀφίλοντας -> ὀφείλοντας (ὀφείλω) [pred ὀφίλοντας]",
+      "μίζονι -> μείζονι (μέγας) [pred μίζονι]",
+      "νωχελευομένου -> ἐνωχελευομένου (νωχελεύω) [pred νωχελευομενω]",
+      "ἔχι -> ἔχει (ἔχω) [pred ἔχις]"
+    ],
+    "itacism η/ι/ει": [
+      "ἠ -> εἰ (εἰ) [pred ὁ]",
+      "ἱμῖν -> ἡμῖν (ἐγώ) [pred ἱμῖν]",
+      "φυλακῖ -> φυλακῇ (φυλακή) [pred φύλαξ]",
+      "κωμίτην -> κωμήτην (κωμήτης) [pred κωμιος]",
+      "ἠ -> εἰ (εἰ) [pred ὁ]",
+      "ἀπαιτίσω -> ἀπαιτήσω (ἀπαιτέω) [pred ἀποτίνω]",
+      "ἥνα -> ἵνα (ἵνα) [pred ἀπτήν]",
+      "χρῆμα -> χρῖμα (χρῖμα) [pred χρῆμα]"
+    ],
+    "insertion (δω)": [
+      "δεκες -> δέδωκες (δίδωμι) [pred δεκες]"
+    ],
+    "itacism η/ι/ει + other substitution": [
+      "ἤρηχές -> εἴρηκάς (ἐρῶ) [pred ἤρηχές]"
+    ],
+    "other substitution": [
+      "Ταησις -> Ταήσεως (Ταησις) [pred Ταήσεις]",
+      "ερωτον -> Ἔρωτα (Ἔρως) [pred ἐράω]",
+      "ἔρροσσο -> ἔρρωσο (ῥώννυμι) [pred ἔρροσσο]",
+      "στραγευση -> στραγεῦσαι (στραγγεύομαι) [pred στραγευση]",
+      "εἰς -> ἐν (ἐν) [pred εἰς]",
+      "εἰς -> ἐν (ἐν) [pred εἰς]",
+      "δ᾽ -> ἄλλα (ἄλλος) [pred δέ]",
+      "τἀνδρὶ -> τῷ (ὁ) [pred ἀνήρ]"
+    ],
+    "gemination + itacism η/ι/ει": [
+      "ἤρηχεν -> εἴρηκεν (ἐρῶ) [pred ἤρηχεν]"
+    ],
+    "deletion (σσ) + insertion (ησ)": [
+      "διακονέσσι -> διακονήσει (διακονέω) [pred διακονέσσι]"
+    ],
+    "insertion (σ)": [
+      "εὐχαριτῶμεν -> εὐχαριστῶμεν (εὐχαριστέω) [pred ευχαριτοω]",
+      "περισότερον -> περισσότερον (περισσός) [pred περισοτερος]",
+      "πλεῖτα -> πλεῖστα (πλεῖστος) [pred πλεῖτα]",
+      "ὄτρακον -> ὄστρακον (ὄστρακον) [pred ὄτρακον]",
+      "τεσαρεσκαιδεκάτωι -> τεσσαρεσκαιδεκάτωι (τεσσαρεσκαιδέκατος) [pred τεσαρεσκαιδεκάτωι]",
+      "κομικαῖς -> κοσμικαῖς (κοσμικός) [pred κωμικός]",
+      "οι -> σοι (σύ) [pred ὁ]",
+      "βασιλίσηι -> βασιλίσσηι (βασίλισσα) [pred βασιλίσηι]"
+    ],
+    "σ/ζ": [
+      "ζμηνῶν -> σμηνῶν (σμῆνος) [pred ζμηνῶν]",
+      "νομίζαντα -> νομίσαντα (νομίζω) [pred νομίζαντα]"
+    ],
+    "nasal assimilation": [
+      "συνπροσγενόμενος -> συμπροσγενόμενος (σύν-προσγίγνομαι) [pred συνπροσγενόμενος]",
+      "ἐνκέκληκα -> ἐγκέκληκα (ἐγκαλέω) [pred ἐνκέκληκα]",
+      "ἐνβάλῃ -> ἐμβάλῃ (ἐμβάλλω) [pred ἐνβάλῃ]",
+      "ἐνβαλών -> ἐμβαλών (ἐμβάλλω) [pred ἐνβαλών]",
+      "ἐνπόρων -> ἐμπόρων (ἔμπορος) [pred ενποροος]",
+      "ἐνβληθῆναι -> ἐμβληθῆναι (ἐμβάλλω) [pred ἐνβληθῆναι]",
+      "ἀνάνκασον -> ἀνάγκασον (ἀναγκάζω) [pred ἀνάνκασον]",
+      "σεσυνψάφηκα -> σεσυμψάφηκα (συμψηφίζω) [pred σεσυνψάφηκα]"
+    ],
+    "insertion (υ)": [
+      "σεατοῦ -> σεαυτοῦ (σαυτοῦ) [pred σεατοῦ]",
+      "ἐματῆς -> ἐμαυτῆς (ἐμαυτοῦ) [pred ἐματῆς]",
+      "σεατοῦ -> σεαυτοῦ (σεαυτοῦ) [pred σεατοῦ]",
+      "ἑατῶν -> ἑαυτῶν (ἑαυτοῦ) [pred ἐάω]",
+      "σεατοῦ -> σεαυτοῦ (σαυτοῦ) [pred σεατοῦ]",
+      "σεατοῦ -> σεαυτοῦ (σεαυτοῦ) [pred σεατοῦ]",
+      "ἀτοῦ -> αὐτοῦ (αὐτός) [pred απατός]",
+      "Ῥοτιλίου -> Ῥουτιλίου (Ῥουτίλιος) [pred Ῥοτιλίου]"
+    ],
+    "deletion (ε)": [
+      "ἡμεῖν -> ἡμῖν (ἐγώ) [pred ἐγεί]",
+      "ἐάν -> ἄν (ἄν1) [pred ἐάν]",
+      "γεγραφεηκέναι -> γεγραφηκέναι (γράφω) [pred γεγραφεηκέναι]",
+      "ἐαυτοῖς -> αὐτοῖς (αὐτός) [pred ἑαυτοῦ]",
+      "ὀψείας -> ὀψίας (ὄψιος) [pred ὀψείας]",
+      "πατρεὶ -> πατρὶ (πατήρ) [pred Πατρεύς]",
+      "εἵνα -> ἵνα (ἵνα) [pred εἵνα]",
+      "εἵνα -> ἵνα (ἵνα) [pred εἵνα]"
+    ],
+    "deletion (αν) + insertion (αγ)": [
+      "ἀνήνκασε -> ἠνάγκασε (ἀναγκάζω) [pred ἀνήνκασε]"
+    ],
+    "gemination": [
+      "ὑμᾶς -> ἡμᾶς (ἐγώ) [pred σύ]",
+      "νεμεσῆν -> νεμεσᾶν (νεμεσάω) [pred νεμεσῆν]",
+      "ἐτασσα -> ἔταξα (ἐτάζω) [pred τάσσω]",
+      "πεπονεκώς -> πεπονηκώς (πονέω) [pred πεπονεκώς]",
+      "ἐμββλλόμενος -> ἐμβαλλόμενος (ἐμβάλλω) [pred ἐμββλλόμενος]",
+      "δυνόμενα -> δυνάμενα (δύναμαι) [pred δυνόμενα]",
+      "περά -> παρά (παρά) [pred περάω]",
+      "τὴ -> τὰ (ὁ) [pred ὅς]"
+    ],
+    "itacism οι/υ/ι": [
+      "κοίριος -> κύριος (κύριος) [pred κοίριος]",
+      "ἁλὺ -> ἁλὶ (ἅλς) [pred Αλύ]",
+      "συ -> σοι (σύ) [pred σῦς]",
+      "δὺς -> δὶς (δίς) [pred δύω]",
+      "λοιποῦ -> λυποῦ (λυπέω) [pred λοιπός]",
+      "συ -> σοι (σύ) [pred σῦς]",
+      "συ -> σοι (σύ) [pred σῦς]",
+      "λυπόν -> λοιπόν (λείπω) [pred λοιπός]"
+    ],
+    "insertion (ι)": [
+      "ὑγαίνῃς -> ὑγιαίνῃς (ὑγιαίνω) [pred υγαινεος]",
+      "περπατῶ -> περιπατῶ (περιπατέω) [pred περπατάω]",
+      "ὀφελομένου -> ὀφειλομένου (ὀφείλω) [pred οφελομενω]",
+      "ἐξεπόησεν -> ἐξεποίησεν (ἐκποιέω) [pred εξεποαειδω]",
+      "Ποσειδώνου -> Ποσειδωνίου (Ποσειδώνιος) [pred Ποσειδώνου]",
+      "εἰδέησαν -> εἰδείησαν (οἶδα) [pred δήω]",
+      "ποῶν -> ποιῶν (ποιέω) [pred πόα]",
+      "ὑγαίνειν -> ὑγιαίνειν (ὑγιαίνω) [pred υγαινεος]"
+    ],
+    "nasal assimilation + ο/ω quantity": [
+      "ἐνβάλομαι -> ἐμβάλωμαι (ἐμβάλλω) [pred ενβαλομης]",
+      "ὑπανκόνιον -> ὑπαγκώνιον (ὑπαγκώνιον) [pred ὑπανκόνιον]"
+    ],
+    "insertion (ι) + insertion (ν)": [
+      "Ἀλεξάνδρεα -> Ἀλεξάνδρειαν (Ἀλεξανδρεία) [pred Ἀλεξανδρεύς]"
+    ],
+    "deletion (ε) + deletion (ν)": [
+      "τειλωθειν -> Τιλώθει (Τιλωθις) [pred τειλωθειν]"
+    ],
+    "deletion (long)": [
+      "τἆλλα -> τὰ (ὁ) [pred ἄλλος]",
+      "ἐπίτασστειλε -> ἐπίστειλε (ἐπιστέλλω) [pred ἐπίτασστειλε]",
+      "ὡσθειδὼς -> ὡς (ὡς) [pred ὡσθειδὼς]",
+      "ταυτὸ -> τὸ (ὁ) [pred τατός]",
+      "Ἀχιλλητοντου -> Ἀχιλλήτου (Ἀχιλλητος) [pred Ἀχιλλητοντου]",
+      "τουνπαλιν -> τὸ (ὁ) [pred τουνπαλιν]",
+      "πυνθανομενομένων -> πυνθανομένων (πυνθάνομαι) [pred πυνθανομενομένων]",
+      "διαξησθε -> διάξῃ (διάγω) [pred διαξέω]"
+    ],
+    "deletion (σε) + other substitution": [
+      "γνοσεισαι -> γνοίης (γιγνώσκω) [pred γνοσειω]"
+    ],
+    "accent/breathing only": [
+      "μῂ -> μὴ (μῂ) [pred μή]"
+    ],
+    "deletion (long) + other substitution": [
+      "καταστησει -> μὴ (μή) [pred καθίστημι]",
+      "ἀνενενεγχθεντου -> ἀνενεχθέντας (ἀναφέρω) [pred ἀνενενεγχθεντου]"
+    ],
+    "insertion (long)": [
+      "βάλλεταί -> ἐπιβάλλεταί (ἐπιβάλλω) [pred βάλλω]",
+      "των -> τούτων (οὗτος) [pred ὁ]",
+      "υἵας -> ὑγιείας (ὑγίεια) [pred υἱός]",
+      "Φιλαδελ -> Φιλαδέλφιαν (Φιλαδέλφεια) [pred Φιλαδελ]",
+      "Πτολεου -> Πτολεμαίου (Πτολεμαῖος) [pred πτολεωμι]"
+    ],
+    "deletion (ε) + insertion (γ)": [
+      "παραγεινεται -> παραγίγνεται (παραγίγνομαι) [pred παραγίνομαι]",
+      "γείνωσκέ -> γίγνωσκέ (γιγνώσκω) [pred γείνωσκέ]"
+    ],
+    "ο/ω quantity": [
+      "ὀψόνια -> ὀψώνια (ὀψώνιον) [pred ὀψόνια]",
+      "ὣς -> ὃς (ὅς) [pred ὡς]",
+      "ὅς -> ὥς (ὡς) [pred ὅς]",
+      "Ζοσιμο -> Ζοσίμῳ (Ζώσιμος) [pred ζώσιμο]",
+      "ὁ͂ͅτινι -> ᾧτινι (ὅστις) [pred ὁ͂ͅτινι]",
+      "ῥώδινον -> ῥόδινον (ῥόδινος) [pred ῥώδινον]",
+      "γραφο -> γράφω (γράφω) [pred γράφος]",
+      "τριόβολον -> τριώβολον (τριώβολον) [pred τριόβολον]"
+    ],
+    "insertion (ως)": [
+      "ταχε -> ταχέως (ταχέως) [pred Τάχος]"
+    ],
+    "insertion (ημ) + other substitution": [
+      "σαιμεισον -> σήμανον (σημαίνω) [pred σαιμεισος]"
+    ],
+    "insertion (ε) + ο/ω quantity": [
+      "ὄφιλε -> ὤφειλε (ὀφέλλω) [pred ὀφείλω]",
+      "γινόσκιν -> γινώσκειν (γιγνώσκω) [pred γινόσκιν]",
+      "ἐπιτίνωμεν -> ἐπιτείνομεν (ἐπιτείνω) [pred ἐπιτίνω]",
+      "χιρογραφησάτοσαν -> χειρογραφησάτωσαν (χειρογραφέω) [pred χιρογραφησατοσαω]"
+    ],
+    "insertion (υ) + other substitution": [
+      "κεκροσμένα -> κεκρουσμένων (κρούω) [pred κεκροσμένα]"
+    ],
+    "ε/αι": [
+      "πεδίων -> παιδίων (παιδίον) [pred πεδίον]",
+      "αἰμοῦ -> ἐμοῦ (ἐγώ) [pred Αἷμος]",
+      "ἔλεγαί -> ἔλεγέ (λέγω3) [pred ἔλεγαί]",
+      "ἀσπάζετέ -> ἀσπάζεταί (ἀσπάζομαι) [pred ἀσπάζω]",
+      "σαι -> σε (σύ) [pred σός]",
+      "αἱτοιμάσω -> ἑτοιμάσω (ἑτοιμάζω) [pred αιτοιμασσω]",
+      "ἐλεῶνος -> ἐλαιῶνος (ἐλαιών) [pred ἐλεῶνος]",
+      "κὲ -> καὶ (καί) [pred ἄν]"
+    ],
+    "deletion (ν)": [
+      "ποδαν -> πόδα (πούς) [pred πόδας]",
+      "μητέραν -> μητέρα (μήτηρ) [pred μητέρα]",
+      "παντοκρατοραν -> παντοκράτορα (παντοκράτωρ) [pred παντοκρατοραν]",
+      "διπλοιδαν -> διπλοίδα (διπλοΐς) [pred διπλοιδας]",
+      "στατῆραν -> στατῆρα (στατήρ) [pred στατῆραν]",
+      "λώδικαν -> λώδικα (λῶδιξ) [pred λώδικαν]",
+      "σὲν -> σὲ (σύ) [pred Σεν]",
+      "χειμωναν -> χειμῶνα (χειμών) [pred χειμωναν]"
+    ],
+    "gemination + other substitution": [
+      "ἐτολότην -> ἐθολώθην (θολόω) [pred ετολοος]",
+      "μεκην -> μικρὰν (μικρός) [pred μεκην]",
+      "κραψε -> ἔγραψα (γράφω) [pred κραψε]",
+      "ἠτη -> ἔτος (ἔτος) [pred ἤτω]",
+      "ἐνεδέκετωι -> ἐνεδέχετο (ἐνδέχομαι) [pred ἐνεδέκετωι]"
+    ],
+    "deletion (ρ) + ε/αι": [
+      "συνερξερχομε -> συνεξέρχομαί (συνεξέρχομαι) [pred συνερξερχομε]"
+    ],
+    "insertion (ε) + insertion (υ)": [
+      "σατῷ -> σεαυτῷ (σαυτοῦ) [pred σάτον]",
+      "σατοῦ -> σεαυτοῦ (σεαυτοῦ) [pred Σατού]",
+      "σατοῦ -> σεαυτοῦ (σεαυτοῦ) [pred Σατού]",
+      "σατῷ -> σεαυτῷ (σεαυτοῦ) [pred σάτον]",
+      "σατῷ -> σεαυτῷ (σεαυτοῦ) [pred σάτον]"
+    ],
+    "gemination + ε/αι": [
+      "χαταβένω -> καταβαίνω (καταβαίνω) [pred χαταβένω]",
+      "δύνομε -> δύναμαι (δύναμαι) [pred δύο]"
+    ],
+    "deletion (γω)": [
+      "ἐγωιδῶ -> εἰδῶ (οἶδα) [pred ἐγωιδῶ]",
+      "καἰγὼ -> καὶ (καί) [pred καίω]",
+      "καἰγὼ -> καὶ (καί) [pred καίω]"
+    ],
+    "gemination + insertion (κ)": [
+      "ἐνιγών -> ἐνεγκών (φέρω) [pred ενιγη]"
+    ],
+    "insertion (α) + insertion (ρ)": [
+      "ἀραβων -> ἀρραβῶνα (ἀρραβών) [pred Ἄραψ]"
+    ],
+    "insertion (ητ)": [
+      "παρακλος -> παράκλητος (παράκλητος) [pred παρακλάω]"
+    ],
+    "insertion (α)": [
+      "Ἡρων -> Ἥρωνα (Ἥρων) [pred ἥρως]",
+      "Οὐλέριν -> Οὐαλέριν (Οὐαλέριος) [pred Οὐλέριν]",
+      "Οὐλέρις -> Οὐαλέρις (Οὐαλέριος) [pred Οὐλέρις]",
+      "ἡμιολιν -> ἡμιολίαν (ἡμιόλιος) [pred ημιολις]",
+      "ἱν -> ἵνα (ἵνα) [pred ἐν]",
+      "σφαλίσματα -> ἀσφαλίσματα (ἀσφάλισμα) [pred σφάλισμα]",
+      "δελφός -> ἀδελφός (ἀδελφός) [pred Δελφός]",
+      "γρμματα -> γράμματα (γράμμα) [pred γρμματα]"
+    ],
+    "deletion (δι) + insertion (δι)": [
+      "ἐδείδι -> ἐδίδει (δίδωμι) [pred δείδω]",
+      "δυδίμη -> διδύμη (δίδυμος) [pred δυδίμη]",
+      "δυδίμῃ -> διδύμῃ (δίδυμος) [pred δυδίμῃ]"
+    ],
+    "deletion (σ)": [
+      "πράξσω -> πράξω (πράσσω) [pred πράξσω]",
+      "οὐσσῶν -> οὐσῶν (εἰμί) [pred οὐσσῶν]",
+      "ὄσστρακον -> ὄστρακον (ὄστρακον) [pred ὄσστρακον]",
+      "ἄσσπασε -> ἄσπασε (ἀσπάζομαι) [pred ἄσσπασε]",
+      "ἐπισστολήν -> ἐπιστολήν (ἐπιστολή) [pred ἐπισστολήν]",
+      "ἀποσσπαθῆναι -> ἀποσπαθῆναι (ἀποσπάω) [pred ἀποσσπαθῆναι]",
+      "ἐπίσστασθαι -> ἐπίστασθαι (ἐπίσταμαι) [pred ἐπίσστασθαι]",
+      "ἐρρῶσσο -> ἐρρῶσο (ῥώννυμι) [pred ἐρρῶσσο]"
+    ],
+    "deletion (ι) + insertion (ν)": [
+      "τεκαι -> τέκνα (τέκνον) [pred τίκτω]"
+    ],
+    "deletion (κ)": [
+      "τέκκνα -> τέκνα (τέκνον) [pred τέκκνα]",
+      "Μακκαρίαν -> Μακαρίαν (Μακαρία) [pred Μακκαρίαν]",
+      "οὐκκ -> οὐκ (οὐ) [pred οὐκκ]",
+      "προσανενέκχθη -> προσανενέχθη (προσαναφέρω) [pred προσανενέκχθη]",
+      "ἐκκ -> ἐκ (ἐκ) [pred ΕΚΚ]",
+      "καυτὸς -> αὐτὸς (αὐτός) [pred καὶ]"
+    ],
+    "deletion (κ) + insertion (ν)": [
+      "τεκκνο -> τέκνον (τέκνον) [pred τεκκνο]"
+    ],
+    "insertion (λ)": [
+      "Ἀπολιναρίῳ -> Ἀπολλιναρίῳ (Ἀπολλινάριος) [pred Ἀπολινάριος]",
+      "ἀδεφὴ -> ἀδελφὴ (ἀδελφή) [pred ἀδεφὴ]",
+      "Ἀπολιναρίῳ -> Ἀπολλιναρίῳ (Ἀπολλινάριος) [pred Ἀπολινάριος]",
+      "Ἀπολῶ -> Ἀπολλῶ (Ἀπόλλως) [pred ἀπόλλυμι]",
+      "ἀλʼ -> ἀλλʼ (ἀλλά) [pred ἅλς]",
+      "ἀπηθε -> ἀπῆλθε (ἀπέρχομαι) [pred ἀπηθε]",
+      "ἀλὰ -> ἀλλὰ (ἀλλά) [pred ἀλάομαι]",
+      "κυληστίων -> κυλληστίων (κυλλᾶστις) [pred κυληστίων]"
+    ],
+    "deletion (γο)": [
+      "καἰγὸ -> καὶ (καί) [pred καἰγὸ]"
+    ],
+    "insertion (ω)": [
+      "μετέρα -> μετέωρα (μετέωρος) [pred μετεράω]"
+    ],
+    "insertion (ο)": [
+      "ἀργύριν -> ἀργύριον (ἀργύριον) [pred Αργύρι]",
+      "Πηλούσιν -> Πηλούσιον (Πηλούσιον) [pred πιλέω]",
+      "Τοτοητις -> Τοτοήτιος (Τοτοης) [pred τοτοοστις]",
+      "πάλλιν -> πάλλιον (πάλλιον) [pred πάλλω]",
+      "κεράμιν -> κεράμιον (κεράμιον) [pred κεραμέω]",
+      "μάτιν -> μάτιον (μάτιον) [pred μάτιν]",
+      "δηνάριν -> δηνάριον (δηνάριον) [pred δηνάριν]",
+      "μισθαριν -> μισθάριον (μισθάριον) [pred μισθαριν]"
+    ],
+    "insertion (ει)": [
+      "ὑγίας -> ὑγιείας (ὑγίεια) [pred ὑγιής]",
+      "ὑγίας -> ὑγιείας (ὑγίεια) [pred ὑγιής]",
+      "ὑγίας -> ὑγιείας (ὑγίεια) [pred ὑγιής]"
+    ],
+    "deletion (ι)": [
+      "χαίριν -> χάριν (χάρις) [pred χαίρω]",
+      "ἱερείως -> ἱερέως (ἱερεύς) [pred ἱέρειος]",
+      "Ἀλεξίωινι -> Ἀλεξίωνι (Ἀλεξίων) [pred Ἀλεξίωινι]",
+      "πορεύεισθαι -> πορεύεσθαι (πορεύω) [pred πορευιημι]",
+      "Ἰσιδώραι -> Ἰσιδώρα (Ἰσιδώρα) [pred Ἰσιδώραι]",
+      "ἔρρωσοι -> ἔρρωσο (ῥώννυμι) [pred ἔρρωσοι]",
+      "ἄνωι -> ἄνω (ἄνω) [pred ἄνοια]",
+      "εἰὰν -> ἐὰν (ἐάν) [pred ἄν]"
+    ],
+    "multiple alternations": [
+      "καλιόοτερεν -> καλλιότερον (καλός) [pred καλιοοτερην]",
+      "εἱρειων -> ἱερέων (ἱερεύς) [pred ἱρεῖον]",
+      "ἴλεφες -> εἴληφας (λαμβάνω) [pred ἴλεφες]",
+      "ἐπιτωλε -> ἐπιστολὴν (ἐπιστολή) [pred ἐπιτωλε]",
+      "νατιφωνις -> ἀντιφώνησιν (ἀντιφώνησις) [pred νατιφωνη]",
+      "κιθωνιν -> χιτώνιον (χιτώνιον) [pred κιθωνις]",
+      "Πετοσερις -> Πετοσίρει (Πετοσιρις) [pred Πετοσερις]",
+      "θρυδάκεια -> θριδακίου (θριδάκιον) [pred θρυδάκεια]"
+    ],
+    "insertion (ρ)": [
+      "εὐθύριν -> εὐθύρριν (εὐθύρριν) [pred ευθυρις]",
+      "ἔρωσο -> ἔρρωσο (ῥώννυμι) [pred Ρώσος]",
+      "διεπάγη -> διερπάγη (διαρπάζω) [pred διπηγνυμι]",
+      "ἔρωσο -> ἔρρωσο (ῥώννυμι) [pred Ρώσος]",
+      "ἀραβῶνα -> ἀρραβῶνα (ἀρραβών) [pred ἀραβῶνα]"
+    ],
+    "gemination + nasal assimilation": [
+      "Μενφις -> Μέμφιν (Μέμφις) [pred Μενφις]",
+      "Μενφεων -> Μέμφεως (Μεμφις) [pred Μενφεων]"
+    ],
+    "deletion (ι) + gemination": [
+      "πλήωι -> πλέω (πλέως) [pred πλήωι]"
+    ],
+    "deletion (ε) + insertion (long)": [
+      "ὑγειαι -> ὑγιαίνειν (ὑγιαίνω) [pred ὑγεία]"
+    ],
+    "insertion (ωγ)": [
+      "εἰσαγῆι -> εἰσαγωγῆι (εἰσαγωγή) [pred εἰσάγω]"
+    ],
+    "deletion (ρ)": [
+      "στρατηρα -> στατῆρα (στατήρ) [pred στρατηρα]",
+      "Ἁθρὺρ -> Ἁθὺρ (Ἀθυρ) [pred Ἁθρὺρ]"
+    ],
+    "insertion (κ) + insertion (σ)": [
+      "Σουκέσῳ -> Σουκκέσσῳ (Σουκεσος) [pred Σουκέσῳ]",
+      "Σουκέσῳ -> Σουκκέσσῳ (Σουκεσος) [pred Σουκέσῳ]"
+    ],
+    "deletion (ε) + insertion (ο)": [
+      "σχοινειν -> σχοινίον (σχοινίον) [pred σχοινέω]",
+      "χερειν -> χέριον (χέριον) [pred Χέριν]"
+    ],
+    "insertion (κ)": [
+      "Σουκέσσῳ -> Σουκκέσσῳ (Σουκεσος) [pred Σουκέσσῳ]",
+      "Σουκέσσωι -> Σουκκέσσωι (Σουκεσος) [pred Σουκέσσωι]"
+    ],
+    "insertion (ε) + insertion (ι)": [
+      "ποήσις -> ποιήσεις (ποιέω) [pred Ποῆσις]",
+      "ἀρχερῖ -> ἀρχιερεῖ (ἀρχιερεύς) [pred ἀρχερῖ]"
+    ],
+    "other substitution + ε/αι": [
+      "γνοῦνε -> γνῶναι (γιγνώσκω) [pred γνοῦνε]",
+      "δωκαι -> τέτοκε (τίκτω) [pred δίδωμι]",
+      "ἀνθαιγεγραπτε -> ἀντιγέγραπταί (ἀντιγράφω) [pred ἀνθαιγεγραπτε]"
+    ],
+    "deletion (ε) + ο/ω quantity": [
+      "Δειωκλῆς -> Διοκλῆς (Διοκλῆς) [pred Δειωκλῆς]",
+      "Κωμώνει -> Κομώνι (Κόμων) [pred Κωμώνει]",
+      "δίδομει -> δίδωμι (δίδωμι) [pred διδομεω]",
+      "καλλείο -> καλλίω (καλός) [pred καλλείο]"
+    ],
+    "deletion (ε) + ε/αι": [
+      "πειάσε -> πιάσαι (πιάζω) [pred πιάνω]",
+      "εὐκερείαν -> εὐκαιρίαν (εὐκαιρία) [pred εὐκερείαν]",
+      "καιράμεια -> κεράμια (κεράμιον) [pred κεράμειος]",
+      "καιραμείων -> κεραμίων (κεράμιον) [pred κεραμεῖον]"
+    ],
+    "deletion (ρε) + insertion (ερ)": [
+      "ἀκαιρέως -> ἀκεραίως (ἀκέραιος) [pred ἀκαιρέως]"
+    ],
+    "ε/αι + ο/ω quantity": [
+      "ἔρχομε -> ἔρχωμαι (ἔρχομαι) [pred ερχομός]"
+    ],
+    "deletion (σ) + ε/αι": [
+      "ἀσσπάζετε -> ἀσπάζεται (ἀσπάζομαι) [pred ἀσσπάζετε]",
+      "ἄσσπασε -> ἄσπασαι (ἀσπάζομαι) [pred ἄσσπασε]"
+    ],
+    "αυ/α ευ/ε": [
+      "εμετὸν -> ἐμαυτὸν (ἐμαυτοῦ) [pred ἔμετος]"
+    ],
+    "deletion (ε) + gemination": [
+      "ἐμείσησες -> ἐμίσησας (μισέω) [pred ἐμείσησες]",
+      "τειμὴν -> τιμῆς (τιμή) [pred τειμή]",
+      "τειμὴν -> τιμῆς (τιμή) [pred τειμή]",
+      "μακερεία -> μακαρία (μακάριος) [pred μακερεία]",
+      "Ἀρσενοειτῃ -> Ἀρσινοίτῃ (Ἀρσινοΐτης) [pred Ἀρσενοειτῃ]",
+      "εἱκιτείας -> ἱκετείας (ἱκετεία) [pred εἱκιτείας]",
+      "μαρσείπειον -> μαρσίππιον (μαρσίππιον) [pred μαρσειπειωμι]"
+    ],
+    "nasal assimilation + ε/αι": [
+      "μένφομε -> μέμφομαι (μέμφομαι) [pred μένφομε]",
+      "συνκροτῆσε -> συγκροτῆσαι (συγκροτέω) [pred συνκροτῆσε]",
+      "συνχέρω -> συγχαίρω (συγχαίρω) [pred συνχέρω]"
+    ],
+    "insertion (γ)": [
+      "Λόγον -> Λόγγον (Λόγγος) [pred λόγος]",
+      "ἀνακαῖον -> ἀναγκαῖον (ἀναγκαῖος) [pred ἀνακαίω]",
+      "ὀλίας -> ὀλίγας (ὀλίγος) [pred ὀλίας]",
+      "ἀνενεκεῖν -> ἀνενεγκεῖν (ἀναφέρω) [pred ἀνενεκεῖν]",
+      "μετήνεκα -> μετήνεγκα (μεταφέρω) [pred μετήνεκα]",
+      "ἀνενεκεῖν -> ἀνενεγκεῖν (ἀναφέρω) [pred ἀνενεκεῖν]",
+      "ὀλίων -> ὀλίγων (ὀλίγος) [pred ὀλίων]",
+      "ὀλίας -> ὀλίγας (ὀλίγος) [pred ὀλίας]"
+    ],
+    "deletion (σ) + insertion (long)": [
+      "ἀσσπά -> ἀσπάζεταί (ἀσπάζομαι) [pred ἀσσπά]"
+    ],
+    "insertion (εν)": [
+      "παραγεγοναι -> παραγεγονέναι (παραγίγνομαι) [pred παραγεγοναι]"
+    ],
+    "deletion (π) + insertion (ε)": [
+      "ὑππάγις -> ὑπάγεις (ὑπάγω) [pred ὑππάγις]"
+    ],
+    "insertion (τι)": [
+      "Μικκάλου -> Μικκαλοῦτι (Μικκαλοῦς) [pred Μικκάλου]"
+    ],
+    "deletion (να) + gemination": [
+      "γεναναμενες -> γενάμενος (γίγνομαι) [pred γεναναμενες]"
+    ],
+    "gemination + σ/ζ": [
+      "ἀσπάσεσται -> ἀσπάζεσθαι (ἀσπάζομαι) [pred ἀσπάσεσται]"
+    ],
+    "deletion (ν) + insertion (ε)": [
+      "συνζήτι -> συζήτει (συζητέω) [pred συνζήτι]",
+      "συνστρέφι -> συστρέφει (συστρέφω) [pred συνστρέφι]",
+      "ἐνετιλανμην -> ἐνετειλάμην (ἐντέλλω) [pred ἐνετιλανμην]",
+      "χιραν -> χεῖρα (χείρ) [pred χείρα]"
+    ],
+    "deletion (ζ)": [
+      "ζμου -> μου (ἐγώ) [pred ζμου]"
+    ],
+    "deletion (α)": [
+      "Κααρπουννίου -> Καρπουννίου (Καρπούνιος) [pred Κααρπουννίου]",
+      "μεναῶ -> μενῶ (μένω) [pred μαιν(ι)άω]"
+    ],
+    "deletion (π) + ε/αι": [
+      "ἔγυππτον -> Αἴγυπτον (Αἴγυπτος) [pred ἔγυππτον]"
+    ],
+    "deletion (ε) + insertion (δε)": [
+      "ἀποδωκενε -> ἀποδέδωκεν (ἀποδίδωμι) [pred ἀποδωκενε]"
+    ],
+    "deletion (ε) + insertion (υ)": [
+      "ὀδέεν -> ὀυδέν (οὐδείς) [pred ὀδέεν]"
+    ],
+    "insertion (υς)": [
+      "ο -> οὓς (ὅς) [pred ὁ]"
+    ],
+    "gemination + insertion (ο)": [
+      "ἡπητιν -> ἡπάτιον (ἡπάτιον) [pred ἠπητής]"
+    ],
+    "insertion (θ)": [
+      "ἠσα -> ἦσθα (εἰμί) [pred ἀείδω]"
+    ],
+    "insertion (ο) + other substitution": [
+      "λοικυθιν -> ληκύθιον (ληκύθιον) [pred λοικυθιν]"
+    ],
+    "deletion (ο)": [
+      "ἥμισου -> ἥμισυ (ἥμισυς) [pred ἡμισόν]",
+      "Σαραπιείοω -> Σαραπιείῳ (Σαραπιεῖον) [pred Σαραπιείοω]",
+      "νοῦν -> νῦν (νῦν) [pred νόος]",
+      "Πετευσοράπιος -> Πετευσορᾶπις (Πετοσοραπις) [pred Πετευσοράπιος]"
+    ],
+    "insertion (ν) + other substitution": [
+      "οἰμια -> οὐδεμίαν (οὐδείς) [pred οἰμια]"
+    ],
+    "gemination + insertion (ησ)": [
+      "ἀντιφωνις -> ἀντιφώνησιν (ἀντιφώνησις) [pred ἀντιφωνέω]"
+    ],
+    "deletion (ε) + itacism οι/υ/ι": [
+      "θρυδάκεια -> θριδάκια (θριδάκιον) [pred θρυδάκεια]",
+      "ἱμεῖν -> ὑμῖν (σύ) [pred ἱμεῖν]"
+    ],
+    "deletion (ε) + other substitution": [
+      "σείναπιν -> σινάπεως (σίναπι) [pred σείναπιν]"
+    ],
+    "deletion (ι) + insertion (μ)": [
+      "Ἀμωνιανῶι -> Ἀμμωνιανῷ (Ἀμμωνιανός) [pred Ἀμωνιανῶι]"
+    ],
+    "insertion (ε) + itacism οι/υ/ι": [
+      "πυήσις -> ποιήσεις (ποιέω) [pred πύηση]",
+      "πυήσις -> ποιήσεις (ποιέω) [pred πύηση]"
+    ],
+    "insertion (long) + itacism οι/υ/ι": [
+      "πυης -> ποιήσεις (ποιέω) [pred πύη]"
+    ],
+    "gemination + itacism οι/υ/ι": [
+      "ὕμυσυ -> ἥμισυ (ἥμισυς) [pred ὕμυσυ]"
+    ],
+    "other substitution + ο/ω quantity": [
+      "Μαρονᾶτι -> Μαρωνᾶτος (Μαρωνᾶς) [pred Μαρονᾶτι]",
+      "ὀνήσασσται -> ὠνήσασθαι (ὠνέομαι) [pred ὀνήσασσται]"
+    ],
+    "deletion (ε) + insertion (ε)": [
+      "ἐπιε -> ἐπεὶ (ἐπεί) [pred πίνω]",
+      "πρεὶ -> περὶ (περί) [pred πρόειμι]"
+    ],
+    "insertion (γ) + other substitution": [
+      "ανακκέως -> ἀναγκαῖα (ἀναγκαῖος) [pred ανακκέως]"
+    ],
+    "deletion (ν) + insertion (γε)": [
+      "ἀνγῖα -> ἀγγεῖα (ἀγγεῖον) [pred ἀνγῖα]"
+    ],
+    "insertion (ς)": [
+      "εἰ -> εἰς (εἰς) [pred εἰ]",
+      "τη -> τῆς (ὁ) [pred ὅς]",
+      "εἰ -> εἰς (εἰς) [pred εἰ]",
+      "Ἰσι -> Ἶσις (Ἰσις) [pred μάργηλις]"
+    ],
+    "deletion (υ)": [
+      "ὕδατους -> ὕδατος (ὕδωρ) [pred ὑδατόω]",
+      "υπαρὰ -> παρὰ (παρά) [pred υπαρὰ]",
+      "εὐτυύχει -> εὐτύχει (εὐτυχέω) [pred ευτυυχεω]",
+      "ἱερουδούλων -> ἱεροδούλων (ἱερόδουλος) [pred ιερουδουλος]",
+      "ἀνουμούμενον -> ἀνομούμενον (ἀνομέω) [pred ανουμουμενω]"
+    ],
+    "insertion (ο) + itacism η/ι/ει": [
+      "ἱμιαρτάβιν -> ἡμιαρτάβιον (ἡμιαρτάβιον) [pred ἱμιαρτάβιν]"
+    ],
+    "insertion (ε) + other substitution": [
+      "γραμματιτέα -> γραμματεῖς (γραμματεύς) [pred γραμματιτις]",
+      "πινο͂ντες -> πεινῶσαι (πεινάω) [pred πίνω]",
+      "ἀφιλεσαν -> ἀφεῖλον (ἀφαιρέω) [pred αφιλεσα]"
+    ],
+    "insertion (ωτ) + other substitution": [
+      "στρατιότη -> στρατιώτου (στρατιώτης) [pred στρατιοτω]"
+    ],
+    "deletion (ρα) + insertion (ρ)": [
+      "αἱηραται -> αἵρηται (αἱρέω) [pred αιαειρω]"
+    ],
+    "insertion (ψ) + nasal assimilation": [
+      "γραομ -> γράψον (γράφω) [pred γραομ]"
+    ],
+    "deletion (long) + deletion (ν)": [
+      "τἀργύριον -> τὸ (ὁ) [pred ἀργύριον]",
+      "τἀντίγραμφον -> τὸ (ὁ) [pred τἀντίγραμφον]",
+      "τἀντίγραφον -> τὸ (ὁ) [pred ταντιγραφω]",
+      "ἠξιωκανμενμεν -> ἠξιώκαμεν (ἀξιόω) [pred ἠξιωκανμενμεν]"
+    ],
+    "insertion (σα)": [
+      "ἀγορας -> ἀγοράσας (ἀγοράζω) [pred ἀγορά]"
+    ],
+    "deletion (ος)": [
+      "Φαγώνιος -> Φαγῶνι (Παγωνις) [pred Φαγώνιος]",
+      "κικιος -> κῖκι (κίκι) [pred Κικιός]"
+    ],
+    "deletion (υ) + gemination": [
+      "εὐτηχυῆσθαι -> εὐτυχῆσθαι (εὐτυχέω) [pred ευτηχυαειδω]"
+    ],
+    "ε/αι + σ/ζ": [
+      "ἄζπασε -> ἄσπασαι (ἀσπάζομαι) [pred ἄζπασε]"
+    ],
+    "insertion (το)": [
+      "Πατοῦς -> Πατοῦτος (Πατους) [pred πάτος]",
+      "Τοηοῦς -> Τοτοηοῦς (Τοτοης) [pred τοῖος]",
+      "Ἑριηους -> Ἑριηοῦτος (Ἑριηοῦς) [pred εριηως]",
+      "Ψάεις -> Ψάειτος (Ψαις) [pred Ψάεις]"
+    ],
+    "deletion (ς) + insertion (ε)": [
+      "Φαγωνις -> Φαγώνει (Παγωνις) [pred φαγώνω]",
+      "Ψεννησις -> Ψεννήσει (Ψενησις) [pred Ψεννησις]",
+      "Φαγωνίς -> Φαγώνει (Παγωνις) [pred Φαγωνίς]",
+      "Ψεννησις -> Ψεννήσει (Ψενησις) [pred Ψεννησις]"
+    ],
+    "insertion (ος)": [
+      "Νεχθανουπι -> Νεχθανούπιος (Νεχτανουπις) [pred Νεχθανουπι]"
+    ],
+    "insertion (σ) + other substitution": [
+      "φραγιδος -> σφραγῖδι (σφραγίς) [pred φραγιδος]"
+    ],
+    "deletion (ε) + insertion (ος)": [
+      "Παήρει -> Παήριος (Φαηρις) [pred Παήρει]"
+    ],
+    "insertion (ς) + insertion (τ)": [
+      "ζυμια -> ζυμίτας (ζυμίτης) [pred ζυμια]"
+    ],
+    "insertion (ωσ)": [
+      "πληρηι -> πληρώσηι (πληρόω) [pred πλήρης]"
+    ],
+    "deletion (λ)": [
+      "πολλὺ -> πολὺ (πολύς) [pred Πόλλυ]",
+      "κατακολλουθεῖν -> κατακολουθεῖν (κατακολουθέω) [pred κατακολλουθεω]",
+      "συνδιατρίλβοντος -> συνδιατρίβοντος (συνδιατρίβω) [pred συνδιατρίλβοντος]"
+    ],
+    "insertion (ν) + ο/ω quantity": [
+      "ἀρχωντω -> ἀρχόντων (ἄρχων) [pred Αρχόντω]"
+    ],
+    "insertion (τ)": [
+      "εἰσπράτεσθαι -> εἰσπράττεσθαι (εἰσπράσσω) [pred εἰσπράτεσθαι]",
+      "εθύκαμεν -> τεθύκαμεν (θύω1) [pred εθυκαμνω]"
+    ],
+    "insertion (ε) + insertion (ν)": [
+      "δανιστω -> δανειστῶν (δανειστής) [pred δανείζω]"
+    ],
+    "deletion (ι) + itacism οι/υ/ι": [
+      "δυαὶ -> διὰ (διά) [pred δύη]",
+      "ἀνύγωι -> ἀνοίγω (ἀνοίγω) [pred ἀνύγωι]"
+    ],
+    "insertion (η)": [
+      "ποισον -> ποίησον (ποιέω) [pred Ποϊσόν]",
+      "πεποιμένος -> πεποιημένος (ποιέω) [pred ποιμήν]",
+      "ποισάμενοι -> ποιησάμενοι (ποιέω) [pred ποισάμενοι]"
+    ],
+    "insertion (ε) + ε/αι": [
+      "αἴχιν -> ἔχειν (ἔχω) [pred αἴχιν]"
+    ],
+    "insertion (π) + other substitution": [
+      "επαυμενην -> πεπαυμένοι (παύω) [pred επαυμενην]"
+    ],
+    "insertion (υ) + itacism οι/υ/ι": [
+      "περσυ -> πέρυσι (πέρυσι) [pred Πέρσι]"
+    ],
+    "itacism οι/υ/ι + ο/ω quantity": [
+      "ἑτυμασο -> ἑτοιμάσω (ἑτοιμάζω) [pred ἑτυμασο]",
+      "θροιοπόλιον -> θρυοπώλιον (θρυοπώλιον) [pred θροιοπόλιον]"
+    ],
+    "gemination + insertion (ν)": [
+      "ὑγιαινοτι -> ὑγιαίνοντά (ὑγιαίνω) [pred ὑγιαινοτι]"
+    ],
+    "deletion (τ)": [
+      "τοὺς -> οὓς (ὅς) [pred ὁ]",
+      "τη -> ἡ (ὁ) [pred ὅς]"
+    ],
+    "insertion (long) + other substitution": [
+      "ὑγιένιν -> ὑγιαίνειν (ὑγιαίνω) [pred ὑγιένιν]",
+      "ὑγενιν -> ὑγιαίνειν (ὑγιαίνω) [pred ὑγενιν]",
+      "οἰδην -> αἰδοῖον (αἰδοῖον) [pred οἰδέω]"
+    ],
+    "voicing κ/γ π/β τ/δ + ε/αι": [
+      "ἐλεοσπάρακα -> ἐλαιοσπάραγα (ἐλαιοσπάραγος) [pred ἐλεοσπάρακα]"
+    ],
+    "deletion (ιν) + insertion (long)": [
+      "τελονιν -> τελώνιον (τελώνιον) [pred τελοος]"
+    ],
+    "insertion (τα)": [
+      "μεξὺ -> μεταξὺ (μεταξύ) [pred μεξὺ]",
+      "κὰ -> κατὰ (κατά) [pred ἄν]"
+    ],
+    "gemination + ο/ω quantity": [
+      "καταξιόσατη -> καταξιώσατε (καταξιόω) [pred καταξιόσατη]",
+      "καταξιόσατη -> καταξιώσατε (καταξιόω) [pred καταξιόσατη]",
+      "Μεκεδώνος -> Μακεδόνος (Μακεδών) [pred Μεκεδώνος]",
+      "ἠζημίοται -> ἐζημίωται (ζημιόω) [pred ηζημιοος]"
+    ],
+    "insertion (ε) + nasal assimilation": [
+      "κατενενκῖν -> κατενεγκεῖν (καταφέρω) [pred κατενενκῖν]"
+    ],
+    "insertion (ε) + itacism η/ι/ει": [
+      "σιμίου -> σημείου (σημεῖον) [pred Σιμίου]"
+    ],
+    "deletion (γ)": [
+      "Εὐγεργέταις -> Εὐεργέταις (Εὐεργέτης) [pred Εὐγεργέταις]"
+    ],
+    "insertion (αι)": [
+      "ἀσχολι -> ἀσχολίαι (ἀσχολία) [pred ἀσχολέω]",
+      "Πτολεμν -> Πτολεμαῖν (Πτολεμαῖος) [pred Πτολεμν]",
+      "ἀποδουν -> ἀποδοῦναι (ἀποδίδωμι) [pred ἀποδέω]"
+    ],
+    "deletion (ον)": [
+      "κατελαβονον -> κατέλαβον (καταλαμβάνω) [pred κατελαβονον]"
+    ],
+    "gemination + insertion (ι)": [
+      "ἑρκτε͂ι -> εἱρκτῆι (εἱρκτή) [pred ἑρκτε͂ι]",
+      "τίθεστα -> τίθεσθαι (τίθημι) [pred τίθεστα]"
+    ],
+    "deletion (αυ)": [
+      "αυτοῦ -> τοῦ (ὁ) [pred αὐτός]"
+    ],
+    "deletion (ογ)": [
+      "Θεογογονίδα -> Θεογονίδα (Θεογονίς) [pred Θεογογονίδα]"
+    ],
+    "insertion (γ) + insertion (ο)": [
+      "Ἀπυχις -> Ἀπύγχιος (Ἀπύγχις) [pred Ἀπύχις]"
+    ],
+    "deletion (ρ) + insertion (long)": [
+      "χέριν -> χαίρειν (χαίρω) [pred Χέριν]"
+    ],
+    "insertion (ιο)": [
+      "κυρν -> κύριον (κύριος) [pred κυρν]",
+      "ἐλαν -> ἔλαιον (ἔλαιον) [pred ἐλαύνω]"
+    ],
+    "deletion (ν) + gemination": [
+      "διαλαβειν -> διαλάβηι (διαλαμβάνω) [pred διαλαβή]",
+      "διαλαβειν -> διαλάβηι (διαλαμβάνω) [pred διαλαβή]",
+      "ἀπελλάγηνν -> ἀπηλλάγην (ἀπαλλαξείω) [pred ἀπελλάγηνν]"
+    ],
+    "insertion (ατ)": [
+      "Αἴου -> Ἀταίου (Ἀδαῖος) [pred ἀΐω]"
+    ],
+    "insertion (υ) + ο/ω quantity": [
+      "πολο͂ντος -> πωλοῦντος (πωλέω) [pred πολο͂ντος]"
+    ],
+    "deletion (εν) + insertion (υ)": [
+      "βολομενένου -> βουλομένου (βούλομαι) [pred βολομενένου]"
+    ],
+    "deletion (ορ)": [
+      "παστοφορόριον -> παστοφόριον (παστοφόριον) [pred παστοφορόριον]"
+    ],
+    "deletion (σ) + nasal assimilation": [
+      "εἰσσανγελέων -> εἰσαγγελέων (εἰσαγγελεύς) [pred εἰσσανγελέων]"
+    ],
+    "other substitution + voicing κ/γ π/β τ/δ": [
+      "Ἀσταρδιδηνον -> Ἀσταρτιείωι (Ἀσταρτιεῖον) [pred Ἀσταρδιδηνον]"
+    ],
+    "deletion (το) + ο/ω quantity": [
+      "ἐπετοδοκα -> ἐπέδωκα (ἐπιδίδωμι) [pred επετοδοκη]"
+    ],
+    "deletion (μο)": [
+      "κἀμοὶ -> καὶ (καί) [pred ἐγώ]"
+    ],
+    "deletion (γ) + gemination": [
+      "ἐγγλογίζεται -> ἐγλογίζηται (ἐκλογίζομαι) [pred εγγλογιζω]"
+    ],
+    "insertion (μ)": [
+      "γραματεῦσιν -> γραμματεῦσιν (γραμματεύς) [pred γραματεῦσιν]",
+      "γεγραμένης -> γεγραμμένης (γράφω) [pred γεγραμένης]",
+      "γραματεῦσι -> γραμματεῦσι (γραμματεύς) [pred γραματεῦσι]",
+      "προγεγραμένον -> προγεγραμμένον (προγράφω) [pred προγεγραμένον]"
+    ],
+    "gemination + insertion (ρι)": [
+      "Διοσκουδει -> Διοσκουρίδηι (Διοσκουρίδης) [pred διοσκουδωρ]",
+      "Διοσκουδει -> Διοσκουρίδηι (Διοσκουρίδης) [pred διοσκουδωρ]",
+      "Διοσκουδει -> Διοσκουρίδηι (Διοσκουρίδης) [pred διοσκουδωρ]"
+    ],
+    "deletion (γ) + deletion (σ)": [
+      "ἐγγλογίσζηται -> ἐγλογίζηται (ἐκλογίζομαι) [pred ἐγγλογίσζηται]"
+    ],
+    "deletion (τω)": [
+      "ἀπέτωδωκα -> ἀπέδωκα (ἀποδίδωμι) [pred ἀπέτωδωκα]"
+    ],
+    "deletion (ρ) + other substitution": [
+      "Ἀρρίστωνος -> Ἀρίστωνι (Ἀρίστων) [pred Ἀρρίστωνος]"
+    ],
+    "gemination + insertion (γ)": [
+      "μητήνεκα -> μετήνεγκα (μεταφέρω) [pred μητήνεκα]"
+    ],
+    "deletion (ς)": [
+      "εἰςς -> εἰς (εἰς) [pred εἰςς]"
+    ],
+    "deletion (μ)": [
+      "προστάγμματα -> προστάγματα (πρόσταγμα) [pred προστάγμματα]",
+      "πρόσταγμμα -> πρόσταγμα (πρόσταγμα) [pred πρόσταγμμα]",
+      "πρόσταγμμα -> πρόσταγμα (πρόσταγμα) [pred πρόσταγμμα]"
+    ],
+    "insertion (α) + other substitution": [
+      "γραμμτεῖ -> γραμματέως (γραμματεύς) [pred γραμμτεῖ]"
+    ],
+    "gemination + insertion (long)": [
+      "ὑπομνηματοφος -> ὑπομνηματογράφου (ὑπομνηματόγραφος) [pred ὑπομνηματοφος]"
+    ],
+    "deletion (τε)": [
+      "λιθοκοπετεῖσθαι -> λιθοκοπεῖσθαι (λιθοκοπέω) [pred λιθοκοπετεω]"
+    ],
+    "deletion (δ)": [
+      "Ἀσταρτιδείωι -> Ἀσταρτιείωι (Ἀσταρτεῖον) [pred Ἀσταρτιδείωι]",
+      "Ἀσταρτιδεῖον -> Ἀσταρτιεῖον (Ἀσταρτιεῖον) [pred Ἀσταρτιδεῖον]"
+    ],
+    "insertion (με) + insertion (ον)": [
+      "γινον -> γινόμενον (γίγνομαι) [pred γείνω]"
+    ],
+    "deletion (η) + gemination": [
+      "ἀπιστηίην -> ἀπιστίαν (ἀπιστία) [pred ἀπιστηίην]"
+    ],
+    "deletion (ε) + deletion (ι)": [
+      "καιθειστᾷ -> καθιστᾷ (καθιστάω) [pred καιθειστᾷ]"
+    ],
+    "insertion (σα) + ο/ω quantity": [
+      "ἀνεχορημεν -> ἀνεχωρήσαμεν (ἀναχωρέω) [pred ἀνεχορημεν]"
+    ],
+    "deletion (υ) + insertion (υ)": [
+      "Ἁθρυ -> Ἁθὺρ (Ἀθυρ) [pred Ἄθρυς]",
+      "Ἅθρυ -> Ἁθὺρ (Ἁθυρ) [pred Ἄθρυς]"
+    ],
+    "deletion (σ) + other substitution": [
+      "προσεστηκο -> προεστηκὼς (προίστημι) [pred προσεστηκο]"
+    ],
+    "insertion (ημ)": [
+      "Δητρίωι -> Δημητρίωι (Δημήτριος) [pred Δητρίωι]"
+    ],
+    "insertion (αρ)": [
+      "Σαπιείωι -> Σαραπιείωι (Σαραπιεῖον) [pred Σαπιείωι]"
+    ],
+    "gemination + insertion (ε)": [
+      "ἐκτεθισιν -> ἐκτεθεῖσαν (ἐκτίθημι) [pred ἐκτεθισιν]",
+      "ἀνωσαι -> ἀνέωσάν (ἀνωθέω) [pred Ἄνωσος]"
+    ],
+    "deletion (ι) + insertion (ι)": [
+      "ηι -> ιη (ιη) [pred ἀεί]",
+      "θι -> ιθ (ιθ) [pred θι]",
+      "Σαραπωνι -> Σαραπίων (Σαραπίων) [pred Σαραπωνι]"
+    ],
+    "insertion (ε) + insertion (μ)": [
+      "γραματῖς -> γραμματεῖς (γραμματεύς) [pred γραματῖς]"
+    ],
+    "deletion (γ) + insertion (ι)": [
+      "χαριγε -> χαριεῖ (χαρίζω) [pred χάρις]"
+    ],
+    "insertion (κα)": [
+      "ἀπεδω -> ἀπέδωκά (ἀποδίδωμι) [pred ἄπεδος]",
+      "θῆκον -> καθῆκον (καθήκω) [pred τίθημι]",
+      "θήκουσαν -> καθήκουσαν (καθήκω) [pred θηκουω]"
+    ],
+    "insertion (αυ)": [
+      "ἐξενιτου -> ἐξενιαύτου (ἐξενίαυτος) [pred εξενιος]"
+    ],
+    "insertion (ν) + insertion (σι)": [
+      "ἐπαφροδια -> ἐπαφροδισίαν (ἐπαφροδισία) [pred ἐπαφροδια]"
+    ],
+    "deletion (ι) + insertion (υ)": [
+      "ἐτυχίαι -> εὐτυχία (εὐτυχία) [pred ετυχιος]"
+    ],
+    "insertion (ς) + σ/ζ": [
+      "χρηματισει -> χρηματίζεις (χρηματίζω) [pred χρημάτισις]"
+    ],
+    "insertion (ε) + voicing κ/γ π/β τ/δ": [
+      "ἐξνηνεκμέναι -> ἐξενηνεγμέναι (ἐκφέρω) [pred ἐξνηνεκμέναι]"
+    ],
+    "insertion (ν) + nasal assimilation": [
+      "ἀνενενκατων -> ἀνενεγκάντων (ἀναφέρω) [pred ἀνενενκατων]"
+    ],
+    "deletion (long) + insertion (ε)": [
+      "ἀντιλαμβανολημμένου -> ἀντειλημμένου (ἀντιλαμβάνω) [pred ἀντιλαμβανολημμένου]"
+    ],
+    "insertion (ι) + other substitution": [
+      "ἐληφοτῶν -> εἰληφυιῶν (λαμβάνω) [pred εληφοος]"
+    ],
+    "gemination + insertion (τη)": [
+      "παραστραγιας -> παραστρατηγίαν (παραστρατηγία) [pred παραστραγιας]"
+    ],
+    "insertion (με)": [
+      "τριον -> μέτριον (μέτριος) [pred τρείω]"
+    ],
+    "deletion (ε) + insertion (μ)": [
+      "ἀντειλαβανομένου -> ἀντιλαμβανομένου (ἀντιλαμβάνω) [pred αντειλαβανομενω]"
+    ],
+    "deletion (σα)": [
+      "ἐλαμβανοσαν -> ἐλάμβανον (λαμβάνω) [pred ελαμβανοσαω]"
+    ],
+    "insertion (ων)": [
+      "ὀλυρ -> ὀλυρῶν (ὄλυρα) [pred ὀλυρ]"
+    ],
+    "deletion (ε) + voicing κ/γ π/β τ/δ": [
+      "ἐγλειπεῖν -> ἐκλιπεῖν (ἐκλείπω) [pred ἐγλειπεῖν]"
+    ],
+    "insertion (ʼ) + insertion (αν)": [
+      "τ -> ἀντʼ (ἀντί) [pred τ]",
+      "τ -> ἀντʼ (ἀντί) [pred τ]"
+    ],
+    "deletion (ε) + insertion (ασ)": [
+      "βιλεικοῦ -> βασιλικοῦ (βασιλικός) [pred βιλειπου]"
+    ],
+    "deletion (σ) + insertion (ι)": [
+      "κεχρημάτισστα -> κεχρημάτισται (χρηματίζω) [pred κεχρημάτισστα]"
+    ],
+    "deletion (ε) + nasal assimilation": [
+      "σύμταξειν -> σύνταξιν (σύνταξις) [pred σύμταξειν]"
+    ],
+    "insertion (λ) + other substitution": [
+      "κυληστητηων -> κυλληστίων (κυλλᾶστις) [pred κυληστητηων]"
+    ],
+    "deletion (ητ) + insertion (ν)": [
+      "Ψιταητῆντὸν -> Ψινταῆντὸν (Ψενταης) [pred Ψιταητῆντὸν]"
+    ],
+    "insertion (ον) + ο/ω quantity": [
+      "ἐνοπι -> ἐνώπιον (ἐνώπιος) [pred ἐνοπή]"
+    ],
+    "deletion (σι) + insertion (ισ)": [
+      "ἥμυσι -> ἥμισυ (ἥμισυς) [pred ἐμύς]"
+    ],
+    "deletion (ο) + insertion (α)": [
+      "διλούονται -> διαλύονται (διαλύω) [pred διλουω]"
+    ],
+    "deletion (ι) + insertion (ε)": [
+      "λιτουργῶι -> λειτουργῷ (λειτουργέω) [pred λιτουργέω]"
+    ],
+    "deletion (long) + insertion (long)": [
+      "ωὐνμω -> ὀμνύω (ὄμνυμι) [pred ωὐνμω]"
+    ],
+    "deletion (π)": [
+      "ἀσππασώμεθα -> ἀσπασώμεθα (ἀσπάζομαι) [pred ἀσππασώμεθα]"
+    ],
+    "deletion (long) + deletion (ι)": [
+      "τἀαδελφῶι -> τῷ (ὁ) [pred τἀαδελφῶι]"
+    ],
+    "deletion (κ) + gemination": [
+      "καυτοι -> αὐτὸς (αὐτός) [pred καυτός]"
+    ],
+    "insertion (ς) + voicing κ/γ π/β τ/δ": [
+      "δοσαυτη -> τοσαύτης (τοσοῦτος) [pred δοσεαυτου]"
+    ],
+    "deletion (κα)": [
+      "κααυτὸς -> αὐτὸς (αὐτός) [pred κααυος]"
+    ],
+    "insertion (σι)": [
+      "ἐνβέβληκαν -> ἐνβεβλήκασιν (ἐμβάλλω) [pred ἐνβέβληκαν]"
+    ],
+    "gemination + insertion (υ)": [
+      "βολάμενοι -> βουλόμενοι (βούλομαι) [pred βολάμενοι]"
+    ],
+    "deletion (ν) + insertion (με)": [
+      "συνμῖξαί -> συμμεῖξαί (συμμίγνυμι) [pred συνμιξαγι]"
+    ],
+    "insertion (ε) + insertion (η)": [
+      "ποισις -> ποιήσεις (ποιέω) [pred Ποῆσις]"
+    ],
+    "deletion (η) + insertion (ι)": [
+      "Σεληνειήοις -> Σεληνιείοις (σεληνιεῖα) [pred σεληνειημαι]",
+      "στατηρειήους -> στατηριείους (στατηριαῖος) [pred στατηρειηως]"
+    ],
+    "deletion (σ) + gemination": [
+      "ἐργάσζοντος -> ἐργάζοντες (ἐργάζω) [pred ἐργάσζοντος]"
+    ],
+    "deletion (ει) + insertion (υ)": [
+      "Ἁθρεὶ -> Ἁθὺρ (Ἁθύρ) [pred ἀθρέω]"
+    ],
+    "insertion (ε) + insertion (σ)": [
+      "κοτινὸν -> σκοτεινὸν (σκοτεινός) [pred κότινος]"
+    ],
+    "deletion (ρ) + insertion (ρ)": [
+      "πόρσωπον -> πρόσωπον (πρόσωπον) [pred πόρσωπον]"
+    ],
+    "deletion (εν)": [
+      "ἐνενύπνιον -> ἐνύπνιον (ἐνύπνιον) [pred ἐνενύπνιον]"
+    ],
+    "insertion (ου)": [
+      "ἐμ -> ἐμοῦ (ἐγώ) [pred ἐν]",
+      "ἐμ -> ἐμοῦ (ἐγώ) [pred ἐν]"
+    ],
+    "deletion (ε) + insertion (ι)": [
+      "χερεὶ -> χειρὶ (χείρ) [pred χαίρω]"
+    ],
+    "itacism οι/υ/ι + ε/αι": [
+      "ἀνύγετε -> ἀνοίγεται (ἀνοίγω) [pred ανυγετος]"
+    ],
+    "insertion (ις)": [
+      "Ἁρχηβ -> Ἁρχῆβις (Ἁρχηβις) [pred Ἁρχηβ]"
+    ]
+  }
+}

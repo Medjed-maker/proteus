@@ -91,13 +91,19 @@ exclude = ["data/external/"]
 path = "hatch_build.py"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "tools/benchmarks/dilemma"]
 addopts = "--tb=short -v"
 markers = [
     "internal_search_execution: tests that intentionally inspect internal search execution metadata",
     "integration: tests that load real lexicon/runtime dependencies and may be slow",
 ]
 
+# Type checking covers src/ only. tools/benchmarks/dilemma/ is deliberately
+# outside it: those ~6,900 lines are measurement scripts whose results cannot be
+# re-derived without a 3.7GB download and several hours of runtime, so silently
+# reshaping them to satisfy a type checker risks the numbers for no behavioural
+# gain. They are covered by tests instead (see tools/benchmarks/dilemma/README.md
+# for the current pyright baseline, should this be revisited).
 [tool.mypy]
 python_version = "3.11"
 strict = true

@@ -223,6 +223,161 @@ source:
   redistribution_allowed: true
   notes: "..."
 
+### 5.1 Benchmark Sources
+
+Used by `tools/benchmarks/dilemma/` and documented in
+`docs/benchmarks/dilemma_papygreek_baseline.md` and
+`docs/benchmarks/reverse_lookup_baseline_ladder.md`.
+
+    source:
+      name: "PapyGreek Treebanks v1.01"
+      url: "https://doi.org/10.5281/zenodo.5074307"
+      license: "CC BY-SA 4.0"
+      attribution: "Vierros, Marja & Erik Henriksson, University of Helsinki"
+      citation: "https://doi.org/10.5334/johd.55"
+      accessed: "2026-08-10"
+      derived_by: "tools/benchmarks/dilemma/build_dataset.py"
+      redistribution_allowed: true
+      notes: >
+        Evaluation only. The bulk derived dataset (dataset.jsonl, 33,615 tokens
+        stratified by whether the spelling needed editorial regularisation) and
+        the gold POS dump (postags.jsonl) are NOT committed to this repository;
+        regenerate both from the Zenodo archive.
+
+        The rule for everything else: any committed file under
+        tools/benchmarks/dilemma/ or docs/benchmarks/ that carries PapyGreek
+        surface forms, lemmas or document filenames is a CC BY-SA 4.0
+        derivative, redistributed here under that licence with the attribution
+        above. Share-alike therefore binds those files and anything derived
+        from them. It does not reach the repository's own code, which is
+        separately licensed (see LICENSE), nor the purely numeric result
+        summaries.
+
+        "Document filenames" means PapyGreek's own EpiDoc filenames --
+        bgu.16.2604.xml and the 394 others enumerated in papygreek_ids.json.
+        A bare Trismegistos number is deliberately not a marker of file
+        content: TM ids are 4-6 digit integers, they collide with the counts
+        and percentages that fill the numeric result summaries, and treating
+        them as content would sweep in files carrying nothing from PapyGreek.
+        (This is separate from the DDbDP entry below, where TM numbers are
+        used as EpiDoc *filenames* to exclude PapyGreek documents from a
+        corpus. A filename is an identifier; an integer in a results table is
+        not.)
+
+        As of 2026-08-14 the CC BY-SA 4.0 derivatives committed here are:
+
+          `docs/benchmarks/dilemma_papygreek_baseline.md`
+              Greek forms quoted in the write-up
+          `docs/benchmarks/reranking_and_statistics.md`
+              same
+          `docs/benchmarks/reverse_lookup_baseline_ladder.md`
+              same
+          `tools/benchmarks/dilemma/README.md`
+              PapyGreek forms quoted while documenting the cleaning layer
+          `tools/benchmarks/dilemma/preregistration_3rd.md`
+              PapyGreek and DDbDP forms quoted throughout the hypotheses and
+              their worked examples
+          `tools/benchmarks/dilemma/preregistration_4th.md`
+              same
+          `tools/benchmarks/dilemma/categories.json`
+              per-alternation counts plus up to 8 worked examples each (~1,800
+              orig -> reg pairs with gold lemma); the evidence behind section 5
+              of dilemma_papygreek_baseline.md
+          `tools/benchmarks/dilemma/alternations_undescribed.json`
+              same shape for the alternations no rule covers, with document
+              filenames
+          `tools/benchmarks/dilemma/papygreek_ids.json`
+              the 395 evaluated documents: PapyGreek filename, Trismegistos id,
+              series and date range. Carries no PapyGreek text -- it is listed
+              because the filenames are themselves PapyGreek's. (The one Greek
+              string in it is a GLAUx work title; see the GLAUx entry.)
+          `tools/benchmarks/dilemma/splits.json`
+              the frozen dev/test split: 88 dev documents of 310, named by
+              PapyGreek filename
+          `tools/benchmarks/dilemma/results_b0.json`
+              B0 miss list (~239 forms)
+          `tools/benchmarks/dilemma/results_decision_B3u.json`
+              40+40 worked examples, form/reg/gold
+          `tools/benchmarks/dilemma/results_propnoun_test.json`
+              capitalisation buckets (~154 forms)
+
+        The remaining committed results_*.json and ddb_*.json files are numeric
+        and carry no PapyGreek content. The two per-token dumps,
+        results_b3u.json and results_strict_fixed.json, are deliberately not
+        committed (see .gitignore).
+
+        The list covers data and prose, not the benchmark scripts. Several
+        rlb_*.py files do contain Greek, but illustratively: phone and vowel
+        inventories, generic example words, standard lexical pairs, and a
+        handful of forms cited in a comment to justify a parsing decision --
+        some of them from DDbDP (CC BY 3.0) rather than PapyGreek. The scripts
+        are the repository's own code, separately licensed (see LICENSE), and
+        declaring them would encumber that code rather than protect anyone's
+        attribution. The exemption is bounded, not assumed: the test below also
+        asserts that no committed script names an evaluated PapyGreek document
+        or accumulates Greek at dataset scale.
+
+        This list is not maintained by hand. `tests/test_benchmark_licence_manifest.py`
+        re-derives it from the two markers above over everything git would
+        commit, and fails if a file is missing from the list or listed but no
+        longer committed. Run `uv run pytest tests/test_benchmark_licence_manifest.py`
+        after adding any artefact.
+
+    source:
+      name: "Dilemma data layer (lookup.db, spell_index.db, corpus_freq.json,
+              lemma_attestation.json)"
+      url: "https://github.com/open-greek/dilemma"
+      license: "MIT"
+      accessed: "2026-08-11"
+      commit: "f82f15a62ddce5d55c19b299c34a6c89476af5ce"
+      derived_by: "tools/benchmarks/dilemma/rlb_build.py"
+      redistribution_allowed: true
+      notes: >
+        Read-only, from the user's own `python -m dilemma download` cache.
+        Nothing from it is committed here. The frequency tables derive from
+        GLAUx, Diorisis and PatristicTextArchive, none of which overlaps
+        PapyGreek -- which is what keeps the benchmark's ranking signal free of
+        evaluation-set leakage.
+
+    source:
+      name: "GLAUx (Greek Language Automated Text Corpus)"
+      url: "https://github.com/alekkeersmaekers/glaux"
+      license: "CC BY-SA 4.0"
+      attribution: "Alek Keersmaekers, KU Leuven"
+      accessed: "2026-08-11"
+      derived_by: "tools/benchmarks/dilemma/rlb_lm.py (fetch / local)"
+      redistribution_allowed: true
+      notes: >
+        Fetched directly as XML, not only transitively through Dilemma's
+        frequency tables, and used to train the context trigram LM. Only lemma
+        sequences are extracted; the derived corpus is not committed. Verified
+        in `docs/benchmarks/reranking_and_statistics.md` §3.1 to contain no
+        papyrus or documentary genre and therefore no PapyGreek overlap -- the
+        37 apparent Trismegistos-id matches are a namespace collision (TM 705
+        is Demosthenes in GLAUx and a Zeno-archive papyrus in PapyGreek).
+        GLAUx ships NFD where everything else here is NFC.
+
+    source:
+      name: "Duke Databank of Documentary Papyri (DDbDP), via papyri/idp.data"
+      url: "https://github.com/papyri/idp.data"
+      license: "CC BY 3.0"
+      attribution: "Duke Databank of Documentary Papyri, papyri.info"
+      accessed: "2026-08-12"
+      commit: "2249c22c92f634f74d6bea58ff828c68cf0bffa0"
+      derived_by: "tools/benchmarks/dilemma/rlb_ddb.py"
+      redistribution_allowed: true
+      notes: >
+        67,980 EpiDoc documents, sparse shallow checkout of the DDbDP subtree
+        only. Two derived artefacts, neither committed: an in-domain lemma
+        corpus for the context LM, and an orig->reg normalisation benchmark
+        built from 160,815 <choice><reg>/<orig> pairs. Filenames are
+        Trismegistos numbers, so PapyGreek exclusion is a filename test;
+        both derivations additionally drop every document sharing a
+        publication volume with a PapyGreek text (13.7% of documents), as a
+        proxy for archive-level separation. Provenance is recorded in
+        `ddb_manifest.json`. Being CC BY rather than CC BY-SA, this benchmark
+        carries no share-alike obligation onto derived rulesets.
+
 ## 6. Derived Data
 Some files may be derived from public or licensed sources.
 

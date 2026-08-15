@@ -1,0 +1,110 @@
+{
+  "split": "dev",
+  "weight": 2.0,
+  "conditions": [
+    {
+      "label": "GLAUx-30",
+      "tokens": 1167825,
+      "coverage": {
+        "gold": 0.7823691460055097,
+        "cand20": 0.4126447876447876,
+        "context": 0.729050279329609
+      },
+      "weight": 2.0,
+      "gain_pt": 3.1866464339908953,
+      "gain_ci": [
+        1.4492753623188406,
+        4.992657856093979
+      ]
+    },
+    {
+      "label": "GLAUx-matched",
+      "tokens": 4164928,
+      "coverage": {
+        "gold": 0.8099173553719008,
+        "cand20": 0.5246138996138996,
+        "context": 0.776536312849162
+      },
+      "weight": 2.0,
+      "gain_pt": 3.1866464339908953,
+      "gain_ci": [
+        1.5128593040847202,
+        5.132450331125828
+      ]
+    },
+    {
+      "label": "DDbDP (in-domain)",
+      "tokens": 4852886,
+      "coverage": {
+        "gold": 0.8898071625344353,
+        "cand20": 0.49276061776061775,
+        "context": 0.9357541899441341
+      },
+      "weight": 2.0,
+      "gain_pt": 3.338391502276176,
+      "gain_ci": [
+        1.662049861495845,
+        5.140961857379768
+      ]
+    },
+    {
+      "label": "GLAUx-full",
+      "tokens": 16449860,
+      "coverage": {
+        "gold": 0.8484848484848485,
+        "cand20": 0.663931788931789,
+        "context": 0.7960893854748603
+      },
+      "weight": 2.0,
+      "gain_pt": 3.490136570561457,
+      "gain_ci": [
+        1.791044776119403,
+        5.215827338129497
+      ]
+    },
+    {
+      "label": "GLAUx-full + DDbDP",
+      "tokens": 21302746,
+      "coverage": {
+        "gold": 0.9228650137741047,
+        "cand20": 0.7493564993564994,
+        "context": 0.9413407821229051
+      },
+      "weight": 2.0,
+      "gain_pt": 4.09711684370258,
+      "gain_ci": [
+        2.4734982332155475,
+        5.89171974522293
+      ]
+    }
+  ],
+  "fit": {
+    "slope": 0.024659721285929064,
+    "intercept": 2.057484101281781,
+    "residuals": [
+      0.11159178736792974,
+      -0.16452092201119894,
+      0.0657734515284889,
+      -0.20458481751294366,
+      0.19174050062772308
+    ],
+    "s": 0.2020440338565903,
+    "dof": 3,
+    "mx": 56.86615186615187,
+    "sxx": 737.6946030420936,
+    "n": 5,
+    "r2": 0.7855468328398258
+  },
+  "extrapolation_100pct": {
+    "point": 4.523456229874688,
+    "lo": 3.283120147031628,
+    "hi": 5.763792312717747,
+    "se": 0.38979763759995595
+  },
+  "caveats": [
+    "n=5, 3 residual degrees of freedom",
+    "correlational: coverage covaries with corpus size, though the C_C vs C_B' pair holds size fixed",
+    "100% lies outside the observed 41-75% range; linearity is assumed and untested, and diminishing returns near saturation would make this an over-estimate",
+    "the prediction interval, not the point estimate, is the result"
+  ]
+}

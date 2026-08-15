@@ -69,15 +69,17 @@ proteus/
 ├── docs/
 │   ├── phonology_rules.md       # Rule context notation and examples
 │   ├── OPEN_CORE_STRATEGY.md    # Public/private boundary notes
-│   └── ROADMAP.md               # Research and product roadmap
+│   └── benchmarks/              # External-baseline measurements and write-ups
 ├── src/
 │   ├── phonology/
-│   │   ├── profiles.py          # LanguageProfile registry (lazy loading)
+│   │   ├── core/
+│   │   │   ├── ipa.py           # Language-agnostic IPA tokenizer
+│   │   │   └── ports/           # Core contracts (profiles, corpus, notes)
 │   │   ├── languages/
 │   │   │   └── ancient_greek/   # Ancient Greek pilot plugin
 │   │   │       └── profile.py   # LanguageProfile factory
 │   │   ├── distance.py          # Weighted edit distance
-│   │   ├── search.py            # Three-stage search (language-agnostic)
+│   │   ├── search/              # Three-stage search (language-agnostic)
 │   │   └── explainer.py         # Human-readable rule explanations
 │   ├── api/
 │   │   └── main.py              # FastAPI endpoints
@@ -85,7 +87,8 @@ proteus/
 │       └── index.html           # Frontend
 ├── tests/
 ├── tools/
-│   └── validate_rule_files.py   # Standalone rule validation CLI
+│   ├── validate_rule_files.py   # Standalone rule validation CLI
+│   └── benchmarks/dilemma/      # Dilemma/PapyGreek baseline harness
 ├── DATA_LICENSE.md
 ├── LICENSE
 ├── NOTICE

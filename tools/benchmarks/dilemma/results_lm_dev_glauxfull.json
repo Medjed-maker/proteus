@@ -1,0 +1,43 @@
+{
+  "split": "dev",
+  "tag": "glauxfull",
+  "dump": "dump_b3u_feat.jsonl",
+  "lemma_dirs": [
+    "glaux_lemmas_full"
+  ],
+  "groups": [
+    1
+  ],
+  "sources": [
+    {
+      "dir": "glaux_lemmas_full",
+      "group": 1,
+      "files": 1027,
+      "tokens": 16449860
+    }
+  ],
+  "lm_tokens": 16449860,
+  "lm_types": 108626,
+  "variants": {
+    "dilemma|1.0": {
+      "recall5": 0.787556904400607,
+      "diff": {
+        "point": 0.03490136570561457,
+        "lo": 0.01791044776119403,
+        "hi": 0.052158273381294966,
+        "n_docs": 88,
+        "n_tokens": 659
+      }
+    },
+    "dilemma|2.0": {
+      "recall5": 0.787556904400607,
+      "diff": {
+        "point": 0.03490136570561457,
+        "lo": 0.01791044776119403,
+        "hi": 0.052158273381294966,
+        "n_docs": 88,
+        "n_tokens": 659
+      }
+    }
+  }
+}

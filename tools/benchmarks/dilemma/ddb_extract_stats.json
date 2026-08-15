@@ -1,0 +1,24 @@
+{
+  "policy": "tm",
+  "n_docs": 67587,
+  "n_pairs_raw": 158356,
+  "n_pairs_kept": 121116,
+  "drop_counts": {
+    "multi": 2615,
+    "ex": 11082,
+    "corr_sic": 200,
+    "identical": 408,
+    "empty": 124,
+    "non_greek": 26446
+  },
+  "drop_shares": {
+    "multi": 0.0165134254464624,
+    "ex": 0.06998156053449191,
+    "corr_sic": 0.0012629770895955948,
+    "identical": 0.0025764732627750133,
+    "empty": 0.0007830457955492687,
+    "non_greek": 0.16700346055722548
+  },
+  "any_drop": 37240,
+  "any_drop_share": 0.23516633408269974
+}

@@ -1,0 +1,14 @@
+{
+  "n_pairs": 121116,
+  "counts": {
+    "lex": 49028,
+    "unknown": 32526,
+    "ortho": 39562
+  },
+  "shares": {
+    "lex": 0.4048020079923379,
+    "unknown": 0.26855246210244726,
+    "ortho": 0.32664552990521484
+  },
+  "note": "stratum assigned by lemmatising both sides with Dilemma guess=False, not by human annotation; 'unknown' means at least one side did not resolve"
+}

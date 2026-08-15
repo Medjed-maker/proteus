@@ -1,0 +1,8 @@
+{
+  "src": "glaux_lemmas_full",
+  "out": "glaux_matched",
+  "match": "ddb_lemmas",
+  "budget_tokens": 3630731,
+  "files": 363,
+  "tokens": 3633835
+}

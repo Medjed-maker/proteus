@@ -1,0 +1,33 @@
+{
+  "model": "bowphs/GreBerta",
+  "model_revision": "3dce05464f1f429d68acd9b09e117632490c92d4",
+  "tokenizer_revision": "3dce05464f1f429d68acd9b09e117632490c92d4",
+  "split": "dev",
+  "n": 100,
+  "topc": 20,
+  "seed": 20260813,
+  "probe": {
+    "nfc_pieces": 1,
+    "nfd_pieces": 3,
+    "chosen": "NFC"
+  },
+  "preregistration_status": "exploratory",
+  "A": {
+    "n": 100,
+    "mean_norm_rank": 0.36814562140645735,
+    "ci": [
+      0.30238435019066634,
+      0.43390689262224835
+    ],
+    "verdict": "signal"
+  },
+  "B": {
+    "n": 100,
+    "mean_norm_rank": 0.061008771929824554,
+    "ci": [
+      0.036822243606287844,
+      0.08519530025336126
+    ],
+    "verdict": "signal"
+  }
+}

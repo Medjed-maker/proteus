@@ -1,0 +1,629 @@
+{
+  "k": 5,
+  "n_tokens": 1484,
+  "n_docs": 222,
+  "dump_cap_truncated": 496,
+  "base_rate_capitalised": 0.09905660377358491,
+  "buckets": {
+    "hit": {
+      "n": 1083,
+      "capitalised": 89,
+      "share": 0.08217913204062789,
+      "postag_head": {
+        "n": 88,
+        "a": 1
+      }
+    },
+    "a": {
+      "n": 289,
+      "capitalised": 15,
+      "share": 0.05190311418685121,
+      "postag_head": {
+        "n": 15
+      }
+    },
+    "absent": {
+      "n": 112,
+      "capitalised": 43,
+      "share": 0.38392857142857145,
+      "postag_head": {
+        "n": 42,
+        "a": 1
+      }
+    }
+  },
+  "examples_capitalised": {
+    "hit": [
+      {
+        "form": "ερωτον",
+        "gold": "Ἔρως",
+        "postag": "n-s---ma-",
+        "rank": 2
+      },
+      {
+        "form": "Ἀλεξάνδρεα",
+        "gold": "Ἀλεξανδρεία",
+        "postag": "n-s---fa-",
+        "rank": 1
+      },
+      {
+        "form": "βουσιρειν",
+        "gold": "Βουσίρις",
+        "postag": "n-s---fd-",
+        "rank": 0
+      },
+      {
+        "form": "βουσιριν",
+        "gold": "Βουσίρις",
+        "postag": "n-s---fd-",
+        "rank": 0
+      },
+      {
+        "form": "Ἡρακλεοπολίτου",
+        "gold": "Ἡρακλεοπολίτης",
+        "postag": "a-s---md_",
+        "rank": 0
+      },
+      {
+        "form": "Σερηνιλλα",
+        "gold": "Σερηνίλλα",
+        "postag": "n-s---fg-",
+        "rank": 0
+      },
+      {
+        "form": "Τασουχαρίω",
+        "gold": "Τασουχάριον",
+        "postag": "n-s---fn-",
+        "rank": 2
+      },
+      {
+        "form": "Σαραπιων",
+        "gold": "Σαραπίων",
+        "postag": "n-s---ma-",
+        "rank": 0
+      },
+      {
+        "form": "Ἡρων",
+        "gold": "Ἥρων",
+        "postag": "n-s---ma-",
+        "rank": 3
+      },
+      {
+        "form": "Νειλος",
+        "gold": "Νεῖλος",
+        "postag": "n-s---md-",
+        "rank": 0
+      },
+      {
+        "form": "Ἀπολιναρίῳ",
+        "gold": "Ἀπολλινάριος",
+        "postag": "n-s---md-",
+        "rank": 1
+      },
+      {
+        "form": "Πηλούσιν",
+        "gold": "Πηλούσιον",
+        "postag": "n-s---na-",
+        "rank": 4
+      },
+      {
+        "form": "Ἀπολιναρίῳ",
+        "gold": "Ἀπολλινάριος",
+        "postag": "n-s---md-",
+        "rank": 1
+      },
+      {
+        "form": "Μενφις",
+        "gold": "Μέμφις",
+        "postag": "n-s---fa-",
+        "rank": 1
+      },
+      {
+        "form": "Ἀλεξίωινι",
+        "gold": "Ἀλεξίων",
+        "postag": "n-s---md-",
+        "rank": 0
+      },
+      {
+        "form": "Ἀχειλλέα",
+        "gold": "Ἀχιλλεύς",
+        "postag": "n-s---ma-",
+        "rank": 0
+      },
+      {
+        "form": "Ἰσιδώραι",
+        "gold": "Ἰσιδώρα",
+        "postag": "n-s---fn-",
+        "rank": 2
+      },
+      {
+        "form": "Μωρῶι",
+        "gold": "Μῶρος",
+        "postag": "n-s---mg-",
+        "rank": 1
+      },
+      {
+        "form": "Δειωκλῆς",
+        "gold": "Διοκλῆς",
+        "postag": "n-s---mn-",
+        "rank": 1
+      },
+      {
+        "form": "Φουρειον",
+        "gold": "Φούριος",
+        "postag": "n-s---mg-",
+        "rank": 0
+      },
+      {
+        "form": "Οὐλέριν",
+        "gold": "Οὐαλέριος",
+        "postag": "n-s---ma-",
+        "rank": 4
+      },
+      {
+        "form": "Μικκάλου",
+        "gold": "Μικκαλοῦς",
+        "postag": "n-s---fd-",
+        "rank": 2
+      },
+      {
+        "form": "Ζοσιμο",
+        "gold": "Ζώσιμος",
+        "postag": "n-s---md-",
+        "rank": 0
+      },
+      {
+        "form": "Ῥοτιλίου",
+        "gold": "Ῥουτίλιος",
+        "postag": "n-s---mg-",
+        "rank": 0
+      },
+      {
+        "form": "ἔγυππτον",
+        "gold": "Αἴγυπτος",
+        "postag": "n-s---fa-",
+        "rank": 0
+      },
+      {
+        "form": "Λεων",
+        "gold": "Λέων",
+        "postag": "n-s---md-",
+        "rank": 1
+      },
+      {
+        "form": "Ἀπολῶ",
+        "gold": "Ἀπόλλως",
+        "postag": "n-s---mg-",
+        "rank": 3
+      },
+      {
+        "form": "Καπιτο",
+        "gold": "Καπίτων",
+        "postag": "n-s---mn-",
+        "rank": 0
+      },
+      {
+        "form": "Δρακων",
+        "gold": "Δρακων",
+        "postag": "n-s---md-",
+        "rank": 1
+      },
+      {
+        "form": "Ἀμμωνιανος",
+        "gold": "Ἀμμωνιανός",
+        "postag": "n-s---md-",
+        "rank": 0
+      },
+      {
+        "form": "Πετοσερις",
+        "gold": "Πετοσιρις",
+        "postag": "n-s---ma-",
+        "rank": 0
+      },
+      {
+        "form": "Δράκων",
+        "gold": "Δράκων",
+        "postag": "n-s---md-",
+        "rank": 1
+      },
+      {
+        "form": "Δράκων",
+        "gold": "Δράκων",
+        "postag": "n-s---md-",
+        "rank": 1
+      },
+      {
+        "form": "Ἀμμωνιανὸς",
+        "gold": "Ἀμμωνιανός",
+        "postag": "n-s---md-",
+        "rank": 0
+      },
+      {
+        "form": "Πανίσκος",
+        "gold": "Πανίσκος",
+        "postag": "n-s---md-",
+        "rank": 0
+      },
+      {
+        "form": "Πανίσκος",
+        "gold": "Πανίσκος",
+        "postag": "n-s---mg-",
+        "rank": 0
+      },
+      {
+        "form": "Ἀμωνιανῶι",
+        "gold": "Ἀμμωνιανός",
+        "postag": "n-s---md-",
+        "rank": 0
+      },
+      {
+        "form": "πανισκος",
+        "gold": "Πανίσκος",
+        "postag": "n-s---md-",
+        "rank": 0
+      },
+      {
+        "form": "Διοσκορος",
+        "gold": "Διόσκορος",
+        "postag": "n-s---mg-",
+        "rank": 0
+      },
+      {
+        "form": "Παύλω",
+        "gold": "Παῦλος",
+        "postag": "n-s---mg-",
+        "rank": 0
+      }
+    ],
+    "a": [
+      {
+        "form": "Λόγον",
+        "gold": "Λόγγος",
+        "postag": "n-s---ma-",
+        "rank": 30
+      },
+      {
+        "form": "Ἡρας",
+        "gold": "Ἡρᾶς",
+        "postag": "n-s---ma-",
+        "rank": 5
+      },
+      {
+        "form": "Ἰλῶι",
+        "gold": "Νεῖλος",
+        "postag": "n-s---md-",
+        "rank": 398
+      },
+      {
+        "form": "Παυμι",
+        "gold": "Παΰμις",
+        "postag": "n-s---ma-",
+        "rank": 12
+      },
+      {
+        "form": "Ἡραν",
+        "gold": "Ἡρᾶς",
+        "postag": "n-s---md-",
+        "rank": 89
+      },
+      {
+        "form": "Ἀπυχις",
+        "gold": "Ἀπύγχις",
+        "postag": "n-s---mg-",
+        "rank": 30
+      },
+      {
+        "form": "Ἐπιμένηι",
+        "gold": "Ἐπιμένης",
+        "postag": "n-s---mg-",
+        "rank": 5
+      },
+      {
+        "form": "Ἁθρυ",
+        "gold": "Ἀθυρ",
+        "postag": "n-s---__-",
+        "rank": 151
+      },
+      {
+        "form": "Σώσωι",
+        "gold": "Σῶσος",
+        "postag": "n-s---mg-",
+        "rank": 9
+      },
+      {
+        "form": "Ἅθρυ",
+        "gold": "Ἁθυρ",
+        "postag": "n-s---__-",
+        "rank": 151
+      },
+      {
+        "form": "Σαραπωνι",
+        "gold": "Σαραπίων",
+        "postag": "n-s---mn-",
+        "rank": 5
+      },
+      {
+        "form": "Μεννιδει",
+        "gold": "Μεννίδης",
+        "postag": "n-s---mn-",
+        "rank": 9
+      },
+      {
+        "form": "Μεννίδηι",
+        "gold": "Μεννίδης",
+        "postag": "n-s---mn-",
+        "rank": 5
+      },
+      {
+        "form": "Σαραπιην",
+        "gold": "Σαραπιεῖον",
+        "postag": "n-s---na-",
+        "rank": 58
+      },
+      {
+        "form": "Ἁθρεὶ",
+        "gold": "Ἁθύρ",
+        "postag": "n-s------",
+        "rank": 326
+      }
+    ],
+    "absent": [
+      {
+        "form": "Ταησις",
+        "gold": "Ταησις",
+        "postag": "n-s---f_-",
+        "rank": null
+      },
+      {
+        "form": "τειλωθειν",
+        "gold": "Τιλωθις",
+        "postag": "n-_---__-",
+        "rank": null
+      },
+      {
+        "form": "Νεστοριαινα",
+        "gold": "Νεστοριαινα",
+        "postag": "n-s---fa-",
+        "rank": null
+      },
+      {
+        "form": "Τοτοητις",
+        "gold": "Τοτοης",
+        "postag": "n-s---mg-",
+        "rank": null
+      },
+      {
+        "form": "Σουκέσῳ",
+        "gold": "Σουκεσος",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Σουκέσσῳ",
+        "gold": "Σουκεσος",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Σουκέσσωι",
+        "gold": "Σουκεσος",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Κααρπουννίου",
+        "gold": "Καρπούνιος",
+        "postag": "n-s---mg-",
+        "rank": null
+      },
+      {
+        "form": "Ἐπωνυχε",
+        "gold": "Ἐφωνυχος",
+        "postag": "n-s---mn-",
+        "rank": null
+      },
+      {
+        "form": "Νεχουτωι",
+        "gold": "Νεχουτης",
+        "postag": "n-s---mg-",
+        "rank": null
+      },
+      {
+        "form": "Ῥασίοι",
+        "gold": "Ρασις",
+        "postag": "n-s---fd-",
+        "rank": null
+      },
+      {
+        "form": "Ῥασίοι",
+        "gold": "Ρασις",
+        "postag": "n-s---fd-",
+        "rank": null
+      },
+      {
+        "form": "Κοπτιτίσᾳ",
+        "gold": "Κοπτίτισσα",
+        "postag": "a-s---fd_",
+        "rank": null
+      },
+      {
+        "form": "Φαγώνιος",
+        "gold": "Παγωνις",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Πατοῦς",
+        "gold": "Πατους",
+        "postag": "n-s---mg-",
+        "rank": null
+      },
+      {
+        "form": "Πετεσουχος",
+        "gold": "Πετεσουχος",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Φαγωνις",
+        "gold": "Παγωνις",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Ψεννησις",
+        "gold": "Ψενησις",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Νεχθανουπι",
+        "gold": "Νεχτανουπις",
+        "postag": "n-s---mg-",
+        "rank": null
+      },
+      {
+        "form": "Φαγωνίς",
+        "gold": "Παγωνις",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Ψεννησις",
+        "gold": "Ψενησις",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Τοηοῦς",
+        "gold": "Τοτοης",
+        "postag": "n-s---mg-",
+        "rank": null
+      },
+      {
+        "form": "Παήρει",
+        "gold": "Φαηρις",
+        "postag": "n-s---mg-",
+        "rank": null
+      },
+      {
+        "form": "Ἀχιλλητοντου",
+        "gold": "Ἀχιλλητος",
+        "postag": "n-s---mg-",
+        "rank": null
+      },
+      {
+        "form": "Καλατηι",
+        "gold": "Καλατηι",
+        "postag": "n-s---__-",
+        "rank": null
+      },
+      {
+        "form": "Παπνουτίου",
+        "gold": "Παπνουτις",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Ἀρσενοειδῃ",
+        "gold": "Ἀρσινοΐτης",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Ἀρσενοειτῃ",
+        "gold": "Ἀρσινοΐτης",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Σαραπίγηωι",
+        "gold": "Σαραπιεῖον",
+        "postag": "n-s---nd-",
+        "rank": null
+      },
+      {
+        "form": "Ἀσταρδιδηνον",
+        "gold": "Ἀσταρτιεῖον",
+        "postag": "n-s---nd-",
+        "rank": null
+      },
+      {
+        "form": "Διοσκουδει",
+        "gold": "Διοσκουρίδης",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Διοσκουδει",
+        "gold": "Διοσκουρίδης",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Διοσκουδει",
+        "gold": "Διοσκουρίδης",
+        "postag": "n-s---md-",
+        "rank": null
+      },
+      {
+        "form": "Ἰσίδωρωντὸν",
+        "gold": "Ἰσίδωρος",
+        "postag": "n-s---ma-",
+        "rank": null
+      },
+      {
+        "form": "Ἀσταρτιδείωι",
+        "gold": "Ἀσταρτεῖον",
+        "postag": "n-s---nd-",
+        "rank": null
+      },
+      {
+        "form": "Σαπιείωι",
+        "gold": "Σαραπιεῖον",
+        "postag": "n-s---nd-",
+        "rank": null
+      },
+      {
+        "form": "Σαρπιείωι",
+        "gold": "Σαραπιεῖον",
+        "postag": "n-s---nd-",
+        "rank": null
+      },
+      {
+        "form": "Ψυλιν",
+        "gold": "Ψουλις?",
+        "postag": "n-s---mn-",
+        "rank": null
+      },
+      {
+        "form": "Μχεὶρ",
+        "gold": "Μεχιρ",
+        "postag": "n-s---__-",
+        "rank": null
+      },
+      {
+        "form": "Ἀχαμανρῆτι",
+        "gold": "Ἀχομαρρης",
+        "postag": "n-s---mg-",
+        "rank": null
+      }
+    ]
+  },
+  "dump": "dump_b3u.jsonl",
+  "split": "test",
+  "reconciliation": {
+    "available": true,
+    "a_by_lenient_match": 289,
+    "of_which_has_lemma_false": 6,
+    "has_lemma_false_lemmas": [
+      "Παΰμις",
+      "χράω2",
+      "ἀγγάριος",
+      "ἄν1",
+      "Ἀθυρ",
+      "Ἁθυρ"
+    ],
+    "note": "rlb_analyze files has_lemma-false tokens as (c) unreachable, so subtract them; it also sees golds ranked beyond the dump's 500-candidate cap, which this script cannot, so add those back. The residual is the published 284."
+  }
+}

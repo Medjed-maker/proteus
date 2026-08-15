@@ -1,0 +1,12 @@
+{
+  "source": "https://github.com/papyri/idp.data",
+  "subtree": "DDbDP",
+  "commit": "2249c22c92f634f74d6bea58ff828c68cf0bffa0",
+  "fetched_utc": "2026-08-11T15:44:03Z",
+  "n_files": 67980,
+  "bytes": 395847250,
+  "licence": "CC BY 3.0",
+  "licence_source": "idp.data README.md, section LICENSE",
+  "attribution": "Duke Databank of Documentary Papyri (DDbDP), papyri.info / papyri/idp.data, CC BY 3.0",
+  "note": "Filenames are Trismegistos numbers; DDbDP/41/41596.xml is TM 41596. Shallow (--depth 1) sparse checkout; history not retained."
+}

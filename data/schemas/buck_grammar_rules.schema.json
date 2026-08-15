@@ -26,7 +26,7 @@
       "additionalProperties": true,
       "allOf": [
         {
-          "description": "citation_ready: true requires review_status: expert_reviewed (project-wide convention; see docs/REQUIREMENTS.md and docs/API.md).",
+          "description": "citation_ready: true requires review_status: expert_reviewed (project-wide convention; see docs/VALIDATION.md and docs/API.md).",
           "if": {
             "properties": {
               "citation_ready": {

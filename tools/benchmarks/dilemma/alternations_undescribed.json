@@ -1,0 +1,189 @@
+{
+  "split": "dev",
+  "k": 20,
+  "min_count": 2,
+  "groups": [
+    {
+      "alternation": "gemination",
+      "count": 5,
+      "examples": [
+        {
+          "doc": "bgu.16.2665.xml",
+          "form": "κεκροσμένα",
+          "reg": "κεκρουσμένων",
+          "gold": "κρούω",
+          "src_key": "κεκρουμεθα",
+          "cost": 2.5
+        },
+        {
+          "doc": "p.hib.1.40.xml",
+          "form": "μεντον",
+          "reg": "μέντοι",
+          "gold": "μέντοι",
+          "src_key": "μεντοι",
+          "cost": 1.5
+        },
+        {
+          "doc": "p.oxy.10.1299.xml",
+          "form": "Ἡραΐσκου",
+          "reg": "Ἡραΐσκος",
+          "gold": "Ἡραΐσκος",
+          "src_key": "ηραισκος",
+          "cost": 1.5
+        },
+        {
+          "doc": "upz.1.31.xml",
+          "form": "ἀπάναγκον",
+          "reg": "ἐπάναγκον",
+          "gold": "ἐπάναγκος",
+          "src_key": "επαναγκος",
+          "cost": 2.5
+        },
+        {
+          "doc": "upz.1.43.xml",
+          "form": "ἀνανεκει",
+          "reg": "ἀνενεγκεῖν",
+          "gold": "ἀναφέρω",
+          "src_key": "αναφερει",
+          "cost": 2.5
+        }
+      ]
+    },
+    {
+      "alternation": "other substitution",
+      "count": 5,
+      "examples": [
+        {
+          "doc": "o.claud.2.249.xml",
+          "form": "Λογγινατι",
+          "reg": "Λογγινᾶτος",
+          "gold": "Λογγινᾶς",
+          "src_key": "λογγινας",
+          "cost": 2.5
+        },
+        {
+          "doc": "p.cair.zen.1.59021.xml",
+          "form": "⎴ἄλλοις⎵",
+          "reg": "ἄλλοις",
+          "gold": "ἄλλος",
+          "src_key": "αλλοισι",
+          "cost": 2.5
+        },
+        {
+          "doc": "p.cair.zen.1.59021.xml",
+          "form": "⎴τιμῆς⎵",
+          "reg": "τιμῆς",
+          "gold": "τιμή",
+          "src_key": "τιμησι",
+          "cost": 2.5
+        },
+        {
+          "doc": "p.fouad.75.xml",
+          "form": "περιεσταληι",
+          "reg": "περιεστάλη",
+          "gold": "περιστέλλω",
+          "src_key": "περιεσταλθαι",
+          "cost": 2.5
+        },
+        {
+          "doc": "p.grenf.2.31.xml",
+          "form": "ἀνομολογήσατο",
+          "reg": "ἀνωμολογήσατο",
+          "gold": "ἀνομολογέομαι",
+          "src_key": "ανομολογησαι",
+          "cost": 2.5
+        }
+      ]
+    },
+    {
+      "alternation": "accent/breathing only",
+      "count": 5,
+      "examples": [
+        {
+          "doc": "p.cair.zen.1.59021.xml",
+          "form": "⎴καὶ⎵",
+          "reg": "καὶ",
+          "gold": "καί",
+          "src_key": "και",
+          "cost": 2.5
+        },
+        {
+          "doc": "p.cair.zen.1.59021.xml",
+          "form": "⎴διαθέσθαι⎵",
+          "reg": "διαθέσθαι",
+          "gold": "διατίθημι",
+          "src_key": "διαθεσθαι",
+          "cost": 2.5
+        },
+        {
+          "doc": "p.dryton.1.36.xml",
+          "form": "⦑καὶ⦒",
+          "reg": "καὶ",
+          "gold": "καί",
+          "src_key": "και",
+          "cost": 2.5
+        },
+        {
+          "doc": "p.dryton.1.36.xml",
+          "form": "⦑τῆι⦒",
+          "reg": "τῆι",
+          "gold": "ὁ",
+          "src_key": "τηι",
+          "cost": 2.5
+        },
+        {
+          "doc": "upz.1.27.xml",
+          "form": "⸜γ⸝",
+          "reg": "γ",
+          "gold": "γ",
+          "src_key": "γ",
+          "cost": 2.5
+        }
+      ]
+    },
+    {
+      "alternation": "deletion (σα)",
+      "count": 2,
+      "examples": [
+        {
+          "doc": "upz.1.45.xml",
+          "form": "ἐλαμβανοσαν",
+          "reg": "ἐλάμβανον",
+          "gold": "λαμβάνω",
+          "src_key": "ελαμβανον",
+          "cost": 2.5
+        },
+        {
+          "doc": "upz.1.54.xml",
+          "form": "ἐλαμβανεσαν",
+          "reg": "ἐλάμβανον",
+          "gold": "λαμβάνω",
+          "src_key": "ελαμβανεν",
+          "cost": 2.5
+        }
+      ]
+    },
+    {
+      "alternation": "insertion (γ)",
+      "count": 2,
+      "examples": [
+        {
+          "doc": "upz.1.64.xml",
+          "form": "υἱαίνομεν",
+          "reg": "ὑγιαίνομεν",
+          "gold": "ὑγιαίνω",
+          "src_key": "υγιαινομεν",
+          "cost": 1.5
+        },
+        {
+          "doc": "upz.1.64.xml",
+          "form": "υἱαίνῃς",
+          "reg": "ὑγιαίνῃς",
+          "gold": "ὑγιαίνω",
+          "src_key": "υγιαινης",
+          "cost": 1.5
+        }
+      ]
+    }
+  ]
+}

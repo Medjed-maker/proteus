@@ -1,0 +1,43 @@
+{
+  "split": "dev",
+  "tag": "glauxmatched",
+  "dump": "dump_b3u_feat.jsonl",
+  "lemma_dirs": [
+    "glaux_matched"
+  ],
+  "groups": [
+    1
+  ],
+  "sources": [
+    {
+      "dir": "glaux_matched",
+      "group": 1,
+      "files": 363,
+      "tokens": 4164928
+    }
+  ],
+  "lm_tokens": 4164928,
+  "lm_types": 54380,
+  "variants": {
+    "dilemma|1.0": {
+      "recall5": 0.7784522003034902,
+      "diff": {
+        "point": 0.025796661608497723,
+        "lo": 0.010050251256281407,
+        "hi": 0.04331450094161959,
+        "n_docs": 88,
+        "n_tokens": 659
+      }
+    },
+    "dilemma|2.0": {
+      "recall5": 0.7845220030349014,
+      "diff": {
+        "point": 0.03186646433990895,
+        "lo": 0.015128593040847202,
+        "hi": 0.05132450331125828,
+        "n_docs": 88,
+        "n_tokens": 659
+      }
+    }
+  }
+}
